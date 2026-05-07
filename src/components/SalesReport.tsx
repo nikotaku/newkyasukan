@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfToday, endOfToday, startOfYesterday, endOfYesterday, startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay } from "date-fns";
+import { format, startOfToday, endOfToday, startOfYesterday, endOfYesterday, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 interface SalesData {
   period: string;
@@ -17,17 +24,49 @@ export const SalesReport = () => {
     { period: "昨月", amount: "0円", reservations: 0 }
   ]);
   const [loading, setLoading] = useState(true);
+  const [monthSales, setMonthSales] = useState(0);
+  const [target, setTarget] = useState(0);
+  const [editOpen, setEditOpen] = useState(false);
+  const [targetInput, setTargetInput] = useState("");
+
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
 
   useEffect(() => {
     fetchSalesData();
+    fetchTarget();
   }, []);
+
+  const fetchTarget = async () => {
+    const { data } = await supabase
+      .from("sales_targets")
+      .select("target_amount")
+      .eq("year", year)
+      .eq("month", month)
+      .maybeSingle();
+    setTarget(data?.target_amount ?? 0);
+    setTargetInput(String(data?.target_amount ?? 0));
+  };
+
+  const saveTarget = async () => {
+    const amount = parseInt(targetInput, 10) || 0;
+    const { error } = await supabase
+      .from("sales_targets")
+      .upsert({ year, month, target_amount: amount }, { onConflict: "year,month" });
+    if (error) {
+      toast.error("目標金額の保存に失敗しました");
+      return;
+    }
+    setTarget(amount);
+    setEditOpen(false);
+    toast.success("目標金額を保存しました");
+  };
 
   const fetchSalesData = async () => {
     try {
-      const today = new Date();
-      const yesterday = subMonths(today, 0);
-      
-      // Fetch today's data
+      const todayDate = new Date();
+
       const { data: todayData } = await supabase
         .from('reservations')
         .select('price')
@@ -35,7 +74,6 @@ export const SalesReport = () => {
         .lte('reservation_date', format(endOfToday(), 'yyyy-MM-dd'))
         .in('status', ['confirmed', 'completed']);
 
-      // Fetch yesterday's data
       const { data: yesterdayData } = await supabase
         .from('reservations')
         .select('price')
@@ -43,16 +81,14 @@ export const SalesReport = () => {
         .lte('reservation_date', format(endOfYesterday(), 'yyyy-MM-dd'))
         .in('status', ['confirmed', 'completed']);
 
-      // Fetch this month's data
       const { data: thisMonthData } = await supabase
         .from('reservations')
         .select('price')
-        .gte('reservation_date', format(startOfMonth(today), 'yyyy-MM-dd'))
-        .lte('reservation_date', format(endOfMonth(today), 'yyyy-MM-dd'))
+        .gte('reservation_date', format(startOfMonth(todayDate), 'yyyy-MM-dd'))
+        .lte('reservation_date', format(endOfMonth(todayDate), 'yyyy-MM-dd'))
         .in('status', ['confirmed', 'completed']);
 
-      // Fetch last month's data
-      const lastMonth = subMonths(today, 1);
+      const lastMonth = subMonths(todayDate, 1);
       const { data: lastMonthData } = await supabase
         .from('reservations')
         .select('price')
@@ -60,40 +96,22 @@ export const SalesReport = () => {
         .lte('reservation_date', format(endOfMonth(lastMonth), 'yyyy-MM-dd'))
         .in('status', ['confirmed', 'completed']);
 
-      const calculateTotal = (data: any[] | null) => {
-        if (!data) return { total: 0, count: 0 };
-        return {
-          total: data.reduce((sum, item) => sum + (item.price || 0), 0),
-          count: data.length
-        };
-      };
+      const calc = (data: any[] | null) => ({
+        total: data?.reduce((s, i) => s + (i.price || 0), 0) ?? 0,
+        count: data?.length ?? 0,
+      });
 
-      const todayStats = calculateTotal(todayData);
-      const yesterdayStats = calculateTotal(yesterdayData);
-      const thisMonthStats = calculateTotal(thisMonthData);
-      const lastMonthStats = calculateTotal(lastMonthData);
+      const t = calc(todayData);
+      const y = calc(yesterdayData);
+      const m = calc(thisMonthData);
+      const lm = calc(lastMonthData);
 
+      setMonthSales(m.total);
       setSalesData([
-        {
-          period: "本日",
-          amount: `${todayStats.total.toLocaleString()}円`,
-          reservations: todayStats.count
-        },
-        {
-          period: "昨日",
-          amount: `${yesterdayStats.total.toLocaleString()}円`,
-          reservations: yesterdayStats.count
-        },
-        {
-          period: "今月",
-          amount: `${thisMonthStats.total.toLocaleString()}円`,
-          reservations: thisMonthStats.count
-        },
-        {
-          period: "昨月",
-          amount: `${lastMonthStats.total.toLocaleString()}円`,
-          reservations: lastMonthStats.count
-        }
+        { period: "本日", amount: `${t.total.toLocaleString()}円`, reservations: t.count },
+        { period: "昨日", amount: `${y.total.toLocaleString()}円`, reservations: y.count },
+        { period: "今月", amount: `${m.total.toLocaleString()}円`, reservations: m.count },
+        { period: "昨月", amount: `${lm.total.toLocaleString()}円`, reservations: lm.count },
       ]);
     } catch (error) {
       console.error('Error fetching sales data:', error);
@@ -113,26 +131,65 @@ export const SalesReport = () => {
     );
   }
 
+  const rate = target > 0 ? Math.min(100, (monthSales / target) * 100) : 0;
+
   return (
     <Card className="mb-6">
       <CardContent className="p-6">
         <h3 className="font-semibold text-sm mb-4">売上</h3>
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {salesData.map((data, index) => (
             <div key={index} className="space-y-2">
-              <div className="text-xs text-muted-foreground">
-                {data.period}
-              </div>
-              <div className="text-xl font-medium">
-                {data.amount}
-              </div>
+              <div className="text-xs text-muted-foreground">{data.period}</div>
+              <div className="text-xl font-medium">{data.amount}</div>
               <div className="text-sm text-primary">
                 <span className="text-xs text-muted-foreground mr-2">予約</span>
                 {data.reservations}件
               </div>
             </div>
           ))}
+        </div>
+
+        <div className="border-t pt-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs text-muted-foreground">
+              今月の目標達成率（{year}年{month}月）
+            </div>
+            <Dialog open={editOpen} onOpenChange={setEditOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 px-2">
+                  <Pencil className="w-3 h-3 mr-1" />
+                  目標設定
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{year}年{month}月の目標金額</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-2">
+                  <Label>目標金額（円）</Label>
+                  <Input
+                    type="number"
+                    value={targetInput}
+                    onChange={(e) => setTargetInput(e.target.value)}
+                    placeholder="例: 3000000"
+                  />
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setEditOpen(false)}>キャンセル</Button>
+                  <Button onClick={saveTarget}>保存</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+          <div className="flex items-end justify-between mb-2">
+            <div className="text-2xl font-bold">{rate.toFixed(1)}%</div>
+            <div className="text-sm text-muted-foreground">
+              {monthSales.toLocaleString()}円 / {target.toLocaleString()}円
+            </div>
+          </div>
+          <Progress value={rate} className="h-2" />
         </div>
       </CardContent>
     </Card>
