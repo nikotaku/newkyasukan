@@ -304,7 +304,7 @@ const RoomSettings = () => {
                     ルーム追加
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>
                       {editingRoom ? "ルーム編集" : "ルーム追加"}
