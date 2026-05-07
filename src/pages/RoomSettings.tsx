@@ -304,13 +304,14 @@ const RoomSettings = () => {
                     ルーム追加
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
+                <DialogContent className="w-[calc(100vw-1rem)] max-w-md max-h-[85dvh] overflow-hidden p-0 gap-0">
+                  <DialogHeader className="px-4 pt-4 pb-3 border-b border-border">
                     <DialogTitle>
                       {editingRoom ? "ルーム編集" : "ルーム追加"}
                     </DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
+                  <div className="overflow-y-auto px-4 py-4">
+                    <div className="space-y-4">
                     <div>
                       <Label htmlFor="name">ルーム名 *</Label>
                       <Input
@@ -494,20 +495,21 @@ const RoomSettings = () => {
                       />
                       <Label htmlFor="is_active">有効</Label>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleSave}
-                        className="flex-1"
-                      >
-                        保存
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => setIsDialogOpen(false)}
-                        className="flex-1"
-                      >
-                        キャンセル
-                      </Button>
+                      <div className="flex gap-2 pb-1">
+                        <Button
+                          onClick={handleSave}
+                          className="flex-1"
+                        >
+                          保存
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsDialogOpen(false)}
+                          className="flex-1"
+                        >
+                          キャンセル
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </DialogContent>
