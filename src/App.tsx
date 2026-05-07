@@ -33,6 +33,7 @@ import SchedulePage from "./pages/Schedule";
 import Expenses from "./pages/Expenses";
 import Board from "./pages/Board";
 import Knowledge from "./pages/Knowledge";
+import News from "./pages/public/News";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
           <Route path="/pricing" element={<PublicPricing />} />
           <Route path="/system" element={<PublicSystem />} />
           <Route path="/access" element={<PublicAccess />} />
+          <Route path="/news" element={<News />} />
           <Route path="/booking" element={<BookingReservation />} />
           <Route path="/page/:slug" element={<NotionPageView />} />
           
