@@ -71,7 +71,20 @@ const menuItems: MenuItem[] = [
   { href: "/board", label: "掲示板", icon: MessageSquare },
   { href: "/knowledge", label: "ナレッジ", icon: BookOpen },
   { href: "/text-generation", label: "文章生成", icon: Sparkles },
-  { href: "/design", label: "ホームページ", icon: Globe },
+  {
+    label: "HP",
+    icon: Globe,
+    children: [
+      { href: "/design", label: "ホームページ管理" },
+      { href: "/hp/bulletin-board", label: "掲示板" },
+      { href: "/hp/article-creation", label: "記事作成" },
+      { href: "/hp/store-info", label: "店舗情報" },
+      { href: "/hp/analytics/daily-access", label: "日別アクセス" },
+      { href: "/hp/analytics/hourly-access", label: "時間別アクセス" },
+      { href: "/hp/analytics/average-stay", label: "平均滞在時間" },
+      { href: "/hp/analytics/tracking", label: "トラッキング(流入)" },
+    ],
+  },
   { href: "/shop", label: "設定", icon: Settings },
 ];
 

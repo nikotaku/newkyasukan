@@ -37,6 +37,13 @@ import News from "./pages/public/News";
 import MonthlyShift from "./pages/MonthlyShift";
 import ReservationsList from "./pages/ReservationsList";
 import AvailableSlots from "./pages/AvailableSlots";
+import HPBulletinBoard from "./pages/HPBulletinBoard";
+import ArticleCreation from "./pages/ArticleCreation";
+import StoreInfo from "./pages/StoreInfo";
+import AnalyticsDailyAccess from "./pages/AnalyticsDailyAccess";
+import AnalyticsHourlyAccess from "./pages/AnalyticsHourlyAccess";
+import AnalyticsAverageStay from "./pages/AnalyticsAverageStay";
+import AnalyticsTracking from "./pages/AnalyticsTracking";
 
 const queryClient = new QueryClient();
 
@@ -74,6 +81,13 @@ const App = () => (
           <Route path="/agreement" element={<Agreement />} />
           <Route path="/rooms" element={<RoomSettings />} />
           <Route path="/design" element={<Design />} />
+          <Route path="/hp/bulletin-board" element={<HPBulletinBoard />} />
+          <Route path="/hp/article-creation" element={<ArticleCreation />} />
+          <Route path="/hp/store-info" element={<StoreInfo />} />
+          <Route path="/hp/analytics/daily-access" element={<AnalyticsDailyAccess />} />
+          <Route path="/hp/analytics/hourly-access" element={<AnalyticsHourlyAccess />} />
+          <Route path="/hp/analytics/average-stay" element={<AnalyticsAverageStay />} />
+          <Route path="/hp/analytics/tracking" element={<AnalyticsTracking />} />
           <Route path="/report" element={<Report />} />
           <Route path="/salary" element={<Salary />} />
           <Route path="/pricing-management" element={<Pricing />} />
