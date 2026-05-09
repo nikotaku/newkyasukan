@@ -55,6 +55,14 @@ import SalesReferralFees from "./pages/SalesReferralFees";
 import SalesMonthlySalesTarget from "./pages/SalesMonthlySalesTarget";
 import SalesDailySalesTarget from "./pages/SalesDailySalesTarget";
 import SalesExpenseInput from "./pages/SalesExpenseInput";
+import SystemCourses from "./pages/SystemCourses";
+import SystemOptions from "./pages/SystemOptions";
+import SystemDiscounts from "./pages/SystemDiscounts";
+import SystemDeductions from "./pages/SystemDeductions";
+import SystemAllowances from "./pages/SystemAllowances";
+import SystemSMS from "./pages/SystemSMS";
+import SystemSMSAuto from "./pages/SystemSMSAuto";
+import ShortcutCheckout from "./pages/ShortcutCheckout";
 
 const queryClient = new QueryClient();
 
@@ -118,6 +126,14 @@ const App = () => (
           <Route path="/sales/monthly-target" element={<SalesMonthlySalesTarget />} />
           <Route path="/sales/daily-target" element={<SalesDailySalesTarget />} />
           <Route path="/sales/expense-input" element={<SalesExpenseInput />} />
+          <Route path="/system/courses" element={<SystemCourses />} />
+          <Route path="/system/options" element={<SystemOptions />} />
+          <Route path="/system/discounts" element={<SystemDiscounts />} />
+          <Route path="/system/deductions" element={<SystemDeductions />} />
+          <Route path="/system/allowances" element={<SystemAllowances />} />
+          <Route path="/system/sms" element={<SystemSMS />} />
+          <Route path="/system/sms-auto" element={<SystemSMSAuto />} />
+          <Route path="/shortcuts/checkout" element={<ShortcutCheckout />} />
           
           {/* Therapist Portal - Token-based access */}
           <Route path="/therapist/:token" element={<TherapistPortal />} />

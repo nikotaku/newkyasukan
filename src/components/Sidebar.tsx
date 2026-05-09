@@ -24,7 +24,10 @@ import {
   RefreshCw,
   Home as RoomIcon,
   MessageSquare,
-  ChevronDown
+  ChevronDown,
+  Cpu,
+  Zap,
+  MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -83,6 +86,26 @@ const menuItems: MenuItem[] = [
       { href: "/sales/monthly-target", label: "月別売上目標" },
       { href: "/sales/daily-target", label: "日別売上目標" },
       { href: "/sales/expense-input", label: "経費入力" },
+    ],
+  },
+  {
+    label: "システム",
+    icon: Cpu,
+    children: [
+      { href: "/system/courses", label: "コース" },
+      { href: "/system/options", label: "オプション" },
+      { href: "/system/discounts", label: "各種割引" },
+      { href: "/system/deductions", label: "控除" },
+      { href: "/system/allowances", label: "手当" },
+      { href: "/system/sms", label: "SMS" },
+      { href: "/system/sms-auto", label: "SMS自動送信" },
+    ],
+  },
+  {
+    label: "退勤フォーム",
+    icon: Zap,
+    children: [
+      { href: "/shortcuts/checkout", label: "退勤フォーム" },
     ],
   },
   { href: "/board", label: "掲示板", icon: MessageSquare },
