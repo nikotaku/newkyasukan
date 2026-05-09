@@ -4,6 +4,8 @@ import { ja } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
+import { TabMenu } from "@/components/TabMenu";
+import { DailyReservationTimeline } from "@/components/DailyReservationTimeline";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -69,6 +71,7 @@ const STATUS_LABELS: Record<string, string> = {
 export default function Schedule() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedView, setSelectedView] = useState<"cast" | "room">("cast");
   const [shifts, setShifts] = useState<(Shift & { cast: Cast })[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [monthlyTotal, setMonthlyTotal] = useState(0);
@@ -256,7 +259,7 @@ export default function Schedule() {
       <main className="pt-[60px] md:ml-[180px] transition-all duration-300">
         <div className="p-4">
           {/* Header controls */}
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 1))}>
                 <ChevronLeft size={18} />
@@ -269,6 +272,22 @@ export default function Schedule() {
               </Button>
               <Button variant="outline" size="sm" onClick={() => setSelectedDate(new Date())}>
                 今日
+              </Button>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant={selectedView === "cast" ? "default" : "outline"}
+                onClick={() => setSelectedView("cast")}
+              >
+                キャスト別
+              </Button>
+              <Button
+                size="sm"
+                variant={selectedView === "room" ? "default" : "outline"}
+                onClick={() => setSelectedView("room")}
+              >
+                ルーム別
               </Button>
             </div>
 
@@ -301,6 +320,25 @@ export default function Schedule() {
             )}
           </div>
 
+          {/* Week date tabs */}
+          <TabMenu
+            activeDate={format(selectedDate, "yyyy-MM-dd")}
+            dates={Array.from({ length: 7 }, (_, i) => {
+              const d = addDays(new Date(new Date().setHours(0, 0, 0, 0)), i - 1);
+              return { date: format(d, "yyyy-MM-dd"), label: format(d, "M/d(E)", { locale: ja }) };
+            })}
+            onDateChange={(dateStr) => setSelectedDate(new Date(dateStr))}
+          />
+
+          {/* Room view */}
+          {selectedView === "room" && (
+            <div className="mb-4">
+              <DailyReservationTimeline />
+            </div>
+          )}
+
+          {selectedView === "cast" && (
+          <>
           {/* Sales summary */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             <Card className="p-3 flex items-center gap-3">
@@ -501,6 +539,8 @@ export default function Schedule() {
               </div>
             ))}
           </div>
+          </>
+          )}
         </div>
 
         <footer className="mt-auto py-4 px-4">
