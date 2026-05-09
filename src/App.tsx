@@ -34,6 +34,9 @@ import Expenses from "./pages/Expenses";
 import Board from "./pages/Board";
 import Knowledge from "./pages/Knowledge";
 import News from "./pages/public/News";
+import MonthlyShift from "./pages/MonthlyShift";
+import ReservationsList from "./pages/ReservationsList";
+import AvailableSlots from "./pages/AvailableSlots";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +63,9 @@ const App = () => (
           <Route path="/login" element={<Auth />} />
           <Route path="/dashboard" element={<Navigate to="/admin-schedule" replace />} />
           <Route path="/admin-schedule" element={<SchedulePage />} />
+          <Route path="/schedule/monthly-shift" element={<MonthlyShift />} />
+          <Route path="/schedule/reservations-list" element={<ReservationsList />} />
+          <Route path="/schedule/available-slots" element={<AvailableSlots />} />
           <Route path="/staff" element={<Staff />} />
           <Route path="/shift" element={<Shift />} />
           <Route path="/shift/submission" element={<ShiftSubmission />} />
