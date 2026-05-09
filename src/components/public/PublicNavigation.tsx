@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { Clock, Phone } from "lucide-react";
 
 const SHOP_LOGO = "https://cdn2-caskan.com/caskan/img/shop_logo/1401_logo_1750237137.png";
 
@@ -18,33 +19,52 @@ export const PublicNavigation = () => {
 
   return (
     <>
-      {/* Top Contact Bar */}
-      <div className="bg-[#d4b5a8] text-white py-2 px-4 text-sm">
-        <div className="container mx-auto flex justify-center items-center gap-4">
-          <span>12:00〜26:00(24:40最終受付)</span>
-          <a href="tel:09081264042" className="hover:opacity-80">
-            09081264042
-          </a>
-        </div>
-      </div>
-
-      {/* Logo Header - 公式と同じ大きな金色ロゴ */}
+      {/* Logo Header with right-aligned business info (公式準拠) */}
       <div
-        className="py-10 md:py-14 border-b border-[#e5d5cc]"
+        className="relative py-8 md:py-12 border-b border-[#e5d5cc]"
         style={{
           background:
             "linear-gradient(135deg, #f5e1d8 0%, #efd0c2 40%, #f5e1d8 100%)",
         }}
       >
-        <div className="container mx-auto text-center px-4">
-          <Link to="/">
+        <div className="container mx-auto px-4">
+          {/* PC: business info top-right */}
+          <div className="hidden md:flex absolute top-3 right-6 items-center gap-5 text-[#8b7355] text-sm">
+            <span className="inline-flex items-center gap-1.5">
+              <Clock size={14} />
+              12:00〜26:00(24:40最終受付)
+            </span>
+            <a
+              href="tel:09081264042"
+              className="inline-flex items-center gap-1.5 hover:text-[#d4a574] font-semibold"
+            >
+              <Phone size={14} />
+              09081264042
+            </a>
+          </div>
+
+          {/* Logo - centered */}
+          <Link to="/" className="block text-center">
             <img
               src={SHOP_LOGO}
               alt="全力エステ 仙台"
-              className="h-24 md:h-40 mx-auto object-contain"
+              className="h-20 md:h-36 mx-auto object-contain"
               loading="eager"
             />
           </Link>
+
+          {/* SP: business info under logo */}
+          <div className="md:hidden flex justify-center items-center gap-3 mt-3 text-[#8b7355] text-[11px]">
+            <span className="inline-flex items-center gap-1">
+              <Clock size={11} /> 12:00〜26:00
+            </span>
+            <a
+              href="tel:09081264042"
+              className="inline-flex items-center gap-1 font-semibold"
+            >
+              <Phone size={11} /> 09081264042
+            </a>
+          </div>
         </div>
       </div>
 
