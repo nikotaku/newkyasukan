@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, FileText, DollarSign, Receipt, Plane, X, CalendarPlus } from "lucide-react";
+import { Loader2, FileText, DollarSign, Receipt, Plane, X, CalendarPlus, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import backRatesImage from "@/assets/back-rates-table.jpg";
@@ -97,6 +97,12 @@ export default function TherapistPortal() {
       description: "交通費の申請を行う",
       icon: Plane,
       action: () => toast.info("この機能は準備中です"),
+    },
+    {
+      title: "退勤フォーム",
+      description: "売上入力・清掃チェック・フィードバック",
+      icon: LogOut,
+      action: () => navigate(`/therapist/${token}/checkout`),
     },
   ];
 

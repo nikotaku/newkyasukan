@@ -62,7 +62,7 @@ import SystemDeductions from "./pages/SystemDeductions";
 import SystemAllowances from "./pages/SystemAllowances";
 import SystemSMS from "./pages/SystemSMS";
 import SystemSMSAuto from "./pages/SystemSMSAuto";
-import ShortcutCheckout from "./pages/ShortcutCheckout";
+import TherapistCheckout from "./pages/TherapistCheckout";
 import KnowledgeDocument from "./pages/KnowledgeDocument";
 import TherapistDatabase from "./pages/TherapistDatabase";
 import TherapistMyPage from "./pages/TherapistMyPage";
@@ -152,6 +152,7 @@ const App = () => (
           {/* Therapist Portal - Token-based access */}
           <Route path="/therapist/:token" element={<TherapistPortal />} />
           <Route path="/therapist/:token/shift" element={<TherapistShiftSubmission />} />
+          <Route path="/therapist/:token/checkout" element={<TherapistCheckout />} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

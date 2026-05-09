@@ -11,7 +11,6 @@ import {
   MessageSquare,
   ChevronDown,
   Cpu,
-  Zap,
   Database,
   Building2,
   TrendingUp,
@@ -139,13 +138,6 @@ const menuItems: MenuItem[] = [
       { href: "/facilities/equipment", label: "消耗品", groupHeader: "設備管理" },
       { href: "/facilities/equipment?type=costumes", label: "衣装" },
       { href: "/facilities/equipment?type=furniture", label: "家具家電" },
-    ],
-  },
-  {
-    label: "ショートカット",
-    icon: Zap,
-    children: [
-      { href: "/shortcuts/checkout", label: "退勤フォーム" },
     ],
   },
   { href: "/text-generation", label: "文章生成", icon: Sparkles },
