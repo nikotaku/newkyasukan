@@ -1,18 +1,14 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
+import { format, addDays, startOfDay } from "date-fns";
 import { ja } from "date-fns/locale";
+import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { ChatBot } from "@/components/ChatBot";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
-import { SectionHeading } from "@/components/public/SectionHeading";
 
-// Shift and Reservation interfaces
 interface Shift {
   id: string;
   shift_date: string;
@@ -27,213 +23,324 @@ interface Shift {
     photo: string | null;
     type: string;
     status: string;
+    age: number | null;
+    height: number | null;
+    cup_size: string | null;
+    tags: string[] | null;
+    message: string | null;
+    x_account: string | null;
   };
 }
 
 interface Reservation {
-  id: string;
   cast_id: string;
-  reservation_date: string;
   start_time: string;
   duration: number;
 }
 
-interface Banner {
-  id: string;
-  title: string | null;
-  image_url: string;
-  link_url: string | null;
-}
+const VISIBLE_DAYS = 7;
 
 const Schedule = () => {
   const navigate = useNavigate();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
+  const [stripStart, setStripStart] = useState<Date>(startOfDay(new Date()));
 
   useEffect(() => {
-    document.title = "全力エステ - スケジュール";
-    fetchBanners();
+    document.title = "出勤情報｜全力エステ 仙台店";
   }, []);
-
-  const fetchBanners = async () => {
-    const { data } = await supabase
-      .from("banners")
-      .select("id,title,image_url,link_url")
-      .eq("is_active", true)
-      .order("display_order", { ascending: true });
-    if (data) setBanners(data as Banner[]);
-  };
 
   useEffect(() => {
     fetchData();
-
-    const shiftsChannel = supabase
-      .channel('public-shifts-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, () => fetchData())
+    const ch1 = supabase
+      .channel("public-shifts-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "shifts" }, () => fetchData())
       .subscribe();
-
-    const reservationsChannel = supabase
-      .channel('public-reservations-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => fetchData())
+    const ch2 = supabase
+      .channel("public-reservations-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "reservations" }, () => fetchData())
       .subscribe();
-
     return () => {
-      supabase.removeChannel(shiftsChannel);
-      supabase.removeChannel(reservationsChannel);
+      supabase.removeChannel(ch1);
+      supabase.removeChannel(ch2);
     };
   }, [selectedDate]);
 
   const fetchData = async () => {
     try {
-      const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
-      const [shiftsResult, reservationsResult] = await Promise.all([
-        supabase.from("shifts").select(`*, casts (name, photo, type, status)`).eq("shift_date", selectedDateStr).order("start_time", { ascending: true }),
-        supabase.rpc("get_reservation_slots", { p_date: selectedDateStr, p_cast_id: null }),
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      const [s, r] = await Promise.all([
+        supabase
+          .from("shifts")
+          .select(
+            `*, casts (name, photo, type, status, age, height, cup_size, tags, message, x_account)`
+          )
+          .eq("shift_date", dateStr)
+          .order("start_time", { ascending: true }),
+        supabase.rpc("get_reservation_slots", { p_date: dateStr, p_cast_id: null }),
       ]);
-      if (shiftsResult.error) throw shiftsResult.error;
-      if (reservationsResult.error) throw reservationsResult.error;
-      const groupedShifts = (shiftsResult.data || []).reduce((acc, shift) => {
-        if (!acc[shift.cast_id]) acc[shift.cast_id] = shift;
+      if (s.error) throw s.error;
+      const grouped = (s.data || []).reduce((acc: Record<string, Shift>, sh: any) => {
+        if (sh.casts?.is_visible !== false) {
+          if (!acc[sh.cast_id]) acc[sh.cast_id] = sh as Shift;
+        }
         return acc;
-      }, {} as Record<string, Shift>);
-      setShifts(Object.values(groupedShifts));
-      setReservations(reservationsResult.data || []);
-    } catch (error) {
-      console.error("Error fetching data:", error);
+      }, {});
+      setShifts(Object.values(grouped));
+      setReservations(((r.data as any[]) || []).map((x) => ({
+        cast_id: x.cast_id,
+        start_time: x.start_time,
+        duration: x.duration,
+      })));
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBooking = (castId: string, castName: string, time: string) => {
+  const stripDays = useMemo(
+    () => Array.from({ length: VISIBLE_DAYS }, (_, i) => addDays(stripStart, i)),
+    [stripStart]
+  );
+
+  // Compute next available slot for each cast (after current real time on that day)
+  const nextAvailable = (shift: Shift): string | null => {
+    const now = new Date();
+    const isToday =
+      format(selectedDate, "yyyy-MM-dd") === format(now, "yyyy-MM-dd");
+    const [sh, sm] = shift.start_time.split(":").map(Number);
+    const [eh, em] = shift.end_time.split(":").map(Number);
+    let cursor = sh * 60 + sm;
+    const end = eh * 60 + em;
+    if (isToday) {
+      const cur = now.getHours() * 60 + now.getMinutes();
+      if (cur > cursor) cursor = Math.ceil(cur / 30) * 30;
+    }
+    // skip over reserved blocks (60m + 30m buffer)
+    const reserved = reservations
+      .filter((r) => r.cast_id === shift.cast_id)
+      .map((r) => {
+        const [h, m] = r.start_time.split(":").map(Number);
+        const start = h * 60 + m;
+        return { start, end: start + r.duration + 30 };
+      });
+    while (cursor + 60 <= end) {
+      const conflict = reserved.find(
+        (b) => cursor < b.end && cursor + 60 > b.start
+      );
+      if (!conflict) {
+        const hh = String(Math.floor(cursor / 60)).padStart(2, "0");
+        const mm = String(cursor % 60).padStart(2, "0");
+        return `${hh}:${mm}`;
+      }
+      cursor = conflict.end;
+    }
+    return null;
+  };
+
+  const handleBook = (castId: string, time: string) => {
     const dateStr = format(selectedDate, "yyyy-MM-dd");
     navigate(`/booking?castId=${castId}&date=${dateStr}&time=${time}`);
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">読み込み中...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f5e8e4" }}>
       <PublicNavigation />
 
-      {/* Hero Section */}
-      <div className="relative py-16 bg-gradient-to-br from-[#f5e8e4] to-[#e5d5cc]">
-        <div className="container mx-auto text-center">
-          <h1 className="text-5xl md:text-7xl font-bold mb-4 tracking-widest" style={{ color: "#8b7355" }}>SCHEDULE</h1>
-          <p className="text-xl" style={{ color: "#a89586" }}>出勤日</p>
-        </div>
+      {/* Section Heading 公式準拠 */}
+      <div className="text-center pt-10 pb-6">
+        <h1
+          className="text-3xl md:text-4xl tracking-[0.3em] font-light"
+          style={{ color: "#3a3a4a" }}
+        >
+          SCHEDULE
+        </h1>
+        <p className="mt-2 text-sm tracking-widest text-[#8b7355]">出勤情報</p>
       </div>
 
-      {/* Banners */}
-      {banners.length > 0 && (
-        <div className="container mx-auto px-4 pt-6">
-          <div className="max-w-6xl mx-auto grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {banners.map((b) => {
-              const inner = (
-                <img
-                  src={b.image_url}
-                  alt={b.title || "banner"}
-                  className="w-full h-auto rounded-lg shadow-md hover:shadow-xl transition-shadow"
-                  loading="lazy"
-                />
-              );
-              return b.link_url ? (
-                <a key={b.id} href={b.link_url} target="_blank" rel="noopener noreferrer" className="block">
-                  {inner}
-                </a>
-              ) : (
-                <div key={b.id}>{inner}</div>
+      {/* Date Strip - 公式と同じ横ストリップ */}
+      <div className="container mx-auto max-w-3xl px-4">
+        <div className="bg-white rounded shadow-sm border border-[#e5d5cc] flex items-stretch overflow-hidden">
+          <button
+            aria-label="前へ"
+            onClick={() => setStripStart(addDays(stripStart, -VISIBLE_DAYS))}
+            className="px-2 text-[#8b7355] hover:bg-[#f5e8e4] border-r border-[#e5d5cc]"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <div className="flex flex-1">
+            {stripDays.map((d) => {
+              const isSel =
+                format(d, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd");
+              const dow = format(d, "E", { locale: ja });
+              const isSat = d.getDay() === 6;
+              const isSun = d.getDay() === 0;
+              return (
+                <button
+                  key={d.toISOString()}
+                  onClick={() => setSelectedDate(d)}
+                  className={`flex-1 py-2 text-center transition-colors ${
+                    isSel
+                      ? "bg-[#1c1f3a] text-white"
+                      : "bg-white hover:bg-[#f5e8e4]"
+                  }`}
+                >
+                  <div
+                    className={`text-base md:text-lg font-semibold ${
+                      isSel
+                        ? "text-white"
+                        : isSun
+                        ? "text-red-500"
+                        : isSat
+                        ? "text-blue-500"
+                        : "text-[#3a3a4a]"
+                    }`}
+                  >
+                    {d.getDate()}
+                  </div>
+                  <div
+                    className={`text-[10px] ${
+                      isSel
+                        ? "text-white/80"
+                        : isSun
+                        ? "text-red-400"
+                        : isSat
+                        ? "text-blue-400"
+                        : "text-[#8b7355]"
+                    }`}
+                  >
+                    {dow}
+                  </div>
+                </button>
               );
             })}
           </div>
+          <button
+            aria-label="次へ"
+            onClick={() => setStripStart(addDays(stripStart, VISIBLE_DAYS))}
+            className="px-2 text-[#8b7355] hover:bg-[#f5e8e4] border-l border-[#e5d5cc]"
+          >
+            <ChevronRight size={18} />
+          </button>
         </div>
-      )}
-      <main className="container py-8 px-4">
-        <div className="max-w-6xl mx-auto">
-          {/* View Toggle */}
-          <div className="flex justify-center gap-4 mb-8">
-            <Button className="bg-[#d4a574] hover:bg-[#c5966a] text-white font-semibold px-8 py-3">日付で見る</Button>
-            <Button variant="outline" className="border-[#d4a574] text-[#8b7355] hover:bg-[#f5e8e4] px-8 py-3">セラピスト別に見る</Button>
-          </div>
+      </div>
 
-          {/* Week Navigation */}
-          <div className="mb-8 bg-white rounded-lg p-6 shadow-md">
-            <div className="flex items-center justify-between mb-4">
-              <Button variant="ghost" className="text-[#8b7355] hover:bg-[#f5e8e4]" onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 7); setSelectedDate(d); }}>← 前の1週間</Button>
-              <Button variant="ghost" className="text-[#8b7355] hover:bg-[#f5e8e4]" onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 7); setSelectedDate(d); }}>次の1週間 →</Button>
-            </div>
-            <div className="grid grid-cols-7 gap-2">
-              {Array.from({ length: 7 }, (_, i) => {
-                const date = new Date(selectedDate);
-                date.setDate(date.getDate() - date.getDay() + i);
-                const isSelected = format(date, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd");
-                return (
-                  <button key={i} onClick={() => setSelectedDate(date)} className={`p-3 rounded-lg text-center transition-colors ${isSelected ? 'bg-[#d4a574] text-white' : 'bg-[#f5e8e4] text-[#8b7355] hover:bg-[#e5d5cc]'}`}>
-                    <div className="text-xs mb-1">{format(date, "M/d", { locale: ja })}</div>
-                    <div className="text-sm font-semibold">({format(date, "E", { locale: ja })})</div>
-                  </button>
-                );
-              })}
-            </div>
+      {/* Cards Grid - 公式準拠の縦長カード */}
+      <main className="container mx-auto max-w-5xl px-4 py-8">
+        {loading ? (
+          <p className="text-center text-[#8b7355]">読み込み中...</p>
+        ) : shifts.length === 0 ? (
+          <div className="text-center py-16 text-[#8b7355]">
+            この日の出勤予定はありません
           </div>
-
-          <div className="mb-6" style={{ color: "#8b7355" }}>
-            <p className="text-lg">出勤セラピスト： <span className="font-bold" style={{ color: "#d4a574" }}>{shifts.length}人</span></p>
-          </div>
-
-          {shifts.length === 0 ? (
-            <Card className="bg-white shadow-md">
-              <CardContent className="p-12 text-center">
-                <p className="text-[#a89586] text-lg">この日の出勤予定はありません</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {shifts.map((shift) => (
-                <Card key={shift.id} className="bg-white overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105" style={{ borderColor: "#d4b5a8" }}>
-                  <div className="relative w-full h-80 bg-gradient-to-br from-[#f5e8e4] to-[#e5d5cc]">
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {shifts.map((shift) => {
+              const next = nextAvailable(shift);
+              return (
+                <div
+                  key={shift.id}
+                  className="bg-white rounded shadow-sm border border-[#e5d5cc] overflow-hidden flex flex-col"
+                >
+                  {/* Photo with X icon overlay & next time */}
+                  <div className="relative aspect-[3/4] bg-[#f5e8e4]">
                     {shift.casts.photo ? (
-                      <img src={shift.casts.photo} alt={shift.casts.name} className="w-full h-full object-cover" />
+                      <img
+                        src={shift.casts.photo}
+                        alt={shift.casts.name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-6xl text-[#d4b5a8]">{shift.casts.name.charAt(0)}</span>
+                      <div className="w-full h-full flex items-center justify-center text-5xl text-[#d4b5a8]">
+                        {shift.casts.name.charAt(0)}
                       </div>
                     )}
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
-                      <div className="text-white font-bold text-lg">{shift.start_time.substring(0, 5)} 〜 {shift.end_time.substring(0, 5)}</div>
-                    </div>
+                    {shift.casts.x_account && (
+                      <a
+                        href={
+                          shift.casts.x_account.startsWith("http")
+                            ? shift.casts.x_account
+                            : `https://twitter.com/${shift.casts.x_account.replace(/^@/, "")}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute top-1.5 right-1.5 bg-black/80 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold"
+                        aria-label="X"
+                      >
+                        𝕏
+                      </a>
+                    )}
+                    {next && (
+                      <div className="absolute bottom-0 inset-x-0 bg-black/55 text-white text-center py-1 text-xs font-semibold">
+                        次回 {next}
+                      </div>
+                    )}
                   </div>
-                  <CardContent className="p-4">
-                    <h3 className="text-2xl font-bold mb-2 text-center" style={{ color: "#8b7355" }}>{shift.casts.name}</h3>
-                    <div className="text-center mb-3">
-                      <Badge className="bg-[#d4a574]/20 text-[#8b7355] border-[#d4a574]/50">{shift.casts.type}</Badge>
+
+                  {/* Body */}
+                  <div className="p-2.5 flex flex-col gap-1.5 flex-1">
+                    <h3
+                      className="text-center font-bold text-sm md:text-base"
+                      style={{ color: "#8b7355" }}
+                    >
+                      🌱{shift.casts.name}
+                    </h3>
+                    {shift.casts.message && (
+                      <p className="text-[11px] text-[#5c4a3a] text-center line-clamp-2 leading-tight">
+                        {shift.casts.message}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-center text-[#8b7355]">
+                      {shift.casts.age && `${shift.casts.age}歳`}
+                      {shift.casts.height && ` ${shift.casts.height}㎝`}
+                      {shift.casts.cup_size && ` (${shift.casts.cup_size})`}
+                    </p>
+
+                    {shift.casts.tags && shift.casts.tags.length > 0 && (
+                      <div className="flex flex-wrap justify-center gap-1">
+                        {shift.casts.tags.slice(0, 4).map((t) => (
+                          <span
+                            key={t}
+                            className="text-[9px] px-1.5 py-0.5 border border-[#d4a574]/50 text-[#8b7355] rounded bg-[#fdf6f1]"
+                          >
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="text-[11px] text-center text-[#5c4a3a] mt-auto pt-1">
+                      🕐 {shift.start_time.substring(0, 5)}〜
+                      {shift.end_time.substring(0, 5)}
                     </div>
-                    {shift.room && <div className="mb-3 text-center"><span className="text-[#a89586] text-sm">■ {shift.room} ■</span></div>}
-                    {shift.notes && <p className="text-sm text-center mb-4 text-[#a89586]">{shift.notes}</p>}
-                    <div className="text-center mb-3">
-                      <span className="inline-block px-6 py-2 bg-green-600 text-white rounded-full text-sm font-semibold">○ ご案内可能</span>
-                    </div>
-                    <Button className="w-full bg-[#d4a574] hover:bg-[#c5966a] text-white font-semibold" onClick={() => handleBooking(shift.cast_id, shift.casts.name, shift.start_time)}>
-                      詳細を見る / 予約する
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+                    {shift.room && (
+                      <div className="text-[11px] text-center text-[#8b7355] inline-flex items-center justify-center gap-0.5">
+                        <MapPin size={10} />■{shift.room}■
+                      </div>
+                    )}
+
+                    {next ? (
+                      <button
+                        onClick={() => handleBook(shift.cast_id, next)}
+                        className="mt-1 w-full py-1.5 bg-[#a98b5b] hover:bg-[#8b7355] text-white text-xs font-semibold rounded tracking-wider"
+                      >
+                        予 約
+                      </button>
+                    ) : (
+                      <div className="mt-1 w-full py-1.5 bg-gray-300 text-white text-xs text-center font-semibold rounded">
+                        満 了
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </main>
 
       <PublicFooter />
