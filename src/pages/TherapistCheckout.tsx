@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ArrowLeft, CheckCircle } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, ArrowLeft, CheckCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -18,6 +25,22 @@ interface Cast {
   photo: string | null;
 }
 
+interface Reservation {
+  id: string;
+  customer_name: string;
+  start_time: string;
+  course_name: string;
+  price: number;
+  payment_method: string;
+  status: string;
+}
+
+const PAYMENT_METHODS = [
+  { value: "cash", label: "現金" },
+  { value: "card", label: "カード" },
+  { value: "paypay", label: "PayPay" },
+];
+
 export default function TherapistCheckout() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
@@ -26,16 +49,15 @@ export default function TherapistCheckout() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<string | null>(null);
 
-  const today = format(new Date(), "yyyy-MM-dd");
+  // 予約データ
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [paymentEdits, setPaymentEdits] = useState<Record<string, string>>({});
+  const [reservationsLoading, setReservationsLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
-  const [salesData, setSalesData] = useState({
-    date: today,
-    cash_amount: 0,
-    card_amount: 0,
-    paypay_amount: 0,
-    customer_count: 0,
-    notes: "",
-  });
+  // 売上メモ・手動調整
+  const [salesNotes, setSalesNotes] = useState("");
+  const [manualAdjustment, setManualAdjustment] = useState(0);
 
   const [cleaning, setCleaning] = useState({
     room_cleaned: false,
@@ -70,13 +92,72 @@ export default function TherapistCheckout() {
     fetchCast();
   }, [token, navigate]);
 
+  const fetchReservations = useCallback(async () => {
+    if (!cast) return;
+    setReservationsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("reservations")
+        .select("id, customer_name, start_time, course_name, price, payment_method, status")
+        .eq("cast_id", cast.id)
+        .eq("reservation_date", selectedDate)
+        .order("start_time");
+      if (error) throw error;
+      const list = data || [];
+      setReservations(list);
+      // payment_method の初期値をセット
+      const edits: Record<string, string> = {};
+      list.forEach((r) => { edits[r.id] = r.payment_method || "cash"; });
+      setPaymentEdits(edits);
+    } catch {
+      toast.error("予約の取得に失敗しました");
+    } finally {
+      setReservationsLoading(false);
+    }
+  }, [cast, selectedDate]);
+
+  useEffect(() => {
+    if (cast) fetchReservations();
+  }, [cast, fetchReservations]);
+
+  // 支払い方法別合計を計算
+  const totals = reservations.reduce(
+    (acc, r) => {
+      if (r.status === "cancelled") return acc;
+      const method = paymentEdits[r.id] || r.payment_method || "cash";
+      acc[method] = (acc[method] || 0) + (r.price || 0);
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  const cashTotal = (totals["cash"] || 0);
+  const cardTotal = (totals["card"] || 0);
+  const paypayTotal = (totals["paypay"] || 0);
+  const grandTotal = cashTotal + cardTotal + paypayTotal + manualAdjustment;
+  const completedCount = reservations.filter((r) => r.status !== "cancelled").length;
+
+  const handlePaymentChange = async (reservationId: string, method: string) => {
+    setPaymentEdits((prev) => ({ ...prev, [reservationId]: method }));
+    // DB にも即時反映
+    await supabase
+      .from("reservations")
+      .update({ payment_method: method })
+      .eq("id", reservationId);
+  };
+
   const handleSalesSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       const { error } = await supabase.from("daily_sales_records").insert([{
-        ...salesData,
-        total_amount: salesData.cash_amount + salesData.card_amount + salesData.paypay_amount,
+        date: selectedDate,
+        cash_amount: cashTotal,
+        card_amount: cardTotal,
+        paypay_amount: paypayTotal,
+        total_amount: grandTotal,
+        customer_count: completedCount,
+        notes: salesNotes,
         cast_id: cast?.id,
       }]);
       if (error) throw error;
@@ -94,7 +175,7 @@ export default function TherapistCheckout() {
     try {
       const { error } = await supabase.from("cleaning_checklists").insert([{
         ...cleaning,
-        date: today,
+        date: selectedDate,
         cast_id: cast?.id,
       }]);
       if (error) throw error;
@@ -112,7 +193,7 @@ export default function TherapistCheckout() {
     try {
       const { error } = await supabase.from("daily_feedback").insert([{
         ...feedback,
-        date: today,
+        date: selectedDate,
         cast_id: cast?.id,
       }]);
       if (error) throw error;
@@ -139,9 +220,7 @@ export default function TherapistCheckout() {
       <CardContent className="pt-12 pb-12 text-center">
         <CheckCircle className="mx-auto mb-3 text-green-500" size={48} />
         <p className="font-semibold text-lg">{label}を送信しました</p>
-        <Button className="mt-4" variant="outline" onClick={() => setSubmitted(null)}>
-          戻る
-        </Button>
+        <Button className="mt-4" variant="outline" onClick={() => setSubmitted(null)}>戻る</Button>
       </CardContent>
     </Card>
   );
@@ -152,8 +231,7 @@ export default function TherapistCheckout() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={() => navigate(`/therapist/${token}`)}>
-              <ArrowLeft size={16} className="mr-1" />
-              マイページ
+              <ArrowLeft size={16} className="mr-1" />マイページ
             </Button>
             <div className="flex items-center gap-3 ml-2">
               {cast.photo && (
@@ -180,55 +258,148 @@ export default function TherapistCheckout() {
             <TabsTrigger value="feedback" className="flex-1">フィードバック</TabsTrigger>
           </TabsList>
 
+          {/* ─── 売上入力 ─── */}
           <TabsContent value="sales">
             {submitted === "sales" ? (
               <SuccessCard label="売上" />
             ) : (
-              <Card>
-                <CardHeader><CardTitle>売上入力</CardTitle></CardHeader>
-                <CardContent>
-                  <form onSubmit={handleSalesSubmit} className="space-y-4">
-                    <div>
-                      <Label>日付</Label>
-                      <Input type="date" value={salesData.date} onChange={(e) => setSalesData({ ...salesData, date: e.target.value })} />
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <Label>現金</Label>
-                        <Input type="number" min="0" step="100" value={salesData.cash_amount} onChange={(e) => setSalesData({ ...salesData, cash_amount: Number(e.target.value) })} />
+              <form onSubmit={handleSalesSubmit} className="space-y-4">
+                {/* 日付 */}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <Label>日付</Label>
+                    <Input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-6"
+                    onClick={fetchReservations}
+                    disabled={reservationsLoading}
+                  >
+                    <RefreshCw size={14} className={reservationsLoading ? "animate-spin" : ""} />
+                  </Button>
+                </div>
+
+                {/* 予約リスト */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">
+                      本日の予約
+                      <span className="ml-2 text-muted-foreground font-normal">
+                        {completedCount}件
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {reservationsLoading ? (
+                      <div className="text-center py-4 text-muted-foreground text-sm">読み込み中...</div>
+                    ) : reservations.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground text-sm">予約がありません</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {reservations.map((r) => (
+                          <div
+                            key={r.id}
+                            className={`flex items-center gap-3 p-3 rounded-lg border ${
+                              r.status === "cancelled" ? "opacity-40 bg-muted/30" : "bg-background"
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground w-10 shrink-0">{r.start_time?.slice(0, 5)}</span>
+                                <span className="font-semibold text-sm truncate">{r.customer_name}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-0.5 ml-12 truncate">{r.course_name}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="font-bold text-sm">¥{(r.price || 0).toLocaleString()}</div>
+                              {r.status !== "cancelled" && (
+                                <Select
+                                  value={paymentEdits[r.id] || "cash"}
+                                  onValueChange={(v) => handlePaymentChange(r.id, v)}
+                                >
+                                  <SelectTrigger className="h-6 text-xs mt-1 w-20 border-0 bg-muted/50 px-2">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {PAYMENT_METHODS.map((m) => (
+                                      <SelectItem key={m.value} value={m.value} className="text-xs">
+                                        {m.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                              {r.status === "cancelled" && (
+                                <span className="text-xs text-muted-foreground">キャンセル</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div>
-                        <Label>カード</Label>
-                        <Input type="number" min="0" step="100" value={salesData.card_amount} onChange={(e) => setSalesData({ ...salesData, card_amount: Number(e.target.value) })} />
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* 集計 */}
+                <Card className="bg-muted/30">
+                  <CardContent className="pt-4 pb-4 space-y-2">
+                    {[
+                      { label: "現金", value: cashTotal },
+                      { label: "カード", value: cardTotal },
+                      { label: "PayPay", value: paypayTotal },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="font-semibold">¥{value.toLocaleString()}</span>
                       </div>
-                      <div>
-                        <Label>PayPay</Label>
-                        <Input type="number" min="0" step="100" value={salesData.paypay_amount} onChange={(e) => setSalesData({ ...salesData, paypay_amount: Number(e.target.value) })} />
+                    ))}
+                    {manualAdjustment !== 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">手動調整</span>
+                        <span className="font-semibold">
+                          {manualAdjustment > 0 ? "+" : ""}¥{manualAdjustment.toLocaleString()}
+                        </span>
                       </div>
+                    )}
+                    <div className="flex justify-between border-t pt-2 mt-1">
+                      <span className="font-bold">合計</span>
+                      <span className="font-bold text-lg">¥{grandTotal.toLocaleString()}</span>
                     </div>
-                    <div className="p-3 bg-muted/50 rounded-lg">
-                      <span className="text-sm text-muted-foreground">合計</span>
-                      <div className="text-2xl font-bold">
-                        ¥{(salesData.cash_amount + salesData.card_amount + salesData.paypay_amount).toLocaleString()}
-                      </div>
-                    </div>
-                    <div>
-                      <Label>来客数</Label>
-                      <Input type="number" min="0" value={salesData.customer_count} onChange={(e) => setSalesData({ ...salesData, customer_count: Number(e.target.value) })} />
-                    </div>
-                    <div>
-                      <Label>備考</Label>
-                      <Textarea value={salesData.notes} onChange={(e) => setSalesData({ ...salesData, notes: e.target.value })} rows={2} />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={submitting}>
-                      {submitting ? "送信中..." : "売上を記録する"}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+
+                {/* 手動調整 */}
+                <div>
+                  <Label className="text-sm text-muted-foreground">手動調整額（差額・チップ等）</Label>
+                  <Input
+                    type="number"
+                    step="100"
+                    value={manualAdjustment}
+                    onChange={(e) => setManualAdjustment(Number(e.target.value))}
+                    placeholder="0"
+                  />
+                </div>
+
+                <div>
+                  <Label>備考</Label>
+                  <Textarea value={salesNotes} onChange={(e) => setSalesNotes(e.target.value)} rows={2} />
+                </div>
+
+                <Button type="submit" className="w-full" disabled={submitting}>
+                  {submitting ? "送信中..." : "売上を確定する"}
+                </Button>
+              </form>
             )}
           </TabsContent>
 
+          {/* ─── 清掃チェック ─── */}
           <TabsContent value="cleaning">
             {submitted === "cleaning" ? (
               <SuccessCard label="清掃チェック" />
@@ -266,6 +437,7 @@ export default function TherapistCheckout() {
             )}
           </TabsContent>
 
+          {/* ─── フィードバック ─── */}
           <TabsContent value="feedback">
             {submitted === "feedback" ? (
               <SuccessCard label="フィードバック" />
