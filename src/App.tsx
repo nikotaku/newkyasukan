@@ -34,6 +34,27 @@ import Expenses from "./pages/Expenses";
 import Board from "./pages/Board";
 import Knowledge from "./pages/Knowledge";
 import News from "./pages/public/News";
+import MonthlyShift from "./pages/MonthlyShift";
+import ReservationsList from "./pages/ReservationsList";
+import AvailableSlots from "./pages/AvailableSlots";
+import HPBulletinBoard from "./pages/HPBulletinBoard";
+import ArticleCreation from "./pages/ArticleCreation";
+import StoreInfo from "./pages/StoreInfo";
+import AnalyticsDailyAccess from "./pages/AnalyticsDailyAccess";
+import AnalyticsHourlyAccess from "./pages/AnalyticsHourlyAccess";
+import AnalyticsAverageStay from "./pages/AnalyticsAverageStay";
+import AnalyticsTracking from "./pages/AnalyticsTracking";
+import SalesCustomerInfo from "./pages/SalesCustomerInfo";
+import SalesTherapistBreakdown from "./pages/SalesTherapistBreakdown";
+import SalesPriceAnalysis from "./pages/SalesPriceAnalysis";
+import SalesMonthlySales from "./pages/SalesMonthlySales";
+import SalesCardSales from "./pages/SalesCardSales";
+import SalesPayPaySales from "./pages/SalesPayPaySales";
+import SalesAdvertisingCost from "./pages/SalesAdvertisingCost";
+import SalesReferralFees from "./pages/SalesReferralFees";
+import SalesMonthlySalesTarget from "./pages/SalesMonthlySalesTarget";
+import SalesDailySalesTarget from "./pages/SalesDailySalesTarget";
+import SalesExpenseInput from "./pages/SalesExpenseInput";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +81,9 @@ const App = () => (
           <Route path="/login" element={<Auth />} />
           <Route path="/dashboard" element={<Navigate to="/admin-schedule" replace />} />
           <Route path="/admin-schedule" element={<SchedulePage />} />
+          <Route path="/schedule/monthly-shift" element={<MonthlyShift />} />
+          <Route path="/schedule/reservations-list" element={<ReservationsList />} />
+          <Route path="/schedule/available-slots" element={<AvailableSlots />} />
           <Route path="/staff" element={<Staff />} />
           <Route path="/shift" element={<Shift />} />
           <Route path="/shift/submission" element={<ShiftSubmission />} />
@@ -68,6 +92,13 @@ const App = () => (
           <Route path="/agreement" element={<Agreement />} />
           <Route path="/rooms" element={<RoomSettings />} />
           <Route path="/design" element={<Design />} />
+          <Route path="/hp/bulletin-board" element={<HPBulletinBoard />} />
+          <Route path="/hp/article-creation" element={<ArticleCreation />} />
+          <Route path="/hp/store-info" element={<StoreInfo />} />
+          <Route path="/hp/analytics/daily-access" element={<AnalyticsDailyAccess />} />
+          <Route path="/hp/analytics/hourly-access" element={<AnalyticsHourlyAccess />} />
+          <Route path="/hp/analytics/average-stay" element={<AnalyticsAverageStay />} />
+          <Route path="/hp/analytics/tracking" element={<AnalyticsTracking />} />
           <Route path="/report" element={<Report />} />
           <Route path="/salary" element={<Salary />} />
           <Route path="/pricing-management" element={<Pricing />} />
@@ -76,6 +107,17 @@ const App = () => (
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/board" element={<Board />} />
           <Route path="/knowledge" element={<Knowledge />} />
+          <Route path="/sales/customer-info" element={<SalesCustomerInfo />} />
+          <Route path="/sales/therapist-breakdown" element={<SalesTherapistBreakdown />} />
+          <Route path="/sales/price-analysis" element={<SalesPriceAnalysis />} />
+          <Route path="/sales/monthly-sales" element={<SalesMonthlySales />} />
+          <Route path="/sales/card-sales" element={<SalesCardSales />} />
+          <Route path="/sales/paypay-sales" element={<SalesPayPaySales />} />
+          <Route path="/sales/advertising-cost" element={<SalesAdvertisingCost />} />
+          <Route path="/sales/referral-fees" element={<SalesReferralFees />} />
+          <Route path="/sales/monthly-target" element={<SalesMonthlySalesTarget />} />
+          <Route path="/sales/daily-target" element={<SalesDailySalesTarget />} />
+          <Route path="/sales/expense-input" element={<SalesExpenseInput />} />
           
           {/* Therapist Portal - Token-based access */}
           <Route path="/therapist/:token" element={<TherapistPortal />} />

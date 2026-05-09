@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { TrendingUp, Users, DollarSign, Calendar } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
+import { SalesReport } from "@/components/SalesReport";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
@@ -166,6 +167,8 @@ export default function Report() {
                 </SelectContent>
               </Select>
             </div>
+
+            <SalesReport />
 
             {/* Summary Cards */}
             <div className="grid gap-4 md:grid-cols-3 mb-6">

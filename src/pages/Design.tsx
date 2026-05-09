@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Save, Eye, Upload, Palette, Type, Image } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
+import { SocialPosting } from "@/components/SocialPosting";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -82,10 +83,11 @@ export default function Design() {
             </Card>
 
             <Tabs defaultValue="basic" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="basic">基本情報</TabsTrigger>
                 <TabsTrigger value="design">デザイン</TabsTrigger>
                 <TabsTrigger value="content">コンテンツ</TabsTrigger>
+                <TabsTrigger value="social">SNS投稿</TabsTrigger>
                 <TabsTrigger value="seo">SEO設定</TabsTrigger>
               </TabsList>
 
@@ -244,6 +246,22 @@ export default function Design() {
                         placeholder="交通アクセスの詳細を入力..."
                       />
                     </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="social" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>SNS・HP投稿</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <SocialPosting
+                      title="SNS投稿"
+                      defaultContent={`✨本日の出勤情報✨\n\n詳しくはHPをご覧ください。\n\n#全力エステ #仙台 #エステ`}
+                      twitterUrl="https://twitter.com/intent/tweet"
+                      hpUrl="/"
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>

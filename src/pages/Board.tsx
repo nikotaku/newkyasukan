@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
 import { StaffConcierge } from "@/components/StaffConcierge";
+import { AnnouncementsList } from "@/components/AnnouncementsList";
 
 interface BoardPost {
   id: string;
@@ -96,6 +97,8 @@ const Board = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <main className="md:ml-[180px] pt-[60px] p-4 max-w-xl mx-auto">
+        <AnnouncementsList />
+
         {/* Post composer */}
         {isAdmin && (
           <div className="border-b border-border pb-4 mb-4">
