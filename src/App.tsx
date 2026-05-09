@@ -63,6 +63,13 @@ import SystemAllowances from "./pages/SystemAllowances";
 import SystemSMS from "./pages/SystemSMS";
 import SystemSMSAuto from "./pages/SystemSMSAuto";
 import ShortcutCheckout from "./pages/ShortcutCheckout";
+import KnowledgeDocument from "./pages/KnowledgeDocument";
+import TherapistDatabase from "./pages/TherapistDatabase";
+import TherapistMyPage from "./pages/TherapistMyPage";
+import CustomerDatabase from "./pages/CustomerDatabase";
+import FacilitiesRooms from "./pages/FacilitiesRooms";
+import FacilitiesContracts from "./pages/FacilitiesContracts";
+import FacilitiesEquipment from "./pages/FacilitiesEquipment";
 
 const queryClient = new QueryClient();
 
@@ -134,6 +141,13 @@ const App = () => (
           <Route path="/system/sms" element={<SystemSMS />} />
           <Route path="/system/sms-auto" element={<SystemSMSAuto />} />
           <Route path="/shortcuts/checkout" element={<ShortcutCheckout />} />
+          <Route path="/database/knowledge/:slug" element={<KnowledgeDocument />} />
+          <Route path="/database/therapist/profiles" element={<TherapistDatabase />} />
+          <Route path="/database/therapist/mypage" element={<TherapistMyPage />} />
+          <Route path="/database/customers" element={<CustomerDatabase />} />
+          <Route path="/facilities/rooms" element={<FacilitiesRooms />} />
+          <Route path="/facilities/contracts" element={<FacilitiesContracts />} />
+          <Route path="/facilities/equipment" element={<FacilitiesEquipment />} />
           
           {/* Therapist Portal - Token-based access */}
           <Route path="/therapist/:token" element={<TherapistPortal />} />
