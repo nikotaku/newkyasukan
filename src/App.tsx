@@ -70,6 +70,7 @@ import CustomerDatabase from "./pages/CustomerDatabase";
 import FacilitiesRooms from "./pages/FacilitiesRooms";
 import FacilitiesContracts from "./pages/FacilitiesContracts";
 import FacilitiesEquipment from "./pages/FacilitiesEquipment";
+import CastImport from "./pages/CastImport";
 
 const queryClient = new QueryClient();
 
@@ -147,6 +148,7 @@ const App = () => (
           <Route path="/facilities/rooms" element={<FacilitiesRooms />} />
           <Route path="/facilities/contracts" element={<FacilitiesContracts />} />
           <Route path="/facilities/equipment" element={<FacilitiesEquipment />} />
+          <Route path="/admin/import-casts" element={<CastImport />} />
           
           {/* Therapist Portal - Token-based access */}
           <Route path="/therapist/:token" element={<TherapistPortal />} />
