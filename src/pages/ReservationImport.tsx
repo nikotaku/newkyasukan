@@ -182,7 +182,8 @@ export default function ReservationImport() {
     parsed.filter((r) => r.cast_name && !r.cast_id).map((r) => r.cast_name)
   )];
 
-  const validRows = parsed.filter((r) => r.reservation_date);
+  // cast_id必須のため、未紐付き行は除外
+  const validRows = parsed.filter((r) => r.reservation_date && r.cast_id);
 
   const handleImport = async () => {
     setImporting(true);
@@ -195,15 +196,15 @@ export default function ReservationImport() {
           reservation_date: r.reservation_date,
           start_time: r.start_time,
           customer_name: r.customer_name,
+          customer_phone: "",   // CSVに電話番号なし
           cast_id: r.cast_id,
           course_name: r.course,
           duration: r.duration,
           room: r.room || null,
           price: r.price,
-          therapist_back: r.therapist_back || null,
           payment_method: r.payment_method,
           status: r.status,
-          route: r.route || null,
+          notes: r.route ? `経路: ${r.route}` : null,
         }));
         const { error } = await supabase.from("reservations").insert(batch);
         if (error) {

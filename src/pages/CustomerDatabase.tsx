@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { NotionDatabaseView } from "@/components/database/NotionDatabaseView";
 import { Property, DatabaseRecord } from "@/components/database/types";
 import { toast } from "sonner";
+import { ImportModal } from "@/components/ImportModal";
+import { FileUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const DEFAULT_PROPERTIES: Property[] = [
   { id: "name", name: "名前", type: "text", width: 140 },
@@ -45,6 +48,7 @@ export default function CustomerDatabase() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [records, setRecords] = useState<DatabaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -122,9 +126,14 @@ export default function CustomerDatabase() {
       <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="pt-[60px] md:ml-[240px] p-6 flex flex-col" style={{ height: "100vh" }}>
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold">顧客一覧</h1>
-          <p className="text-muted-foreground text-sm">列設定から表示項目をカスタマイズできます</p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-bold">顧客一覧</h1>
+            <p className="text-muted-foreground text-sm">列設定から表示項目をカスタマイズできます</p>
+          </div>
+          <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+            <FileUp size={16} className="mr-2" />CSVインポート
+          </Button>
         </div>
         <div className="flex-1 overflow-hidden">
           <NotionDatabaseView
@@ -139,6 +148,12 @@ export default function CustomerDatabase() {
           />
         </div>
       </main>
+      <ImportModal
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        type="customers"
+        onSuccess={fetchCustomers}
+      />
     </div>
   );
 }

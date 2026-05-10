@@ -16,7 +16,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Search } from "lucide-react";
+import { Search, FileUp } from "lucide-react";
+import { ImportModal } from "@/components/ImportModal";
 
 interface Reservation {
   id: string;
@@ -51,6 +52,7 @@ export default function ReservationsList() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -105,9 +107,14 @@ export default function ReservationsList() {
 
       <main className="pt-[60px] md:ml-[240px] p-6">
         <div className="max-w-6xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">予約一覧</h1>
-            <p className="text-muted-foreground">全ての予約を確認・管理</p>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl font-bold">予約一覧</h1>
+              <p className="text-muted-foreground">全ての予約を確認・管理</p>
+            </div>
+            <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+              <FileUp size={16} className="mr-2" />CSVインポート
+            </Button>
           </div>
 
           <Card className="mb-6">
@@ -186,6 +193,12 @@ export default function ReservationsList() {
           )}
         </div>
       </main>
+      <ImportModal
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        type="reservations"
+        onSuccess={fetchReservations}
+      />
     </div>
   );
 }

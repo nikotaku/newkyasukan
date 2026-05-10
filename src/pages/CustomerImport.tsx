@@ -118,10 +118,14 @@ export default function CustomerImport() {
           status: r.status,
           notes: r.notes,
         }));
-        const { error } = await supabase.from("customers").insert(batch);
+        const { error } = await supabase.from("customers" as any).insert(batch);
         if (error) {
           console.error("Batch error:", error);
-          toast.error(`エラー: ${error.message}`);
+          if (error.message.includes("relation") && error.message.includes("does not exist")) {
+            toast.error("customersテーブルがまだ作成されていません。Supabaseダッシュボードでマイグレーションを実行してください。");
+          } else {
+            toast.error(`エラー: ${error.message}`);
+          }
           break;
         }
         count += batch.length;
