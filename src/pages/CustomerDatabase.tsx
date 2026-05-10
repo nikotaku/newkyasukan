@@ -1,35 +1,50 @@
 import { useState, useEffect } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Search } from "lucide-react";
+import { NotionDatabaseView } from "@/components/database/NotionDatabaseView";
+import { Property, DatabaseRecord } from "@/components/database/types";
+import { toast } from "sonner";
 
-interface Customer {
-  id: string;
-  name: string;
-  phone: string;
-  preferences?: string;
-  sales_notes?: string;
-  total_spent?: number;
-  visit_count?: number;
+const DEFAULT_PROPERTIES: Property[] = [
+  { id: "name", name: "名前", type: "text", width: 140 },
+  { id: "phone", name: "電話番号", type: "phone", width: 140 },
+  { id: "visit_count", name: "来店回数", type: "number", width: 100 },
+  { id: "total_spent", name: "累計売上", type: "number", width: 110 },
+  { id: "last_visited", name: "最終来店", type: "date", width: 110 },
+  {
+    id: "tags", name: "タグ", type: "multi_select", width: 180,
+    options: [
+      { label: "VIP", color: "purple" },
+      { label: "常連", color: "blue" },
+      { label: "新規", color: "green" },
+      { label: "要注意", color: "red" },
+      { label: "紹介", color: "orange" },
+    ],
+  },
+  { id: "notes", name: "メモ", type: "text", width: 200 },
+];
+
+function mapToRecord(row: any): DatabaseRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    visit_count: row.visit_count ?? row.total_visits ?? null,
+    total_spent: row.total_spent ?? null,
+    last_visited: row.last_visited ?? row.last_visit_date ?? null,
+    tags: row.tags ?? null,
+    notes: row.notes ?? row.memo ?? null,
+    email: row.email ?? null,
+  };
 }
 
 export default function CustomerDatabase() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [records, setRecords] = useState<DatabaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selected, setSelected] = useState<Customer | null>(null);
-  const [searchParams] = useSearchParams();
-  const defaultTab = searchParams.get("tab") || "preferences";
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -50,7 +65,7 @@ export default function CustomerDatabase() {
         .select("*")
         .order("name");
       if (error && error.code !== "PGRST116") throw error;
-      setCustomers(data || []);
+      setRecords((data || []).map(mapToRecord));
     } catch (error) {
       console.error("Error fetching customers:", error);
     } finally {
@@ -58,124 +73,70 @@ export default function CustomerDatabase() {
     }
   };
 
-  const handleSave = async () => {
-    if (!selected) return;
+  const handleAdd = async (data: Record<string, any>) => {
     try {
-      const { error } = await supabase
-        .from("customers")
-        .update({ preferences: selected.preferences, sales_notes: selected.sales_notes })
-        .eq("id", selected.id);
+      const { error } = await supabase.from("customers").insert([{
+        name: data.name,
+        phone: data.phone,
+        notes: data.notes,
+        tags: data.tags,
+        email: data.email,
+      }]);
       if (error) throw error;
+      toast.success("追加しました");
       fetchCustomers();
     } catch (error) {
-      console.error("Error saving customer:", error);
+      console.error("Error adding customer:", error);
+      toast.error("追加に失敗しました");
     }
   };
 
-  const filtered = customers.filter(
-    (c) => c.name?.includes(searchQuery) || c.phone?.includes(searchQuery)
-  );
+  const handleUpdate = async (id: string, field: string, value: any) => {
+    try {
+      const { error } = await supabase
+        .from("customers")
+        .update({ [field]: value })
+        .eq("id", id);
+      if (error) throw error;
+      setRecords((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    } catch (error) {
+      console.error("Error updating customer:", error);
+      toast.error("更新に失敗しました");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase.from("customers").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("削除しました");
+      setRecords((prev) => prev.filter((r) => r.id !== id));
+    } catch (error) {
+      console.error("Error deleting customer:", error);
+      toast.error("削除に失敗しました");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-[60px] md:ml-[240px] p-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">顧客一覧</h1>
-            <p className="text-muted-foreground">顧客の好み・営業情報管理</p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Search size={16} className="text-muted-foreground" />
-                <Input placeholder="名前・電話番号で検索..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-              </div>
-              {loading ? (
-                <div className="text-center text-muted-foreground py-4">読み込み中...</div>
-              ) : filtered.length === 0 ? (
-                <div className="text-center text-muted-foreground py-4">顧客なし</div>
-              ) : (
-                <div className="space-y-1 max-h-[60vh] overflow-y-auto">
-                  {filtered.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setSelected(c)}
-                      className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                        selected?.id === c.id ? "bg-primary text-primary-foreground" : "hover:bg-muted/50"
-                      }`}
-                    >
-                      <div className="text-sm font-semibold">{c.name}</div>
-                      <div className="text-xs opacity-70">{c.phone}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="lg:col-span-2">
-              {selected ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{selected.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{selected.phone}</p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
-                      <div className="p-3 bg-muted/50 rounded-lg">
-                        <div className="text-muted-foreground">総売上</div>
-                        <div className="font-bold">¥{(selected.total_spent || 0).toLocaleString()}</div>
-                      </div>
-                      <div className="p-3 bg-muted/50 rounded-lg">
-                        <div className="text-muted-foreground">来店回数</div>
-                        <div className="font-bold">{selected.visit_count || 0}回</div>
-                      </div>
-                    </div>
-
-                    <Tabs defaultValue={defaultTab}>
-                      <TabsList className="w-full mb-4">
-                        <TabsTrigger value="preferences" className="flex-1">好み</TabsTrigger>
-                        <TabsTrigger value="sales" className="flex-1">営業</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="preferences">
-                        <div>
-                          <Label>好み・特記事項</Label>
-                          <Textarea
-                            value={selected.preferences || ""}
-                            onChange={(e) => setSelected({ ...selected, preferences: e.target.value })}
-                            placeholder="好みのコース、セラピスト、特記事項など..."
-                            rows={8}
-                            className="mt-2"
-                          />
-                        </div>
-                      </TabsContent>
-                      <TabsContent value="sales">
-                        <div>
-                          <Label>営業メモ</Label>
-                          <Textarea
-                            value={selected.sales_notes || ""}
-                            onChange={(e) => setSelected({ ...selected, sales_notes: e.target.value })}
-                            placeholder="再来店施策、連絡履歴など..."
-                            rows={8}
-                            className="mt-2"
-                          />
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-                    <Button className="mt-4 w-full" onClick={handleSave}>保存</Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardContent className="pt-12 pb-12 text-center text-muted-foreground">
-                    左から顧客を選択してください
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </div>
+      <main className="pt-[60px] md:ml-[240px] p-6 flex flex-col" style={{ height: "100vh" }}>
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold">顧客一覧</h1>
+          <p className="text-muted-foreground text-sm">列設定から表示項目をカスタマイズできます</p>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <NotionDatabaseView
+            title="顧客"
+            storageKey="customers"
+            defaultProperties={DEFAULT_PROPERTIES}
+            records={records}
+            loading={loading}
+            onAddRecord={handleAdd}
+            onUpdateRecord={handleUpdate}
+            onDeleteRecord={handleDelete}
+          />
         </div>
       </main>
     </div>
