@@ -72,6 +72,7 @@ import FacilitiesContracts from "./pages/FacilitiesContracts";
 import FacilitiesEquipment from "./pages/FacilitiesEquipment";
 import CastImport from "./pages/CastImport";
 import ReservationImport from "./pages/ReservationImport";
+import CustomerImport from "./pages/CustomerImport";
 
 const queryClient = new QueryClient();
 
@@ -151,6 +152,7 @@ const App = () => (
           <Route path="/facilities/equipment" element={<FacilitiesEquipment />} />
           <Route path="/admin/import-casts" element={<CastImport />} />
           <Route path="/admin/import-reservations" element={<ReservationImport />} />
+          <Route path="/admin/import-customers" element={<CustomerImport />} />
           
           {/* Therapist Portal - Token-based access */}
           <Route path="/therapist/:token" element={<TherapistPortal />} />
