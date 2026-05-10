@@ -140,7 +140,6 @@ const App = () => (
           <Route path="/system/allowances" element={<SystemAllowances />} />
           <Route path="/system/sms" element={<SystemSMS />} />
           <Route path="/system/sms-auto" element={<SystemSMSAuto />} />
-          <Route path="/shortcuts/checkout" element={<ShortcutCheckout />} />
           <Route path="/database/knowledge/:slug" element={<KnowledgeDocument />} />
           <Route path="/database/therapist/profiles" element={<TherapistDatabase />} />
           <Route path="/database/therapist/mypage" element={<TherapistMyPage />} />
