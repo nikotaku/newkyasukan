@@ -6,6 +6,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
+import { driveImgUrl } from "@/lib/drive";
 
 interface Cast {
   id: string;
@@ -131,7 +132,7 @@ const Casts = () => {
                         )}
                       </div>
                       {cast.photo ? (
-                        <img src={cast.photo} alt={cast.name} className="w-full aspect-[3/4] object-cover" />
+                        <img src={driveImgUrl(cast.photo)} alt={cast.name} className="w-full aspect-[3/4] object-cover" />
                       ) : (
                         <div className="w-full aspect-[3/4] bg-gradient-to-br from-[#d4b5a8] to-[#c5a89b] flex items-center justify-center">
                           <span className="text-4xl text-white">{cast.name.charAt(0)}</span>

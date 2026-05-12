@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Link as LinkIcon, Copy, Upload, Eye, EyeOff, CalendarPlus, GripVertical, FileUp } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Link as LinkIcon, Copy, Eye, EyeOff, CalendarPlus, GripVertical, FileUp, X } from "lucide-react";
+import { driveImgUrl } from "@/lib/drive";
 import { ImportModal } from "@/components/ImportModal";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
@@ -90,9 +91,7 @@ export default function Staff() {
     repeat_scheduled: false,
   });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const [newPhotoUrl, setNewPhotoUrl] = useState("");
   const dragCastId = useRef<string | null>(null);
   
   const { toast } = useToast();
@@ -530,101 +529,31 @@ export default function Staff() {
     });
   };
 
-  const handlePhotoUpload = async (file: File, isEdit: boolean = false) => {
-    if (!isAdmin) {
-      toast({
-        title: "権限エラー",
-        description: "管理者のみ写真をアップロードできます",
-        variant: "destructive",
-      });
-      return;
+  const addPhotoUrl = (url: string, isEdit: boolean) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    if (isEdit && editingCast) {
+      const updated = [...(editingCast.photos || []), trimmed];
+      setEditingCast({ ...editingCast, photos: updated, photo: updated[0] });
+    } else {
+      const updated = [...formData.photos, trimmed];
+      setFormData({ ...formData, photos: updated, photo: updated[0] });
     }
-
-    const currentPhotos = isEdit && editingCast ? (editingCast.photos || []) : formData.photos;
-    
-    if (currentPhotos.length >= 5) {
-      toast({
-        title: "アップロード制限",
-        description: "写真は最大5枚までアップロードできます",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setUploadingPhoto(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${crypto.randomUUID()}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      console.log('Uploading photo:', filePath);
-
-      const { error: uploadError } = await supabase.storage
-        .from('cast-photos')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        throw uploadError;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('cast-photos')
-        .getPublicUrl(filePath);
-
-      console.log('Photo uploaded successfully:', publicUrl);
-
-      if (isEdit && editingCast) {
-        const updatedPhotos = [...currentPhotos, publicUrl];
-        setEditingCast({ 
-          ...editingCast, 
-          photos: updatedPhotos,
-          photo: updatedPhotos[0]
-        });
-      } else {
-        const updatedPhotos = [...currentPhotos, publicUrl];
-        setFormData({ 
-          ...formData, 
-          photos: updatedPhotos,
-          photo: updatedPhotos[0]
-        });
-      }
-
-      // ファイル入力をリセット
-      if (isEdit && editFileInputRef.current) {
-        editFileInputRef.current.value = '';
-      } else if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-
-      toast({
-        title: "アップロード完了",
-        description: `写真がアップロードされました (${currentPhotos.length + 1}/5)`,
-      });
-    } catch (error) {
-      console.error('Error uploading photo:', error);
-      toast({
-        title: "エラー",
-        description: error instanceof Error ? error.message : "写真のアップロードに失敗しました",
-        variant: "destructive",
-      });
-    } finally {
-      setUploadingPhoto(false);
-    }
+    setNewPhotoUrl("");
   };
 
   const handleRemovePhoto = (index: number, isEdit: boolean = false) => {
     if (isEdit && editingCast) {
       const updatedPhotos = (editingCast.photos || []).filter((_, i) => i !== index);
-      setEditingCast({ 
-        ...editingCast, 
+      setEditingCast({
+        ...editingCast,
         photos: updatedPhotos,
         photo: updatedPhotos[0] || null
       });
     } else {
       const updatedPhotos = formData.photos.filter((_, i) => i !== index);
-      setFormData({ 
-        ...formData, 
+      setFormData({
+        ...formData,
         photos: updatedPhotos,
         photo: updatedPhotos[0] || ""
       });
@@ -747,35 +676,26 @@ export default function Staff() {
                         </div>
                         
                         <div>
-                          <Label htmlFor="photo">写真 ({formData.photos.length}/5)</Label>
+                          <Label>写真（GoogleドライブURL）</Label>
                           <div className="space-y-2">
-                            <input
-                              ref={fileInputRef}
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) handlePhotoUpload(file, false);
-                              }}
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="w-full"
-                              onClick={() => fileInputRef.current?.click()}
-                              disabled={uploadingPhoto || formData.photos.length >= 5}
-                            >
-                              <Upload className="mr-2 h-4 w-4" />
-                              {uploadingPhoto ? "アップロード中..." : formData.photos.length >= 5 ? "最大5枚までです" : "写真をアップロード"}
-                            </Button>
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="https://drive.google.com/file/d/... またはファイルID"
+                                value={newPhotoUrl}
+                                onChange={(e) => setNewPhotoUrl(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, false))}
+                              />
+                              <Button type="button" variant="outline" onClick={() => addPhotoUrl(newPhotoUrl, false)} disabled={!newPhotoUrl.trim()}>
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
                             {formData.photos.length > 0 && (
                               <div className="grid grid-cols-2 gap-2">
                                 {formData.photos.map((photo, index) => (
                                   <div key={index} className="relative group">
-                                    <img 
-                                      src={photo} 
-                                      alt={`プレビュー ${index + 1}`} 
+                                    <img
+                                      src={driveImgUrl(photo)}
+                                      alt={`プレビュー ${index + 1}`}
                                       className="w-full h-[200px] object-cover rounded-md"
                                     />
                                     <Button
@@ -785,14 +705,9 @@ export default function Staff() {
                                       className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                       onClick={() => handleRemovePhoto(index, false)}
                                     >
-                                      <Trash2 className="h-4 w-4" />
+                                      <X className="h-4 w-4" />
                                     </Button>
-                                    <Badge 
-                                      variant="secondary"
-                                      className="absolute bottom-1 left-1"
-                                    >
-                                      {index + 1}
-                                    </Badge>
+                                    <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
                                   </div>
                                 ))}
                               </div>
@@ -800,7 +715,7 @@ export default function Staff() {
                           </div>
                         </div>
                       </TabsContent>
-                      
+
                       <TabsContent value="details" className="space-y-4 mt-4">
                         <div>
                           <Label htmlFor="dispatch-status">派遣ステータス</Label>
@@ -1065,35 +980,26 @@ export default function Staff() {
                       </div>
                       
                       <div>
-                        <Label htmlFor="edit-photo">写真 ({(editingCast.photos || []).length}/5)</Label>
+                        <Label>写真（GoogleドライブURL）</Label>
                         <div className="space-y-2">
-                          <input
-                            ref={editFileInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handlePhotoUpload(file, true);
-                            }}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => editFileInputRef.current?.click()}
-                            disabled={uploadingPhoto || (editingCast.photos || []).length >= 5}
-                          >
-                            <Upload className="mr-2 h-4 w-4" />
-                            {uploadingPhoto ? "アップロード中..." : (editingCast.photos || []).length >= 5 ? "最大5枚までです" : "写真をアップロード"}
-                          </Button>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="https://drive.google.com/file/d/... またはファイルID"
+                              value={newPhotoUrl}
+                              onChange={(e) => setNewPhotoUrl(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, true))}
+                            />
+                            <Button type="button" variant="outline" onClick={() => addPhotoUrl(newPhotoUrl, true)} disabled={!newPhotoUrl.trim()}>
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
                           {(editingCast.photos || []).length > 0 && (
                             <div className="grid grid-cols-2 gap-2">
                               {(editingCast.photos || []).map((photo, index) => (
                                 <div key={index} className="relative group">
-                                  <img 
-                                    src={photo} 
-                                    alt={`プレビュー ${index + 1}`} 
+                                  <img
+                                    src={driveImgUrl(photo)}
+                                    alt={`プレビュー ${index + 1}`}
                                     className="w-full h-[200px] object-cover rounded-md"
                                   />
                                   <Button
@@ -1103,8 +1009,9 @@ export default function Staff() {
                                     className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                     onClick={() => handleRemovePhoto(index, true)}
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    <X className="h-4 w-4" />
                                   </Button>
+                                  <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
                                 </div>
                               ))}
                             </div>
