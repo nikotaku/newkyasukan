@@ -55,6 +55,24 @@ import SalesReferralFees from "./pages/SalesReferralFees";
 import SalesMonthlySalesTarget from "./pages/SalesMonthlySalesTarget";
 import SalesDailySalesTarget from "./pages/SalesDailySalesTarget";
 import SalesExpenseInput from "./pages/SalesExpenseInput";
+import SystemCourses from "./pages/SystemCourses";
+import SystemOptions from "./pages/SystemOptions";
+import SystemDiscounts from "./pages/SystemDiscounts";
+import SystemDeductions from "./pages/SystemDeductions";
+import SystemAllowances from "./pages/SystemAllowances";
+import SystemSMS from "./pages/SystemSMS";
+import SystemSMSAuto from "./pages/SystemSMSAuto";
+import TherapistCheckout from "./pages/TherapistCheckout";
+import KnowledgeDocument from "./pages/KnowledgeDocument";
+import TherapistDatabase from "./pages/TherapistDatabase";
+import TherapistMyPage from "./pages/TherapistMyPage";
+import CustomerDatabase from "./pages/CustomerDatabase";
+import FacilitiesRooms from "./pages/FacilitiesRooms";
+import FacilitiesContracts from "./pages/FacilitiesContracts";
+import FacilitiesEquipment from "./pages/FacilitiesEquipment";
+import CastImport from "./pages/CastImport";
+import ReservationImport from "./pages/ReservationImport";
+import CustomerImport from "./pages/CustomerImport";
 
 const queryClient = new QueryClient();
 
@@ -118,10 +136,28 @@ const App = () => (
           <Route path="/sales/monthly-target" element={<SalesMonthlySalesTarget />} />
           <Route path="/sales/daily-target" element={<SalesDailySalesTarget />} />
           <Route path="/sales/expense-input" element={<SalesExpenseInput />} />
+          <Route path="/system/courses" element={<SystemCourses />} />
+          <Route path="/system/options" element={<SystemOptions />} />
+          <Route path="/system/discounts" element={<SystemDiscounts />} />
+          <Route path="/system/deductions" element={<SystemDeductions />} />
+          <Route path="/system/allowances" element={<SystemAllowances />} />
+          <Route path="/system/sms" element={<SystemSMS />} />
+          <Route path="/system/sms-auto" element={<SystemSMSAuto />} />
+          <Route path="/database/knowledge/:slug" element={<KnowledgeDocument />} />
+          <Route path="/database/therapist/profiles" element={<TherapistDatabase />} />
+          <Route path="/database/therapist/mypage" element={<TherapistMyPage />} />
+          <Route path="/database/customers" element={<CustomerDatabase />} />
+          <Route path="/facilities/rooms" element={<FacilitiesRooms />} />
+          <Route path="/facilities/contracts" element={<FacilitiesContracts />} />
+          <Route path="/facilities/equipment" element={<FacilitiesEquipment />} />
+          <Route path="/admin/import-casts" element={<CastImport />} />
+          <Route path="/admin/import-reservations" element={<ReservationImport />} />
+          <Route path="/admin/import-customers" element={<CustomerImport />} />
           
           {/* Therapist Portal - Token-based access */}
           <Route path="/therapist/:token" element={<TherapistPortal />} />
           <Route path="/therapist/:token/shift" element={<TherapistShiftSubmission />} />
+          <Route path="/therapist/:token/checkout" element={<TherapistCheckout />} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

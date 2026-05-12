@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Link as LinkIcon, Copy, Upload, Eye, EyeOff, CalendarPlus, GripVertical } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Link as LinkIcon, Copy, Upload, Eye, EyeOff, CalendarPlus, GripVertical, FileUp } from "lucide-react";
+import { ImportModal } from "@/components/ImportModal";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { WebsitePhotoSync } from "@/components/WebsitePhotoSync";
@@ -58,6 +59,7 @@ export default function Staff() {
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingCast, setEditingCast] = useState<Cast | null>(null);
   const [loading, setLoading] = useState(true);
@@ -663,7 +665,12 @@ export default function Staff() {
                 </div>
                 
                 <div className="flex gap-2 items-center">
-                  
+                  {isAdmin && (
+                    <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+                      <FileUp size={16} />
+                      CSVインポート
+                    </Button>
+                  )}
                   {isAdmin && (
                     <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                       <DialogTrigger asChild>
@@ -1475,6 +1482,12 @@ export default function Staff() {
           </div>
         </main>
       </div>
+      <ImportModal
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        type="casts"
+        onSuccess={fetchCasts}
+      />
     </div>
   );
 }

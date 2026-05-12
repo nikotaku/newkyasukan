@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { MapPin, Train, Clock, Phone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,17 +8,64 @@ import { ChatBot } from "@/components/ChatBot";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
+import { supabase } from "@/integrations/supabase/client";
+
+interface StoreInfo {
+  name: string;
+  address: string;
+  phone: string;
+  hours: string;
+  holiday: string;
+  twitter_url?: string;
+  line_url?: string;
+}
+
+const DEFAULTS: StoreInfo = {
+  name: "全力エステ 仙台",
+  address: "宮城県仙台市青葉区（出張専門）",
+  phone: "07090941854",
+  hours: "12:00〜26:00（24:40最終受付）",
+  holiday: "年中無休",
+  twitter_url: "https://twitter.com/zr_news1",
+  line_url: "https://lin.ee/RdRhmXw",
+};
 
 const Access = () => {
+  const [store, setStore] = useState<StoreInfo>(DEFAULTS);
+
   useEffect(() => {
     document.title = "全力エステ - アクセス";
   }, []);
+
+  useEffect(() => {
+    supabase
+      .from("store_info")
+      .select("name, address, phone, hours, holiday, twitter_url, line_url")
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setStore({
+            name: data.name || DEFAULTS.name,
+            address: data.address || DEFAULTS.address,
+            phone: data.phone || DEFAULTS.phone,
+            hours: data.hours || DEFAULTS.hours,
+            holiday: data.holiday || DEFAULTS.holiday,
+            twitter_url: (data as any).twitter_url || DEFAULTS.twitter_url,
+            line_url: (data as any).line_url || DEFAULTS.line_url,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const phoneRaw = store.phone.replace(/[-\s]/g, "");
+  const twitterUrl = store.twitter_url || DEFAULTS.twitter_url!;
+  const lineUrl = store.line_url || DEFAULTS.line_url!;
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f5e8e4" }}>
       <PublicNavigation />
 
-      {/* Main Content */}
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-5xl font-bold text-center mb-4" style={{ color: "#8b7355" }}>ACCESS</h1>
@@ -33,7 +80,7 @@ const Access = () => {
                 <MapPin className="w-6 h-6 mt-1 flex-shrink-0" style={{ color: "#d4a574" }} />
                 <div>
                   <h3 className="font-semibold mb-2" style={{ color: "#8b7355" }}>所在地</h3>
-                  <p className="text-[#6b5b4a]">宮城県仙台市二日町11-10</p>
+                  <p className="text-[#6b5b4a]">{store.address}</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
@@ -47,15 +94,17 @@ const Access = () => {
                 <Clock className="w-6 h-6 mt-1 flex-shrink-0" style={{ color: "#d4a574" }} />
                 <div>
                   <h3 className="font-semibold mb-2" style={{ color: "#8b7355" }}>営業時間</h3>
-                  <p className="text-[#6b5b4a]">12:00〜26:00</p>
-                  <p className="text-sm text-[#a89586]">（24:40最終受付）</p>
+                  <p className="text-[#6b5b4a]">{store.hours}</p>
+                  <p className="text-sm text-[#a89586]">定休日：{store.holiday}</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
                 <Phone className="w-6 h-6 mt-1 flex-shrink-0" style={{ color: "#d4a574" }} />
                 <div>
                   <h3 className="font-semibold mb-2" style={{ color: "#8b7355" }}>電話番号</h3>
-                  <a href="tel:07090941854" className="text-[#6b5b4a] hover:underline">070-9094-1854</a>
+                  <a href={`tel:${phoneRaw}`} className="text-[#6b5b4a] hover:underline">
+                    {store.phone}
+                  </a>
                 </div>
               </div>
             </CardContent>
@@ -63,7 +112,7 @@ const Access = () => {
 
           <Card className="mb-8 border-[#e5d5cc] bg-white">
             <CardHeader>
-              <CardTitle className="text-2xl" style={{ color: "#8b7355" }}>地図</CardTitle>
+              <CardTitle className="text-2xl" style={{ color: "#8b7355" }}>エリア</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="w-full h-[400px] bg-[#f5e8e4] rounded-lg">
@@ -75,7 +124,7 @@ const Access = () => {
                   allowFullScreen
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
-                  title="店舗地図"
+                  title="エリア地図"
                 />
               </div>
             </CardContent>
@@ -93,17 +142,16 @@ const Access = () => {
         </div>
       </div>
 
-      {/* CTA */}
       <div className="py-16 text-center" style={{ backgroundColor: "#edddd6" }}>
         <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold mb-8" style={{ color: "#8b7355" }}>ご予約・お問い合わせ</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <a href="https://lin.ee/RdRhmXw" target="_blank" rel="noopener noreferrer">
+            <a href={lineUrl} target="_blank" rel="noopener noreferrer">
               <Button size="lg" className="gap-2 px-8 py-6 text-lg" style={{ backgroundColor: "#06C755", color: "white" }}>
                 <FaLine className="w-6 h-6" />LINEで予約
               </Button>
             </a>
-            <a href="https://twitter.com/zr_sendai" target="_blank" rel="noopener noreferrer">
+            <a href={twitterUrl} target="_blank" rel="noopener noreferrer">
               <Button size="lg" className="gap-2 px-8 py-6 text-lg bg-black text-white hover:bg-gray-800">
                 <FaXTwitter className="w-6 h-6" />Xをフォロー
               </Button>
