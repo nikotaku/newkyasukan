@@ -29,7 +29,7 @@ interface Reservation {
   course_name: string;
   price: number;
   status: string;
-  casts: { name: string };
+  casts: { name: string } | null;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -176,7 +176,7 @@ export default function ReservationsList() {
                           {res.start_time.slice(0, 5)} ({res.duration}分)
                         </div>
                         <div>
-                          セラピスト: {res.casts.name} | {res.course_name}
+                          セラピスト: {res.casts?.name ?? "未設定"} | {res.course_name}
                         </div>
                         <div>電話: {res.customer_phone}</div>
                       </div>
