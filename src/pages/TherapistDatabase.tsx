@@ -208,14 +208,12 @@ export default function TherapistDatabase() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Cast list + filter */}
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Search size={16} className="text-muted-foreground" />
                 <Input placeholder="名前で検索..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
               </div>
 
-              {/* Tag filter */}
               {allTags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mb-3">
                   {allTags.map((tag) => (
@@ -272,7 +270,6 @@ export default function TherapistDatabase() {
               )}
             </div>
 
-            {/* Profile editor */}
             <div className="lg:col-span-2">
               {selectedCast && profile ? (
                 <Card>
@@ -323,7 +320,6 @@ export default function TherapistDatabase() {
                       </TabsContent>
 
                       <TabsContent value="internal" className="space-y-4">
-                        {/* Tags */}
                         <div>
                           <Label>タグ</Label>
                           <div className="flex flex-wrap gap-1 mb-2 mt-1">
@@ -349,7 +345,6 @@ export default function TherapistDatabase() {
                             </Button>
                           </div>
                         </div>
-
                         <div className="grid grid-cols-2 gap-4">
                           {numInput("weight", "体重", "kg")}
                           {textInput("mbti", "MBTI", "例: INFP")}
