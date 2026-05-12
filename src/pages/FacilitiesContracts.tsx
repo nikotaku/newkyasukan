@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Plus, FileText } from "lucide-react";
 
 interface Contract {
   id: string;
@@ -71,6 +73,16 @@ export default function FacilitiesContracts() {
     }
   };
 
+  const handleCreate = async (contractType: string) => {
+    const { data, error } = await supabase
+      .from("facility_contracts")
+      .insert([{ contract_type: contractType, name: "新規契約", amount: 0, notes: "" }])
+      .select()
+      .single();
+    if (error) { toast.error("作成失敗"); return; }
+    navigate(`/facilities/contracts/${data.id}`);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
@@ -94,6 +106,11 @@ export default function FacilitiesContracts() {
               return (
                 <TabsContent key={key} value={key}>
                   <div className="space-y-4">
+                    <div className="flex justify-end">
+                      <Button size="sm" onClick={() => handleCreate(key)}>
+                        <Plus size={14} className="mr-1" />新規追加
+                      </Button>
+                    </div>
                     {loading ? (
                       <div className="text-center text-muted-foreground">読み込み中...</div>
                     ) : typeContracts.length === 0 ? (
@@ -110,7 +127,12 @@ export default function FacilitiesContracts() {
                                 )}
                                 {contract.notes && <p className="text-xs text-muted-foreground mt-1">{contract.notes}</p>}
                               </div>
-                              <Button size="sm" variant="outline" onClick={() => setEditingContract(contract)}>編集</Button>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="outline" onClick={() => navigate(`/facilities/contracts/${contract.id}`)}>
+                                  <FileText size={13} className="mr-1" />詳細
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => setEditingContract(contract)}>編集</Button>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
