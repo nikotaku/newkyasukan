@@ -146,8 +146,8 @@ export default function MonthlyShift() {
       <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="pt-[60px] md:ml-[240px] p-6">
-        <div className="max-w-6xl mx-auto">
+      <main className="pt-[60px] md:ml-[240px] p-2 md:p-6">
+        <div className="w-full max-w-6xl mx-auto">
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div>
@@ -174,9 +174,9 @@ export default function MonthlyShift() {
           {loading ? (
             <div className="text-center text-muted-foreground">読み込み中...</div>
           ) : (
-            <div className="grid grid-cols-7 gap-2">
+            <div className="grid grid-cols-7 gap-0.5 md:gap-2">
               {["日", "月", "火", "水", "木", "金", "土"].map((day) => (
-                <div key={day} className="text-center font-semibold p-2 text-sm">
+                <div key={day} className="text-center font-semibold py-1 text-xs md:text-sm">
                   {day}
                 </div>
               ))}
@@ -192,7 +192,7 @@ export default function MonthlyShift() {
                 return (
                   <Card
                     key={dateStr}
-                    className="min-h-[100px] p-2 cursor-pointer hover:bg-muted/30 transition-colors"
+                    className="min-h-[70px] md:min-h-[100px] p-1 md:p-2 cursor-pointer hover:bg-muted/30 transition-colors"
                     onClick={() => {
                       setForm((f) => ({ ...f, shift_date: dateStr }));
                       setShowDialog(true);
