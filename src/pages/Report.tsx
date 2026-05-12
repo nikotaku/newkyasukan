@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, Users, DollarSign, Calendar } from "lucide-react";
+import { TrendingUp, Users, DollarSign, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { SalesReport } from "@/components/SalesReport";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
+import { ja } from "date-fns/locale";
 
 interface Stats {
   totalReservations: number;
@@ -31,7 +32,8 @@ export default function Report() {
   });
   const [castStats, setCastStats] = useState<CastStats[]>([]);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState("month");
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const isCurrentMonth = format(selectedMonth, "yyyy-MM") === format(new Date(), "yyyy-MM");
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -47,13 +49,12 @@ export default function Report() {
       fetchStats();
       fetchCastStats();
     }
-  }, [user, period]);
+  }, [user, selectedMonth]);
 
   const fetchStats = async () => {
     try {
-      const today = new Date();
-      const startDate = format(startOfMonth(today), 'yyyy-MM-dd');
-      const endDate = format(endOfMonth(today), 'yyyy-MM-dd');
+      const startDate = format(startOfMonth(selectedMonth), 'yyyy-MM-dd');
+      const endDate = format(endOfMonth(selectedMonth), 'yyyy-MM-dd');
 
       const { data: reservations, error: resError } = await supabase
         .from('reservations')
@@ -89,10 +90,13 @@ export default function Report() {
 
   const fetchCastStats = async () => {
     try {
-      // 予約データからキャストごとの売上を計算
+      const startDate = format(startOfMonth(selectedMonth), 'yyyy-MM-dd');
+      const endDate = format(endOfMonth(selectedMonth), 'yyyy-MM-dd');
       const { data: reservations, error: resError } = await supabase
         .from('reservations')
         .select('cast_id, price, casts(name)')
+        .gte('reservation_date', startDate)
+        .lte('reservation_date', endDate)
         .in('status', ['confirmed', 'completed']);
 
       if (resError) throw resError;
@@ -154,18 +158,17 @@ export default function Report() {
                 <h1 className="text-2xl font-bold">レポート</h1>
                 <p className="text-muted-foreground">売上・予約・キャストの統計</p>
               </div>
-              
-              <Select value={period} onValueChange={setPeriod}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">今日</SelectItem>
-                  <SelectItem value="week">今週</SelectItem>
-                  <SelectItem value="month">今月</SelectItem>
-                  <SelectItem value="year">今年</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" onClick={() => setSelectedMonth((m) => subMonths(m, 1))}>
+                  <ChevronLeft size={16} />
+                </Button>
+                <span className="text-sm font-medium w-28 text-center">
+                  {format(selectedMonth, "yyyy年M月", { locale: ja })}
+                </span>
+                <Button variant="outline" size="icon" onClick={() => setSelectedMonth((m) => addMonths(m, 1))} disabled={isCurrentMonth}>
+                  <ChevronRight size={16} />
+                </Button>
+              </div>
             </div>
 
             <SalesReport />
@@ -208,7 +211,7 @@ export default function Report() {
             {/* Cast Rankings */}
             <Card>
               <CardHeader>
-                <CardTitle>キャスト別売上ランキング（今月）</CardTitle>
+                <CardTitle>キャスト別売上ランキング（{format(selectedMonth, "yyyy年M月", { locale: ja })}）</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -225,7 +228,7 @@ export default function Report() {
                       </div>
                       <div className="text-right">
                         <div className="font-bold text-xl">¥{cast.sales.toLocaleString()}</div>
-                        <div className="text-xs text-muted-foreground">今月の売上</div>
+                        <div className="text-xs text-muted-foreground">{format(selectedMonth, "M月")}の売上</div>
                       </div>
                     </div>
                   ))}

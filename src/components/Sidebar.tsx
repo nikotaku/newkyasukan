@@ -20,10 +20,18 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
-interface MenuItemChild {
+interface MenuItemLeaf {
   href: string;
   label: string;
+}
+
+interface MenuItemChild extends MenuItemLeaf {
   groupHeader?: string;
+}
+
+interface MenuSubGroup {
+  groupLabel: string;
+  items: MenuItemLeaf[];
 }
 
 interface MenuItem {
@@ -31,6 +39,7 @@ interface MenuItem {
   label: string;
   icon: any;
   children?: MenuItemChild[];
+  subGroups?: MenuSubGroup[];
 }
 
 interface SidebarProps {
@@ -64,20 +73,14 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    label: "レポート",
-    icon: BarChart3,
-    children: [
-      { href: "/report", label: "レポート" },
-      { href: "/sales/customer-info", label: "顧客情報" },
-      { href: "/sales/therapist-breakdown", label: "セラピスト別" },
-      { href: "/sales/price-analysis", label: "単価" },
-    ],
-  },
-  {
     label: "売上管理",
     icon: TrendingUp,
     children: [
-      { href: "/sales/monthly-sales", label: "月別売上" },
+      { href: "/report", label: "レポート", groupHeader: "レポート" },
+      { href: "/sales/customer-info", label: "顧客情報" },
+      { href: "/sales/therapist-breakdown", label: "セラピスト別" },
+      { href: "/sales/price-analysis", label: "単価" },
+      { href: "/sales/monthly-sales", label: "月別売上", groupHeader: "売上管理" },
       { href: "/sales/card-sales", label: "カード売上" },
       { href: "/sales/paypay-sales", label: "PayPay売上" },
       { href: "/sales/advertising-cost", label: "広告費管理" },
@@ -137,21 +140,36 @@ const menuItems: MenuItem[] = [
   {
     label: "設備と契約",
     icon: Building2,
-    children: [
-      { href: "/facilities/rooms", label: "ルーム管理", groupHeader: "ルーム" },
-      { href: "/facilities/rooms?tab=inroom", label: "インルーム" },
-      { href: "/facilities/rooms?tab=lazy", label: "ラズルーム" },
-      { href: "/facilities/rooms?tab=equipment", label: "設備管理" },
-      { href: "/facilities/rooms?tab=supplies", label: "備品登録" },
-      { href: "/facilities/contracts", label: "契約一覧", groupHeader: "契約管理" },
-      { href: "/facilities/contracts?tab=rental", label: "賃貸借契約" },
-      { href: "/facilities/contracts?tab=utilities", label: "水道光熱費" },
-      { href: "/facilities/contracts?tab=wifi", label: "Wi-Fi" },
-      { href: "/facilities/contracts?tab=phone", label: "電話" },
-      { href: "/facilities/contracts?tab=suppliers", label: "取引先" },
-      { href: "/facilities/equipment", label: "消耗品", groupHeader: "設備管理" },
-      { href: "/facilities/equipment?type=costumes", label: "衣装" },
-      { href: "/facilities/equipment?type=furniture", label: "家具家電" },
+    subGroups: [
+      {
+        groupLabel: "ルーム",
+        items: [
+          { href: "/facilities/rooms", label: "ルーム管理" },
+          { href: "/facilities/rooms?tab=inroom", label: "インルーム" },
+          { href: "/facilities/rooms?tab=lazy", label: "ラズルーム" },
+          { href: "/facilities/rooms?tab=equipment", label: "設備管理" },
+          { href: "/facilities/rooms?tab=supplies", label: "備品登録" },
+        ],
+      },
+      {
+        groupLabel: "契約管理",
+        items: [
+          { href: "/facilities/contracts", label: "契約一覧" },
+          { href: "/facilities/contracts?tab=rental", label: "賃貸借契約" },
+          { href: "/facilities/contracts?tab=utilities", label: "水道光熱費" },
+          { href: "/facilities/contracts?tab=wifi", label: "Wi-Fi" },
+          { href: "/facilities/contracts?tab=phone", label: "電話" },
+          { href: "/facilities/contracts?tab=suppliers", label: "取引先" },
+        ],
+      },
+      {
+        groupLabel: "設備管理",
+        items: [
+          { href: "/facilities/equipment", label: "消耗品" },
+          { href: "/facilities/equipment?type=costumes", label: "衣装" },
+          { href: "/facilities/equipment?type=furniture", label: "家具家電" },
+        ],
+      },
     ],
   },
   { href: "/text-generation", label: "文章生成", icon: Sparkles },
@@ -161,6 +179,7 @@ const menuItems: MenuItem[] = [
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { signOut } = useAuth();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [expandedSubGroups, setExpandedSubGroups] = useState<string[]>([]);
 
   const toggleExpand = (label: string) => {
     setExpandedItems((prev) =>
@@ -168,9 +187,20 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     );
   };
 
+  const toggleSubGroup = (key: string) => {
+    setExpandedSubGroups((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
+
   const isChildActive = (children?: MenuItemChild[]) => {
     if (!children) return false;
     return children.some((child) => window.location.pathname === child.href.split("?")[0]);
+  };
+
+  const isSubGroupActive = (subGroups?: MenuSubGroup[]) => {
+    if (!subGroups) return false;
+    return subGroups.some((g) => g.items.some((i) => window.location.pathname === i.href.split("?")[0]));
   };
 
   return (
@@ -194,14 +224,18 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               const childActive = isChildActive(item.children);
               const isCurrentPath = item.href && window.location.pathname === item.href;
 
+              const hasSubGroups = !!(item.subGroups && item.subGroups.length > 0);
+              const subGroupActive = isSubGroupActive(item.subGroups);
+              const isTopActive = childActive || subGroupActive;
+
               return (
                 <div key={item.label}>
-                  {hasChildren ? (
+                  {(hasChildren || hasSubGroups) ? (
                     <button
                       onClick={() => toggleExpand(item.label)}
                       className={cn(
                         "flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-md transition-colors w-full text-left",
-                        childActive || isExpanded
+                        isTopActive || isExpanded
                           ? "text-primary bg-primary/10"
                           : "text-foreground hover:bg-muted/50"
                       )}
@@ -248,6 +282,56 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                             >
                               {child.label}
                             </Link>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {hasSubGroups && isExpanded && (
+                    <div className="space-y-0.5 pl-4 mt-1">
+                      {item.subGroups!.map((group) => {
+                        const subKey = `${item.label}:${group.groupLabel}`;
+                        const isSubExpanded = expandedSubGroups.includes(subKey);
+                        const isSubActive = group.items.some((i) => window.location.pathname === i.href.split("?")[0]);
+                        return (
+                          <div key={subKey}>
+                            <button
+                              onClick={() => toggleSubGroup(subKey)}
+                              className={cn(
+                                "flex items-center gap-2 w-full text-left px-3 py-1.5 text-xs font-semibold rounded-md transition-colors",
+                                isSubActive || isSubExpanded
+                                  ? "text-primary bg-primary/5"
+                                  : "text-muted-foreground hover:bg-muted/50"
+                              )}
+                            >
+                              {group.groupLabel}
+                              <ChevronDown
+                                size={12}
+                                className={cn("ml-auto transition-transform", isSubExpanded ? "rotate-180" : "")}
+                              />
+                            </button>
+                            {isSubExpanded && (
+                              <div className="space-y-0.5 pl-4 mt-0.5">
+                                {group.items.map((leaf) => {
+                                  const isLeafActive = window.location.pathname === leaf.href.split("?")[0];
+                                  return (
+                                    <Link
+                                      key={leaf.href}
+                                      to={leaf.href}
+                                      className={cn(
+                                        "block px-3 py-1.5 text-xs rounded-md transition-colors",
+                                        isLeafActive
+                                          ? "text-primary bg-primary/10 font-semibold"
+                                          : "text-foreground/70 hover:bg-muted/50"
+                                      )}
+                                    >
+                                      {leaf.label}
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
