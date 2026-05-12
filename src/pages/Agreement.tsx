@@ -3,12 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import SignatureCanvas from "react-signature-canvas";
-import { X, Pen } from "lucide-react";
+import { X, Pen, Star, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Agreement() {
   const [isSignatureOpen, setIsSignatureOpen] = useState(false);
   const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [showKuchikomi, setShowKuchikomi] = useState(false);
   const signatureRef = useRef<SignatureCanvas>(null);
 
   const handleClearSignature = () => {
@@ -26,6 +27,7 @@ export default function Agreement() {
       setSignatureData(dataUrl);
       setIsSignatureOpen(false);
       toast.success("署名を保存しました");
+      setShowKuchikomi(true);
     }
   };
 
@@ -117,6 +119,38 @@ export default function Agreement() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 口コミ割 announcement dialog */}
+      <Dialog open={showKuchikomi} onOpenChange={setShowKuchikomi}>
+        <DialogContent className="max-w-sm text-center">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center justify-center gap-2">
+              <Star className="text-yellow-400 fill-yellow-400" size={22} />
+              口コミ割のご案内
+              <Star className="text-yellow-400 fill-yellow-400" size={22} />
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+              <p className="text-2xl font-bold text-yellow-700 mb-1">¥1,000 OFF</p>
+              <p className="text-sm text-yellow-800">口コミ投稿で次回ご利用時に割引！</p>
+            </div>
+            <div className="text-sm text-muted-foreground space-y-2 text-left">
+              <div className="flex items-start gap-2">
+                <MessageCircle size={15} className="text-primary shrink-0 mt-0.5" />
+                <p>Googleマップ・各種媒体に口コミを投稿していただくと、次回ご来店時に<span className="font-semibold text-foreground">¥1,000割引</span>いたします。</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <Star size={15} className="text-yellow-500 shrink-0 mt-0.5" />
+                <p>投稿後、スタッフにお声がけください。</p>
+              </div>
+            </div>
+            <Button className="w-full" onClick={() => setShowKuchikomi(false)}>
+              了解しました
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isSignatureOpen} onOpenChange={setIsSignatureOpen}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0">
