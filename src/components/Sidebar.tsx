@@ -11,9 +11,11 @@ import {
   MessageSquare,
   ChevronDown,
   Cpu,
-  Database,
   Building2,
   TrendingUp,
+  BookOpen,
+  Users,
+  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -99,10 +101,10 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    label: "データベース",
-    icon: Database,
+    label: "ナレッジ",
+    icon: BookOpen,
     children: [
-      { href: "/database/knowledge/sns", label: "各種SNSデータ", groupHeader: "ナレッジ" },
+      { href: "/database/knowledge/sns", label: "各種SNSデータ" },
       { href: "/database/knowledge/cleaning", label: "清掃チェックシート" },
       { href: "/database/knowledge/expenses-rules", label: "雑費・宿泊費ルール" },
       { href: "/database/knowledge/trouble", label: "トラブル対応" },
@@ -112,10 +114,22 @@ const menuItems: MenuItem[] = [
       { href: "/database/knowledge/templates", label: "文章テンプレート" },
       { href: "/database/knowledge/agreement", label: "誓約書" },
       { href: "/database/knowledge/interview", label: "面談" },
-      { href: "/staff", label: "新規登録", groupHeader: "セラピスト" },
+    ],
+  },
+  {
+    label: "セラピスト",
+    icon: UserCircle,
+    children: [
+      { href: "/staff", label: "新規登録" },
       { href: "/database/therapist/profiles", label: "プロフィール" },
       { href: "/database/therapist/mypage", label: "マイページ" },
-      { href: "/database/customers", label: "顧客一覧", groupHeader: "顧客" },
+    ],
+  },
+  {
+    label: "顧客",
+    icon: Users,
+    children: [
+      { href: "/database/customers", label: "顧客一覧" },
       { href: "/database/customers?tab=preferences", label: "好み" },
       { href: "/database/customers?tab=sales", label: "営業" },
     ],
