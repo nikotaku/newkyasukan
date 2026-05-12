@@ -17,7 +17,7 @@ const authSchema = z.object({
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("zr.sendai@gmail.com");
+  const [email, setEmail] = useState("saito.crow@gmail.com");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
