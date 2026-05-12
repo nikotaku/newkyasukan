@@ -145,7 +145,7 @@ const menuItems: MenuItem[] = [
       { href: "/database/knowledge/customer-service", label: "顧客対応" },
       { href: "/database/knowledge/suppliers", label: "取引先登録" },
       { href: "/database/knowledge/templates", label: "文章テンプレート" },
-      { href: "/database/knowledge/agreement", label: "誓約書" },
+      { href: "/agreement", label: "誓約書" },
       { href: "/database/knowledge/interview", label: "面談" },
     ],
   },
