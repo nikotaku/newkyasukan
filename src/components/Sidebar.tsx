@@ -77,10 +77,10 @@ const menuItems: MenuItem[] = [
     icon: TrendingUp,
     children: [
       { href: "/report", label: "レポート", groupHeader: "レポート" },
-      { href: "/sales/customer-info", label: "顧客情報" },
       { href: "/sales/therapist-breakdown", label: "セラピスト別" },
       { href: "/sales/price-analysis", label: "単価" },
-      { href: "/sales/monthly-sales", label: "月別売上", groupHeader: "売上管理" },
+      { href: "/sales/closing", label: "締め作業", groupHeader: "売上管理" },
+      { href: "/sales/monthly-sales", label: "月別売上" },
       { href: "/sales/card-sales", label: "カード売上" },
       { href: "/sales/paypay-sales", label: "PayPay売上" },
       { href: "/sales/advertising-cost", label: "広告費管理" },

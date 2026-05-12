@@ -73,6 +73,7 @@ import FacilitiesEquipment from "./pages/FacilitiesEquipment";
 import CastImport from "./pages/CastImport";
 import ReservationImport from "./pages/ReservationImport";
 import CustomerImport from "./pages/CustomerImport";
+import SalesClosing from "./pages/SalesClosing";
 
 const queryClient = new QueryClient();
 
@@ -126,6 +127,7 @@ const App = () => (
           <Route path="/board" element={<Board />} />
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/sales/customer-info" element={<SalesCustomerInfo />} />
+          <Route path="/sales/closing" element={<SalesClosing />} />
           <Route path="/sales/therapist-breakdown" element={<SalesTherapistBreakdown />} />
           <Route path="/sales/price-analysis" element={<SalesPriceAnalysis />} />
           <Route path="/sales/monthly-sales" element={<SalesMonthlySales />} />
