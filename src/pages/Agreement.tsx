@@ -145,7 +145,7 @@ export default function Agreement() {
                 <p>投稿後、スタッフにお声がけください。</p>
               </div>
             </div>
-            <Button className="w-full" onClick={() => setShowKuchikomi(false)}>
+            <Button className="w-full" onClick={() => { setShowKuchikomi(false); window.location.reload(); }}>
               了解しました
             </Button>
           </div>
