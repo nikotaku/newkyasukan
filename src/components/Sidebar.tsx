@@ -73,19 +73,29 @@ const menuItems: MenuItem[] = [
   {
     label: "売上管理",
     icon: TrendingUp,
-    children: [
-      { href: "/report", label: "レポート", groupHeader: "レポート" },
-      { href: "/sales/therapist-breakdown", label: "セラピスト別" },
-      { href: "/sales/price-analysis", label: "単価" },
-      { href: "/sales/closing", label: "締め作業", groupHeader: "売上管理" },
-      { href: "/sales/monthly-sales", label: "月別売上" },
-      { href: "/sales/card-sales", label: "カード売上" },
-      { href: "/sales/paypay-sales", label: "PayPay売上" },
-      { href: "/sales/advertising-cost", label: "広告費管理" },
-      { href: "/sales/referral-fees", label: "紹介費管理" },
-      { href: "/sales/monthly-target", label: "月別売上目標" },
-      { href: "/sales/daily-target", label: "日別売上目標" },
-      { href: "/sales/expense-input", label: "経費入力" },
+    subGroups: [
+      {
+        groupLabel: "レポート",
+        items: [
+          { href: "/report", label: "レポート" },
+          { href: "/sales/therapist-breakdown", label: "セラピスト別" },
+          { href: "/sales/price-analysis", label: "単価" },
+        ],
+      },
+      {
+        groupLabel: "売上管理",
+        items: [
+          { href: "/sales/closing", label: "締め作業" },
+          { href: "/sales/monthly-sales", label: "月別売上" },
+          { href: "/sales/card-sales", label: "カード売上" },
+          { href: "/sales/paypay-sales", label: "PayPay売上" },
+          { href: "/sales/advertising-cost", label: "広告費管理" },
+          { href: "/sales/referral-fees", label: "紹介費管理" },
+          { href: "/sales/monthly-target", label: "月別売上目標" },
+          { href: "/sales/daily-target", label: "日別売上目標" },
+          { href: "/sales/expense-input", label: "経費入力" },
+        ],
+      },
     ],
   },
   {
