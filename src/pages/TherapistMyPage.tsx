@@ -2,19 +2,18 @@ import { useState, useEffect } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { Search, KeyRound, Copy, ExternalLink, RefreshCw } from "lucide-react";
 
 interface Therapist {
   id: string;
   name: string;
-  total_sales?: number;
-  shift_count?: number;
-  point_balance?: number;
+  access_token?: string | null;
 }
 
 export default function TherapistMyPage() {
@@ -23,6 +22,7 @@ export default function TherapistMyPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Therapist | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [generating, setGenerating] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -37,18 +37,38 @@ export default function TherapistMyPage() {
 
   const fetchTherapists = async () => {
     setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("casts")
-        .select("id, name")
-        .order("name");
-      if (error && error.code !== "PGRST116") throw error;
-      setTherapists(data || []);
-    } catch (error) {
-      console.error("Error fetching therapists:", error);
-    } finally {
-      setLoading(false);
+    const { data: casts } = await supabase.from("casts").select("id, name").order("name");
+    const { data: tokenData } = await supabase.rpc("get_cast_access_tokens");
+    const tokenMap: Record<string, string> = {};
+    (tokenData || []).forEach((t: any) => { tokenMap[t.cast_id] = t.access_token; });
+    const merged = (casts || []).map((c: any) => ({ ...c, access_token: tokenMap[c.id] || null }));
+    setTherapists(merged);
+    if (selected) {
+      const updated = merged.find((t) => t.id === selected.id);
+      if (updated) setSelected(updated);
     }
+    setLoading(false);
+  };
+
+  const handleGenerateToken = async () => {
+    if (!selected) return;
+    setGenerating(true);
+    const token = crypto.randomUUID();
+    const { error } = await supabase.rpc("set_cast_access_token", {
+      p_cast_id: selected.id,
+      p_token: token,
+    });
+    setGenerating(false);
+    if (error) { toast.error("パスコードの発行に失敗しました"); return; }
+    toast.success("パスコードを発行しました");
+    await fetchTherapists();
+  };
+
+  const portalLink = (token: string) => `${window.location.origin}/therapist/${token}`;
+
+  const copyLink = (token: string) => {
+    navigator.clipboard.writeText(portalLink(token));
+    toast.success("リンクをコピーしました");
   };
 
   const filtered = therapists.filter((t) => t.name?.includes(searchQuery));
@@ -61,60 +81,120 @@ export default function TherapistMyPage() {
         <div className="max-w-6xl mx-auto">
           <div className="mb-6">
             <h1 className="text-2xl font-bold">セラピスト マイページ</h1>
-            <p className="text-muted-foreground">各セラピストの情報を確認</p>
+            <p className="text-muted-foreground text-sm">各セラピストのマイページアクセス管理</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Left: therapist list */}
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Search size={16} className="text-muted-foreground" />
-                <Input placeholder="検索..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              <div className="relative mb-3">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="検索..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8"
+                />
               </div>
               {loading ? (
-                <div className="text-center text-muted-foreground py-4">読み込み中...</div>
+                <div className="text-center text-muted-foreground py-4 text-sm">読み込み中...</div>
               ) : (
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {filtered.map((t) => (
                     <button
                       key={t.id}
                       onClick={() => setSelected(t)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between gap-2 ${
                         selected?.id === t.id ? "bg-primary text-primary-foreground" : "hover:bg-muted/50"
                       }`}
                     >
-                      {t.name}
+                      <span className="truncate">{t.name}</span>
+                      {t.access_token && (
+                        <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${selected?.id === t.id ? "bg-primary-foreground/60" : "bg-green-500"}`} />
+                      )}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
+            {/* Right: selected therapist detail */}
             <div className="lg:col-span-3">
               {selected ? (
-                <div>
-                  <h2 className="text-xl font-bold mb-4">{selected.name}</h2>
-                  <Tabs defaultValue="sales">
-                    <TabsList className="mb-4 flex-wrap">
-                      <TabsTrigger value="sales">売上確認</TabsTrigger>
-                      <TabsTrigger value="shift">シフト提出</TabsTrigger>
-                      <TabsTrigger value="post">ポスト</TabsTrigger>
-                      <TabsTrigger value="reservation">予約登録</TabsTrigger>
-                      <TabsTrigger value="customers">顧客管理</TabsTrigger>
-                      <TabsTrigger value="analytics">分析情報</TabsTrigger>
-                      <TabsTrigger value="panel">パネル</TabsTrigger>
-                      <TabsTrigger value="points">ポイント確認</TabsTrigger>
-                    </TabsList>
+                <div className="space-y-4">
+                  <h2 className="text-xl font-bold">{selected.name}</h2>
 
-                    {["sales", "shift", "post", "reservation", "customers", "analytics", "panel", "points"].map((tab) => (
-                      <TabsContent key={tab} value={tab}>
-                        <Card>
-                          <CardContent className="pt-8 pb-8 text-center text-muted-foreground">
-                            {selected.name} の{tab === "sales" ? "売上確認" : tab === "shift" ? "シフト提出" : tab === "post" ? "ポスト" : tab === "reservation" ? "予約登録" : tab === "customers" ? "顧客管理" : tab === "analytics" ? "分析情報" : tab === "panel" ? "パネル" : "ポイント確認"}
-                          </CardContent>
-                        </Card>
-                      </TabsContent>
-                    ))}
-                  </Tabs>
+                  {/* Passcode / Access Link */}
+                  <Card className="border-primary/30">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <KeyRound size={16} className="text-primary" />
+                        マイページアクセス
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {selected.access_token ? (
+                        <>
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">アクセスリンク</p>
+                            <div className="flex items-center gap-2">
+                              <code className="flex-1 bg-muted px-3 py-2 rounded text-xs font-mono truncate">
+                                {portalLink(selected.access_token)}
+                              </code>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => copyLink(selected.access_token!)}
+                                className="shrink-0"
+                              >
+                                <Copy size={13} className="mr-1" />コピー
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(portalLink(selected.access_token!), "_blank")}
+                                className="shrink-0"
+                              >
+                                <ExternalLink size={13} />
+                              </Button>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">パスコード（トークン）</p>
+                            <code className="block bg-muted px-3 py-2 rounded text-xs font-mono text-muted-foreground">
+                              {selected.access_token}
+                            </code>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleGenerateToken}
+                            disabled={generating}
+                          >
+                            <RefreshCw size={13} className="mr-1.5" />
+                            {generating ? "発行中..." : "パスコードを再発行する"}
+                          </Button>
+                        </>
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className="text-sm text-muted-foreground mb-4">
+                            まだパスコードが発行されていません
+                          </p>
+                          <Button onClick={handleGenerateToken} disabled={generating}>
+                            <KeyRound size={14} className="mr-2" />
+                            {generating ? "発行中..." : "パスコードを発行する"}
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Placeholder for future tabs */}
+                  <Card>
+                    <CardContent className="py-6 text-center text-sm text-muted-foreground">
+                      マイページの追加機能は今後実装予定です
+                    </CardContent>
+                  </Card>
                 </div>
               ) : (
                 <Card>
