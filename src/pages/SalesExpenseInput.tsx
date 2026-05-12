@@ -5,18 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { Trash2 } from "lucide-react";
 
 interface Expense {
   id: string;
@@ -27,254 +24,249 @@ interface Expense {
   payment_method: string;
 }
 
+const FIXED_CATEGORIES: Record<string, string> = {
+  rent: "賃貸料",
+  utilities: "光熱費",
+  wifi_tel: "Wi-Fi・通信費",
+  maintenance: "保守費・定期契約",
+};
+
+const VARIABLE_CATEGORIES: Record<string, string> = {
+  consumption: "消耗品",
+  supplies: "備品",
+  advertising: "広告費",
+  transport: "交通費",
+  other: "その他",
+};
+
+const ALL_CATEGORIES = { ...FIXED_CATEGORIES, ...VARIABLE_CATEGORIES };
+const FIXED_KEYS = new Set(Object.keys(FIXED_CATEGORIES));
+
+function isFixed(category: string) {
+  return FIXED_KEYS.has(category);
+}
+
+const emptyForm = (category: string) => ({
+  date: format(new Date(), "yyyy-MM-dd"),
+  category,
+  amount: 0,
+  description: "",
+  payment_method: "cash",
+});
+
+function ExpenseForm({
+  categories,
+  defaultCategory,
+  onSaved,
+}: {
+  categories: Record<string, string>;
+  defaultCategory: string;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState(emptyForm(defaultCategory));
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.amount || form.amount <= 0) {
+      toast.error("金額を入力してください");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("sales_expenses").insert([{
+      date: form.date,
+      category: form.category,
+      amount: form.amount,
+      description: form.description,
+      payment_method: form.payment_method,
+    }]);
+    setSaving(false);
+    if (error) { toast.error(`保存失敗: ${error.message}`); return; }
+    toast.success("経費を追加しました");
+    setForm(emptyForm(defaultCategory));
+    onSaved();
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label>日付</Label>
+        <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+      </div>
+      <div>
+        <Label>カテゴリー</Label>
+        <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Object.entries(categories).map(([k, v]) => (
+              <SelectItem key={k} value={k}>{v}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label>金額</Label>
+        <Input type="number" min="0" step="100" value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} />
+      </div>
+      <div>
+        <Label>支払方法</Label>
+        <Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="cash">現金</SelectItem>
+            <SelectItem value="card">クレジットカード</SelectItem>
+            <SelectItem value="bank_transfer">銀行振込</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label>説明</Label>
+        <Input placeholder="例: 7月分家賃" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+      </div>
+      <Button type="submit" className="w-full" disabled={saving}>
+        {saving ? "保存中..." : "追加"}
+      </Button>
+    </form>
+  );
+}
+
+function ExpenseList({
+  expenses,
+  loading,
+  onDelete,
+}: {
+  expenses: Expense[];
+  loading: boolean;
+  onDelete: (id: string) => void;
+}) {
+  const total = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-3">
+        <span className="text-sm text-muted-foreground">{expenses.length}件</span>
+        <span className="font-bold text-lg">合計 ¥{total.toLocaleString()}</span>
+      </div>
+      {loading ? (
+        <div className="text-center text-muted-foreground py-8">読み込み中...</div>
+      ) : expenses.length === 0 ? (
+        <div className="text-center text-muted-foreground py-8">データなし</div>
+      ) : (
+        <div className="space-y-2 max-h-[480px] overflow-y-auto">
+          {expenses.map((e) => (
+            <div key={e.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors">
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm truncate">{e.description || ALL_CATEGORIES[e.category] || e.category}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {format(new Date(e.date), "yyyy/MM/dd", { locale: ja })}
+                  {" · "}{ALL_CATEGORIES[e.category] || e.category}
+                  {" · "}{e.payment_method === "cash" ? "現金" : e.payment_method === "card" ? "カード" : "振込"}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 ml-3">
+                <span className="font-bold">¥{(e.amount || 0).toLocaleString()}</span>
+                <button
+                  onClick={() => onDelete(e.id)}
+                  className="text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SalesExpenseInput() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({
-    date: format(new Date(), "yyyy-MM-dd"),
-    category: "consumption",
-    amount: 0,
-    description: "",
-    payment_method: "cash",
-  });
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/login");
-    }
+    if (!authLoading && !user) navigate("/login");
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (user) {
-      fetchExpenses();
-    }
+    if (user) fetchExpenses();
   }, [user]);
 
   const fetchExpenses = async () => {
     setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("sales_expenses")
-        .select("*")
-        .order("date", { ascending: false })
-        .limit(30);
-
-      if (error && error.code !== "PGRST116") throw error;
-      setExpenses(data || []);
-    } catch (error) {
-      console.error("Error fetching expenses:", error);
-    } finally {
-      setLoading(false);
-    }
+    const { data, error } = await supabase
+      .from("sales_expenses")
+      .select("*")
+      .order("date", { ascending: false })
+      .limit(200);
+    if (!error) setExpenses(data || []);
+    setLoading(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const { error } = await supabase
-        .from("sales_expenses")
-        .insert([
-          {
-            date: formData.date,
-            category: formData.category,
-            amount: formData.amount,
-            description: formData.description,
-            payment_method: formData.payment_method,
-          },
-        ]);
-
-      if (error) throw error;
-      setFormData({
-        date: format(new Date(), "yyyy-MM-dd"),
-        category: "consumption",
-        amount: 0,
-        description: "",
-        payment_method: "cash",
-      });
-      fetchExpenses();
-    } catch (error) {
-      console.error("Error adding expense:", error);
-    }
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("sales_expenses").delete().eq("id", id);
+    if (error) { toast.error("削除失敗"); return; }
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
+    toast.success("削除しました");
   };
 
-  const totalExpense = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-  const categoryTotals = expenses.reduce((acc, e) => {
-    acc[e.category] = (acc[e.category] || 0) + (e.amount || 0);
-    return acc;
-  }, {} as Record<string, number>);
+  const fixed = expenses.filter((e) => isFixed(e.category));
+  const variable = expenses.filter((e) => !isFixed(e.category));
 
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
       <main className="pt-[60px] md:ml-[240px] p-6">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <div className="mb-6">
             <h1 className="text-2xl font-bold">経費入力</h1>
-            <p className="text-muted-foreground">
-              営業経費の記録・管理
-            </p>
+            <p className="text-muted-foreground text-sm">固定費・変動費の記録・管理</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  合計経費
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  ¥{totalExpense.toLocaleString()}
-                </div>
-              </CardContent>
-            </Card>
-            {Object.entries(categoryTotals).map(([category, amount]) => (
-              <Card key={category}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium capitalize">
-                    {category}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-lg font-bold">
-                    ¥{amount.toLocaleString()}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Tabs defaultValue="fixed">
+            <TabsList className="mb-6">
+              <TabsTrigger value="fixed">固定費</TabsTrigger>
+              <TabsTrigger value="variable">変動費</TabsTrigger>
+            </TabsList>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>経費を追加</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <Label htmlFor="date">日付</Label>
-                    <Input
-                      id="date"
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) =>
-                        setFormData({ ...formData, date: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="category">カテゴリー</Label>
-                    <Select value={formData.category} onValueChange={(value) =>
-                      setFormData({ ...formData, category: value })
-                    }>
-                      <SelectTrigger id="category">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="consumption">消耗品</SelectItem>
-                        <SelectItem value="utilities">光熱費</SelectItem>
-                        <SelectItem value="rent">賃貸料</SelectItem>
-                        <SelectItem value="supplies">備品</SelectItem>
-                        <SelectItem value="maintenance">保守費</SelectItem>
-                        <SelectItem value="other">その他</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="amount">金額</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      min="0"
-                      step="100"
-                      value={formData.amount}
-                      onChange={(e) =>
-                        setFormData({ ...formData, amount: Number(e.target.value) })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="payment">支払い方法</Label>
-                    <Select value={formData.payment_method} onValueChange={(value) =>
-                      setFormData({ ...formData, payment_method: value })
-                    }>
-                      <SelectTrigger id="payment">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cash">現金</SelectItem>
-                        <SelectItem value="card">クレジットカード</SelectItem>
-                        <SelectItem value="bank_transfer">銀行振込</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="description">説明</Label>
-                    <Input
-                      id="description"
-                      type="text"
-                      placeholder="例: 清掃用品の購入"
-                      value={formData.description}
-                      onChange={(e) =>
-                        setFormData({ ...formData, description: e.target.value })
-                      }
-                    />
-                  </div>
-                  <Button type="submit" className="w-full">
-                    追加
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+            <TabsContent value="fixed">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card>
+                  <CardHeader><CardTitle className="text-base">固定費を追加</CardTitle></CardHeader>
+                  <CardContent>
+                    <ExpenseForm categories={FIXED_CATEGORIES} defaultCategory="rent" onSaved={fetchExpenses} />
+                  </CardContent>
+                </Card>
+                <Card className="lg:col-span-2">
+                  <CardHeader><CardTitle className="text-base">固定費一覧</CardTitle></CardHeader>
+                  <CardContent>
+                    <ExpenseList expenses={fixed} loading={loading} onDelete={handleDelete} />
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
 
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>最近の経費</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="text-center text-muted-foreground">
-                    読み込み中...
-                  </div>
-                ) : expenses.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-8">
-                    経費がありません
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {expenses.map((expense) => (
-                      <div
-                        key={expense.id}
-                        className="p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="font-semibold text-sm">
-                              {expense.description || expense.category}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {format(new Date(expense.date), "yyyy/MM/dd", { locale: ja })} • {expense.payment_method}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold">
-                              ¥{(expense.amount || 0).toLocaleString()}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+            <TabsContent value="variable">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card>
+                  <CardHeader><CardTitle className="text-base">変動費を追加</CardTitle></CardHeader>
+                  <CardContent>
+                    <ExpenseForm categories={VARIABLE_CATEGORIES} defaultCategory="consumption" onSaved={fetchExpenses} />
+                  </CardContent>
+                </Card>
+                <Card className="lg:col-span-2">
+                  <CardHeader><CardTitle className="text-base">変動費一覧</CardTitle></CardHeader>
+                  <CardContent>
+                    <ExpenseList expenses={variable} loading={loading} onDelete={handleDelete} />
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>

@@ -69,6 +69,7 @@ import TherapistMyPage from "./pages/TherapistMyPage";
 import CustomerDatabase from "./pages/CustomerDatabase";
 import FacilitiesRooms from "./pages/FacilitiesRooms";
 import FacilitiesContracts from "./pages/FacilitiesContracts";
+import FacilitiesContractDetail from "./pages/FacilitiesContractDetail";
 import FacilitiesEquipment from "./pages/FacilitiesEquipment";
 import CastImport from "./pages/CastImport";
 import ReservationImport from "./pages/ReservationImport";
@@ -151,6 +152,7 @@ const App = () => (
           <Route path="/database/customers" element={<CustomerDatabase />} />
           <Route path="/facilities/rooms" element={<FacilitiesRooms />} />
           <Route path="/facilities/contracts" element={<FacilitiesContracts />} />
+          <Route path="/facilities/contracts/:id" element={<FacilitiesContractDetail />} />
           <Route path="/facilities/equipment" element={<FacilitiesEquipment />} />
           <Route path="/admin/import-casts" element={<CastImport />} />
           <Route path="/admin/import-reservations" element={<ReservationImport />} />

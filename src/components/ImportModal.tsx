@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, Loader2, CheckCircle, AlertCircle, FileText } from "lucide-react";
+import { Upload, Loader2, CheckCircle, AlertCircle, FileText, RefreshCw } from "lucide-react";
 
 // ─── CSV parse ───────────────────────────────────────────────
 function parseCSVText(text: string): string[][] {
@@ -166,9 +166,10 @@ export function ImportModal({ open, onClose, type, onSuccess }: ImportModalProps
   const [done, setDone] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [castMap, setCastMap] = useState<Map<string, string>>(new Map());
+  const [overwrite, setOverwrite] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const reset = () => { setFileName(""); setParsed([]); setProgress(0); setDone(false); setErrorMsg(""); };
+  const reset = () => { setFileName(""); setParsed([]); setProgress(0); setDone(false); setErrorMsg(""); setOverwrite(false); };
 
   const handleOpen = async (isOpen: boolean) => {
     if (!isOpen) { onClose(); reset(); return; }
@@ -198,6 +199,13 @@ export function ImportModal({ open, onClose, type, onSuccess }: ImportModalProps
     setImporting(true);
     setErrorMsg("");
     try {
+      if (type === "reservations" && overwrite) {
+        const dates = [...new Set(parsed.map((r: any) => r.reservation_date))];
+        for (const date of dates) {
+          const { error } = await supabase.from("reservations").delete().eq("reservation_date", date);
+          if (error) throw new Error(`削除失敗 (${date}): ${error.message}`);
+        }
+      }
       const count = await batchInsert(type, parsed, setProgress);
       toast.success(`${count}件をインポートしました`);
       setDone(true);
@@ -278,6 +286,21 @@ export function ImportModal({ open, onClose, type, onSuccess }: ImportModalProps
               </div>
             )}
 
+            {type === "reservations" && !done && (
+              <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
+                <input
+                  type="checkbox"
+                  checked={overwrite}
+                  onChange={(e) => setOverwrite(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <RefreshCw size={14} className={overwrite ? "text-orange-500" : "text-muted-foreground"} />
+                <span className={overwrite ? "text-orange-700 font-medium" : "text-muted-foreground"}>
+                  同日の既存データを削除して上書き
+                </span>
+              </label>
+            )}
+
             {done ? (
               <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <CheckCircle size={18} className="text-green-600" />
@@ -287,7 +310,7 @@ export function ImportModal({ open, onClose, type, onSuccess }: ImportModalProps
               <Button className="w-full" size="lg" onClick={handleImport} disabled={importing}>
                 {importing
                   ? <><Loader2 size={15} className="mr-2 animate-spin" />インポート中... ({progress}/{parsed.length})</>
-                  : `${parsed.length}件をインポートする`}
+                  : overwrite ? <><RefreshCw size={15} className="mr-2" />{parsed.length}件を上書きインポートする</> : `${parsed.length}件をインポートする`}
               </Button>
             )}
           </div>
