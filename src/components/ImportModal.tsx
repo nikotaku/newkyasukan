@@ -113,7 +113,7 @@ function parseReservationCSV(text: string, castMap: Map<string, string>) {
         notes: noteParts.join(" / ") || null,
       };
     })
-    .filter((r) => r && r.cast_id) as any[];
+    .filter((r) => r !== null) as any[];
 }
 
 // ─── Generic insert with batching ────────────────────────────
