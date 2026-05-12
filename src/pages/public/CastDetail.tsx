@@ -1,17 +1,23 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Star, Calendar, ArrowLeft, Phone } from "lucide-react";
-import caskanLogo from "@/assets/caskan-logo.png";
+import { PublicNavigation } from "@/components/public/PublicNavigation";
+import { PublicFooter } from "@/components/public/PublicFooter";
+import { FixedBottomBar } from "@/components/public/FixedBottomBar";
+import { ChatBot } from "@/components/ChatBot";
+import { ArrowLeft, Phone, Calendar } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import { driveImgUrl } from "@/lib/drive";
 
 interface Cast {
   id: string;
   name: string;
+  age: number | null;
+  height: number | null;
+  bust: number | null;
+  cup_size: string | null;
+  waist: number | null;
+  hip: number | null;
   type: string;
   status: string;
   photo: string | null;
@@ -19,9 +25,16 @@ interface Cast {
   profile: string | null;
   room: string | null;
   x_account: string | null;
+  tags: string[] | null;
   execution_date_start: string | null;
   execution_date_end: string | null;
 }
+
+const STATUS_LABEL: Record<string, { text: string; color: string }> = {
+  working: { text: "接客中", color: "#ef4444" },
+  waiting: { text: "待機中", color: "#22c55e" },
+  offline: { text: "退勤", color: "#9ca3af" },
+};
 
 const CastDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -32,306 +45,228 @@ const CastDetail = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   useEffect(() => {
-    if (id) {
-      fetchCastDetail();
-    }
+    if (id) fetchCastDetail();
   }, [id]);
 
   useEffect(() => {
     if (!emblaApi) return;
-
-    const onSelect = () => {
-      setSelectedIndex(emblaApi.selectedScrollSnap());
-    };
-
+    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
     emblaApi.on("select", onSelect);
     onSelect();
-
-    return () => {
-      emblaApi.off("select", onSelect);
-    };
+    return () => { emblaApi.off("select", onSelect); };
   }, [emblaApi]);
 
   const fetchCastDetail = async () => {
     try {
-      const { data, error } = await supabase
-        .from("casts")
-        .select("*")
-        .eq("id", id)
-        .single();
-
+      const { data, error } = await supabase.from("casts").select("*").eq("id", id).single();
       if (error) throw error;
       setCast(data);
-    } catch (error) {
-      console.error("Error fetching cast detail:", error);
+      document.title = `${data.name} | 全力エステ`;
+    } catch {
       navigate("/casts");
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "working":
-        return "bg-green-500";
-      case "waiting":
-        return "bg-yellow-500";
-      case "offline":
-        return "bg-gray-500";
-      default:
-        return "bg-gray-500";
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "working":
-        return "接客中";
-      case "waiting":
-        return "待機中";
-      case "offline":
-        return "退勤";
-      default:
-        return status;
-    }
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">読み込み中...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#f5e8e4" }}>
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#d4a574]" />
       </div>
     );
   }
 
-  if (!cast) {
-    return null;
-  }
+  if (!cast) return null;
 
-  const allPhotos = [
-    ...(cast.photo ? [cast.photo] : []),
-    ...(cast.photos || [])
-  ].filter(Boolean);
-
-  const scrollToImage = (index: number) => {
-    if (emblaApi) {
-      emblaApi.scrollTo(index);
-    }
-  };
+  const allPhotos = [...(cast.photo ? [cast.photo] : []), ...(cast.photos || [])].filter(Boolean);
+  const status = STATUS_LABEL[cast.status] ?? { text: cast.status, color: "#9ca3af" };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#f5e8e4" }}>
-      {/* Top Contact Bar */}
-      <div className="bg-[#d4b5a8] text-white py-2 px-4 flex justify-between items-center text-sm">
-        <div className="container mx-auto flex justify-center items-center">
-          <span>12:00〜26:00(24:40最終受付)</span>
-        </div>
-      </div>
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f5e8e4" }}>
+      <PublicNavigation />
 
-      {/* Logo */}
-      <div className="bg-white py-6">
-        <div className="container mx-auto text-center">
-          <Link to="/">
-            <img src={caskanLogo} alt="全力エステ" className="h-24 md:h-32 mx-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
-          </Link>
-        </div>
-      </div>
+      <main className="container py-6 px-4">
+        <div className="max-w-3xl mx-auto">
 
-      {/* Navigation Menu */}
-      <nav className="bg-white border-y border-[#e5d5cc] sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto">
-          <div className="flex justify-center items-center flex-wrap">
-            <Link to="/" className="px-8 py-4 hover:bg-[#f5e8e4] transition-colors border-b-2 border-transparent hover:border-[#d4a574]">
-              <div className="text-[#8b7355] font-semibold text-sm">TOP</div>
-              <div className="text-xs text-[#a89586]">トップ</div>
-            </Link>
-            <Link to="/schedule" className="px-8 py-4 hover:bg-[#f5e8e4] transition-colors border-b-2 border-transparent hover:border-[#d4a574]">
-              <div className="text-[#8b7355] font-semibold text-sm">SCHEDULE</div>
-              <div className="text-xs text-[#a89586]">出勤情報</div>
-            </Link>
-            <Link to="/casts" className="px-8 py-4 bg-[#f5e8e4] transition-colors border-b-2 border-[#d4a574]">
-              <div className="text-[#8b7355] font-semibold text-sm">THERAPIST</div>
-              <div className="text-xs text-[#a89586]">セラピスト</div>
-            </Link>
-            <Link to="/system" className="px-8 py-4 hover:bg-[#f5e8e4] transition-colors border-b-2 border-transparent hover:border-[#d4a574]">
-              <div className="text-[#8b7355] font-semibold text-sm">SYSTEM</div>
-              <div className="text-xs text-[#a89586]">システム</div>
-            </Link>
-            <Link to="/booking" className="px-8 py-4 hover:bg-[#f5e8e4] transition-colors border-b-2 border-transparent hover:border-[#d4a574]">
-              <div className="text-[#8b7355] font-semibold text-sm">BOOKING</div>
-              <div className="text-xs text-[#a89586]">WEB予約</div>
+          {/* Back link */}
+          <button
+            onClick={() => navigate("/casts")}
+            className="flex items-center gap-1 text-sm mb-4 hover:underline"
+            style={{ color: "#8b7355" }}
+          >
+            <ArrowLeft size={14} />
+            セラピスト一覧に戻る
+          </button>
+
+          <div className="bg-white rounded-lg overflow-hidden shadow-md">
+            {/* Photo carousel */}
+            <div className="relative bg-black">
+              {allPhotos.length > 0 ? (
+                <>
+                  <div className="overflow-hidden" ref={emblaRef}>
+                    <div className="flex">
+                      {allPhotos.map((photo, i) => (
+                        <div key={i} className="flex-[0_0_100%] min-w-0">
+                          <img
+                            src={driveImgUrl(photo, 1200)}
+                            alt={`${cast.name} ${i + 1}`}
+                            className="w-full object-cover"
+                            style={{ maxHeight: "520px", objectPosition: "top" }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Dots */}
+                  {allPhotos.length > 1 && (
+                    <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+                      {allPhotos.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => emblaApi?.scrollTo(i)}
+                          className="w-1.5 h-1.5 rounded-full transition-all"
+                          style={{ background: i === selectedIndex ? "#fff" : "rgba(255,255,255,0.4)" }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="w-full h-72 flex items-center justify-center" style={{ background: "linear-gradient(135deg, #d4b5a8, #c5a89b)" }}>
+                  <span className="text-7xl font-bold text-white/60">{cast.name.charAt(0)}</span>
+                </div>
+              )}
+
+              {/* Tags */}
+              {cast.tags && cast.tags.length > 0 && (
+                <div className="absolute top-3 left-3 flex flex-col gap-1">
+                  {cast.tags.map((tag, i) => (
+                    <span
+                      key={i}
+                      className="text-white text-xs font-bold px-2 py-0.5 rounded shadow"
+                      style={{ background: tag === "人気セラピスト" ? "#ef4444" : tag === "新人" ? "#ec4899" : "#3b82f6" }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Thumbnail strip */}
+            {allPhotos.length > 1 && (
+              <div className="flex gap-1.5 px-3 py-2 overflow-x-auto bg-[#f9f4f2]">
+                {allPhotos.map((photo, i) => (
+                  <button
+                    key={i}
+                    onClick={() => emblaApi?.scrollTo(i)}
+                    className="flex-shrink-0 rounded overflow-hidden border-2 transition-all"
+                    style={{
+                      width: 52, height: 52,
+                      borderColor: i === selectedIndex ? "#d4a574" : "transparent",
+                      opacity: i === selectedIndex ? 1 : 0.55,
+                    }}
+                  >
+                    <img src={driveImgUrl(photo, 400)} alt="" className="w-full h-full object-cover object-top" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Name & status */}
+            <div className="px-5 pt-5 pb-3 border-b border-[#f0e4df]">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <h1 className="text-2xl font-bold" style={{ color: "#5c3d2e" }}>{cast.name}</h1>
+                  {cast.age && <p className="text-sm mt-0.5" style={{ color: "#a89586" }}>{cast.age}歳</p>}
+                </div>
+                <span
+                  className="text-sm font-bold px-4 py-1.5 rounded-full text-white"
+                  style={{ background: status.color }}
+                >
+                  {status.text}
+                </span>
+              </div>
+            </div>
+
+            {/* Stats grid */}
+            {(cast.height || cast.bust || cast.waist || cast.hip) && (
+              <div className="grid grid-cols-4 divide-x divide-[#f0e4df] border-b border-[#f0e4df]">
+                {[
+                  { label: "身長", value: cast.height ? `${cast.height}cm` : "―" },
+                  { label: "バスト", value: cast.bust ? `${cast.bust}(${cast.cup_size ?? ""})` : "―" },
+                  { label: "ウエスト", value: cast.waist ? `${cast.waist}` : "―" },
+                  { label: "ヒップ", value: cast.hip ? `${cast.hip}` : "―" },
+                ].map(({ label, value }) => (
+                  <div key={label} className="py-3 text-center">
+                    <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>{label}</p>
+                    <p className="text-sm font-bold" style={{ color: "#5c3d2e" }}>{value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Profile text */}
+            {cast.profile && (
+              <div className="px-5 py-4 border-b border-[#f0e4df]">
+                <h3 className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#b8a49a" }}>PROFILE</h3>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#5c3d2e" }}>
+                  {cast.profile}
+                </p>
+              </div>
+            )}
+
+            {/* X account */}
+            {cast.x_account && (
+              <div className="px-5 py-3 border-b border-[#f0e4df] flex items-center gap-3">
+                <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-5 h-5" />
+                <a
+                  href={cast.x_account.startsWith("http") ? cast.x_account : `https://twitter.com/${cast.x_account}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm hover:underline"
+                  style={{ color: "#d4a574" }}
+                >
+                  {cast.x_account}
+                </a>
+              </div>
+            )}
+
+            {/* CTA buttons */}
+            <div className="px-5 py-5 flex flex-col gap-3">
+              <a
+                href="tel:080-3192-1209"
+                className="flex items-center justify-center gap-2 py-3.5 rounded-lg text-white font-bold text-base transition-opacity hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, #d4a574, #c5956a)" }}
+              >
+                <Phone size={17} />
+                電話で予約する
+              </a>
+              <Link
+                to="/schedule"
+                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[#f5e8e4]"
+                style={{ borderColor: "#d4b5a8", color: "#8b7355" }}
+              >
+                <Calendar size={15} />
+                出勤スケジュールを見る
+              </Link>
+            </div>
+          </div>
+
+          {/* Back to list */}
+          <div className="text-center mt-6 mb-2">
+            <Link to="/casts" className="text-sm hover:underline" style={{ color: "#a89586" }}>
+              ← セラピスト一覧に戻る
             </Link>
           </div>
-        </div>
-      </nav>
-
-      <main className="container py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/casts")}
-            className="mb-6"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            セラピスト一覧に戻る
-          </Button>
-
-          <Card className="overflow-hidden">
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Photo Gallery */}
-              <div className="relative">
-                {allPhotos.length > 0 ? (
-                  <div className="space-y-4">
-                    {/* メインカルーセル */}
-                    <div className="overflow-hidden relative" ref={emblaRef}>
-                      <div className="flex">
-                        {allPhotos.map((photo, index) => (
-                          <div key={index} className="flex-[0_0_100%] min-w-0">
-                            <img
-                              src={driveImgUrl(photo, 1200)}
-                              alt={`${cast.name} - ${index + 1}`}
-                              className="w-full h-[500px] object-cover"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      <Badge
-                        className={`absolute top-4 right-4 ${getStatusColor(cast.status)} text-white text-lg px-4 py-2`}
-                      >
-                        {getStatusText(cast.status)}
-                      </Badge>
-                    </div>
-
-                    {/* サムネイル一覧 */}
-                    {allPhotos.length > 1 && (
-                      <div className="flex gap-2 overflow-x-auto px-2 pb-2">
-                        {allPhotos.map((photo, index) => (
-                          <button
-                            key={index}
-                            onClick={() => scrollToImage(index)}
-                            className={`flex-shrink-0 w-20 h-20 rounded-md overflow-hidden border-2 transition-all ${
-                              selectedIndex === index
-                                ? "border-primary scale-105"
-                                : "border-border opacity-60 hover:opacity-100"
-                            }`}
-                          >
-                            <img
-                              src={driveImgUrl(photo, 400)}
-                              alt={`サムネイル ${index + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="w-full h-full min-h-[400px] bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                    <span className="text-6xl text-muted-foreground">
-                      {cast.name.charAt(0)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Info */}
-              <CardContent className="p-6">
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex items-center gap-4 mb-2">
-                      <h1 className="text-3xl font-bold">{cast.name}</h1>
-                      <Badge variant="outline" className="text-base">
-                        {cast.room || cast.type}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {(cast.execution_date_start || cast.execution_date_end) && (
-                    <div>
-                      <h3 className="font-bold mb-2">実行期間</h3>
-                      <p className="text-muted-foreground">
-                        {cast.execution_date_start && new Date(cast.execution_date_start).toLocaleDateString('ja-JP')}
-                        {cast.execution_date_end && ` → ${new Date(cast.execution_date_end).toLocaleDateString('ja-JP')}`}
-                      </p>
-                    </div>
-                  )}
-
-                  {cast.x_account && (
-                    <div>
-                      <h3 className="font-bold mb-2">Xアカウント</h3>
-                      <a 
-                        href={cast.x_account} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline"
-                      >
-                        {cast.x_account}
-                      </a>
-                    </div>
-                  )}
-
-                  {cast.profile && (
-                    <div>
-                      <h3 className="font-bold mb-2">プロフィール</h3>
-                      <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                        {cast.profile}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="space-y-3 pt-4">
-                    <Button asChild className="w-full" size="lg">
-                      <a href="tel:080-3192-1209">
-                        <Phone className="mr-2 h-5 w-5" />
-                        電話で予約する
-                      </a>
-                    </Button>
-                    <Button asChild variant="outline" className="w-full" size="lg">
-                      <Link to="/schedule">
-                        <Calendar className="mr-2 h-5 w-5" />
-                        スケジュールを見る
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </div>
-          </Card>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="py-16 px-4 text-white" style={{ background: "linear-gradient(180deg, #d4b5a8 0%, #c5a89b 100%)" }}>
-        <div className="container max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-10">
-            <div>
-              <h4 className="font-bold mb-4 text-lg">営業時間</h4>
-              <p className="text-white/95">12:00〜26:00</p>
-              <p className="text-sm text-white/80">(24:40最終受付)</p>
-            </div>
-            <div>
-              <h4 className="font-bold mb-4 text-lg">メニュー</h4>
-              <div className="flex flex-col gap-3 text-sm">
-                <Link to="/casts" className="text-white/85 hover:text-[#d4a574] transition-colors">
-                  セラピスト
-                </Link>
-                <Link to="/schedule" className="text-white/85 hover:text-[#d4a574] transition-colors">
-                  出勤情報
-                </Link>
-                <Link to="/system" className="text-white/85 hover:text-[#d4a574] transition-colors">
-                  システム
-                </Link>
-              </div>
-            </div>
-          </div>
-          <div className="text-center text-sm text-white/70 pt-10 border-t border-white/20">
-            © 2025 全力エステ ZR. All rights reserved.
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
+      <FixedBottomBar />
+      <ChatBot />
     </div>
   );
 };
