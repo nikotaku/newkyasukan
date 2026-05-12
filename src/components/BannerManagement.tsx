@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Image as ImageIcon, Trash2, Upload, GripVertical, Plus } from "lucide-react";
+import { driveImgUrl } from "@/lib/drive";
+import { Image as ImageIcon, Trash2, GripVertical, Plus } from "lucide-react";
 
 interface Banner {
   id: string;
@@ -20,9 +21,7 @@ interface Banner {
 export function BannerManagement() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
   const [newBanner, setNewBanner] = useState({ title: "", image_url: "", link_url: "" });
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const dragId = useRef<string | null>(null);
   const { toast } = useToast();
 
@@ -39,34 +38,9 @@ export function BannerManagement() {
     setLoading(false);
   };
 
-  const uploadFile = async (file: File): Promise<string | null> => {
-    setUploading(true);
-    try {
-      const ext = file.name.split(".").pop();
-      const path = `${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from("banners").upload(path, file);
-      if (error) throw error;
-      const { data } = supabase.storage.from("banners").getPublicUrl(path);
-      return data.publicUrl;
-    } catch (e) {
-      toast({ title: "アップロード失敗", variant: "destructive" });
-      return null;
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = await uploadFile(file);
-    if (url) setNewBanner({ ...newBanner, image_url: url });
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
   const handleAdd = async () => {
     if (!newBanner.image_url) {
-      toast({ title: "画像をアップロードしてください", variant: "destructive" });
+      toast({ title: "GoogleドライブのURLを入力してください", variant: "destructive" });
       return;
     }
     const maxOrder = banners.reduce((m, b) => Math.max(m, b.display_order), 0);
@@ -154,33 +128,19 @@ export function BannerManagement() {
             </div>
           </div>
           <div>
-            <Label className="text-xs">画像</Label>
-            <div className="flex items-center gap-3">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileSelect}
-                className="hidden"
+            <Label className="text-xs">画像（GoogleドライブURL）</Label>
+            <Input
+              value={newBanner.image_url}
+              onChange={(e) => setNewBanner({ ...newBanner, image_url: e.target.value })}
+              placeholder="https://drive.google.com/file/d/... またはファイルID"
+            />
+            {newBanner.image_url && (
+              <img
+                src={driveImgUrl(newBanner.image_url)}
+                alt="preview"
+                className="mt-2 h-12 w-24 object-cover rounded border"
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                {uploading ? "アップロード中..." : "画像を選択"}
-              </Button>
-              {newBanner.image_url && (
-                <img
-                  src={newBanner.image_url}
-                  alt="preview"
-                  className="h-12 w-24 object-cover rounded border"
-                />
-              )}
-            </div>
+            )}
           </div>
           <Button onClick={handleAdd} size="sm" disabled={!newBanner.image_url}>
             <Plus className="h-4 w-4 mr-1" /> 追加
@@ -207,7 +167,7 @@ export function BannerManagement() {
               >
                 <GripVertical className="h-5 w-5 text-muted-foreground cursor-move flex-shrink-0" />
                 <img
-                  src={b.image_url}
+                  src={driveImgUrl(b.image_url)}
                   alt={b.title || "banner"}
                   className="h-14 w-28 object-cover rounded border flex-shrink-0"
                 />
@@ -233,6 +193,17 @@ export function BannerManagement() {
                       )
                     }
                     onBlur={(e) => handleUpdate(b.id, { link_url: e.target.value || null })}
+                  />
+                  <Input
+                    value={b.image_url || ""}
+                    placeholder="画像URL（Google Drive）"
+                    className="h-8 text-xs"
+                    onChange={(e) =>
+                      setBanners((prev) =>
+                        prev.map((x) => (x.id === b.id ? { ...x, image_url: e.target.value } : x))
+                      )
+                    }
+                    onBlur={(e) => handleUpdate(b.id, { image_url: e.target.value })}
                   />
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">

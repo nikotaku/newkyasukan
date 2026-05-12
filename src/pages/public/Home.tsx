@@ -10,6 +10,7 @@ import { SectionHeading } from "@/components/public/SectionHeading";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { driveImgUrl } from "@/lib/drive";
 
 interface Cast {
   id: string;
@@ -258,7 +259,7 @@ const Home = () => {
                     <div className="relative">
                       {shift.casts.photo ? (
                         <img
-                          src={shift.casts.photo}
+                          src={driveImgUrl(shift.casts.photo)}
                           alt={shift.casts.name}
                           className="w-full aspect-[3/4] object-cover"
                         />
@@ -455,7 +456,7 @@ const TherapistCard = ({ cast }: { cast: Cast }) => {
         <div className="relative">
           {cast.photo ? (
             <img
-              src={cast.photo}
+              src={driveImgUrl(cast.photo)}
               alt={cast.name}
               className="w-full aspect-[3/4] object-cover"
             />

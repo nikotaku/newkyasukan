@@ -79,7 +79,12 @@ function parseReservationCSV(text: string, castMap: Map<string, string>) {
     if (!m) return null;
     const mo = parseInt(m[1]), d = parseInt(m[2]), h = parseInt(m[3]), mi = parseInt(m[4]);
     const yr = mo >= 10 ? 2025 : 2026;
-    return { date: `${yr}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`, time: `${String(h).padStart(2,"0")}:${String(mi).padStart(2,"0")}` };
+    const dt = new Date(yr, mo - 1, d, h, mi);
+    const dd = dt.getDate(), dm = dt.getMonth() + 1, dy = dt.getFullYear();
+    return {
+      date: `${dy}-${String(dm).padStart(2,"0")}-${String(dd).padStart(2,"0")}`,
+      time: `${String(dt.getHours()).padStart(2,"0")}:${String(dt.getMinutes()).padStart(2,"0")}`,
+    };
   };
   const parseCast = (s: string) => {
     const name = s.trim().split(/\s+/)[0];

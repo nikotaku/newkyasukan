@@ -6,6 +6,7 @@ import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { ChatBot } from "@/components/ChatBot";
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { driveImgUrl } from "@/lib/drive";
 
 interface Banner {
   id: string;
@@ -120,7 +121,7 @@ const Top = () => {
               {slides.map((b) => {
                 const img = (
                   <img
-                    src={b.image_url}
+                    src={driveImgUrl(b.image_url, 1200)}
                     alt={b.title || "全力エステ仙台"}
                     className="w-full h-auto object-cover flex-shrink-0"
                     loading="lazy"
@@ -201,7 +202,7 @@ const Top = () => {
                   <div className="aspect-[3/4] bg-gradient-to-br from-[#f5e8e4] to-[#e5d5cc] overflow-hidden">
                     {cast.photo ? (
                       <img
-                        src={cast.photo}
+                        src={driveImgUrl(cast.photo)}
                         alt={cast.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         loading="lazy"

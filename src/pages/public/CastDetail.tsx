@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Star, Calendar, ArrowLeft, Phone } from "lucide-react";
 import caskanLogo from "@/assets/caskan-logo.png";
 import useEmblaCarousel from "embla-carousel-react";
+import { driveImgUrl } from "@/lib/drive";
 
 interface Cast {
   id: string;
@@ -110,7 +111,6 @@ const CastDetail = () => {
     return null;
   }
 
-  // メイン写真とサブ写真を統合
   const allPhotos = [
     ...(cast.photo ? [cast.photo] : []),
     ...(cast.photos || [])
@@ -191,7 +191,7 @@ const CastDetail = () => {
                         {allPhotos.map((photo, index) => (
                           <div key={index} className="flex-[0_0_100%] min-w-0">
                             <img
-                              src={photo}
+                              src={driveImgUrl(photo, 1200)}
                               alt={`${cast.name} - ${index + 1}`}
                               className="w-full h-[500px] object-cover"
                             />
@@ -219,7 +219,7 @@ const CastDetail = () => {
                             }`}
                           >
                             <img
-                              src={photo}
+                              src={driveImgUrl(photo, 400)}
                               alt={`サムネイル ${index + 1}`}
                               className="w-full h-full object-cover"
                             />
