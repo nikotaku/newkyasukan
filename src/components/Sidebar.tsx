@@ -166,7 +166,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       )}
       <aside
         className={cn(
-          "fixed top-[60px] left-0 h-[calc(100vh-60px)] w-[240px] bg-muted/30 border-r border-border z-50 transition-transform duration-300",
+          "fixed top-[60px] left-0 h-[calc(100vh-60px)] w-[240px] bg-background border-r border-border z-50 transition-transform duration-300",
           "md:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
