@@ -4,7 +4,6 @@ import {
   Calendar,
   Globe,
   BarChart3,
-  Settings,
   LogOut,
   ExternalLink,
   Sparkles,
@@ -65,7 +64,6 @@ const menuItems: MenuItem[] = [
       { href: "/design", label: "ホームページ管理" },
       { href: "/hp/bulletin-board", label: "掲示板" },
       { href: "/hp/article-creation", label: "記事作成" },
-      { href: "/hp/store-info", label: "店舗情報" },
       { href: "/hp/analytics/daily-access", label: "日別アクセス", groupHeader: "アナリティクス" },
       { href: "/hp/analytics/hourly-access", label: "時間別アクセス" },
       { href: "/hp/analytics/average-stay", label: "平均滞在時間" },
@@ -77,10 +75,10 @@ const menuItems: MenuItem[] = [
     icon: TrendingUp,
     children: [
       { href: "/report", label: "レポート", groupHeader: "レポート" },
-      { href: "/sales/customer-info", label: "顧客情報" },
       { href: "/sales/therapist-breakdown", label: "セラピスト別" },
       { href: "/sales/price-analysis", label: "単価" },
-      { href: "/sales/monthly-sales", label: "月別売上", groupHeader: "売上管理" },
+      { href: "/sales/closing", label: "締め作業", groupHeader: "売上管理" },
+      { href: "/sales/monthly-sales", label: "月別売上" },
       { href: "/sales/card-sales", label: "カード売上" },
       { href: "/sales/paypay-sales", label: "PayPay売上" },
       { href: "/sales/advertising-cost", label: "広告費管理" },
@@ -93,14 +91,36 @@ const menuItems: MenuItem[] = [
   {
     label: "システム",
     icon: Cpu,
-    children: [
-      { href: "/system/courses", label: "コース" },
-      { href: "/system/options", label: "オプション" },
-      { href: "/system/discounts", label: "各種割引" },
-      { href: "/system/deductions", label: "控除", groupHeader: "給与" },
-      { href: "/system/allowances", label: "手当" },
-      { href: "/system/sms", label: "SMS", groupHeader: "通知" },
-      { href: "/system/sms-auto", label: "SMS自動送信" },
+    subGroups: [
+      {
+        groupLabel: "料金",
+        items: [
+          { href: "/system/courses", label: "コース" },
+          { href: "/system/options", label: "オプション" },
+          { href: "/system/discounts", label: "各種割引" },
+        ],
+      },
+      {
+        groupLabel: "給与",
+        items: [
+          { href: "/system/deductions", label: "控除" },
+          { href: "/system/allowances", label: "手当" },
+        ],
+      },
+      {
+        groupLabel: "SMS",
+        items: [
+          { href: "/system/sms", label: "SMS" },
+          { href: "/system/sms-auto", label: "SMS自動送信" },
+        ],
+      },
+      {
+        groupLabel: "店舗情報",
+        items: [
+          { href: "/hp/store-info", label: "店舗情報" },
+          { href: "/shop", label: "設定" },
+        ],
+      },
     ],
   },
   {
@@ -173,7 +193,6 @@ const menuItems: MenuItem[] = [
     ],
   },
   { href: "/text-generation", label: "文章生成", icon: Sparkles },
-  { href: "/shop", label: "設定", icon: Settings },
 ];
 
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
