@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { ArrowLeft, PlusCircle } from "lucide-react";
+import { ArrowLeft, PlusCircle, Eye, EyeOff } from "lucide-react";
 
 const CONTRACT_TYPE_TO_EXPENSE_CATEGORY: Record<string, string> = {
   rental: "rent",
@@ -39,6 +39,22 @@ interface Contract {
   end_date: string;
   payment_method: string;
   notes: string;
+  address: string;
+  mailbox_code: string;
+  internet_connection: string;
+  contract_holder: string;
+  management_company: string;
+  renewal_fee: number;
+  auto_lock: boolean;
+  resident_manager: boolean;
+  key_count: number;
+  floor_plan: string;
+  nominal_holder: string;
+  contract_terms: string;
+  contract_status: string;
+  management_url: string;
+  login_id: string;
+  login_password: string;
 }
 
 export default function FacilitiesContractDetail() {
@@ -50,6 +66,7 @@ export default function FacilitiesContractDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
 
@@ -74,6 +91,8 @@ export default function FacilitiesContractDetail() {
     setLoading(false);
   };
 
+  const set = (key: keyof Contract, val: any) => setForm((f) => ({ ...f, [key]: val }));
+
   const handleSave = async () => {
     if (!form.name?.trim()) { toast.error("名称を入力してください"); return; }
     setSaving(true);
@@ -86,6 +105,22 @@ export default function FacilitiesContractDetail() {
         end_date: form.end_date || null,
         payment_method: form.payment_method || null,
         notes: form.notes || null,
+        address: form.address || null,
+        mailbox_code: form.mailbox_code || null,
+        internet_connection: form.internet_connection || null,
+        contract_holder: form.contract_holder || null,
+        management_company: form.management_company || null,
+        renewal_fee: form.renewal_fee || null,
+        auto_lock: form.auto_lock ?? false,
+        resident_manager: form.resident_manager ?? false,
+        key_count: form.key_count || null,
+        floor_plan: form.floor_plan || null,
+        nominal_holder: form.nominal_holder || null,
+        contract_terms: form.contract_terms || null,
+        contract_status: form.contract_status || null,
+        management_url: form.management_url || null,
+        login_id: form.login_id || null,
+        login_password: form.login_password || null,
       })
       .eq("id", id);
     setSaving(false);
@@ -103,7 +138,6 @@ export default function FacilitiesContractDetail() {
     const today = new Date();
     const firstOfMonth = format(new Date(today.getFullYear(), today.getMonth(), 1), "yyyy-MM-dd");
     const expenseCategory = CONTRACT_TYPE_TO_EXPENSE_CATEGORY[contract.contract_type] || "maintenance";
-
     const { error } = await supabase.from("sales_expenses").insert([{
       date: firstOfMonth,
       category: expenseCategory,
@@ -117,6 +151,26 @@ export default function FacilitiesContractDetail() {
   };
 
   const contractTypeLabel = contract ? (CONTRACT_TYPE_LABELS[contract.contract_type] || contract.contract_type) : "";
+
+  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div>
+      <Label className="text-xs text-muted-foreground mb-1 block">{label}</Label>
+      {children}
+    </div>
+  );
+
+  const BoolToggle = ({ label, field }: { label: string; field: keyof Contract }) => (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={() => set(field, !(form[field] as boolean))}
+        className={`w-10 h-5 rounded-full transition-colors ${form[field] ? "bg-primary" : "bg-muted"}`}
+      >
+        <div className={`w-4 h-4 rounded-full bg-white mx-0.5 transition-transform ${form[field] ? "translate-x-5" : "translate-x-0"}`} />
+      </button>
+      <span className="text-sm">{label}: {form[field] ? "有" : "無"}</span>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -140,80 +194,173 @@ export default function FacilitiesContractDetail() {
             <div className="text-center text-muted-foreground py-12">読み込み中...</div>
           ) : (
             <div className="space-y-6">
+              {/* 基本情報 */}
               <Card>
-                <CardHeader><CardTitle className="text-base">契約情報</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-base">基本情報</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <Label>名称</Label>
-                    <Input
-                      value={form.name || ""}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      placeholder="例: ○○ビル 〇〇号室"
-                    />
-                  </div>
-                  <div>
-                    <Label>月額金額</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="1000"
-                        className="pl-7"
-                        value={form.amount || ""}
-                        onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })}
-                        placeholder="0"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>支払方法</Label>
-                    <Select
-                      value={form.payment_method || ""}
-                      onValueChange={(v) => setForm({ ...form, payment_method: v })}
-                    >
-                      <SelectTrigger><SelectValue placeholder="選択してください" /></SelectTrigger>
+                  <Field label="名称">
+                    <Input value={form.name || ""} onChange={(e) => set("name", e.target.value)} />
+                  </Field>
+                  <Field label="契約状況">
+                    <Select value={form.contract_status || ""} onValueChange={(v) => set("contract_status", v)}>
+                      <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="bank_transfer">銀行振込</SelectItem>
-                        <SelectItem value="cash">現金</SelectItem>
-                        <SelectItem value="card">クレジットカード</SelectItem>
-                        <SelectItem value="auto_debit">口座振替</SelectItem>
+                        <SelectItem value="契約中">契約中</SelectItem>
+                        <SelectItem value="解約済み">解約済み</SelectItem>
+                        <SelectItem value="交渉中">交渉中</SelectItem>
+                        <SelectItem value="無料掲載">無料掲載</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
+                  </Field>
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>契約開始日</Label>
-                      <Input
-                        type="date"
-                        value={form.start_date || ""}
-                        onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>契約終了日</Label>
-                      <Input
-                        type="date"
-                        value={form.end_date || ""}
-                        onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-                      />
-                    </div>
+                    <Field label="契約開始日">
+                      <Input type="date" value={form.start_date || ""} onChange={(e) => set("start_date", e.target.value)} />
+                    </Field>
+                    <Field label="契約終了日">
+                      <Input type="date" value={form.end_date || ""} onChange={(e) => set("end_date", e.target.value)} />
+                    </Field>
                   </div>
-                  <div>
-                    <Label>メモ</Label>
-                    <Textarea
-                      value={form.notes || ""}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                      rows={3}
-                      placeholder="備考、担当者、連絡先など"
-                    />
-                  </div>
-                  <Button onClick={handleSave} disabled={saving} className="w-full">
-                    {saving ? "保存中..." : "保存"}
-                  </Button>
+                  <Field label="契約条件">
+                    <Input value={form.contract_terms || ""} onChange={(e) => set("contract_terms", e.target.value)} placeholder="例: 初期費用3万、毎月1万" />
+                  </Field>
                 </CardContent>
               </Card>
 
+              {/* 物件情報（賃貸のみ表示） */}
+              {(contract?.contract_type === "rental") && (
+                <Card>
+                  <CardHeader><CardTitle className="text-base">物件情報</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                    <Field label="住所">
+                      <Textarea value={form.address || ""} onChange={(e) => set("address", e.target.value)} rows={2} placeholder="〒xxx-xxxx 都道府県市区町村..." />
+                    </Field>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="間取り">
+                        <Input value={form.floor_plan || ""} onChange={(e) => set("floor_plan", e.target.value)} placeholder="1K, 2LDK..." />
+                      </Field>
+                      <Field label="鍵の本数">
+                        <Input type="number" min="0" value={form.key_count || ""} onChange={(e) => set("key_count", Number(e.target.value))} />
+                      </Field>
+                    </div>
+                    <Field label="郵便ポスト暗証番号">
+                      <Input value={form.mailbox_code || ""} onChange={(e) => set("mailbox_code", e.target.value)} placeholder="例: 右へ2回2、左は1回8" />
+                    </Field>
+                    <div className="flex gap-6">
+                      <BoolToggle label="オートロック" field="auto_lock" />
+                      <BoolToggle label="管理人常駐" field="resident_manager" />
+                    </div>
+                    <Field label="ネット回線">
+                      <Select value={form.internet_connection || ""} onValueChange={(v) => set("internet_connection", v)}>
+                        <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="契約あり">契約あり</SelectItem>
+                          <SelectItem value="備え付け">備え付け</SelectItem>
+                          <SelectItem value="なし">なし</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 契約者情報 */}
+              <Card>
+                <CardHeader><CardTitle className="text-base">契約者・管理会社</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="契約名義人">
+                      <Input value={form.contract_holder || ""} onChange={(e) => set("contract_holder", e.target.value)} />
+                    </Field>
+                    <Field label="名義人">
+                      <Input value={form.nominal_holder || ""} onChange={(e) => set("nominal_holder", e.target.value)} />
+                    </Field>
+                  </div>
+                  <Field label="管理会社">
+                    <Input value={form.management_company || ""} onChange={(e) => set("management_company", e.target.value)} />
+                  </Field>
+                  {contract?.contract_type === "rental" && (
+                    <Field label="更新事務手数料">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
+                        <Input type="number" min="0" className="pl-7" value={form.renewal_fee || ""} onChange={(e) => set("renewal_fee", Number(e.target.value))} />
+                      </div>
+                    </Field>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 支払情報 */}
+              <Card>
+                <CardHeader><CardTitle className="text-base">支払情報</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <Field label="月額金額">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
+                      <Input type="number" min="0" step="1000" className="pl-7" value={form.amount || ""} onChange={(e) => set("amount", Number(e.target.value))} placeholder="0" />
+                    </div>
+                  </Field>
+                  <Field label="支払方法">
+                    <Select value={form.payment_method || ""} onValueChange={(v) => set("payment_method", v)}>
+                      <SelectTrigger><SelectValue placeholder="選択してください" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bank_transfer">銀行振込</SelectItem>
+                        <SelectItem value="auto_debit">口座振替</SelectItem>
+                        <SelectItem value="cash">現金</SelectItem>
+                        <SelectItem value="card">クレジットカード</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </CardContent>
+              </Card>
+
+              {/* ログイン情報 */}
+              <Card>
+                <CardHeader><CardTitle className="text-base">管理画面ログイン</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <Field label="管理画面URL">
+                    <div className="flex gap-2">
+                      <Input value={form.management_url || ""} onChange={(e) => set("management_url", e.target.value)} placeholder="https://..." />
+                      {form.management_url && (
+                        <Button variant="outline" size="sm" onClick={() => window.open(form.management_url, "_blank")}>開く</Button>
+                      )}
+                    </div>
+                  </Field>
+                  <Field label="ログインID / メールアドレス">
+                    <Input value={form.login_id || ""} onChange={(e) => set("login_id", e.target.value)} />
+                  </Field>
+                  <Field label="パスワード">
+                    <div className="relative">
+                      <Input
+                        type={showPw ? "text" : "password"}
+                        value={form.login_password || ""}
+                        onChange={(e) => set("login_password", e.target.value)}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPw(!showPw)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                  </Field>
+                </CardContent>
+              </Card>
+
+              {/* メモ */}
+              <Card>
+                <CardHeader><CardTitle className="text-base">メモ</CardTitle></CardHeader>
+                <CardContent>
+                  <Textarea value={form.notes || ""} onChange={(e) => set("notes", e.target.value)} rows={3} placeholder="備考、担当者、連絡先など" />
+                </CardContent>
+              </Card>
+
+              <Button onClick={handleSave} disabled={saving} className="w-full" size="lg">
+                {saving ? "保存中..." : "保存"}
+              </Button>
+
+              {/* 固定費に追加 */}
               <Card className="border-primary/30">
                 <CardHeader>
                   <CardTitle className="text-base">固定費に追加</CardTitle>
@@ -225,7 +372,7 @@ export default function FacilitiesContractDetail() {
                       <div className="text-sm font-medium">{form.name || "—"}</div>
                       <div className="text-xs text-muted-foreground">
                         {format(new Date(), "yyyy年M月")}分 ·{" "}
-                        {form.payment_method === "bank_transfer" ? "銀行振込" : form.payment_method === "cash" ? "現金" : form.payment_method === "card" ? "カード" : form.payment_method === "auto_debit" ? "口座振替" : "—"}
+                        {form.payment_method === "bank_transfer" ? "銀行振込" : form.payment_method === "auto_debit" ? "口座振替" : form.payment_method === "cash" ? "現金" : form.payment_method === "card" ? "カード" : "—"}
                       </div>
                     </div>
                     <div className="text-lg font-bold">
