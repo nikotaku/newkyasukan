@@ -95,31 +95,44 @@ function parseReservationCSV(text: string, castMap: Map<string, string>) {
       const d = parseDate(getCol(r, headers, "予約日"));
       if (!d) return null;
       const castName = parseCast(getCol(r, headers, "キャスト"));
+      const route = getCol(r, headers, "経路");
+      const notesBase = getCol(r, headers, "メモ") || getCol(r, headers, "備考");
+      const noteParts = [notesBase, route ? `経路: ${route}` : ""].filter(Boolean);
       return {
         reservation_date: d.date,
         start_time: d.time,
-        customer_name: getCol(r, headers, "予約名"),
+        customer_name: getCol(r, headers, "予約名") || "不明",
+        customer_phone: getCol(r, headers, "電話番号")?.replace(/^'/, "").replace(/[^\d]/g, "") || "",
         cast_id: castName ? (castMap.get(castName) || null) : null,
-        course_name: getCol(r, headers, "コース"),
+        course_name: getCol(r, headers, "コース") || "不明",
         duration: parseDur(getCol(r, headers, "コース")),
         room: getCol(r, headers, "ルーム") || null,
         price: parsePrice(getCol(r, headers, "売上")),
-        therapist_back: parsePrice(getCol(r, headers, "報酬")) || null,
         payment_method: parsePay(getCol(r, headers, "決済")),
         status: parseStatus(getCol(r, headers, "ステータス")),
-        route: getCol(r, headers, "経路") || null,
+        notes: noteParts.join(" / ") || null,
       };
     })
-    .filter(Boolean) as any[];
+    .filter((r) => r && r.cast_id) as any[];
 }
 
 // ─── Generic insert with batching ────────────────────────────
 async function batchInsert(table: string, rows: any[], onProgress: (n: number) => void) {
-  const BATCH = 100;
+  const BATCH = 50;
   let count = 0;
   for (let i = 0; i < rows.length; i += BATCH) {
     const { error } = await supabase.from(table as any).insert(rows.slice(i, i + BATCH));
-    if (error) throw error;
+    if (error) {
+      const detail = [
+        error.message,
+        (error as any).code ? `Code: ${(error as any).code}` : "",
+        (error as any).details ? `Details: ${(error as any).details}` : "",
+        (error as any).hint ? `Hint: ${(error as any).hint}` : "",
+      ].filter(Boolean).join(" | ");
+      const err = new Error(detail);
+      (err as any).raw = error;
+      throw err;
+    }
     count += Math.min(BATCH, rows.length - i);
     onProgress(count);
   }
@@ -146,10 +159,11 @@ export function ImportModal({ open, onClose, type, onSuccess }: ImportModalProps
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [castMap, setCastMap] = useState<Map<string, string>>(new Map());
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const reset = () => { setFileName(""); setParsed([]); setProgress(0); setDone(false); };
+  const reset = () => { setFileName(""); setParsed([]); setProgress(0); setDone(false); setErrorMsg(""); };
 
   const handleOpen = async (isOpen: boolean) => {
     if (!isOpen) { onClose(); reset(); return; }
@@ -177,13 +191,15 @@ export function ImportModal({ open, onClose, type, onSuccess }: ImportModalProps
 
   const handleImport = async () => {
     setImporting(true);
+    setErrorMsg("");
     try {
       const count = await batchInsert(type, parsed, setProgress);
       toast.success(`${count}件をインポートしました`);
       setDone(true);
       onSuccess?.();
     } catch (e: any) {
-      toast.error(`エラー: ${e.message}`);
+      setErrorMsg(e.message || String(e));
+      toast.error("インポートに失敗しました");
     } finally {
       setImporting(false);
     }
@@ -246,6 +262,16 @@ export function ImportModal({ open, onClose, type, onSuccess }: ImportModalProps
                 </div>
               )}
             </div>
+
+            {errorMsg && (
+              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <AlertCircle size={18} className="text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-red-800 font-semibold text-sm">エラーが発生しました</p>
+                  <p className="text-red-700 text-xs mt-1 break-all">{errorMsg}</p>
+                </div>
+              </div>
+            )}
 
             {done ? (
               <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
