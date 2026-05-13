@@ -43,6 +43,10 @@ interface InternalProfile {
   cast_id: string;
   tags: string[];
   weight: number | null;
+  self_introduction: string;
+  comment: string;
+  special_skills: string;
+  preferred_type: string;
   mbti: string;
   career_history: string;
   massage_skills: string;
@@ -53,6 +57,10 @@ const emptyInternal = (cast_id: string): InternalProfile => ({
   cast_id,
   tags: [],
   weight: null,
+  self_introduction: "",
+  comment: "",
+  special_skills: "",
+  preferred_type: "",
   mbti: "",
   career_history: "",
   massage_skills: "",
@@ -378,6 +386,14 @@ export default function TherapistDatabase() {
                           </div>
                         </div>
 
+                        <div>
+                          <Label>自己紹介（インタビュー表示）</Label>
+                          <Textarea value={internal.self_introduction ?? ""} onChange={(e) => setInt("self_introduction", e.target.value)} rows={4} placeholder="セラピストの自己紹介文" />
+                        </div>
+                        <div>
+                          <Label>お店コメント（HP表示）</Label>
+                          <Textarea value={internal.comment ?? ""} onChange={(e) => setInt("comment", e.target.value)} rows={4} placeholder="お店からのおすすめコメント" />
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <Label>体重 (kg)</Label>
@@ -388,12 +404,22 @@ export default function TherapistDatabase() {
                             <Input value={internal.mbti ?? ""} onChange={(e) => setInt("mbti", e.target.value)} placeholder="例: INFP" />
                           </div>
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label>特技</Label>
+                            <Input value={internal.special_skills ?? ""} onChange={(e) => setInt("special_skills", e.target.value)} placeholder="例: ピアノ、料理" />
+                          </div>
+                          <div>
+                            <Label>好みのタイプ</Label>
+                            <Input value={internal.preferred_type ?? ""} onChange={(e) => setInt("preferred_type", e.target.value)} placeholder="例: 優しい人" />
+                          </div>
+                        </div>
                         <div>
                           <Label>過去の経歴</Label>
                           <Textarea value={internal.career_history ?? ""} onChange={(e) => setInt("career_history", e.target.value)} rows={3} />
                         </div>
                         <div>
-                          <Label>マッサージ技術メモ</Label>
+                          <Label>得意なマッサージ・施術</Label>
                           <Textarea value={internal.massage_skills ?? ""} onChange={(e) => setInt("massage_skills", e.target.value)} rows={3} />
                         </div>
                         <div>
