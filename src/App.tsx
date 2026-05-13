@@ -76,6 +76,7 @@ import ReservationImport from "./pages/ReservationImport";
 import CustomerImport from "./pages/CustomerImport";
 import SalesClosing from "./pages/SalesClosing";
 import Analytics from "./pages/Analytics";
+import TextTemplates from "./pages/TextTemplates";
 
 const queryClient = new QueryClient();
 
@@ -129,6 +130,7 @@ const App = () => (
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/board" element={<Board />} />
           <Route path="/knowledge" element={<Knowledge />} />
+          <Route path="/templates" element={<TextTemplates />} />
           <Route path="/sales/customer-info" element={<SalesCustomerInfo />} />
           <Route path="/sales/closing" element={<SalesClosing />} />
           <Route path="/sales/therapist-breakdown" element={<SalesTherapistBreakdown />} />

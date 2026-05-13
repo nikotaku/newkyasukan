@@ -139,6 +139,7 @@ const menuItems: MenuItem[] = [
     icon: BookOpen,
     children: [
       { href: "/knowledge", label: "ナレッジDB" },
+      { href: "/templates", label: "文章テンプレート" },
     ],
   },
   {
