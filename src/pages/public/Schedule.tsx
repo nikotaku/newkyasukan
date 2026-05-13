@@ -147,7 +147,7 @@ const Schedule = () => {
   };
 
   return (
-    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f5e8e4" }}>
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
       <PublicNavigation />
 
       {/* Section Heading 公式準拠 */}
@@ -158,7 +158,7 @@ const Schedule = () => {
         >
           SCHEDULE
         </h1>
-        <p className="mt-2 text-sm tracking-widest text-[#8b7355]">出勤情報</p>
+        <p className="mt-2 text-sm tracking-widest text-[#7a706c]">出勤情報</p>
       </div>
 
       {/* Date Strip - 公式と同じ横ストリップ */}
@@ -167,7 +167,7 @@ const Schedule = () => {
           <button
             aria-label="前へ"
             onClick={() => setStripStart(addDays(stripStart, -VISIBLE_DAYS))}
-            className="px-2 text-[#8b7355] hover:bg-[#f5e8e4] border-r border-[#e5d5cc]"
+            className="px-2 text-[#7a706c] hover:bg-[#f2e4de] border-r border-[#e5d5cc]"
           >
             <ChevronLeft size={18} />
           </button>
@@ -185,7 +185,7 @@ const Schedule = () => {
                   className={`flex-1 py-2 text-center transition-colors ${
                     isSel
                       ? "bg-[#1c1f3a] text-white"
-                      : "bg-white hover:bg-[#f5e8e4]"
+                      : "bg-white hover:bg-[#f2e4de]"
                   }`}
                 >
                   <div
@@ -209,7 +209,7 @@ const Schedule = () => {
                         ? "text-red-400"
                         : isSat
                         ? "text-blue-400"
-                        : "text-[#8b7355]"
+                        : "text-[#7a706c]"
                     }`}
                   >
                     {dow}
@@ -221,7 +221,7 @@ const Schedule = () => {
           <button
             aria-label="次へ"
             onClick={() => setStripStart(addDays(stripStart, VISIBLE_DAYS))}
-            className="px-2 text-[#8b7355] hover:bg-[#f5e8e4] border-l border-[#e5d5cc]"
+            className="px-2 text-[#7a706c] hover:bg-[#f2e4de] border-l border-[#e5d5cc]"
           >
             <ChevronRight size={18} />
           </button>
@@ -231,9 +231,9 @@ const Schedule = () => {
       {/* Cards Grid - 公式準拠の縦長カード */}
       <main className="container mx-auto max-w-5xl px-4 py-8">
         {loading ? (
-          <p className="text-center text-[#8b7355]">読み込み中...</p>
+          <p className="text-center text-[#7a706c]">読み込み中...</p>
         ) : shifts.length === 0 ? (
-          <div className="text-center py-16 text-[#8b7355]">
+          <div className="text-center py-16 text-[#7a706c]">
             この日の出勤予定はありません
           </div>
         ) : (
@@ -246,7 +246,7 @@ const Schedule = () => {
                   className="bg-white rounded shadow-sm border border-[#e5d5cc] overflow-hidden flex flex-col"
                 >
                   {/* Photo with X icon overlay & next time */}
-                  <div className="relative aspect-[3/4] bg-[#f5e8e4]">
+                  <div className="relative aspect-[3/4] bg-[#f2e4de]">
                     {shift.casts.photo ? (
                       <img
                         src={shift.casts.photo}
@@ -285,16 +285,16 @@ const Schedule = () => {
                   <div className="p-2.5 flex flex-col gap-1.5 flex-1">
                     <h3
                       className="text-center font-bold text-sm md:text-base"
-                      style={{ color: "#8b7355" }}
+                      style={{ color: "#7a706c" }}
                     >
                       🌱{shift.casts.name}
                     </h3>
                     {shift.casts.message && (
-                      <p className="text-[11px] text-[#5c4a3a] text-center line-clamp-2 leading-tight">
+                      <p className="text-[11px] text-[#1a1817] text-center line-clamp-2 leading-tight">
                         {shift.casts.message}
                       </p>
                     )}
-                    <p className="text-[11px] text-center text-[#8b7355]">
+                    <p className="text-[11px] text-center text-[#7a706c]">
                       {shift.casts.age && `${shift.casts.age}歳`}
                       {shift.casts.height && ` ${shift.casts.height}㎝`}
                       {shift.casts.cup_size && ` (${shift.casts.cup_size})`}
@@ -305,7 +305,7 @@ const Schedule = () => {
                         {shift.casts.tags.slice(0, 4).map((t) => (
                           <span
                             key={t}
-                            className="text-[9px] px-1.5 py-0.5 border border-[#d4a574]/50 text-[#8b7355] rounded bg-[#fdf6f1]"
+                            className="text-[9px] px-1.5 py-0.5 border border-[#c49480]/50 text-[#7a706c] rounded bg-[#fdf6f1]"
                           >
                             {t}
                           </span>
@@ -313,12 +313,12 @@ const Schedule = () => {
                       </div>
                     )}
 
-                    <div className="text-[11px] text-center text-[#5c4a3a] mt-auto pt-1">
+                    <div className="text-[11px] text-center text-[#1a1817] mt-auto pt-1">
                       🕐 {shift.start_time.substring(0, 5)}〜
                       {shift.end_time.substring(0, 5)}
                     </div>
                     {shift.room && (
-                      <div className="text-[11px] text-center text-[#8b7355] inline-flex items-center justify-center gap-0.5">
+                      <div className="text-[11px] text-center text-[#7a706c] inline-flex items-center justify-center gap-0.5">
                         <MapPin size={10} />■{shift.room}■
                       </div>
                     )}
@@ -326,7 +326,7 @@ const Schedule = () => {
                     {next ? (
                       <button
                         onClick={() => handleBook(shift.cast_id, next)}
-                        className="mt-1 w-full py-1.5 bg-[#a98b5b] hover:bg-[#8b7355] text-white text-xs font-semibold rounded tracking-wider"
+                        className="mt-1 w-full py-1.5 bg-[#c49480] hover:bg-[#a87b65] text-white text-xs font-semibold rounded tracking-wider"
                       >
                         予 約
                       </button>

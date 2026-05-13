@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface Deduction {
   id: string;
@@ -39,6 +40,7 @@ export default function SystemDeductions() {
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -70,7 +72,7 @@ export default function SystemDeductions() {
       setShowForm(false);
       fetchDeductions();
     } catch (error) {
-      console.error("Error adding deduction:", error);
+      toast({ variant: "destructive", title: "エラー", description: error instanceof Error ? error.message : "控除の追加に失敗しました" });
     }
   };
 
@@ -81,7 +83,7 @@ export default function SystemDeductions() {
       if (error) throw error;
       fetchDeductions();
     } catch (error) {
-      console.error("Error deleting deduction:", error);
+      toast({ variant: "destructive", title: "エラー", description: error instanceof Error ? error.message : "控除の削除に失敗しました" });
     }
   };
 

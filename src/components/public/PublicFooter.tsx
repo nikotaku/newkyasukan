@@ -13,7 +13,7 @@ const footerNavItems = [
 
 export const PublicFooter = () => {
   return (
-    <footer className="text-white" style={{ backgroundColor: "#3a3a3a" }}>
+    <footer className="text-white" style={{ backgroundColor: "#242220" }}>
       {/* Shop Info */}
       <div className="container mx-auto px-4 py-10 max-w-4xl">
         <div className="text-center mb-8">
@@ -27,10 +27,11 @@ export const PublicFooter = () => {
             12:00〜26:00(24:40最終受付)
           </p>
           <a
-            href="tel:07090941854"
-            className="text-lg font-bold text-white/90 hover:text-white mt-2 inline-block"
+            href="tel:09081264042"
+            className="text-lg font-bold mt-2 inline-block hover:opacity-80"
+            style={{ color: "#c49480" }}
           >
-            07090941854
+            090-8126-4042
           </a>
         </div>
 

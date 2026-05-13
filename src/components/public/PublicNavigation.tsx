@@ -21,25 +21,26 @@ export const PublicNavigation = () => {
     <>
       {/* Logo Header with right-aligned business info (公式準拠) */}
       <div
-        className="relative py-8 md:py-12 border-b border-[#e5d5cc]"
+        className="relative py-8 md:py-12 border-b border-[#3a3634]"
         style={{
           background:
-            "linear-gradient(135deg, #f5e1d8 0%, #efd0c2 40%, #f5e1d8 100%)",
+            "linear-gradient(135deg, #2e2b29 0%, #242220 50%, #2e2b29 100%)",
         }}
       >
         <div className="container mx-auto px-4">
           {/* PC: business info top-right */}
-          <div className="hidden md:flex absolute top-3 right-6 items-center gap-5 text-[#8b7355] text-sm">
+          <div className="hidden md:flex absolute top-3 right-6 items-center gap-5 text-sm" style={{ color: "#c49480" }}>
             <span className="inline-flex items-center gap-1.5">
               <Clock size={14} />
               12:00〜26:00(24:40最終受付)
             </span>
             <a
               href="tel:09081264042"
-              className="inline-flex items-center gap-1.5 hover:text-[#d4a574] font-semibold"
+              className="inline-flex items-center gap-1.5 font-semibold hover:text-[#e8d5cb]"
+              style={{ color: "#c49480" }}
             >
               <Phone size={14} />
-              09081264042
+              090-8126-4042
             </a>
           </div>
 
@@ -54,22 +55,23 @@ export const PublicNavigation = () => {
           </Link>
 
           {/* SP: business info under logo */}
-          <div className="md:hidden flex justify-center items-center gap-3 mt-3 text-[#8b7355] text-[11px]">
+          <div className="md:hidden flex justify-center items-center gap-3 mt-3 text-[11px]" style={{ color: "#c49480" }}>
             <span className="inline-flex items-center gap-1">
               <Clock size={11} /> 12:00〜26:00
             </span>
             <a
               href="tel:09081264042"
               className="inline-flex items-center gap-1 font-semibold"
+              style={{ color: "#c49480" }}
             >
-              <Phone size={11} /> 09081264042
+              <Phone size={11} /> 090-8126-4042
             </a>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="bg-white border-b border-[#e5d5cc] sticky top-0 z-50 shadow-sm">
+      <nav className="bg-[#242220] border-b border-[#3a3634] sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto">
           {/* PC */}
           <div className="hidden md:flex justify-center items-center">
@@ -81,14 +83,14 @@ export const PublicNavigation = () => {
                   to={item.to}
                   className={`px-5 py-3 text-center transition-colors border-b-2 ${
                     isActive
-                      ? "bg-[#f5e8e4] border-[#d4a574]"
-                      : "border-transparent hover:bg-[#f5e8e4] hover:border-[#d4a574]"
+                      ? "bg-[#3a3634] border-[#c49480]"
+                      : "border-transparent hover:bg-[#3a3634] hover:border-[#c49480]"
                   }`}
                 >
-                  <div className="text-[#8b7355] font-semibold text-xs tracking-wider">
+                  <div className="text-[#d8ceca] font-semibold text-xs tracking-wider">
                     {item.label}
                   </div>
-                  <div className="text-[10px] text-[#a89586]">{item.sub}</div>
+                  <div className="text-[10px] text-[#9a8c88]">{item.sub}</div>
                 </Link>
               );
             })}
@@ -105,19 +107,19 @@ export const PublicNavigation = () => {
                     to={item.to}
                     className={`flex-1 py-2 text-center transition-colors border-b-2 ${
                       isActive
-                        ? "bg-[#f5e8e4] border-[#d4a574]"
-                        : "border-transparent hover:bg-[#f5e8e4]"
+                        ? "bg-[#3a3634] border-[#c49480]"
+                        : "border-transparent hover:bg-[#3a3634]"
                     }`}
                   >
-                    <div className="text-[#8b7355] font-semibold text-[10px] tracking-wider">
+                    <div className="text-[#d8ceca] font-semibold text-[10px] tracking-wider">
                       {item.label}
                     </div>
-                    <div className="text-[8px] text-[#a89586]">{item.sub}</div>
+                    <div className="text-[8px] text-[#9a8c88]">{item.sub}</div>
                   </Link>
                 );
               })}
             </div>
-            <div className="flex justify-center items-center flex-wrap border-t border-[#f0e6df]">
+            <div className="flex justify-center items-center flex-wrap border-t border-[#3a3634]">
               {navItems.slice(4).map((item) => {
                 const isActive = location.pathname === item.to;
                 return (
@@ -126,14 +128,14 @@ export const PublicNavigation = () => {
                     to={item.to}
                     className={`flex-1 py-2 text-center transition-colors border-b-2 ${
                       isActive
-                        ? "bg-[#f5e8e4] border-[#d4a574]"
-                        : "border-transparent hover:bg-[#f5e8e4]"
+                        ? "bg-[#3a3634] border-[#c49480]"
+                        : "border-transparent hover:bg-[#3a3634]"
                     }`}
                   >
-                    <div className="text-[#8b7355] font-semibold text-[10px] tracking-wider">
+                    <div className="text-[#d8ceca] font-semibold text-[10px] tracking-wider">
                       {item.label}
                     </div>
-                    <div className="text-[8px] text-[#a89586]">{item.sub}</div>
+                    <div className="text-[8px] text-[#9a8c88]">{item.sub}</div>
                   </Link>
                 );
               })}

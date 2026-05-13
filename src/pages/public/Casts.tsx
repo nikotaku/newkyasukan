@@ -88,7 +88,7 @@ const Casts = () => {
   }
 
   return (
-    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f5e8e4" }}>
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
       <PublicNavigation />
 
       <main className="container py-8 px-4">
@@ -98,7 +98,7 @@ const Casts = () => {
               <small className="text-sm block mb-1">THERAPIST</small>
               セラピスト
             </h2>
-            <Link to="/schedule" className="inline-block bg-white hover:bg-[#f5e8e4] text-[#8b7355] border border-[#d4b5a8] px-6 py-2 rounded transition-colors">
+            <Link to="/schedule" className="inline-block bg-white hover:bg-[#f2e4de] text-[#7a706c] border border-[#c49480] px-6 py-2 rounded transition-colors">
               出勤表はこちら
             </Link>
           </div>
@@ -108,7 +108,7 @@ const Casts = () => {
               <Button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-8 py-6 text-base ${filter === f ? 'bg-[#d4a574] hover:bg-[#c59564] text-white' : 'bg-white hover:bg-[#f5e8e4] text-[#8b7355] border border-[#d4b5a8]'}`}
+                className={`px-8 py-6 text-base ${filter === f ? 'bg-[#c49480] hover:bg-[#a87b65] text-white' : 'bg-white hover:bg-[#f2e4de] text-[#7a706c] border border-[#c49480]'}`}
               >
                 {f === 'all' ? 'すべて' : f === 'today' ? '本日出勤' : '新人'}
               </Button>
@@ -147,7 +147,7 @@ const Casts = () => {
                       )}
                       <div className="p-3">
                         <small className="block text-xs text-[#a89586] mb-1">{cast.profile || '\u00A0'}</small>
-                        <h4 className="font-bold text-[#8b7355] mb-1">{cast.name}{cast.age ? `(${cast.age})` : ''}</h4>
+                        <h4 className="font-bold text-[#7a706c] mb-1">{cast.name}{cast.age ? `(${cast.age})` : ''}</h4>
                         {formatSize(cast) && <p className="text-xs text-[#a89586]">{formatSize(cast)}</p>}
                       </div>
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">

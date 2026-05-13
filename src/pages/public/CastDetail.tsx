@@ -78,8 +78,8 @@ const CastDetail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#f5e8e4" }}>
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#d4a574]" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#f8f6f3" }}>
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#c49480]" />
       </div>
     );
   }
@@ -106,7 +106,7 @@ const CastDetail = () => {
   ].filter((i) => i.value);
 
   return (
-    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f5e8e4" }}>
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
       <PublicNavigation />
 
       <main className="container py-6 px-4">
@@ -115,7 +115,7 @@ const CastDetail = () => {
           <button
             onClick={() => navigate("/casts")}
             className="flex items-center gap-1 text-sm mb-4 hover:underline"
-            style={{ color: "#8b7355" }}
+            style={{ color: "#7a706c" }}
           >
             <ArrowLeft size={14} />
             セラピスト一覧に戻る
@@ -184,7 +184,7 @@ const CastDetail = () => {
                     className="flex-shrink-0 rounded overflow-hidden border-2 transition-all"
                     style={{
                       width: 52, height: 52,
-                      borderColor: i === selectedIndex ? "#d4a574" : "transparent",
+                      borderColor: i === selectedIndex ? "#c49480" : "transparent",
                       opacity: i === selectedIndex ? 1 : 0.55,
                     }}
                   >
@@ -198,7 +198,7 @@ const CastDetail = () => {
             <div className="px-5 pt-5 pb-3 border-b border-[#f0e4df]">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
-                  <h1 className="text-2xl font-bold" style={{ color: "#5c3d2e" }}>{cast.name}</h1>
+                  <h1 className="text-2xl font-bold" style={{ color: "#1a1817" }}>{cast.name}</h1>
                   {cast.age && <p className="text-sm mt-0.5" style={{ color: "#a89586" }}>{cast.age}歳</p>}
                 </div>
                 <span
@@ -221,7 +221,7 @@ const CastDetail = () => {
                 ].map(({ label, value }) => (
                   <div key={label} className="py-3 text-center">
                     <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>{label}</p>
-                    <p className="text-sm font-bold" style={{ color: "#5c3d2e" }}>{value}</p>
+                    <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{value}</p>
                   </div>
                 ))}
               </div>
@@ -231,7 +231,7 @@ const CastDetail = () => {
             {cast.message && (
               <div className="px-5 py-4 border-b border-[#f0e4df]" style={{ background: "#fffaf8" }}>
                 <h3 className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#b8a49a" }}>COMMENT</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#5c3d2e" }}>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>
                   {cast.message}
                 </p>
               </div>
@@ -241,7 +241,7 @@ const CastDetail = () => {
             {cast.profile && (
               <div className="px-5 py-4 border-b border-[#f0e4df]">
                 <h3 className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#b8a49a" }}>PROFILE</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#5c3d2e" }}>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>
                   {cast.profile}
                 </p>
               </div>
@@ -255,7 +255,7 @@ const CastDetail = () => {
                   {interview.map(({ label, value }) => (
                     <div key={label} className="flex gap-3 text-sm">
                       <dt className="shrink-0 font-semibold w-28" style={{ color: "#a89586" }}>Q. {label}</dt>
-                      <dd className="leading-relaxed" style={{ color: "#5c3d2e" }}>{value}</dd>
+                      <dd className="leading-relaxed" style={{ color: "#1a1817" }}>{value}</dd>
                     </div>
                   ))}
                 </dl>
@@ -271,7 +271,7 @@ const CastDetail = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm hover:underline"
-                  style={{ color: "#d4a574" }}
+                  style={{ color: "#c49480" }}
                 >
                   {cast.x_account}
                 </a>
@@ -281,17 +281,17 @@ const CastDetail = () => {
             {/* CTA buttons */}
             <div className="px-5 py-5 flex flex-col gap-3">
               <a
-                href="tel:080-3192-1209"
+                href="tel:09081264042"
                 className="flex items-center justify-center gap-2 py-3.5 rounded-lg text-white font-bold text-base transition-opacity hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #d4a574, #c5956a)" }}
+                style={{ background: "linear-gradient(135deg, #c49480, #a87b65)" }}
               >
                 <Phone size={17} />
                 電話で予約する
               </a>
               <Link
                 to="/schedule"
-                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[#f5e8e4]"
-                style={{ borderColor: "#d4b5a8", color: "#8b7355" }}
+                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[#f2e4de]"
+                style={{ borderColor: "#c49480", color: "#7a706c" }}
               >
                 <Calendar size={15} />
                 出勤スケジュールを見る
