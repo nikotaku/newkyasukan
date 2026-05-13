@@ -74,6 +74,16 @@ const Casts = () => {
     return true;
   });
 
+  const getProfileText = (profile: string | null): string => {
+    if (!profile) return '';
+    try {
+      const p = JSON.parse(profile);
+      return p.self_introduction || p.comment || '';
+    } catch {
+      return profile;
+    }
+  };
+
   const formatSize = (cast: Cast) => {
     if (!cast.height) return '';
     let s = `T.${cast.height}`;
@@ -149,7 +159,7 @@ const Casts = () => {
                         </div>
                       )}
                       <div className="p-3">
-                        <small className="block text-xs text-[#a89586] mb-1">{cast.profile || '\u00A0'}</small>
+                        <small className="block text-xs text-[#a89586] mb-1 line-clamp-2">{getProfileText(cast.profile) || '\u00A0'}</small>
                         <h4 className="font-bold text-[#7a706c] mb-1">{cast.name}{cast.age ? `(${cast.age})` : ''}</h4>
                         {formatSize(cast) && <p className="text-xs text-[#a89586]">{formatSize(cast)}</p>}
                       </div>
