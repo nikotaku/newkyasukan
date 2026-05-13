@@ -67,18 +67,18 @@ const System = () => {
   }
 
   return (
-    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f5e8e4" }}>
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
       <PublicNavigation />
 
       <main className="container mx-auto px-4 py-12 max-w-3xl">
         <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold mb-2" style={{ color: "#8b7355", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>SYSTEM</h1>
+            <h1 className="text-3xl font-bold mb-2" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>SYSTEM</h1>
             <p className="text-sm" style={{ color: "#a89586", letterSpacing: "0.1em" }}>料金システム</p>
           </div>
 
           <div className="text-center mb-12">
-            <h2 className="text-5xl font-bold mb-2" style={{ color: "#c9a876", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.1em" }}>全力エステ</h2>
+            <h2 className="text-5xl font-bold mb-2" style={{ color: "#c49480", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.1em" }}>全力エステ</h2>
           </div>
 
           {/* コース別料金（back_ratesマスター） */}
@@ -86,7 +86,7 @@ const System = () => {
             const rates = backRates.filter(r => r.course_type === type).sort((a, b) => a.duration - b.duration);
             return (
               <div key={type} className="mb-10">
-                <div className="bg-[#c9a876] text-white text-center py-2.5 mb-4 rounded">
+                <div className="bg-[#c49480] text-white text-center py-2.5 mb-4 rounded">
                   <h3 className="font-bold text-base" style={{ letterSpacing: "0.1em" }}>{type}コース</h3>
                 </div>
                 <div className="space-y-2">
@@ -104,7 +104,7 @@ const System = () => {
           {/* DRコース */}
           {backRates.filter(r => r.course_type === 'DR').length > 0 && (
             <div className="mb-10">
-              <div className="bg-[#c9a876] text-white text-center py-2.5 mb-4 rounded">
+              <div className="bg-[#c49480] text-white text-center py-2.5 mb-4 rounded">
                 <h3 className="font-bold text-base" style={{ letterSpacing: "0.1em" }}>DRコース</h3>
               </div>
               <div className="space-y-2">
@@ -120,7 +120,7 @@ const System = () => {
 
           {/* オプション（option_ratesマスター） */}
           <div className="mb-10">
-            <div className="bg-[#c9a876] text-white text-center py-2.5 mb-4 rounded">
+            <div className="bg-[#c49480] text-white text-center py-2.5 mb-4 rounded">
               <h3 className="font-bold text-base" style={{ letterSpacing: "0.1em" }}>オプションメニュー</h3>
             </div>
             <div className="space-y-2">
@@ -136,7 +136,7 @@ const System = () => {
           {/* 指名料（nomination_ratesマスター） */}
           {nominationRates.length > 0 && (
             <div className="mb-10">
-              <div className="bg-[#c9a876] text-white text-center py-2.5 mb-4 rounded">
+              <div className="bg-[#c49480] text-white text-center py-2.5 mb-4 rounded">
                 <h3 className="font-bold text-base" style={{ letterSpacing: "0.1em" }}>指名料</h3>
               </div>
               <div className="space-y-2">
@@ -152,7 +152,7 @@ const System = () => {
 
           {/* Payment */}
           <div className="mb-10">
-            <div className="bg-[#c9a876] text-white text-center py-2.5 mb-4 rounded">
+            <div className="bg-[#c49480] text-white text-center py-2.5 mb-4 rounded">
               <h3 className="font-bold text-base" style={{ letterSpacing: "0.1em" }}>お支払い</h3>
             </div>
             <div className="space-y-2">
@@ -167,8 +167,8 @@ const System = () => {
 
           {/* Flow */}
           <div className="mb-12">
-            <div className="bg-white border-2 border-[#c9a876] rounded-lg p-6">
-              <h3 className="text-2xl font-bold text-center mb-6" style={{ color: "#8b7355", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>FLOW</h3>
+            <div className="bg-white border-2 border-[#c49480] rounded-lg p-6">
+              <h3 className="text-2xl font-bold text-center mb-6" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>FLOW</h3>
               <p className="text-sm text-center mb-6" style={{ color: "#a89586" }}>ご利用の流れ</p>
               <div className="space-y-4 text-sm text-gray-700">
                 <p className="font-bold mb-1">お電話にて</p>
@@ -181,8 +181,8 @@ const System = () => {
 
           {/* Notice */}
           <div className="mb-12">
-            <div className="bg-white border-2 border-[#c9a876] rounded-lg p-6">
-              <h3 className="text-2xl font-bold text-center mb-6" style={{ color: "#8b7355", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>NOTICE</h3>
+            <div className="bg-white border-2 border-[#c49480] rounded-lg p-6">
+              <h3 className="text-2xl font-bold text-center mb-6" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>NOTICE</h3>
               <p className="text-sm text-center mb-6" style={{ color: "#a89586" }}>ご注意事項</p>
               <div className="space-y-3 text-sm text-gray-700">
                 <p>・全てのコースに消費税が含まれております</p>
@@ -201,8 +201,8 @@ const System = () => {
 
           {/* Shop Info */}
           <div className="mb-8">
-            <div className="bg-white border-2 border-[#c9a876] rounded-lg p-6">
-              <h3 className="text-2xl font-bold text-center mb-6" style={{ color: "#8b7355", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>SHOP</h3>
+            <div className="bg-white border-2 border-[#c49480] rounded-lg p-6">
+              <h3 className="text-2xl font-bold text-center mb-6" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>SHOP</h3>
               <p className="text-sm text-center mb-6" style={{ color: "#a89586" }}>店舗情報</p>
               <div className="space-y-4 text-sm text-gray-700">
                 {[['店舗名', '全力エステ'], ['営業時間', '12:00～26:00（24:40最終受付）'], ['定休日', '年中無休'], ['エリア', '出張専門']].map(([k, v]) => (
@@ -217,13 +217,13 @@ const System = () => {
 
           {/* CTA */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="tel:07090941854">
-              <Button size="lg" className="gap-2 min-w-[200px] bg-[#c9a876] hover:bg-[#b89766]">
+            <a href="tel:09081264042">
+              <Button size="lg" className="gap-2 min-w-[200px] bg-[#c49480] hover:bg-[#a87b65]">
                 <Phone size={20} />電話で予約
               </Button>
             </a>
             <Link to="/casts">
-              <Button size="lg" variant="outline" className="gap-2 min-w-[200px] border-[#c9a876] text-[#8b7355] hover:bg-[#f5e8e4]">
+              <Button size="lg" variant="outline" className="gap-2 min-w-[200px] border-[#c49480] text-[#7a706c] hover:bg-[#f8f6f3]">
                 <Calendar size={20} />キャスト一覧
               </Button>
             </Link>
