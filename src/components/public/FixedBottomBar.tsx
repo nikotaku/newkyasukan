@@ -6,7 +6,7 @@ export const FixedBottomBar = () => {
       <div className="flex items-stretch">
         <a
           href="tel:09081264042"
-          className="flex-1 flex flex-col items-center justify-center py-2 text-[#8b7355] hover:bg-[#f5e8e4] transition-colors"
+          className="flex-1 flex flex-col items-center justify-center py-2 text-[#7a706c] hover:bg-[#f2e4de] transition-colors"
         >
           <span className="text-lg">📞</span>
           <span className="text-[10px] font-semibold">電話する</span>

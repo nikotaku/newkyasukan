@@ -537,7 +537,7 @@ const BookingReservation = () => {
 
   if (bookingComplete) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: "#f5e8e4" }}>
+      <div className="min-h-screen" style={{ backgroundColor: "#f8f6f3" }}>
         <div className="bg-[#d4b5a8] text-white py-2 px-4 flex justify-between items-center text-sm">
           <div className="container mx-auto flex justify-center items-center">
             <span>12:00〜26:00(24:40最終受付)</span>
@@ -585,7 +585,7 @@ const BookingReservation = () => {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#f5e8e4" }}>
+    <div className="min-h-screen" style={{ backgroundColor: "#f8f6f3" }}>
       {/* Top Contact Bar */}
       <div className="bg-[#d4b5a8] text-white py-2 px-4 flex justify-between items-center text-sm">
         <div className="container mx-auto flex justify-center items-center">
@@ -606,28 +606,28 @@ const BookingReservation = () => {
       <nav className="bg-white border-y border-[#e5d5cc] sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto">
           <div className="flex justify-center items-center flex-wrap">
-            <Link to="/" className="px-8 py-4 hover:bg-[#f5e8e4] transition-colors border-b-2 border-transparent hover:border-[#d4a574]">
-              <div className="text-[#8b7355] font-semibold text-sm">TOP</div>
+            <Link to="/" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
+              <div className="text-[#7a706c] font-semibold text-sm">TOP</div>
               <div className="text-xs text-[#a89586]">トップ</div>
             </Link>
-            <Link to="/schedule" className="px-8 py-4 hover:bg-[#f5e8e4] transition-colors border-b-2 border-transparent hover:border-[#d4a574]">
-              <div className="text-[#8b7355] font-semibold text-sm">SCHEDULE</div>
+            <Link to="/schedule" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
+              <div className="text-[#7a706c] font-semibold text-sm">SCHEDULE</div>
               <div className="text-xs text-[#a89586]">出勤情報</div>
             </Link>
-            <Link to="/casts" className="px-8 py-4 hover:bg-[#f5e8e4] transition-colors border-b-2 border-transparent hover:border-[#d4a574]">
-              <div className="text-[#8b7355] font-semibold text-sm">THERAPIST</div>
+            <Link to="/casts" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
+              <div className="text-[#7a706c] font-semibold text-sm">THERAPIST</div>
               <div className="text-xs text-[#a89586]">セラピスト</div>
             </Link>
-            <Link to="/system" className="px-8 py-4 hover:bg-[#f5e8e4] transition-colors border-b-2 border-transparent hover:border-[#d4a574]">
-              <div className="text-[#8b7355] font-semibold text-sm">SYSTEM</div>
+            <Link to="/system" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
+              <div className="text-[#7a706c] font-semibold text-sm">SYSTEM</div>
               <div className="text-xs text-[#a89586]">システム</div>
             </Link>
-            <Link to="/access" className="px-8 py-4 hover:bg-[#f5e8e4] transition-colors border-b-2 border-transparent hover:border-[#d4a574]">
-              <div className="text-[#8b7355] font-semibold text-sm">ACCESS</div>
+            <Link to="/access" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
+              <div className="text-[#7a706c] font-semibold text-sm">ACCESS</div>
               <div className="text-xs text-[#a89586]">アクセス</div>
             </Link>
-            <Link to="/booking" className="px-8 py-4 bg-[#f5e8e4] transition-colors border-b-2 border-[#d4a574]">
-              <div className="text-[#8b7355] font-semibold text-sm">BOOKING</div>
+            <Link to="/booking" className="px-8 py-4 bg-[#f8f6f3] transition-colors border-b-2 border-[#c49480]">
+              <div className="text-[#7a706c] font-semibold text-sm">BOOKING</div>
               <div className="text-xs text-[#a89586]">WEB予約</div>
             </Link>
           </div>
@@ -639,7 +639,7 @@ const BookingReservation = () => {
           <h1 
             className="text-4xl font-bold mb-2 text-center"
             style={{ 
-              color: "#8b7355",
+              color: "#7a706c",
               fontFamily: "'Noto Serif JP', serif",
               letterSpacing: "0.1em"
             }}
@@ -659,7 +659,7 @@ const BookingReservation = () => {
                     className={cn(
                       "w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all",
                       currentStep === step
-                        ? "bg-[#d4a574] text-white"
+                        ? "bg-[#c49480] text-white"
                         : currentStep > step
                         ? "bg-[#d4b5a8] text-white"
                         : "bg-gray-200 text-gray-500"
@@ -686,7 +686,7 @@ const BookingReservation = () => {
               {currentStep === 1 && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-bold mb-4" style={{ color: "#8b7355" }}>
+                    <h2 className="text-2xl font-bold mb-4" style={{ color: "#7a706c" }}>
                       1. セラピストを選んでください
                     </h2>
                     
@@ -703,7 +703,7 @@ const BookingReservation = () => {
                       >
                         前の日
                       </Button>
-                      <div className="text-lg font-semibold" style={{ color: "#8b7355" }}>
+                      <div className="text-lg font-semibold" style={{ color: "#7a706c" }}>
                         {format(selectedDate, "M月d日 (E)", { locale: ja })}
                       </div>
                       <Button
@@ -732,7 +732,7 @@ const BookingReservation = () => {
                           className={cn(
                             "cursor-pointer transition-all hover:shadow-lg",
                             selectedCastId === "none"
-                              ? "ring-2 ring-[#d4a574] shadow-lg"
+                              ? "ring-2 ring-[#c49480] shadow-lg"
                               : "hover:ring-1 hover:ring-[#d4b5a8]"
                           )}
                           onClick={() => setSelectedCastId("none")}
@@ -742,7 +742,7 @@ const BookingReservation = () => {
                               <User className="h-16 w-16 text-muted-foreground" />
                             </div>
                             <div className="p-4">
-                              <h3 className="text-xl font-bold mb-1" style={{ color: "#8b7355" }}>
+                              <h3 className="text-xl font-bold mb-1" style={{ color: "#7a706c" }}>
                                 指名なし
                               </h3>
                               <p className="text-sm text-muted-foreground mb-2">
@@ -763,7 +763,7 @@ const BookingReservation = () => {
                             className={cn(
                               "cursor-pointer transition-all hover:shadow-lg",
                               selectedCastId === cast.id 
-                                ? "ring-2 ring-[#d4a574] shadow-lg" 
+                                ? "ring-2 ring-[#c49480] shadow-lg" 
                                 : "hover:ring-1 hover:ring-[#d4b5a8]"
                             )}
                             onClick={() => setSelectedCastId(cast.id)}
@@ -783,7 +783,7 @@ const BookingReservation = () => {
                                 )}
                               </div>
                               <div className="p-4">
-                                <h3 className="text-xl font-bold mb-1" style={{ color: "#8b7355" }}>
+                                <h3 className="text-xl font-bold mb-1" style={{ color: "#7a706c" }}>
                                   {cast.name}
                                 </h3>
                                 <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
@@ -866,7 +866,7 @@ const BookingReservation = () => {
               {currentStep === 2 && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-bold mb-4" style={{ color: "#8b7355" }}>
+                    <h2 className="text-2xl font-bold mb-4" style={{ color: "#7a706c" }}>
                       2. 予約時間を選んでください
                     </h2>
                     {selectedCast && (
@@ -922,7 +922,7 @@ const BookingReservation = () => {
               {/* ステップ3: コース・オプション選択 */}
               {currentStep === 3 && (
                 <div className="space-y-6">
-                  <h2 className="text-2xl font-bold mb-4" style={{ color: "#8b7355" }}>
+                  <h2 className="text-2xl font-bold mb-4" style={{ color: "#7a706c" }}>
                     3. コースを選んでください
                   </h2>
                   
@@ -941,7 +941,7 @@ const BookingReservation = () => {
                             key={type}
                             className={cn(
                               "border-2 rounded-lg p-4 cursor-pointer transition-all",
-                              courseType === type ? "border-[#d4a574] bg-[#f5e8e4]/50" : "border-gray-200"
+                              courseType === type ? "border-[#c49480] bg-[#f8f6f3]/50" : "border-gray-200"
                             )}
                             onClick={() => {
                               setCourseType(type);
@@ -987,7 +987,7 @@ const BookingReservation = () => {
                             className={cn(
                               "border rounded-lg p-3 cursor-pointer transition-all",
                               selectedOptions.includes(option.option_name)
-                                ? "border-[#d4a574] bg-[#f5e8e4]/50"
+                                ? "border-[#c49480] bg-[#f8f6f3]/50"
                                 : "border-gray-200"
                             )}
                             onClick={() => {
@@ -1009,7 +1009,7 @@ const BookingReservation = () => {
                     <div className="bg-muted p-4 rounded-lg">
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-semibold">合計金額:</span>
-                        <span className="text-2xl font-bold" style={{ color: "#d4a574" }}>
+                        <span className="text-2xl font-bold" style={{ color: "#c49480" }}>
                           ¥{totalPrice.toLocaleString()}
                         </span>
                       </div>
@@ -1030,7 +1030,7 @@ const BookingReservation = () => {
               {/* ステップ4: お客様情報入力 */}
               {currentStep === 4 && (
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <h2 className="text-2xl font-bold mb-4" style={{ color: "#8b7355" }}>
+                  <h2 className="text-2xl font-bold mb-4" style={{ color: "#7a706c" }}>
                     4. お客様情報をご入力ください
                   </h2>
                   
@@ -1187,13 +1187,13 @@ const BookingReservation = () => {
             <div>
               <h4 className="font-bold mb-4 text-lg">メニュー</h4>
               <div className="flex flex-col gap-3 text-sm">
-                <Link to="/casts" className="text-white/85 hover:text-[#d4a574] transition-colors">
+                <Link to="/casts" className="text-white/85 hover:text-[#c49480] transition-colors">
                   セラピスト
                 </Link>
-                <Link to="/schedule" className="text-white/85 hover:text-[#d4a574] transition-colors">
+                <Link to="/schedule" className="text-white/85 hover:text-[#c49480] transition-colors">
                   出勤情報
                 </Link>
-                <Link to="/system" className="text-white/85 hover:text-[#d4a574] transition-colors">
+                <Link to="/system" className="text-white/85 hover:text-[#c49480] transition-colors">
                   システム
                 </Link>
               </div>

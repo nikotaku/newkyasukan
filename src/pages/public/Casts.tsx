@@ -94,7 +94,7 @@ const Casts = () => {
       <main className="container py-8 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold mb-4" style={{ color: "#8b7355" }}>
+            <h2 className="text-2xl font-bold mb-4" style={{ color: "#7a706c" }}>
               <small className="text-sm block mb-1">THERAPIST</small>
               セラピスト
             </h2>

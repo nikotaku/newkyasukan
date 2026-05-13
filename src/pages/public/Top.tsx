@@ -106,12 +106,12 @@ const Top = () => {
   return (
     <div
       className="min-h-screen pb-14 md:pb-0"
-      style={{ backgroundColor: "#f5e8e4" }}
+      style={{ backgroundColor: "#f8f6f3" }}
     >
       <PublicNavigation />
 
       {/* ===== BANNER SLIDER ===== */}
-      <section className="bg-[#f5e8e4] py-6 md:py-10">
+      <section className="bg-[#f8f6f3] py-6 md:py-10">
         <div className="container mx-auto max-w-5xl px-4">
           <div className="relative overflow-hidden rounded-lg shadow-2xl bg-white">
             <div
@@ -199,7 +199,7 @@ const Top = () => {
                   key={cast.id}
                   className="group block bg-white rounded-lg overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
                 >
-                  <div className="aspect-[3/4] bg-gradient-to-br from-[#f5e8e4] to-[#e5d5cc] overflow-hidden">
+                  <div className="aspect-[3/4] bg-gradient-to-br from-[#f8f6f3] to-[#e5d5cc] overflow-hidden">
                     {cast.photo ? (
                       <img
                         src={driveImgUrl(cast.photo)}
@@ -216,7 +216,7 @@ const Top = () => {
                   <div className="p-4 text-center">
                     <h3
                       className="text-2xl font-bold mb-2 tracking-wider"
-                      style={{ color: "#8b7355" }}
+                      style={{ color: "#7a706c" }}
                     >
                       {cast.name}
                     </h3>
@@ -225,7 +225,7 @@ const Top = () => {
                         {cast.message}
                       </p>
                     )}
-                    <p className="text-sm text-[#8b7355]">
+                    <p className="text-sm text-[#7a706c]">
                       {cast.age && `${cast.age}歳`}
                       {cast.height && ` ${cast.height}㎝`}
                       {cast.cup_size && (
@@ -237,7 +237,7 @@ const Top = () => {
                         {cast.tags.slice(0, 4).map((t) => (
                           <span
                             key={t}
-                            className="text-[10px] px-2 py-0.5 rounded-full border border-[#d4a574]/40 text-[#8b7355] bg-[#f5e8e4]"
+                            className="text-[10px] px-2 py-0.5 rounded-full border border-[#c49480]/40 text-[#7a706c] bg-[#f8f6f3]"
                           >
                             {t}
                           </span>
@@ -252,7 +252,7 @@ const Top = () => {
           <div className="text-center mt-8">
             <Link
               to="/casts"
-              className="inline-block px-8 py-3 border-2 border-[#d4a574] text-[#8b7355] hover:bg-[#d4a574] hover:text-white transition-colors font-semibold tracking-wider rounded"
+              className="inline-block px-8 py-3 border-2 border-[#c49480] text-[#7a706c] hover:bg-[#c49480] hover:text-white transition-colors font-semibold tracking-wider rounded"
             >
               セラピスト一覧 →
             </Link>
@@ -280,7 +280,7 @@ const Top = () => {
                   </p>
                   <h3
                     className="text-lg md:text-xl font-bold mb-2"
-                    style={{ color: "#8b7355" }}
+                    style={{ color: "#7a706c" }}
                   >
                     {n.title}
                   </h3>
@@ -294,7 +294,7 @@ const Top = () => {
           <div className="text-center mt-8">
             <Link
               to="/news"
-              className="inline-block text-[#8b7355] hover:text-[#d4a574] transition-colors font-semibold tracking-wider"
+              className="inline-block text-[#7a706c] hover:text-[#c49480] transition-colors font-semibold tracking-wider"
             >
               その他のお知らせ →
             </Link>
@@ -327,14 +327,14 @@ const Top = () => {
             </p>
             <p>仙台のメンズエステ界における</p>
             <p className="text-lg md:text-xl">
-              「<span className="font-bold text-[#8b7355]">頂点</span>」を本気で狙う
+              「<span className="font-bold text-[#7a706c]">頂点</span>」を本気で狙う
             </p>
             <p>ハイレベルサロンです。</p>
             <p className="pt-4 text-base md:text-lg">
               ただ癒すだけじゃない。
             </p>
             <p>あなたの五感すべてを圧倒する</p>
-            <p className="text-2xl md:text-3xl font-bold tracking-widest pt-2 text-[#8b7355]">
+            <p className="text-2xl md:text-3xl font-bold tracking-widest pt-2 text-[#7a706c]">
               「全力の一撃」
             </p>
             <p>をご堪能ください。</p>
@@ -351,7 +351,7 @@ const Top = () => {
               href="https://r.caskan.jp/zenryoku1209"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#d4a574] hover:bg-[#c5966a] text-white font-semibold rounded shadow"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#c49480] hover:bg-[#c5966a] text-white font-semibold rounded shadow"
             >
               Web予約 <ExternalLink size={16} />
             </a>
@@ -359,7 +359,7 @@ const Top = () => {
               href="https://twitter.com/zenryoku_esthe"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 border-2 border-[#d4a574] text-[#8b7355] hover:bg-[#f5e8e4] font-semibold rounded"
+              className="inline-flex items-center gap-2 px-6 py-3 border-2 border-[#c49480] text-[#7a706c] hover:bg-[#f8f6f3] font-semibold rounded"
             >
               X (Twitter) <ExternalLink size={16} />
             </a>
@@ -367,7 +367,7 @@ const Top = () => {
               href="https://bsky.app/profile/zenryoku-esthe.bsky.social"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 border-2 border-[#d4a574] text-[#8b7355] hover:bg-[#f5e8e4] font-semibold rounded"
+              className="inline-flex items-center gap-2 px-6 py-3 border-2 border-[#c49480] text-[#7a706c] hover:bg-[#f8f6f3] font-semibold rounded"
             >
               Bluesky <ExternalLink size={16} />
             </a>
@@ -386,14 +386,14 @@ const SectionTitle = ({ en, jp }: { en: string; jp: string }) => (
   <div className="text-center">
     <h2
       className="text-3xl md:text-5xl font-bold tracking-[0.3em]"
-      style={{ color: "#8b7355" }}
+      style={{ color: "#7a706c" }}
     >
       {en}
     </h2>
     <p className="text-sm md:text-base mt-2 tracking-widest text-[#a89586]">
       {jp}
     </p>
-    <div className="mx-auto mt-3 h-px w-16 bg-[#d4a574]" />
+    <div className="mx-auto mt-3 h-px w-16 bg-[#c49480]" />
   </div>
 );
 
