@@ -343,24 +343,29 @@ export function ReservationForm({
         </div>
       </div>
 
-      {/* DR Option - Radio */}
+      {/* DR Option - Select */}
       {drOptions.length > 0 && (
         <div>
           <Label>DR（ドリンク）</Label>
-          <RadioGroup value={selectedDR} onValueChange={handleDRChange} className="grid grid-cols-3 gap-2 mt-2">
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="none" id="dr-none" />
-              <label htmlFor="dr-none" className="text-sm">なし</label>
-            </div>
-            {drOptions.map((rate) => (
-              <div key={rate.id} className="flex items-center space-x-2">
-                <RadioGroupItem value={rate.option_name} id={`dr-${rate.id}`} />
-                <label htmlFor={`dr-${rate.id}`} className="text-sm">
-                  {rate.option_name} (+¥{rate.customer_price.toLocaleString()})
-                </label>
-              </div>
-            ))}
-          </RadioGroup>
+          <Select value={selectedDR} onValueChange={handleDRChange}>
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="なし" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">なし</SelectItem>
+              {drOptions
+                .sort((a, b) => {
+                  const aMin = parseInt(a.option_name.replace(/\D/g, "")) || 0;
+                  const bMin = parseInt(b.option_name.replace(/\D/g, "")) || 0;
+                  return aMin - bMin;
+                })
+                .map((rate) => (
+                  <SelectItem key={rate.id} value={rate.option_name}>
+                    {rate.option_name}（+¥{rate.customer_price.toLocaleString()}）
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
