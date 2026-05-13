@@ -34,6 +34,9 @@ interface Cast {
   ideal_type: string | null;
   room: string | null;
   x_account: string | null;
+  line_url: string | null;
+  litlink_url: string | null;
+  o2_url: string | null;
   tags: string[] | null;
 }
 
@@ -381,17 +384,57 @@ const CastDetail = () => {
               </>
             )}
 
-            {/* ── X account ── */}
-            {cast.x_account && (
-              <div className="px-5 py-3 border-t border-[#f0e4df] flex items-center gap-3">
-                <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-5 h-5" />
-                <a
-                  href={cast.x_account.startsWith("http") ? cast.x_account : `https://twitter.com/${cast.x_account}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="text-sm hover:underline" style={{ color: "#c49480" }}>
-                  {cast.x_account}
-                </a>
-              </div>
+            {/* ── SNS links ── */}
+            {(cast.x_account || cast.line_url || cast.litlink_url || cast.o2_url) && (
+              <>
+                <SectionHeader label="SNS / LINKS" sub="各種リンク" />
+                <div className="px-5 py-4 flex flex-wrap gap-3">
+                  {cast.x_account && (
+                    <a
+                      href={cast.x_account.startsWith("http") ? cast.x_account : `https://twitter.com/${cast.x_account}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#f2e4de]"
+                      style={{ borderColor: "#d1c4be", color: "#1a1817" }}
+                    >
+                      <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-4 h-4" />
+                      X（Twitter）
+                    </a>
+                  )}
+                  {cast.line_url && (
+                    <a
+                      href={cast.line_url}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#f0fff0]"
+                      style={{ borderColor: "#06c755", color: "#06c755" }}
+                    >
+                      <img src="https://storage.googleapis.com/caskan/asset/line_icon.png" alt="LINE" className="w-4 h-4" />
+                      LINE
+                    </a>
+                  )}
+                  {cast.litlink_url && (
+                    <a
+                      href={cast.litlink_url}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#f2e4de]"
+                      style={{ borderColor: "#c49480", color: "#c49480" }}
+                    >
+                      <span className="text-xs font-bold">lit.</span>
+                      リットリンク
+                    </a>
+                  )}
+                  {cast.o2_url && (
+                    <a
+                      href={cast.o2_url}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#fff0f0]"
+                      style={{ borderColor: "#e85298", color: "#e85298" }}
+                    >
+                      <span className="text-xs font-bold">O2</span>
+                      口コミ（O2）
+                    </a>
+                  )}
+                </div>
+              </>
             )}
 
             {/* ── 口コミ ── */}

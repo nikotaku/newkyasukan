@@ -36,6 +36,10 @@ interface Cast {
   ideal_type: string | null;
   message: string | null;
   profile: string | null;
+  x_account: string | null;
+  line_url: string | null;
+  litlink_url: string | null;
+  o2_url: string | null;
 }
 
 interface InternalProfile {
@@ -98,7 +102,7 @@ export default function TherapistDatabase() {
     try {
       const [castsRes, profilesRes, tokensRes] = await Promise.all([
         supabase.from("casts").select(
-          "id,name,photo,age,height,bust,cup_size,waist,hip,blood_type,therapist_years,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,message,profile"
+          "id,name,photo,age,height,bust,cup_size,waist,hip,blood_type,therapist_years,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,message,profile,x_account,line_url,litlink_url,o2_url"
         ).order("name"),
         supabase.from("therapist_profiles" as any).select("*"),
         supabase.rpc("get_cast_access_tokens").catch(() => ({ data: null })),
@@ -144,6 +148,10 @@ export default function TherapistDatabase() {
       ideal_type: castEdit.ideal_type,
       message: castEdit.message,
       profile: castEdit.profile,
+      x_account: castEdit.x_account || null,
+      line_url: castEdit.line_url || null,
+      litlink_url: castEdit.litlink_url || null,
+      o2_url: castEdit.o2_url || null,
     }).eq("id", castEdit.id);
     setSavingEstama(false);
     if (error) { toast.error("保存に失敗しました"); return; }
@@ -360,6 +368,14 @@ export default function TherapistDatabase() {
                           {textField("ideal_type", "好みのタイプ")}
                           {textField("hobbies", "趣味・特技")}
                           {textField("day_off_activities", "休日の過ごし方")}
+                        </div>
+
+                        <div className="space-y-3 pt-2 border-t">
+                          <Label className="text-muted-foreground text-xs font-semibold tracking-wider">SNS / リンク</Label>
+                          {textField("x_account", "X（Twitter）ID またはURL")}
+                          {textField("line_url", "LINE URL")}
+                          {textField("litlink_url", "リットリンク URL")}
+                          {textField("o2_url", "O2 プロフィールURL")}
                         </div>
 
                         <Button onClick={handleSaveEstama} disabled={savingEstama}>
