@@ -940,7 +940,7 @@ const BookingReservation = () => {
                     {/* DRオプション（プルダウン） */}
                     {drOptionRates.length > 0 && (
                       <div>
-                        <h3 className="font-semibold mb-2">DR（ドクターズリラックス）</h3>
+                        <h3 className="font-semibold mb-2">DR（ディープリンパ）</h3>
                         <Select value={selectedDROption} onValueChange={handleDROptionChange}>
                           <SelectTrigger>
                             <SelectValue placeholder="なし（選択してください）" />

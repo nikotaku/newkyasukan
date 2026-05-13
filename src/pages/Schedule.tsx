@@ -293,41 +293,49 @@ export default function Schedule() {
       <main className="pt-[60px] md:ml-[180px] transition-all duration-300">
         <div className="p-3 md:p-4">
           {/* Header */}
-          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-            <div className="flex items-center gap-1 flex-wrap">
+          <div className="space-y-2 mb-2">
+            {/* Row 1: date navigation */}
+            <div className="flex items-center justify-center gap-1 flex-wrap">
               <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 1))}>
                 <ChevronLeft size={18} />
               </Button>
-              <h1 className="text-base font-bold text-center">
+              <h1 className="text-base font-bold px-2 min-w-[120px] text-center">
                 {format(selectedDate, "M月d日 (E)", { locale: ja })}
               </h1>
               <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 1))}>
                 <ChevronRight size={18} />
               </Button>
               <Button variant="outline" size="sm" onClick={() => setSelectedDate(new Date())}>今日</Button>
-              <Button size="sm" variant={selectedView === "cast" ? "default" : "outline"} onClick={() => setSelectedView("cast")}>キャスト別</Button>
-              <Button size="sm" variant={selectedView === "room" ? "default" : "outline"} onClick={() => setSelectedView("room")}>ルーム別</Button>
             </div>
-            <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
-              <SheetTrigger asChild>
-                <Button size="sm"><Plus size={16} className="mr-1" />新規予約</Button>
-              </SheetTrigger>
-              <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-                <SheetHeader><SheetTitle>新しい予約を追加</SheetTitle></SheetHeader>
-                <div className="mt-6">
-                  <ReservationForm
-                    formData={formData}
-                    setFormData={setFormData}
-                    casts={casts}
-                    rooms={rooms}
-                    backRates={backRates}
-                    optionRates={optionRates}
-                    nominationRates={nominationRates}
-                    onSubmit={handleAddReservation}
-                  />
-                </div>
-              </SheetContent>
-            </Sheet>
+            {/* Row 2: view toggle + add */}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant={selectedView === "cast" ? "default" : "outline"} onClick={() => setSelectedView("cast")}>キャスト別</Button>
+                <Button size="sm" variant={selectedView === "room" ? "default" : "outline"} onClick={() => setSelectedView("room")}>ルーム別</Button>
+              </div>
+              <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
+                <SheetTrigger asChild>
+                  <Button size="sm" className="bg-[#c49480] hover:bg-[#a87b65]">
+                    <Plus size={16} className="mr-1" />新規予約
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+                  <SheetHeader><SheetTitle>新しい予約を追加</SheetTitle></SheetHeader>
+                  <div className="mt-6">
+                    <ReservationForm
+                      formData={formData}
+                      setFormData={setFormData}
+                      casts={casts}
+                      rooms={rooms}
+                      backRates={backRates}
+                      optionRates={optionRates}
+                      nominationRates={nominationRates}
+                      onSubmit={handleAddReservation}
+                    />
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
 
           {/* Week tabs */}

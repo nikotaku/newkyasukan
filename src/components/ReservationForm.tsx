@@ -279,26 +279,27 @@ export function ReservationForm({
         </div>
       </div>
 
+      <div>
+        <Label htmlFor="room">ルーム</Label>
+        <Select
+          value={formData.room}
+          onValueChange={(value) => setFormData({ ...formData, room: value })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="ルームを選択" />
+          </SelectTrigger>
+          <SelectContent>
+            {rooms.map((room) => (
+              <SelectItem key={room.id} value={room.name}>
+                {room.name}
+                {room.address && ` - ${room.address}`}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="room">ルーム</Label>
-          <Select
-            value={formData.room}
-            onValueChange={(value) => setFormData({ ...formData, room: value })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="ルームを選択" />
-            </SelectTrigger>
-            <SelectContent>
-              {rooms.map((room) => (
-                <SelectItem key={room.id} value={room.name}>
-                  {room.name}
-                  {room.address && ` - ${room.address}`}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
         <div>
           <Label>コースタイプ</Label>
           <Select
@@ -346,7 +347,7 @@ export function ReservationForm({
       {/* DR Option - Select */}
       {drOptions.length > 0 && (
         <div>
-          <Label>DR（ドリンク）</Label>
+          <Label>DR（ディープリンパ）</Label>
           <Select value={selectedDR} onValueChange={handleDRChange}>
             <SelectTrigger className="mt-1">
               <SelectValue placeholder="なし" />
