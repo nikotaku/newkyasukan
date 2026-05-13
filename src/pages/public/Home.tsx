@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-import { ChatBot } from "@/components/ChatBot";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
@@ -114,7 +113,7 @@ const Home = () => {
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
 
   return (
-    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f5e8e4" }}>
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
       <PublicNavigation />
 
       {/* Banner Slider */}
@@ -196,7 +195,7 @@ const Home = () => {
           <SectionHeading english="CONCEPT" japanese="コンセプト" />
           <div className="bg-white rounded-lg shadow-md p-8 md:p-12">
             <div className="space-y-4 text-center text-sm md:text-base" style={{ color: "#6b5d4f" }}>
-              <p className="text-lg md:text-xl font-semibold" style={{ color: "#8b7355" }}>
+              <p className="text-lg md:text-xl font-semibold" style={{ color: "#7a706c" }}>
                 素直で愛嬌があり不器用でも全力心でサービス
               </p>
               <div className="pt-4 space-y-2">
@@ -205,7 +204,7 @@ const Home = () => {
                 <p>妥協のない接客</p>
               </div>
               <div className="pt-6 space-y-2">
-                <p className="font-semibold" style={{ color: "#d4a574" }}>
+                <p className="font-semibold" style={{ color: "#c49480" }}>
                   "全力エステ"は
                 </p>
                 <p>仙台のメンズエステ界における</p>
@@ -215,7 +214,7 @@ const Home = () => {
               <div className="pt-6 space-y-2">
                 <p>ただ癒すだけじゃない。</p>
                 <p>あなたの五感すべてを圧倒する</p>
-                <p className="font-bold text-xl" style={{ color: "#d4a574" }}>
+                <p className="font-bold text-xl" style={{ color: "#c49480" }}>
                   「全力の一撃」
                 </p>
                 <p>をご堪能ください。</p>
@@ -288,7 +287,7 @@ const Home = () => {
                       )}
                     </div>
                     <div className="p-3">
-                      <h4 className="font-bold text-[#8b7355] text-sm">
+                      <h4 className="font-bold text-[#7a706c] text-sm">
                         {shift.casts.name}
                       </h4>
                       {shift.casts.profile && (
@@ -305,7 +304,7 @@ const Home = () => {
                           <span className="ml-1">({shift.casts.cup_size})</span>
                         )}
                       </div>
-                      <div className="text-[10px] text-[#8b7355] mt-1">
+                      <div className="text-[10px] text-[#7a706c] mt-1">
                         🕐 {shift.start_time.substring(0, 5)}〜
                         {shift.end_time.substring(0, 5)}
                       </div>
@@ -323,7 +322,7 @@ const Home = () => {
           <div className="text-center mt-6">
             <Link
               to="/schedule"
-              className="text-[#8b7355] text-sm hover:underline"
+              className="text-[#7a706c] text-sm hover:underline"
             >
               今週の出勤情報 →
             </Link>
@@ -376,13 +375,13 @@ const Home = () => {
             <table className="w-full text-sm">
               <tbody>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-bold text-[#8b7355] w-1/3 bg-[#faf5f2]">
+                  <td className="py-3 px-4 font-bold text-[#7a706c] w-1/3 bg-[#faf5f2]">
                     店舗名
                   </td>
                   <td className="py-3 px-4 text-gray-700">全力エステ 仙台</td>
                 </tr>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-bold text-[#8b7355] bg-[#faf5f2]">
+                  <td className="py-3 px-4 font-bold text-[#7a706c] bg-[#faf5f2]">
                     URL
                   </td>
                   <td className="py-3 px-4 text-gray-700">
@@ -395,7 +394,7 @@ const Home = () => {
                   </td>
                 </tr>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-bold text-[#8b7355] bg-[#faf5f2]">
+                  <td className="py-3 px-4 font-bold text-[#7a706c] bg-[#faf5f2]">
                     営業時間
                   </td>
                   <td className="py-3 px-4 text-gray-700">
@@ -403,17 +402,17 @@ const Home = () => {
                   </td>
                 </tr>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-bold text-[#8b7355] bg-[#faf5f2]">
+                  <td className="py-3 px-4 font-bold text-[#7a706c] bg-[#faf5f2]">
                     TEL
                   </td>
                   <td className="py-3 px-4 text-gray-700">
-                    <a href="tel:07090941854" className="hover:underline">
-                      07090941854
+                    <a href="tel:09081264042" className="hover:underline">
+                      090-8126-4042
                     </a>
                   </td>
                 </tr>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-bold text-[#8b7355] bg-[#faf5f2]">
+                  <td className="py-3 px-4 font-bold text-[#7a706c] bg-[#faf5f2]">
                     最寄り駅
                   </td>
                   <td className="py-3 px-4 text-gray-700">
@@ -443,7 +442,6 @@ const Home = () => {
 
       <PublicFooter />
       <FixedBottomBar />
-      <ChatBot />
     </div>
   );
 };
@@ -485,7 +483,7 @@ const TherapistCard = ({ cast }: { cast: Cast }) => {
           )}
         </div>
         <div className="p-2">
-          <h4 className="font-bold text-[#8b7355] text-sm">{cast.name}</h4>
+          <h4 className="font-bold text-[#7a706c] text-sm">{cast.name}</h4>
           {cast.profile && (
             <p className="text-[10px] text-[#a89586] truncate">{cast.profile}</p>
           )}

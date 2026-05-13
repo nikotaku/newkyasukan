@@ -63,7 +63,6 @@ import SystemAllowances from "./pages/SystemAllowances";
 import SystemSMS from "./pages/SystemSMS";
 import SystemSMSAuto from "./pages/SystemSMSAuto";
 import TherapistCheckout from "./pages/TherapistCheckout";
-import KnowledgeDocument from "./pages/KnowledgeDocument";
 import SNSDatabase from "./pages/SNSDatabase";
 import TherapistDatabase from "./pages/TherapistDatabase";
 import TherapistMyPage from "./pages/TherapistMyPage";
@@ -76,6 +75,8 @@ import CastImport from "./pages/CastImport";
 import ReservationImport from "./pages/ReservationImport";
 import CustomerImport from "./pages/CustomerImport";
 import SalesClosing from "./pages/SalesClosing";
+import Analytics from "./pages/Analytics";
+import TextTemplates from "./pages/TextTemplates";
 
 const queryClient = new QueryClient();
 
@@ -116,6 +117,7 @@ const App = () => (
           <Route path="/hp/bulletin-board" element={<HPBulletinBoard />} />
           <Route path="/hp/article-creation" element={<ArticleCreation />} />
           <Route path="/hp/store-info" element={<StoreInfo />} />
+          <Route path="/analytics" element={<Analytics />} />
           <Route path="/hp/analytics/daily-access" element={<AnalyticsDailyAccess />} />
           <Route path="/hp/analytics/hourly-access" element={<AnalyticsHourlyAccess />} />
           <Route path="/hp/analytics/average-stay" element={<AnalyticsAverageStay />} />
@@ -128,6 +130,7 @@ const App = () => (
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/board" element={<Board />} />
           <Route path="/knowledge" element={<Knowledge />} />
+          <Route path="/templates" element={<TextTemplates />} />
           <Route path="/sales/customer-info" element={<SalesCustomerInfo />} />
           <Route path="/sales/closing" element={<SalesClosing />} />
           <Route path="/sales/therapist-breakdown" element={<SalesTherapistBreakdown />} />
@@ -148,7 +151,6 @@ const App = () => (
           <Route path="/system/sms" element={<SystemSMS />} />
           <Route path="/system/sms-auto" element={<SystemSMSAuto />} />
           <Route path="/database/knowledge/sns" element={<SNSDatabase />} />
-          <Route path="/database/knowledge/:slug" element={<KnowledgeDocument />} />
           <Route path="/database/therapist/profiles" element={<TherapistDatabase />} />
           <Route path="/database/therapist/mypage" element={<TherapistMyPage />} />
           <Route path="/database/customers" element={<CustomerDatabase />} />

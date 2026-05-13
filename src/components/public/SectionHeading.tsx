@@ -9,13 +9,13 @@ export const SectionHeading = ({ english, japanese }: SectionHeadingProps) => {
       <div
         className="text-2xl md:text-3xl font-bold tracking-widest"
         style={{
-          color: "#8b7355",
+          color: "#c49480",
           fontFamily: "'Noto Serif JP', serif",
         }}
       >
         {english}
       </div>
-      <div className="text-sm text-[#a89586] mt-1 tracking-wider">
+      <div className="text-sm text-[#7a706c] mt-1 tracking-wider">
         {japanese}
       </div>
     </h2>

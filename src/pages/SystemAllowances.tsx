@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface Allowance {
   id: string;
@@ -51,7 +52,7 @@ export default function SystemAllowances() {
   const fetchAllowances = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from("allowances").select("*").order("name");
+      const { data, error } = await supabase.from("allowances" as any).select("*").order("name");
       if (error && error.code !== "PGRST116") throw error;
       setAllowances(data || []);
     } catch (error) {
@@ -64,24 +65,28 @@ export default function SystemAllowances() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { error } = await supabase.from("allowances").insert([formData]);
+      const { error } = await supabase.from("allowances" as any).insert([formData]);
       if (error) throw error;
+      toast.success("手当を追加しました");
       setFormData({ name: "", allowance_type: "fixed", amount: 0, is_active: true });
       setShowForm(false);
       fetchAllowances();
     } catch (error) {
       console.error("Error adding allowance:", error);
+      toast.error("追加に失敗しました");
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("削除しますか？")) return;
     try {
-      const { error } = await supabase.from("allowances").delete().eq("id", id);
+      const { error } = await supabase.from("allowances" as any).delete().eq("id", id);
       if (error) throw error;
+      toast.success("削除しました");
       fetchAllowances();
     } catch (error) {
       console.error("Error deleting allowance:", error);
+      toast.error("削除に失敗しました");
     }
   };
 

@@ -1,19 +1,19 @@
 import { Link } from "react-router-dom";
 
 const footerNavItems = [
-  { to: "/", label: "トップ" },
-  { to: "/schedule", label: "出勤情報" },
-  { to: "/casts", label: "セラピスト" },
-  { to: "/system", label: "料金システム" },
-  { to: "/access", label: "アクセス" },
-  { to: "/news", label: "お知らせ" },
-  { to: "/recruit", label: "求人情報" },
-  { to: "/booking", label: "Web予約" },
+  { to: "/", label: "トップ", external: false },
+  { to: "/schedule", label: "出勤情報", external: false },
+  { to: "/casts", label: "セラピスト", external: false },
+  { to: "/system", label: "料金システム", external: false },
+  { to: "/access", label: "アクセス", external: false },
+  { to: "/news", label: "お知らせ", external: false },
+  { to: "https://esjob.jp/shop/43923/", label: "求人情報", external: true },
+  { to: "/booking", label: "Web予約", external: false },
 ];
 
 export const PublicFooter = () => {
   return (
-    <footer className="text-white" style={{ backgroundColor: "#3a3a3a" }}>
+    <footer className="text-white" style={{ backgroundColor: "#242220" }}>
       {/* Shop Info */}
       <div className="container mx-auto px-4 py-10 max-w-4xl">
         <div className="text-center mb-8">
@@ -27,10 +27,11 @@ export const PublicFooter = () => {
             12:00〜26:00(24:40最終受付)
           </p>
           <a
-            href="tel:07090941854"
-            className="text-lg font-bold text-white/90 hover:text-white mt-2 inline-block"
+            href="tel:09081264042"
+            className="text-lg font-bold mt-2 inline-block hover:opacity-80"
+            style={{ color: "#c49480" }}
           >
-            07090941854
+            090-8126-4042
           </a>
         </div>
 
@@ -68,15 +69,27 @@ export const PublicFooter = () => {
             MENU
           </h4>
           <div className="grid grid-cols-3 md:grid-cols-4 gap-2 text-sm text-center">
-            {footerNavItems.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className="text-white/70 hover:text-white transition-colors py-1"
-              >
-                {item.label}
-              </Link>
-            ))}
+            {footerNavItems.map((item) =>
+              item.external ? (
+                <a
+                  key={item.to}
+                  href={item.to}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-white/70 hover:text-white transition-colors py-1"
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className="text-white/70 hover:text-white transition-colors py-1"
+                >
+                  {item.label}
+                </Link>
+              )
+            )}
           </div>
         </div>
       </div>

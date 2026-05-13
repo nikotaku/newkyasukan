@@ -1,7 +1,4 @@
-project_id = "xobhamjwrumrkpxxxozz"
-
-[functions.generate-cast-content]
-verify_jwt = true
+project_id = "imrxzkivwrkqbhqfbbes"
 
 [functions.generate-cast-content]
 verify_jwt = true
