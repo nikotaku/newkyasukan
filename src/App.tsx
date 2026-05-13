@@ -76,6 +76,7 @@ import CastImport from "./pages/CastImport";
 import ReservationImport from "./pages/ReservationImport";
 import CustomerImport from "./pages/CustomerImport";
 import SalesClosing from "./pages/SalesClosing";
+import Analytics from "./pages/Analytics";
 
 const queryClient = new QueryClient();
 
@@ -116,6 +117,7 @@ const App = () => (
           <Route path="/hp/bulletin-board" element={<HPBulletinBoard />} />
           <Route path="/hp/article-creation" element={<ArticleCreation />} />
           <Route path="/hp/store-info" element={<StoreInfo />} />
+          <Route path="/analytics" element={<Analytics />} />
           <Route path="/hp/analytics/daily-access" element={<AnalyticsDailyAccess />} />
           <Route path="/hp/analytics/hourly-access" element={<AnalyticsHourlyAccess />} />
           <Route path="/hp/analytics/average-stay" element={<AnalyticsAverageStay />} />
