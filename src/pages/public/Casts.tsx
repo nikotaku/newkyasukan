@@ -46,7 +46,11 @@ const Casts = () => {
 
   const fetchCasts = async () => {
     try {
-      const { data, error } = await supabase.from("casts").select("*").order("name", { ascending: true });
+      const { data, error } = await supabase
+        .from("casts")
+        .select("*")
+        .eq("is_visible", true)
+        .order("name", { ascending: true });
       if (error) throw error;
       setCasts(data || []);
     } catch (error) {
@@ -62,7 +66,7 @@ const Casts = () => {
     return Math.ceil(Math.abs(now.getTime() - join.getTime()) / (1000 * 60 * 60 * 24)) <= 30;
   };
 
-  const isWorkingToday = (status: string) => status === 'waiting' || status === 'working';
+  const isWorkingToday = (status: string) => status === 'waiting' || status === 'busy';
 
   const filteredCasts = casts.filter((cast) => {
     if (filter === 'today') return isWorkingToday(cast.status);
