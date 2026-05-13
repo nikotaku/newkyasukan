@@ -30,6 +30,36 @@ const CONTRACT_TYPE_LABELS: Record<string, string> = {
   suppliers: "取引先",
 };
 
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div>
+    <Label className="text-xs text-muted-foreground mb-1 block">{label}</Label>
+    {children}
+  </div>
+);
+
+const BoolToggle = ({
+  label,
+  field,
+  value,
+  onChange,
+}: {
+  label: string;
+  field: string;
+  value: boolean;
+  onChange: (val: boolean) => void;
+}) => (
+  <div className="flex items-center gap-3">
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      className={`w-10 h-5 rounded-full transition-colors ${value ? "bg-primary" : "bg-muted"}`}
+    >
+      <div className={`w-4 h-4 rounded-full bg-white mx-0.5 transition-transform ${value ? "translate-x-5" : "translate-x-0"}`} />
+    </button>
+    <span className="text-sm">{label}: {value ? "有" : "無"}</span>
+  </div>
+);
+
 interface Contract {
   id: string;
   contract_type: string;
@@ -152,26 +182,6 @@ export default function FacilitiesContractDetail() {
 
   const contractTypeLabel = contract ? (CONTRACT_TYPE_LABELS[contract.contract_type] || contract.contract_type) : "";
 
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div>
-      <Label className="text-xs text-muted-foreground mb-1 block">{label}</Label>
-      {children}
-    </div>
-  );
-
-  const BoolToggle = ({ label, field }: { label: string; field: keyof Contract }) => (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        onClick={() => set(field, !(form[field] as boolean))}
-        className={`w-10 h-5 rounded-full transition-colors ${form[field] ? "bg-primary" : "bg-muted"}`}
-      >
-        <div className={`w-4 h-4 rounded-full bg-white mx-0.5 transition-transform ${form[field] ? "translate-x-5" : "translate-x-0"}`} />
-      </button>
-      <span className="text-sm">{label}: {form[field] ? "有" : "無"}</span>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
@@ -246,8 +256,8 @@ export default function FacilitiesContractDetail() {
                       <Input value={form.mailbox_code || ""} onChange={(e) => set("mailbox_code", e.target.value)} placeholder="例: 右へ2回2、左は1回8" />
                     </Field>
                     <div className="flex gap-6">
-                      <BoolToggle label="オートロック" field="auto_lock" />
-                      <BoolToggle label="管理人常駐" field="resident_manager" />
+                      <BoolToggle label="オートロック" field="auto_lock" value={!!form.auto_lock} onChange={(v) => set("auto_lock", v)} />
+                      <BoolToggle label="管理人常駐" field="resident_manager" value={!!form.resident_manager} onChange={(v) => set("resident_manager", v)} />
                     </div>
                     <Field label="ネット回線">
                       <Select value={form.internet_connection || ""} onValueChange={(v) => set("internet_connection", v)}>
