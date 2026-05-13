@@ -728,13 +728,19 @@ const Shift = () => {
 
                   <div className="py-1 mb-4">
                     <div className="flex max-w-64">
-                      <Input
-                        type="text"
-                        placeholder="キャスト名"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="h-8 text-sm"
-                      />
+                      <Select value={searchTerm || "all"} onValueChange={(v) => setSearchTerm(v === "all" ? "" : v)}>
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue placeholder="セラピスト絞り込み" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">すべてのセラピスト</SelectItem>
+                          {casts.map((cast) => (
+                            <SelectItem key={cast.id} value={cast.name}>
+                              {cast.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>

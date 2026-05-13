@@ -169,6 +169,20 @@ export const ShiftCalendar = ({ dates, casts, shifts, onShiftUpdate }: ShiftCale
     }
   };
 
+  const handleDirectDelete = async (e: React.MouseEvent, castId: string, date: string) => {
+    e.stopPropagation();
+    const shift = getShiftForCastAndDate(castId, date);
+    if (!shift) return;
+    try {
+      const { error } = await supabase.from('shifts').delete().eq('id', shift.id);
+      if (error) throw error;
+      toast({ title: "シフト削除", description: "シフトが削除されました" });
+      onShiftUpdate();
+    } catch {
+      toast({ title: "エラー", description: "シフトの削除に失敗しました", variant: "destructive" });
+    }
+  };
+
   return (
     <>
       <table className="w-full bg-background border border-border">
@@ -224,8 +238,14 @@ export const ShiftCalendar = ({ dates, casts, shifts, onShiftUpdate }: ShiftCale
                           </div>
                         )}
                         {isAdmin && (
-                          <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="absolute top-0 right-0 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Edit size={12} className="text-primary" />
+                            <button
+                              onClick={(e) => handleDirectDelete(e, cast.id, date.date)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           </div>
                         )}
                       </div>
