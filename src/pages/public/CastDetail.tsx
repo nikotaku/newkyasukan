@@ -18,16 +18,23 @@ interface Cast {
   cup_size: string | null;
   waist: number | null;
   hip: number | null;
+  blood_type: string | null;
+  therapist_years: number | null;
   type: string;
   status: string;
   photo: string | null;
   photos: string[] | null;
   profile: string | null;
+  message: string | null;
+  favorite_techniques: string | null;
+  favorite_food: string | null;
+  celebrity_lookalike: string | null;
+  day_off_activities: string | null;
+  hobbies: string | null;
+  ideal_type: string | null;
   room: string | null;
   x_account: string | null;
   tags: string[] | null;
-  execution_date_start: string | null;
-  execution_date_end: string | null;
 }
 
 const STATUS_LABEL: Record<string, { text: string; color: string }> = {
@@ -79,8 +86,24 @@ const CastDetail = () => {
 
   if (!cast) return null;
 
-  const allPhotos = [...(cast.photo ? [cast.photo] : []), ...(cast.photos || [])].filter(Boolean);
+  // Use photos array directly (already includes main photo); fall back to [photo]
+  const allPhotos = (cast.photos && cast.photos.length > 0
+    ? cast.photos
+    : cast.photo ? [cast.photo] : []
+  ).filter(Boolean);
+
   const status = STATUS_LABEL[cast.status] ?? { text: cast.status, color: "#9ca3af" };
+
+  const interview: { label: string; value: string | null | undefined }[] = [
+    { label: "セラピスト歴", value: cast.therapist_years != null ? `${cast.therapist_years}年` : null },
+    { label: "得意な施術", value: cast.favorite_techniques },
+    { label: "好きな食べ物", value: cast.favorite_food },
+    { label: "似ている芸能人", value: cast.celebrity_lookalike },
+    { label: "趣味・特技", value: cast.hobbies },
+    { label: "休日の過ごし方", value: cast.day_off_activities },
+    { label: "好みのタイプ", value: cast.ideal_type },
+    { label: "血液型", value: cast.blood_type },
+  ].filter((i) => i.value);
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f5e8e4" }}>
@@ -89,7 +112,6 @@ const CastDetail = () => {
       <main className="container py-6 px-4">
         <div className="max-w-3xl mx-auto">
 
-          {/* Back link */}
           <button
             onClick={() => navigate("/casts")}
             className="flex items-center gap-1 text-sm mb-4 hover:underline"
@@ -118,8 +140,6 @@ const CastDetail = () => {
                       ))}
                     </div>
                   </div>
-
-                  {/* Dots */}
                   {allPhotos.length > 1 && (
                     <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
                       {allPhotos.map((_, i) => (
@@ -139,7 +159,6 @@ const CastDetail = () => {
                 </div>
               )}
 
-              {/* Tags */}
               {cast.tags && cast.tags.length > 0 && (
                 <div className="absolute top-3 left-3 flex flex-col gap-1">
                   {cast.tags.map((tag, i) => (
@@ -208,6 +227,16 @@ const CastDetail = () => {
               </div>
             )}
 
+            {/* Shop comment */}
+            {cast.message && (
+              <div className="px-5 py-4 border-b border-[#f0e4df]" style={{ background: "#fffaf8" }}>
+                <h3 className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#b8a49a" }}>COMMENT</h3>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#5c3d2e" }}>
+                  {cast.message}
+                </p>
+              </div>
+            )}
+
             {/* Profile text */}
             {cast.profile && (
               <div className="px-5 py-4 border-b border-[#f0e4df]">
@@ -215,6 +244,21 @@ const CastDetail = () => {
                 <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#5c3d2e" }}>
                   {cast.profile}
                 </p>
+              </div>
+            )}
+
+            {/* Interview Q&A */}
+            {interview.length > 0 && (
+              <div className="px-5 py-4 border-b border-[#f0e4df]">
+                <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#b8a49a" }}>INTERVIEW</h3>
+                <dl className="space-y-2.5">
+                  {interview.map(({ label, value }) => (
+                    <div key={label} className="flex gap-3 text-sm">
+                      <dt className="shrink-0 font-semibold w-28" style={{ color: "#a89586" }}>Q. {label}</dt>
+                      <dd className="leading-relaxed" style={{ color: "#5c3d2e" }}>{value}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
             )}
 
@@ -255,7 +299,6 @@ const CastDetail = () => {
             </div>
           </div>
 
-          {/* Back to list */}
           <div className="text-center mt-6 mb-2">
             <Link to="/casts" className="text-sm hover:underline" style={{ color: "#a89586" }}>
               ← セラピスト一覧に戻る
