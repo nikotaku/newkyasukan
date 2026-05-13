@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, startOfDay } from "date-fns";
 import { ja } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
-import { ChatBot } from "@/components/ChatBot";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
@@ -345,7 +344,6 @@ const Schedule = () => {
 
       <PublicFooter />
       <FixedBottomBar />
-      <ChatBot />
     </div>
   );
 };

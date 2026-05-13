@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ChatBot } from "@/components/ChatBot";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
@@ -164,7 +163,6 @@ const Casts = () => {
 
       <PublicFooter />
       <FixedBottomBar />
-      <ChatBot />
     </div>
   );
 };

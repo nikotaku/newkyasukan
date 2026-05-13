@@ -4,7 +4,6 @@ import { MapPin, Train, Clock, Phone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FaXTwitter, FaLine } from "react-icons/fa6";
-import { ChatBot } from "@/components/ChatBot";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
@@ -167,7 +166,6 @@ const Access = () => {
 
       <PublicFooter />
       <FixedBottomBar />
-      <ChatBot />
     </div>
   );
 };

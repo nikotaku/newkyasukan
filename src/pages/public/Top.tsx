@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
-import { ChatBot } from "@/components/ChatBot";
 import { ExternalLink, Clock, Calendar } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
 import { format } from "date-fns";
@@ -279,7 +278,6 @@ const Top = () => {
 
       <PublicFooter />
       <FixedBottomBar />
-      <ChatBot />
     </div>
   );
 };
