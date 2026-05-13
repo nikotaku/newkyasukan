@@ -950,7 +950,7 @@ export default function Staff() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="waiting">待機中</SelectItem>
-                            <SelectItem value="working">接客中</SelectItem>
+                            <SelectItem value="busy">接客中</SelectItem>
                             <SelectItem value="offline">退勤</SelectItem>
                           </SelectContent>
                         </Select>

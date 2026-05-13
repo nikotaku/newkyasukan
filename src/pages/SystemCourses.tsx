@@ -30,6 +30,7 @@ export default function SystemCourses() {
     duration: 60,
     customer_price: 0,
     therapist_back: 0,
+    shop_back: 0,
   });
 
   const { user, loading: authLoading } = useAuth();
@@ -72,7 +73,7 @@ export default function SystemCourses() {
       const { error } = await supabase.from("back_rates").insert([formData]);
       if (error) throw error;
       toast.success("追加しました");
-      setFormData({ course_type: "", duration: 60, customer_price: 0, therapist_back: 0 });
+      setFormData({ course_type: "", duration: 60, customer_price: 0, therapist_back: 0, shop_back: 0 });
       setShowForm(false);
       fetchRates();
     } catch (error) {
@@ -163,6 +164,15 @@ export default function SystemCourses() {
                         min="0"
                         value={formData.therapist_back}
                         onChange={(e) => setFormData({ ...formData, therapist_back: Number(e.target.value) })}
+                      />
+                    </div>
+                    <div>
+                      <Label>店舗取り分（円）</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={formData.shop_back}
+                        onChange={(e) => setFormData({ ...formData, shop_back: Number(e.target.value) })}
                       />
                     </div>
                   </div>

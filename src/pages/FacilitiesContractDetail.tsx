@@ -192,9 +192,9 @@ export default function FacilitiesContractDetail() {
       : tags.includes("光熱費") ? "utilities"
       : tags.includes("Wi-Fi・通信") ? "wifi_tel"
       : "maintenance";
-    const { error } = await supabase.from("sales_expenses").insert([{
-      date: firstOfMonth,
-      category,
+    const { error } = await supabase.from("expenses").insert([{
+      expense_date: firstOfMonth,
+      expense_type: category,
       amount: form.amount,
       description: form.name || contract.name,
       payment_method: form.payment_method || "bank_transfer",
