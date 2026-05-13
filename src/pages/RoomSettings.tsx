@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Upload, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, X, Save } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +50,8 @@ interface Room {
   garbage_disposal: string | null;
   equipment_placement: string | null;
   room_photos: string[] | null;
+  reset_procedure: string | null;
+  cleaning_manual: string | null;
 }
 
 const RoomSettings = () => {
@@ -97,6 +100,9 @@ const RoomSettings = () => {
     equipment_placement: "",
     room_photos: [],
   });
+  const [manualRoom, setManualRoom] = useState<Room | null>(null);
+  const [manualDraft, setManualDraft] = useState({ reset_procedure: "", cleaning_manual: "" });
+  const [savingManual, setSavingManual] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -119,6 +125,35 @@ const RoomSettings = () => {
     }
 
     setRooms(data || []);
+  };
+
+  const handleManualRoomSelect = (room: Room) => {
+    setManualRoom(room);
+    setManualDraft({
+      reset_procedure: room.reset_procedure || "",
+      cleaning_manual: room.cleaning_manual || "",
+    });
+  };
+
+  const handleSaveManual = async () => {
+    if (!manualRoom) return;
+    setSavingManual(true);
+    try {
+      const { error } = await supabase
+        .from("rooms")
+        .update({
+          reset_procedure: manualDraft.reset_procedure || null,
+          cleaning_manual: manualDraft.cleaning_manual || null,
+        })
+        .eq("id", manualRoom.id);
+      if (error) throw error;
+      await fetchRooms();
+      toast({ title: "保存しました", description: `${manualRoom.name}のマニュアルを保存しました` });
+    } catch {
+      toast({ title: "エラー", description: "保存に失敗しました", variant: "destructive" });
+    } finally {
+      setSavingManual(false);
+    }
   };
 
   const handleOpenDialog = (room?: Room) => {
@@ -343,8 +378,19 @@ const RoomSettings = () => {
       <main className="pt-[60px] md:ml-[180px] transition-all duration-300">
         <div className="p-4">
           <div className="max-w-7xl mx-auto space-y-6">
-            <div className="flex justify-between items-center">
-              <h1 className="text-3xl font-bold">ルーム設定</h1>
+            <div className="mb-4">
+              <h1 className="text-2xl font-bold">ルーム設定</h1>
+            </div>
+
+            <Tabs defaultValue="rooms">
+              <TabsList className="mb-6">
+                <TabsTrigger value="rooms">ルーム一覧</TabsTrigger>
+                <TabsTrigger value="reset">リセット手順</TabsTrigger>
+                <TabsTrigger value="cleaning">清掃マニュアル</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="rooms">
+                <div className="flex justify-end mb-4">
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <Button onClick={() => handleOpenDialog()}>
@@ -735,6 +781,119 @@ const RoomSettings = () => {
                 </Card>
               ))}
             </div>
+              </TabsContent>
+
+              {/* ─── リセット手順 ─── */}
+              <TabsContent value="reset">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-muted-foreground mb-3">ルームを選択</p>
+                    {rooms.map((r) => (
+                      <button
+                        key={r.id}
+                        onClick={() => handleManualRoomSelect(r)}
+                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                          manualRoom?.id === r.id
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        {r.name}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="md:col-span-3">
+                    {manualRoom ? (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">{manualRoom.name} — リセット手順</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <p className="text-xs text-muted-foreground">
+                            セラピストがセッション終了後にルームをリセットする手順を記入してください。マークダウン記法が使えます（# 見出し、- リスト など）。
+                          </p>
+                          <Textarea
+                            value={manualDraft.reset_procedure}
+                            onChange={(e) =>
+                              setManualDraft({ ...manualDraft, reset_procedure: e.target.value })
+                            }
+                            placeholder={`# リセット手順\n\n## 退室前チェック\n- ベッドシーツを交換する\n- ゴミを捨てる\n- ...\n\n## 備品の確認\n- タオルの枚数確認\n- ...`}
+                            rows={20}
+                            className="font-mono text-sm"
+                          />
+                          <Button onClick={handleSaveManual} disabled={savingManual} className="w-full">
+                            <Save size={15} className="mr-2" />
+                            {savingManual ? "保存中..." : "保存する"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card>
+                        <CardContent className="py-16 text-center text-muted-foreground">
+                          左のリストからルームを選んでください
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* ─── 清掃マニュアル ─── */}
+              <TabsContent value="cleaning">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-muted-foreground mb-3">ルームを選択</p>
+                    {rooms.map((r) => (
+                      <button
+                        key={r.id}
+                        onClick={() => handleManualRoomSelect(r)}
+                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                          manualRoom?.id === r.id
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        {r.name}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="md:col-span-3">
+                    {manualRoom ? (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">{manualRoom.name} — 清掃マニュアル</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <p className="text-xs text-muted-foreground">
+                            定期清掃・消毒の手順を記入してください。マークダウン記法が使えます。
+                          </p>
+                          <Textarea
+                            value={manualDraft.cleaning_manual}
+                            onChange={(e) =>
+                              setManualDraft({ ...manualDraft, cleaning_manual: e.target.value })
+                            }
+                            placeholder={`# 清掃マニュアル\n\n## 毎回（セッション終了後）\n- ベッド消毒\n- ...\n\n## 週次\n- 床の拭き掃除\n- ...\n\n## 月次\n- エアコンフィルター清掃\n- ...`}
+                            rows={20}
+                            className="font-mono text-sm"
+                          />
+                          <Button onClick={handleSaveManual} disabled={savingManual} className="w-full">
+                            <Save size={15} className="mr-2" />
+                            {savingManual ? "保存中..." : "保存する"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card>
+                        <CardContent className="py-16 text-center text-muted-foreground">
+                          左のリストからルームを選んでください
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+
+            </Tabs>
           </div>
         </div>
 
