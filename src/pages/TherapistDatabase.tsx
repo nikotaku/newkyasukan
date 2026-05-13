@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Save, X, Plus } from "lucide-react";
+import { Search, Save, X, Plus, ExternalLink, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { driveImgUrl } from "@/lib/drive";
 
@@ -72,6 +72,7 @@ export default function TherapistDatabase() {
   const [internal, setInternal] = useState<InternalProfile | null>(null);
   const [filterTags, setFilterTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
+  const [tokenMap, setTokenMap] = useState<Record<string, string>>({});
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -87,16 +88,20 @@ export default function TherapistDatabase() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [castsRes, profilesRes] = await Promise.all([
+      const [castsRes, profilesRes, tokensRes] = await Promise.all([
         supabase.from("casts").select(
           "id,name,photo,age,height,bust,cup_size,waist,hip,blood_type,therapist_years,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,message,profile"
         ).order("name"),
         supabase.from("therapist_profiles" as any).select("*"),
+        supabase.rpc("get_cast_access_tokens").catch(() => ({ data: null })),
       ]);
       setCasts(castsRes.data || []);
       const map: Record<string, InternalProfile> = {};
       (profilesRes.data || []).forEach((p: any) => { map[p.cast_id] = p; });
       setInternalMap(map);
+      const tmap: Record<string, string> = {};
+      ((tokensRes as any).data || []).forEach((t: any) => { tmap[t.cast_id] = t.access_token; });
+      setTokenMap(tmap);
     } catch (error) {
       console.error(error);
     } finally {
@@ -264,11 +269,40 @@ export default function TherapistDatabase() {
               {selectedCast && castEdit && internal ? (
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-3">
+                    <CardTitle className="flex items-center gap-3 flex-wrap">
                       {selectedCast.photo && (
                         <img src={driveImgUrl(selectedCast.photo, 200)} className="w-12 h-12 rounded object-cover object-top" />
                       )}
-                      <span>{selectedCast.name}</span>
+                      <span className="flex-1">{selectedCast.name}</span>
+                      {tokenMap[selectedCast.id] ? (
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/therapist/${tokenMap[selectedCast.id]}`);
+                              toast.success("マイページリンクをコピーしました");
+                            }}
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-border hover:bg-muted transition-colors"
+                            title="マイページリンクをコピー"
+                          >
+                            <Copy size={11} />マイページ
+                          </button>
+                          <a
+                            href={`/therapist/${tokenMap[selectedCast.id]}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-border hover:bg-muted transition-colors"
+                          >
+                            <ExternalLink size={11} />
+                          </a>
+                        </div>
+                      ) : (
+                        <a
+                          href="/database/therapist/mypage"
+                          className="text-xs text-muted-foreground hover:underline"
+                        >
+                          マイページ未発行
+                        </a>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
