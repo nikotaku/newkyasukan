@@ -294,50 +294,40 @@ export default function Schedule() {
         <div className="p-3 md:p-4">
           {/* Header */}
           <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 flex-wrap">
               <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 1))}>
                 <ChevronLeft size={18} />
               </Button>
-              <h1 className="text-lg font-bold min-w-[150px] text-center">
-                {format(selectedDate, "yyyy年M月d日 (E)", { locale: ja })}
+              <h1 className="text-base font-bold text-center">
+                {format(selectedDate, "M月d日 (E)", { locale: ja })}
               </h1>
               <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 1))}>
                 <ChevronRight size={18} />
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setSelectedDate(new Date())}>
-                今日
-              </Button>
+              <Button variant="outline" size="sm" onClick={() => setSelectedDate(new Date())}>今日</Button>
+              <Button size="sm" variant={selectedView === "cast" ? "default" : "outline"} onClick={() => setSelectedView("cast")}>キャスト別</Button>
+              <Button size="sm" variant={selectedView === "room" ? "default" : "outline"} onClick={() => setSelectedView("room")}>ルーム別</Button>
             </div>
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant={selectedView === "cast" ? "default" : "outline"} onClick={() => setSelectedView("cast")}>
-                キャスト別
-              </Button>
-              <Button size="sm" variant={selectedView === "room" ? "default" : "outline"} onClick={() => setSelectedView("room")}>
-                ルーム別
-              </Button>
-              {isAdmin && (
-                <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
-                  <SheetTrigger asChild>
-                    <Button size="sm"><Plus size={16} className="mr-1" />新規予約</Button>
-                  </SheetTrigger>
-                  <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-                    <SheetHeader><SheetTitle>新しい予約を追加</SheetTitle></SheetHeader>
-                    <div className="mt-6">
-                      <ReservationForm
-                        formData={formData}
-                        setFormData={setFormData}
-                        casts={casts}
-                        rooms={rooms}
-                        backRates={backRates}
-                        optionRates={optionRates}
-                        nominationRates={nominationRates}
-                        onSubmit={handleAddReservation}
-                      />
-                    </div>
-                  </SheetContent>
-                </Sheet>
-              )}
-            </div>
+            <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
+              <SheetTrigger asChild>
+                <Button size="sm"><Plus size={16} className="mr-1" />新規予約</Button>
+              </SheetTrigger>
+              <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+                <SheetHeader><SheetTitle>新しい予約を追加</SheetTitle></SheetHeader>
+                <div className="mt-6">
+                  <ReservationForm
+                    formData={formData}
+                    setFormData={setFormData}
+                    casts={casts}
+                    rooms={rooms}
+                    backRates={backRates}
+                    optionRates={optionRates}
+                    nominationRates={nominationRates}
+                    onSubmit={handleAddReservation}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
 
           {/* Week tabs */}
@@ -383,25 +373,25 @@ export default function Schedule() {
                 <div className="p-8 text-center text-muted-foreground">この日の出勤データがありません</div>
               ) : (
                 <Card className="overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <div style={{ minWidth: TIME_LABEL_W + castRows.length * 110 }}>
+                  <div className="w-full">
+                    <div className="w-full">
                       {/* Cast header row */}
                       <div className="flex border-b bg-muted/30 sticky top-0 z-20">
                         <div style={{ width: TIME_LABEL_W }} className="flex-shrink-0 border-r bg-muted/50" />
                         {castRows.map(({ cast, shift }) => (
                           <div
                             key={cast.id}
-                            className="flex-1 min-w-[100px] border-r last:border-r-0 p-2 text-center"
+                            className="flex-1 border-r last:border-r-0 p-1 text-center min-w-0"
                           >
                             {cast.photo ? (
-                              <img src={cast.photo} alt={cast.name} className="w-8 h-8 rounded-full object-cover mx-auto mb-1" />
+                              <img src={cast.photo} alt={cast.name} className="w-6 h-6 rounded-full object-cover mx-auto mb-0.5" />
                             ) : (
-                              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold mx-auto mb-1">
+                              <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold mx-auto mb-0.5">
                                 {cast.name.charAt(0)}
                               </div>
                             )}
-                            <div className="text-xs font-semibold truncate">{cast.name}</div>
-                            <div className="text-[10px] text-muted-foreground">
+                            <div className="text-[10px] font-semibold truncate leading-tight">{cast.name}</div>
+                            <div className="text-[9px] text-muted-foreground leading-tight">
                               {shift.start_time.slice(0, 5)}~{shift.end_time.slice(0, 5)}
                             </div>
                           </div>
@@ -433,7 +423,7 @@ export default function Schedule() {
                           return (
                             <div
                               key={cast.id}
-                              className="flex-1 min-w-[100px] border-r last:border-r-0 relative cursor-crosshair"
+                              className="flex-1 min-w-0 border-r last:border-r-0 relative cursor-crosshair"
                               onClick={(e) => {
                                 if (!isAdmin) return;
                                 const rect = e.currentTarget.getBoundingClientRect();
