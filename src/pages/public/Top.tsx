@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
-import { ExternalLink, Clock, Calendar } from "lucide-react";
+import { ExternalLink, Clock, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 interface TodayShift {
   id: string;
@@ -35,15 +36,28 @@ interface News {
   is_pinned: boolean;
 }
 
+const BANNER_SLIDES = [
+  "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750253573.png",
+  "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750762260.png",
+];
+
 const Top = () => {
   const [todayShifts, setTodayShifts] = useState<TodayShift[]>([]);
   const [news, setNews] = useState<News[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
     document.title = "全力エステ 仙台店｜仙台のメンズエステ";
     fetchAll();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % BANNER_SLIDES.length);
+    }, 5000);
+    return () => clearInterval(timer);
   }, []);
 
   const fetchAll = async () => {
@@ -85,6 +99,38 @@ const Top = () => {
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
       <PublicNavigation />
+
+      {/* ===== Banner Slider ===== */}
+      <div className="relative overflow-hidden">
+        <AspectRatio ratio={16 / 9}>
+          <img
+            src={BANNER_SLIDES[currentSlide]}
+            alt="トップバナー | 全力エステ 仙台"
+            className="w-full h-full object-cover transition-opacity duration-500"
+          />
+        </AspectRatio>
+        <button
+          onClick={() => setCurrentSlide((prev) => (prev - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length)}
+          className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => setCurrentSlide((prev) => (prev + 1) % BANNER_SLIDES.length)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+          {BANNER_SLIDES.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentSlide(i)}
+              className={`w-2.5 h-2.5 rounded-full transition-all ${i === currentSlide ? "bg-white" : "bg-white/50"}`}
+            />
+          ))}
+        </div>
+      </div>
 
       {/* ===== 本日の出勤 HERO ===== */}
       <section className="py-5 md:py-10" style={{ background: "linear-gradient(180deg, #2e2b29 0%, #3a3330 100%)" }}>
