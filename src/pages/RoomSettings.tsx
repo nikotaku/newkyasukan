@@ -32,11 +32,19 @@ import {
 interface Room {
   id: string;
   name: string;
+  display_name: string | null;
   description: string | null;
   capacity: number;
   amenities: string[] | null;
   is_active: boolean;
   address: string | null;
+  access: string | null;
+  map_address: string | null;
+  map_url: string | null;
+  sms_text: string | null;
+  email_text: string | null;
+  cast_guide: string | null;
+  internal_notes: string | null;
   equipment_costumes: string | null;
   garbage_disposal: string | null;
   equipment_placement: string | null;
@@ -52,22 +60,38 @@ const RoomSettings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<{
     name: string;
+    display_name: string;
     description: string;
     capacity: number;
     amenities: string;
     is_active: boolean;
     address: string;
+    access: string;
+    map_address: string;
+    map_url: string;
+    sms_text: string;
+    email_text: string;
+    cast_guide: string;
+    internal_notes: string;
     equipment_costumes: string;
     garbage_disposal: string;
     equipment_placement: string;
     room_photos: string[];
   }>({
     name: "",
+    display_name: "",
     description: "",
     capacity: 1,
     amenities: "",
     is_active: true,
     address: "",
+    access: "",
+    map_address: "",
+    map_url: "",
+    sms_text: "",
+    email_text: "",
+    cast_guide: "",
+    internal_notes: "",
     equipment_costumes: "",
     garbage_disposal: "",
     equipment_placement: "",
@@ -102,11 +126,19 @@ const RoomSettings = () => {
       setEditingRoom(room);
       setFormData({
         name: room.name,
+        display_name: room.display_name || "",
         description: room.description || "",
         capacity: room.capacity,
         amenities: room.amenities?.join(", ") || "",
         is_active: room.is_active,
         address: room.address || "",
+        access: room.access || "",
+        map_address: room.map_address || "",
+        map_url: room.map_url || "",
+        sms_text: room.sms_text || "",
+        email_text: room.email_text || "",
+        cast_guide: room.cast_guide || "",
+        internal_notes: room.internal_notes || "",
         equipment_costumes: room.equipment_costumes || "",
         garbage_disposal: room.garbage_disposal || "",
         equipment_placement: room.equipment_placement || "",
@@ -116,11 +148,19 @@ const RoomSettings = () => {
       setEditingRoom(null);
       setFormData({
         name: "",
+        display_name: "",
         description: "",
         capacity: 1,
         amenities: "",
         is_active: true,
         address: "",
+        access: "",
+        map_address: "",
+        map_url: "",
+        sms_text: "",
+        email_text: "",
+        cast_guide: "",
+        internal_notes: "",
         equipment_costumes: "",
         garbage_disposal: "",
         equipment_placement: "",
@@ -147,11 +187,19 @@ const RoomSettings = () => {
 
     const roomData = {
       name: formData.name,
+      display_name: formData.display_name || null,
       description: formData.description || null,
       capacity: formData.capacity,
       amenities: amenitiesArray.length > 0 ? amenitiesArray : null,
       is_active: formData.is_active,
       address: formData.address || null,
+      access: formData.access || null,
+      map_address: formData.map_address || null,
+      map_url: formData.map_url || null,
+      sms_text: formData.sms_text || null,
+      email_text: formData.email_text || null,
+      cast_guide: formData.cast_guide || null,
+      internal_notes: formData.internal_notes || null,
       equipment_costumes: formData.equipment_costumes || null,
       garbage_disposal: formData.garbage_disposal || null,
       equipment_placement: formData.equipment_placement || null,
@@ -320,7 +368,18 @@ const RoomSettings = () => {
                         onChange={(e) =>
                           setFormData({ ...formData, name: e.target.value })
                         }
-                        placeholder="例: インroom"
+                        placeholder="例: インルーム"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="display_name">表示名</Label>
+                      <Input
+                        id="display_name"
+                        value={formData.display_name}
+                        onChange={(e) =>
+                          setFormData({ ...formData, display_name: e.target.value })
+                        }
+                        placeholder="例: ■二日町インroom■"
                       />
                     </div>
                     <div>
@@ -370,17 +429,95 @@ const RoomSettings = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="address">ルーム住所</Label>
+                      <Label htmlFor="address">住所</Label>
                       <Input
                         id="address"
                         value={formData.address}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            address: e.target.value,
-                          })
+                          setFormData({ ...formData, address: e.target.value })
                         }
-                        placeholder="例: 東京都渋谷区..."
+                        placeholder="例: 仙台市青葉区二日町11-15 In-Towner 201号室"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="access">アクセス</Label>
+                      <Input
+                        id="access"
+                        value={formData.access}
+                        onChange={(e) =>
+                          setFormData({ ...formData, access: e.target.value })
+                        }
+                        placeholder="例: ⚫地下鉄南北線/北四番丁駅 徒歩5分"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="map_address">Map住所</Label>
+                      <Input
+                        id="map_address"
+                        value={formData.map_address}
+                        onChange={(e) =>
+                          setFormData({ ...formData, map_address: e.target.value })
+                        }
+                        placeholder="例: 仙台市青葉区二日町11"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="map_url">GoogleマップURL</Label>
+                      <Input
+                        id="map_url"
+                        value={formData.map_url}
+                        onChange={(e) =>
+                          setFormData({ ...formData, map_url: e.target.value })
+                        }
+                        placeholder="https://x.gd/..."
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="sms_text">SMSテキスト</Label>
+                      <Textarea
+                        id="sms_text"
+                        value={formData.sms_text}
+                        onChange={(e) =>
+                          setFormData({ ...formData, sms_text: e.target.value })
+                        }
+                        placeholder="SMS送信用の住所案内文"
+                        rows={5}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="email_text">メールテキスト</Label>
+                      <Textarea
+                        id="email_text"
+                        value={formData.email_text}
+                        onChange={(e) =>
+                          setFormData({ ...formData, email_text: e.target.value })
+                        }
+                        placeholder="メール送信用の住所案内文"
+                        rows={5}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="cast_guide">キャスト用案内</Label>
+                      <Textarea
+                        id="cast_guide"
+                        value={formData.cast_guide}
+                        onChange={(e) =>
+                          setFormData({ ...formData, cast_guide: e.target.value })
+                        }
+                        placeholder="セラピスト向けの入室案内"
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="internal_notes">内部メモ</Label>
+                      <Textarea
+                        id="internal_notes"
+                        value={formData.internal_notes}
+                        onChange={(e) =>
+                          setFormData({ ...formData, internal_notes: e.target.value })
+                        }
+                        placeholder="スタッフ用メモ"
+                        rows={3}
                       />
                     </div>
                     <div>
@@ -536,29 +673,25 @@ const RoomSettings = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {room.description && (
-                      <p className="text-sm text-muted-foreground">
-                        {room.description}
-                      </p>
+                    {room.display_name && (
+                      <p className="text-xs text-muted-foreground">{room.display_name}</p>
                     )}
-                    <div className="text-sm">
-                      <span className="font-semibold">収容人数:</span>{" "}
-                      {room.capacity}人
-                    </div>
-                    {room.amenities && room.amenities.length > 0 && (
-                      <div className="text-sm">
-                        <span className="font-semibold">設備:</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {room.amenities.map((amenity, index) => (
-                            <span
-                              key={index}
-                              className="px-2 py-0.5 bg-muted rounded text-xs"
-                            >
-                              {amenity}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                    {room.address && (
+                      <p className="text-sm">{room.address}</p>
+                    )}
+                    {room.access && (
+                      <p className="text-sm text-muted-foreground">{room.access}</p>
+                    )}
+                    {room.map_url && (
+                      <a href={room.map_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">
+                        Googleマップ →
+                      </a>
+                    )}
+                    {room.description && (
+                      <p className="text-sm text-muted-foreground">{room.description}</p>
+                    )}
+                    {room.room_photos && room.room_photos.length > 0 && (
+                      <img src={room.room_photos[0]} alt={room.name} className="w-full h-32 object-cover rounded" />
                     )}
                     <div className="flex gap-2 pt-2">
                       <Button
