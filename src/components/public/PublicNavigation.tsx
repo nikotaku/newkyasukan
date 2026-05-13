@@ -3,15 +3,17 @@ import { Clock, Phone } from "lucide-react";
 
 const SHOP_LOGO = "https://cdn2-caskan.com/caskan/img/shop_logo/1401_logo_1750237137.png";
 
+const RECRUIT_URL = "https://esjob.jp/shop/43923/";
+
 const navItems = [
-  { to: "/", label: "TOP", sub: "トップ" },
-  { to: "/schedule", label: "SCHEDULE", sub: "出勤情報" },
-  { to: "/casts", label: "THERAPIST", sub: "セラピスト" },
-  { to: "/system", label: "SYSTEM", sub: "料金システム" },
-  { to: "/access", label: "ACCESS", sub: "アクセス" },
-  { to: "/news", label: "NEWS", sub: "お知らせ" },
-  { to: "/recruit", label: "RECRUIT", sub: "求人情報" },
-  { to: "/booking", label: "RESERVE", sub: "Web予約" },
+  { to: "/", label: "TOP", sub: "トップ", external: false },
+  { to: "/schedule", label: "SCHEDULE", sub: "出勤情報", external: false },
+  { to: "/casts", label: "THERAPIST", sub: "セラピスト", external: false },
+  { to: "/system", label: "SYSTEM", sub: "料金システム", external: false },
+  { to: "/access", label: "ACCESS", sub: "アクセス", external: false },
+  { to: "/news", label: "NEWS", sub: "お知らせ", external: false },
+  { to: RECRUIT_URL, label: "RECRUIT", sub: "求人情報", external: true },
+  { to: "/booking", label: "RESERVE", sub: "Web予約", external: false },
 ];
 
 export const PublicNavigation = () => {
@@ -76,70 +78,43 @@ export const PublicNavigation = () => {
           {/* PC */}
           <div className="hidden md:flex justify-center items-center">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.to;
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={`px-5 py-3 text-center transition-colors border-b-2 ${
-                    isActive
-                      ? "bg-[#3a3634] border-[#c49480]"
-                      : "border-transparent hover:bg-[#3a3634] hover:border-[#c49480]"
-                  }`}
-                >
-                  <div className="text-[#d8ceca] font-semibold text-xs tracking-wider">
-                    {item.label}
-                  </div>
+              const isActive = !item.external && location.pathname === item.to;
+              const cls = `px-5 py-3 text-center transition-colors border-b-2 ${
+                isActive ? "bg-[#3a3634] border-[#c49480]" : "border-transparent hover:bg-[#3a3634] hover:border-[#c49480]"
+              }`;
+              const inner = (
+                <>
+                  <div className="text-[#d8ceca] font-semibold text-xs tracking-wider">{item.label}</div>
                   <div className="text-[10px] text-[#9a8c88]">{item.sub}</div>
-                </Link>
+                </>
               );
+              return item.external
+                ? <a key={item.to} href={item.to} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>
+                : <Link key={item.to} to={item.to} className={cls}>{inner}</Link>;
             })}
           </div>
 
           {/* SP - 2行 */}
           <div className="md:hidden">
-            <div className="flex justify-center items-center flex-wrap">
-              {navItems.slice(0, 4).map((item) => {
-                const isActive = location.pathname === item.to;
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className={`flex-1 py-2 text-center transition-colors border-b-2 ${
-                      isActive
-                        ? "bg-[#3a3634] border-[#c49480]"
-                        : "border-transparent hover:bg-[#3a3634]"
-                    }`}
-                  >
-                    <div className="text-[#d8ceca] font-semibold text-[10px] tracking-wider">
-                      {item.label}
-                    </div>
-                    <div className="text-[8px] text-[#9a8c88]">{item.sub}</div>
-                  </Link>
-                );
-              })}
-            </div>
-            <div className="flex justify-center items-center flex-wrap border-t border-[#3a3634]">
-              {navItems.slice(4).map((item) => {
-                const isActive = location.pathname === item.to;
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className={`flex-1 py-2 text-center transition-colors border-b-2 ${
-                      isActive
-                        ? "bg-[#3a3634] border-[#c49480]"
-                        : "border-transparent hover:bg-[#3a3634]"
-                    }`}
-                  >
-                    <div className="text-[#d8ceca] font-semibold text-[10px] tracking-wider">
-                      {item.label}
-                    </div>
-                    <div className="text-[8px] text-[#9a8c88]">{item.sub}</div>
-                  </Link>
-                );
-              })}
-            </div>
+            {[navItems.slice(0, 4), navItems.slice(4)].map((group, gi) => (
+              <div key={gi} className={`flex justify-center items-center flex-wrap ${gi > 0 ? "border-t border-[#3a3634]" : ""}`}>
+                {group.map((item) => {
+                  const isActive = !item.external && location.pathname === item.to;
+                  const cls = `flex-1 py-2 text-center transition-colors border-b-2 ${
+                    isActive ? "bg-[#3a3634] border-[#c49480]" : "border-transparent hover:bg-[#3a3634]"
+                  }`;
+                  const inner = (
+                    <>
+                      <div className="text-[#d8ceca] font-semibold text-[10px] tracking-wider">{item.label}</div>
+                      <div className="text-[8px] text-[#9a8c88]">{item.sub}</div>
+                    </>
+                  );
+                  return item.external
+                    ? <a key={item.to} href={item.to} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>
+                    : <Link key={item.to} to={item.to} className={cls}>{inner}</Link>;
+                })}
+              </div>
+            ))}
           </div>
         </div>
       </nav>
