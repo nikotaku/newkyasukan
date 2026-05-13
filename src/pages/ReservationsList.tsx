@@ -34,6 +34,7 @@ interface Reservation {
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-900",
+  sms_waiting: "bg-purple-100 text-purple-900",
   confirmed: "bg-blue-100 text-blue-900",
   completed: "bg-emerald-100 text-emerald-900",
   cancelled: "bg-rose-100 text-rose-700",
@@ -41,6 +42,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "確認中",
+  sms_waiting: "SMS送信待ち",
   confirmed: "確定",
   completed: "完了",
   cancelled: "キャンセル",
@@ -131,12 +133,13 @@ export default function ReservationsList() {
                   </div>
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-[170px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">全て</SelectItem>
                     <SelectItem value="pending">確認中</SelectItem>
+                    <SelectItem value="sms_waiting">SMS送信待ち</SelectItem>
                     <SelectItem value="confirmed">確定</SelectItem>
                     <SelectItem value="completed">完了</SelectItem>
                     <SelectItem value="cancelled">キャンセル</SelectItem>
@@ -153,43 +156,46 @@ export default function ReservationsList() {
               予約がありません
             </div>
           ) : (
-            <div className="space-y-3">
-              {filteredReservations.map((res) => (
-                <Card key={res.id} className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="font-semibold">{res.customer_name}</div>
-                        <span
-                          className={`text-xs px-2 py-1 rounded ${
-                            STATUS_COLORS[res.status]
-                          }`}
-                        >
-                          {STATUS_LABELS[res.status]}
-                        </span>
-                      </div>
-                      <div className="text-sm text-muted-foreground space-y-1">
-                        <div>
-                          {format(new Date(res.reservation_date), "yyyy/MM/dd", {
-                            locale: ja,
-                          })}{" "}
-                          {res.start_time.slice(0, 5)} ({res.duration}分)
-                        </div>
-                        <div>
-                          セラピスト: {res.casts?.name ?? "未設定"} | {res.course_name}
-                        </div>
-                        <div>電話: {res.customer_phone}</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold">
-                        ¥{res.price.toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+            <Card>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">日付</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">時間</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">顧客名</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">電話番号</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">セラピスト</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">コース</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">料金</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">ステータス</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {filteredReservations.map((res) => (
+                      <tr key={res.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {format(new Date(res.reservation_date), "yyyy/MM/dd", { locale: ja })}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {res.start_time.slice(0, 5)}<span className="text-muted-foreground ml-1">({res.duration}分)</span>
+                        </td>
+                        <td className="px-4 py-3 font-medium whitespace-nowrap">{res.customer_name}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">{res.customer_phone}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">{res.casts?.name ?? <span className="text-muted-foreground">未設定</span>}</td>
+                        <td className="px-4 py-3">{res.course_name}</td>
+                        <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">¥{res.price.toLocaleString()}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`text-xs px-2 py-1 rounded ${STATUS_COLORS[res.status] ?? "bg-gray-100 text-gray-700"}`}>
+                            {STATUS_LABELS[res.status] ?? res.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           )}
         </div>
       </main>
