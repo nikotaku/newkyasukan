@@ -138,16 +138,7 @@ const menuItems: MenuItem[] = [
     label: "ナレッジ",
     icon: BookOpen,
     children: [
-      { href: "/database/knowledge/sns", label: "各種SNSデータ" },
-      { href: "/database/knowledge/cleaning", label: "清掃チェックシート" },
-      { href: "/database/knowledge/expenses-rules", label: "雑費・宿泊費ルール" },
-      { href: "/database/knowledge/trouble", label: "トラブル対応" },
-      { href: "/database/knowledge/backlog", label: "バックログ" },
-      { href: "/database/knowledge/customer-service", label: "顧客対応" },
-      { href: "/database/knowledge/suppliers", label: "取引先登録" },
-      { href: "/database/knowledge/templates", label: "文章テンプレート" },
-      { href: "/agreement", label: "誓約書" },
-      { href: "/database/knowledge/interview", label: "面談" },
+      { href: "/knowledge", label: "ナレッジDB" },
     ],
   },
   {

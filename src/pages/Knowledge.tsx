@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { DashboardHeader } from "@/components/DashboardHeader";
@@ -6,15 +6,15 @@ import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pin, Pencil, Trash2, BookOpen, X } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Plus, Search, Pin, Pencil, Trash2, BookOpen, X, ChevronRight, FolderOpen, FileText, Save
+} from "lucide-react";
 
-interface KnowledgeArticle {
+interface Article {
   id: string;
   title: string;
   content: string;
@@ -25,322 +25,342 @@ interface KnowledgeArticle {
   updated_at: string;
 }
 
-const CATEGORIES = ["一般", "セラピスト管理", "支払い", "経費", "運営", "マニュアル", "ルール"];
+const CATEGORIES = [
+  { key: "すべて", label: "すべて", emoji: "📋" },
+  { key: "マニュアル", label: "マニュアル", emoji: "📘" },
+  { key: "ルール", label: "ルール・規則", emoji: "📏" },
+  { key: "清掃", label: "清掃チェック", emoji: "🧹" },
+  { key: "顧客対応", label: "顧客対応", emoji: "👥" },
+  { key: "トラブル", label: "トラブル対応", emoji: "⚠️" },
+  { key: "SNS・媒体", label: "SNS・媒体", emoji: "📱" },
+  { key: "経費・支払い", label: "経費・支払い", emoji: "💴" },
+  { key: "取引先", label: "取引先", emoji: "🤝" },
+  { key: "テンプレート", label: "テンプレート", emoji: "📄" },
+  { key: "面談", label: "面談", emoji: "🗣️" },
+  { key: "バックログ", label: "バックログ", emoji: "📌" },
+  { key: "その他", label: "その他", emoji: "📂" },
+];
+
+const CATEGORY_KEYS = CATEGORIES.slice(1).map(c => c.key);
+
+const emptyForm = { title: "", content: "", category: "マニュアル", tags: "" };
 
 export default function Knowledge() {
   const { user, isAdmin } = useAuth();
-  const { toast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [articles, setArticles] = useState<KnowledgeArticle[]>([]);
+  const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filterCategory, setFilterCategory] = useState<string>("all");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedArticle, setSelectedArticle] = useState<KnowledgeArticle | null>(null);
-  const [viewArticle, setViewArticle] = useState<KnowledgeArticle | null>(null);
+  const [activeCategory, setActiveCategory] = useState("すべて");
+  const [selected, setSelected] = useState<Article | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Form state
-  const [form, setForm] = useState({ title: "", content: "", category: "一般", tags: "" });
-
-  useEffect(() => {
-    fetchArticles();
-  }, []);
+  useEffect(() => { fetchArticles(); }, []);
 
   const fetchArticles = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("knowledge_articles")
       .select("*")
       .order("is_pinned", { ascending: false })
       .order("updated_at", { ascending: false });
-
-    if (!error && data) {
-      setArticles(data as unknown as KnowledgeArticle[]);
-    }
+    setArticles((data || []) as unknown as Article[]);
     setLoading(false);
   };
 
-  const openCreateDialog = () => {
-    setSelectedArticle(null);
-    setForm({ title: "", content: "", category: "一般", tags: "" });
-    setDialogOpen(true);
+  const filtered = articles.filter(a => {
+    const matchCat = activeCategory === "すべて" || a.category === activeCategory;
+    const q = search.toLowerCase();
+    const matchSearch = !q || a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q) || a.tags?.some(t => t.toLowerCase().includes(q));
+    return matchCat && matchSearch;
+  });
+
+  const openNew = () => {
+    setSelected(null);
+    setForm({ ...emptyForm, category: activeCategory === "すべて" ? "マニュアル" : activeCategory });
+    setEditing(true);
   };
 
-  const openEditDialog = (article: KnowledgeArticle) => {
-    setSelectedArticle(article);
-    setForm({
-      title: article.title,
-      content: article.content,
-      category: article.category,
-      tags: article.tags?.join(", ") || "",
-    });
-    setDialogOpen(true);
+  const openEdit = (a: Article) => {
+    setForm({ title: a.title, content: a.content, category: a.category, tags: a.tags?.join(", ") || "" });
+    setEditing(true);
   };
 
   const handleSave = async () => {
-    if (!form.title.trim()) {
-      toast({ title: "タイトルを入力してください", variant: "destructive" });
-      return;
-    }
-
+    if (!form.title.trim()) { toast.error("タイトルを入力してください"); return; }
+    setSaving(true);
     const tags = form.tags.split(",").map(t => t.trim()).filter(Boolean);
-    const payload = {
-      title: form.title,
-      content: form.content,
-      category: form.category,
-      tags,
-      created_by: user?.id,
-    };
-
+    const payload = { title: form.title, content: form.content, category: form.category, tags, created_by: user?.id };
     let error;
-    if (selectedArticle) {
-      ({ error } = await supabase
-        .from("knowledge_articles")
-        .update(payload)
-        .eq("id", selectedArticle.id));
+    if (selected) {
+      ({ error } = await supabase.from("knowledge_articles").update(payload).eq("id", selected.id));
     } else {
       ({ error } = await supabase.from("knowledge_articles").insert(payload));
     }
-
-    if (error) {
-      toast({ title: "保存に失敗しました", description: error.message, variant: "destructive" });
+    setSaving(false);
+    if (error) { toast.error("保存に失敗しました"); return; }
+    toast.success(selected ? "更新しました" : "作成しました");
+    setEditing(false);
+    await fetchArticles();
+    if (selected) {
+      const updated = (await supabase.from("knowledge_articles").select("*").eq("id", selected.id).single()).data;
+      if (updated) setSelected(updated as unknown as Article);
     } else {
-      toast({ title: selectedArticle ? "更新しました" : "作成しました" });
-      setDialogOpen(false);
-      fetchArticles();
+      setSelected(null);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("この記事を削除しますか？")) return;
-    const { error } = await supabase.from("knowledge_articles").delete().eq("id", id);
-    if (!error) {
-      toast({ title: "削除しました" });
-      if (viewArticle?.id === id) setViewArticle(null);
-      fetchArticles();
-    }
-  };
-
-  const handleTogglePin = async (article: KnowledgeArticle) => {
-    await supabase
-      .from("knowledge_articles")
-      .update({ is_pinned: !article.is_pinned })
-      .eq("id", article.id);
+  const handleDelete = async (a: Article) => {
+    if (!confirm(`「${a.title}」を削除しますか？`)) return;
+    await supabase.from("knowledge_articles").delete().eq("id", a.id);
+    toast.success("削除しました");
+    if (selected?.id === a.id) setSelected(null);
     fetchArticles();
   };
 
-  const filtered = articles.filter(a => {
-    const matchSearch = !search || 
-      a.title.toLowerCase().includes(search.toLowerCase()) ||
-      a.content.toLowerCase().includes(search.toLowerCase()) ||
-      a.tags?.some(t => t.toLowerCase().includes(search.toLowerCase()));
-    const matchCategory = filterCategory === "all" || a.category === filterCategory;
-    return matchSearch && matchCategory;
-  });
+  const handleTogglePin = async (a: Article, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await supabase.from("knowledge_articles").update({ is_pinned: !a.is_pinned }).eq("id", a.id);
+    fetchArticles();
+    if (selected?.id === a.id) setSelected({ ...selected, is_pinned: !a.is_pinned });
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    if (!selected) setSelected(null);
+  };
+
+  const catCount = (key: string) =>
+    key === "すべて" ? articles.length : articles.filter(a => a.category === key).length;
 
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="md:ml-[180px] pt-[60px] p-4">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <BookOpen size={24} />
-                社内ナレッジ
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                業務マニュアル・運営ルール・ノウハウを管理
-              </p>
+      <main className="pt-[60px] md:ml-[240px] h-[calc(100vh-60px)] flex overflow-hidden">
+
+        {/* ── LEFT: Category nav ── */}
+        <aside className="hidden md:flex flex-col w-48 shrink-0 border-r bg-muted/20 overflow-y-auto">
+          <div className="p-3 border-b">
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="検索..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-7 h-8 text-xs"
+              />
             </div>
+          </div>
+          <nav className="p-2 space-y-0.5">
+            {CATEGORIES.map(cat => (
+              <button
+                key={cat.key}
+                onClick={() => { setActiveCategory(cat.key); setSelected(null); setEditing(false); }}
+                className={`w-full text-left flex items-center justify-between gap-2 px-2.5 py-1.5 rounded text-xs transition-colors ${
+                  activeCategory === cat.key
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <span>{cat.emoji}</span>
+                  <span className="truncate">{cat.label}</span>
+                </span>
+                <span className={`text-[10px] rounded-full px-1.5 ${activeCategory === cat.key ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted-foreground/20"}`}>
+                  {catCount(cat.key)}
+                </span>
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        {/* ── MIDDLE: Article list ── */}
+        <div className={`flex flex-col border-r bg-background overflow-y-auto ${selected || editing ? "hidden md:flex w-64 shrink-0" : "flex-1"}`}>
+          <div className="p-3 border-b flex items-center justify-between gap-2 shrink-0">
+            <h1 className="font-semibold text-sm flex items-center gap-1.5">
+              <BookOpen size={15} />
+              {CATEGORIES.find(c => c.key === activeCategory)?.label || "ナレッジ"}
+            </h1>
             {isAdmin && (
-              <Button onClick={openCreateDialog}>
-                <Plus className="mr-2 h-4 w-4" />
-                新規作成
+              <Button size="sm" className="h-7 text-xs px-2.5" onClick={openNew}>
+                <Plus size={12} className="mr-1" />追加
               </Button>
             )}
           </div>
 
-          {/* Search & Filter */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="キーワード検索..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-10"
-              />
+          {/* SP search */}
+          <div className="md:hidden p-2 border-b">
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="検索..." value={search} onChange={e => setSearch(e.target.value)} className="pl-7 h-8 text-xs" />
             </div>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">すべてのカテゴリ</SelectItem>
-                {CATEGORIES.map(c => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
-          {/* View Article Detail */}
-          {viewArticle ? (
-            <div className="mb-6">
-              <Button variant="ghost" size="sm" onClick={() => setViewArticle(null)} className="mb-4">
-                ← 一覧に戻る
-              </Button>
-              <Card>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="secondary">{viewArticle.category}</Badge>
-                        {viewArticle.is_pinned && <Pin size={14} className="text-primary" />}
-                      </div>
-                      <CardTitle className="text-xl">{viewArticle.title}</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        更新: {new Date(viewArticle.updated_at).toLocaleDateString("ja-JP")}
-                      </p>
-                    </div>
-                    {isAdmin && (
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(viewArticle)}>
-                          <Pencil size={16} />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(viewArticle.id)}>
-                          <Trash2 size={16} className="text-destructive" />
-                        </Button>
-                      </div>
-                    )}
+          <div className="flex-1">
+            {loading ? (
+              <p className="text-center text-muted-foreground py-8 text-sm">読み込み中...</p>
+            ) : filtered.length === 0 ? (
+              <div className="text-center text-muted-foreground py-12 px-4">
+                <FileText size={32} className="mx-auto mb-2 opacity-30" />
+                <p className="text-xs">{search ? "該当する記事がありません" : "まだ記事がありません"}</p>
+                {isAdmin && !search && (
+                  <Button size="sm" variant="outline" className="mt-3 text-xs" onClick={openNew}>
+                    <Plus size={12} className="mr-1" />最初の記事を作成
+                  </Button>
+                )}
+              </div>
+            ) : (
+              filtered.map(a => (
+                <button
+                  key={a.id}
+                  onClick={() => { setSelected(a); setEditing(false); }}
+                  className={`w-full text-left px-3 py-2.5 border-b border-border/50 transition-colors flex items-start gap-2 ${
+                    selected?.id === a.id ? "bg-muted" : "hover:bg-muted/50"
+                  }`}
+                >
+                  <div className="shrink-0 mt-0.5">
+                    {a.is_pinned ? <Pin size={12} className="text-primary" /> : <FileText size={12} className="text-muted-foreground" />}
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {viewArticle.content}
-                  </div>
-                  {viewArticle.tags?.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-4 pt-4 border-t">
-                      {viewArticle.tags.map(tag => (
-                        <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{a.title}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{a.content}</p>
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(a.updated_at).toLocaleDateString("ja-JP")}
+                      </span>
+                      {a.tags?.slice(0, 2).map(t => (
+                        <span key={t} className="text-[10px] bg-muted rounded px-1">{t}</span>
                       ))}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* ── RIGHT: Detail / Editor ── */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {editing ? (
+            /* ── EDITOR ── */
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b shrink-0">
+                <span className="text-sm font-semibold">{selected ? "編集" : "新規作成"}</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={cancelEdit}>キャンセル</Button>
+                  <Button size="sm" className="h-8 text-xs" onClick={handleSave} disabled={saving}>
+                    <Save size={12} className="mr-1" />{saving ? "保存中..." : "保存"}
+                  </Button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div>
+                  <Input
+                    placeholder="タイトル"
+                    value={form.title}
+                    onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                    className="text-base font-semibold border-0 border-b rounded-none px-0 focus-visible:ring-0 shadow-none"
+                  />
+                </div>
+                <div className="flex gap-3 flex-wrap">
+                  <div className="flex-1 min-w-[160px]">
+                    <Label className="text-xs text-muted-foreground">カテゴリ</Label>
+                    <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
+                      <SelectTrigger className="h-8 text-xs mt-0.5">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATEGORY_KEYS.map(c => (
+                          <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1 min-w-[160px]">
+                    <Label className="text-xs text-muted-foreground">タグ（カンマ区切り）</Label>
+                    <Input
+                      value={form.tags}
+                      onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
+                      placeholder="例: 重要, 新人向け"
+                      className="h-8 text-xs mt-0.5"
+                    />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground">本文</Label>
+                  <Textarea
+                    ref={textareaRef}
+                    value={form.content}
+                    onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+                    placeholder="ここに内容を入力..."
+                    className="mt-0.5 min-h-[calc(100vh-320px)] text-sm font-mono resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : selected ? (
+            /* ── VIEWER ── */
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b shrink-0 flex-wrap gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <button
+                    className="md:hidden text-muted-foreground hover:text-foreground"
+                    onClick={() => setSelected(null)}
+                  >
+                    <ChevronRight size={16} className="rotate-180" />
+                  </button>
+                  <Badge variant="secondary" className="text-xs shrink-0">{selected.category}</Badge>
+                  {selected.is_pinned && <Pin size={12} className="text-primary shrink-0" />}
+                  <span className="text-xs text-muted-foreground truncate">
+                    {new Date(selected.updated_at).toLocaleDateString("ja-JP")} 更新
+                  </span>
+                </div>
+                {isAdmin && (
+                  <div className="flex gap-1 shrink-0">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={e => handleTogglePin(selected, e)}>
+                      <Pin size={12} className={selected.is_pinned ? "text-primary" : ""} />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openEdit(selected)}>
+                      <Pencil size={12} />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => handleDelete(selected)}>
+                      <Trash2 size={12} />
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 overflow-y-auto p-5 md:p-8">
+                <h1 className="text-xl md:text-2xl font-bold mb-4">{selected.title}</h1>
+                {selected.tags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-5">
+                    {selected.tags.map(t => (
+                      <Badge key={t} variant="outline" className="text-xs">{t}</Badge>
+                    ))}
+                  </div>
+                )}
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                  {selected.content || <span className="text-muted-foreground italic">内容がありません</span>}
+                </div>
+              </div>
             </div>
           ) : (
-            /* Article List */
-            <div className="space-y-3">
-              {loading ? (
-                <p className="text-center text-muted-foreground py-12">読み込み中...</p>
-              ) : filtered.length === 0 ? (
-                <p className="text-center text-muted-foreground py-12">
-                  {search || filterCategory !== "all" ? "該当する記事がありません" : "まだ記事がありません"}
-                </p>
-              ) : (
-                filtered.map(article => (
-                  <Card
-                    key={article.id}
-                    className="cursor-pointer hover:bg-muted/30 transition-colors"
-                    onClick={() => setViewArticle(article)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            {article.is_pinned && <Pin size={14} className="text-primary shrink-0" />}
-                            <Badge variant="secondary" className="text-xs shrink-0">{article.category}</Badge>
-                            <h3 className="font-semibold truncate">{article.title}</h3>
-                          </div>
-                          <p className="text-sm text-muted-foreground line-clamp-2">{article.content}</p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(article.updated_at).toLocaleDateString("ja-JP")}
-                            </span>
-                            {article.tags?.slice(0, 3).map(tag => (
-                              <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
-                            ))}
-                          </div>
-                        </div>
-                        {isAdmin && (
-                          <div className="flex gap-1 ml-2 shrink-0" onClick={e => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleTogglePin(article)}>
-                              <Pin size={14} className={article.is_pinned ? "text-primary" : ""} />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(article)}>
-                              <Pencil size={14} />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(article.id)}>
-                              <Trash2 size={14} className="text-destructive" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
+            /* ── EMPTY STATE ── */
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
+              <FolderOpen size={48} className="opacity-20" />
+              <p className="text-sm">記事を選択してください</p>
+              {isAdmin && (
+                <Button variant="outline" size="sm" onClick={openNew}>
+                  <Plus size={14} className="mr-1.5" />新規作成
+                </Button>
               )}
             </div>
           )}
         </div>
       </main>
-
-      {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedArticle ? "記事を編集" : "新規記事を作成"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>タイトル</Label>
-              <Input
-                value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="記事のタイトル"
-              />
-            </div>
-            <div>
-              <Label>カテゴリ</Label>
-              <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>内容</Label>
-              <Textarea
-                value={form.content}
-                onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-                placeholder="記事の内容を入力..."
-                className="min-h-[300px]"
-              />
-            </div>
-            <div>
-              <Label>タグ（カンマ区切り）</Label>
-              <Input
-                value={form.tags}
-                onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
-                placeholder="例: 新人向け, 重要, 手続き"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
-              <Button onClick={handleSave}>保存</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
