@@ -86,6 +86,24 @@ const CastDetail = () => {
 
   if (!cast) return null;
 
+  // Parse profile JSON if it exists (old data stored stats as JSON in profile field)
+  let profileJson: Record<string, any> | null = null;
+  let profileText: string | null = cast.profile;
+  if (cast.profile && cast.profile.trimStart().startsWith("{")) {
+    try {
+      profileJson = JSON.parse(cast.profile);
+      profileText = null;
+    } catch { /* keep as text */ }
+  }
+
+  const displayAge    = cast.age    ?? profileJson?.age    ?? null;
+  const displayHeight = cast.height ?? profileJson?.height ?? null;
+  const displayBust   = cast.bust   ?? profileJson?.bust   ?? null;
+  const displayWaist  = cast.waist  ?? profileJson?.waist  ?? null;
+  const displayHip    = cast.hip    ?? profileJson?.hip    ?? null;
+  const displayWeight = profileJson?.weight ?? null;
+  const displayBlood  = cast.blood_type ?? profileJson?.blood_type ?? null;
+
   // Use photos array directly (already includes main photo); fall back to [photo]
   const allPhotos = (cast.photos && cast.photos.length > 0
     ? cast.photos
@@ -102,7 +120,7 @@ const CastDetail = () => {
     { label: "趣味・特技", value: cast.hobbies },
     { label: "休日の過ごし方", value: cast.day_off_activities },
     { label: "好みのタイプ", value: cast.ideal_type },
-    { label: "血液型", value: cast.blood_type },
+    { label: "血液型", value: displayBlood ? null : cast.blood_type },
   ].filter((i) => i.value);
 
   return (
@@ -199,7 +217,7 @@ const CastDetail = () => {
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
                   <h1 className="text-2xl font-bold" style={{ color: "#1a1817" }}>{cast.name}</h1>
-                  {cast.age && <p className="text-sm mt-0.5" style={{ color: "#a89586" }}>{cast.age}歳</p>}
+                  {displayAge && <p className="text-sm mt-0.5" style={{ color: "#a89586" }}>{displayAge}歳</p>}
                 </div>
                 <span
                   className="text-sm font-bold px-4 py-1.5 rounded-full text-white"
@@ -211,19 +229,50 @@ const CastDetail = () => {
             </div>
 
             {/* Stats grid */}
-            {(cast.height || cast.bust || cast.waist || cast.hip) && (
-              <div className="grid grid-cols-4 divide-x divide-[#f0e4df] border-b border-[#f0e4df]">
-                {[
-                  { label: "身長", value: cast.height ? `${cast.height}cm` : "―" },
-                  { label: "バスト", value: cast.bust ? `${cast.bust}(${cast.cup_size ?? ""})` : "―" },
-                  { label: "ウエスト", value: cast.waist ? `${cast.waist}` : "―" },
-                  { label: "ヒップ", value: cast.hip ? `${cast.hip}` : "―" },
-                ].map(({ label, value }) => (
-                  <div key={label} className="py-3 text-center">
-                    <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>{label}</p>
-                    <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{value}</p>
+            {(displayHeight || displayBust || displayWaist || displayHip || displayWeight || displayBlood) && (
+              <div className="border-b border-[#f0e4df]">
+                <div className={`grid divide-x divide-[#f0e4df] ${[displayHeight, displayBust, displayWaist, displayHip].filter(Boolean).length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
+                  {displayHeight && (
+                    <div className="py-3 text-center">
+                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>身長</p>
+                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayHeight}cm</p>
+                    </div>
+                  )}
+                  {displayBust && (
+                    <div className="py-3 text-center">
+                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>バスト</p>
+                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayBust}{cast.cup_size ? `(${cast.cup_size})` : ""}</p>
+                    </div>
+                  )}
+                  {displayWaist && (
+                    <div className="py-3 text-center">
+                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>ウエスト</p>
+                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayWaist}</p>
+                    </div>
+                  )}
+                  {displayHip && (
+                    <div className="py-3 text-center">
+                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>ヒップ</p>
+                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayHip}</p>
+                    </div>
+                  )}
+                </div>
+                {(displayWeight || displayBlood) && (
+                  <div className="grid grid-cols-2 divide-x divide-[#f0e4df] border-t border-[#f0e4df]">
+                    {displayWeight && (
+                      <div className="py-3 text-center">
+                        <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>体重</p>
+                        <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayWeight}kg</p>
+                      </div>
+                    )}
+                    {displayBlood && (
+                      <div className="py-3 text-center">
+                        <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>血液型</p>
+                        <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayBlood}型</p>
+                      </div>
+                    )}
                   </div>
-                ))}
+                )}
               </div>
             )}
 
@@ -238,11 +287,11 @@ const CastDetail = () => {
             )}
 
             {/* Profile text */}
-            {cast.profile && (
+            {profileText && (
               <div className="px-5 py-4 border-b border-[#f0e4df]">
                 <h3 className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#b8a49a" }}>PROFILE</h3>
                 <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>
-                  {cast.profile}
+                  {profileText}
                 </p>
               </div>
             )}

@@ -1125,7 +1125,7 @@ const BookingReservation = () => {
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <h4 className="font-semibold mb-2">注意事項</h4>
                       <p className="text-sm text-muted-foreground">
-                        『08031921209』より予約詳細をショートメッセージにてお送りします。必ずショートメッセージを受け取れるように設定をお願いします。また、ひとこと返信をいただいた時点で予約確定となります。<br/>
+                        『09081264042』より予約詳細をショートメッセージにてお送りします。必ずショートメッセージを受け取れるように設定をお願いします。また、ひとこと返信をいただいた時点で予約確定となります。<br/>
                         領収書の発行は出来かねます。ご了承ください。
                       </p>
                     </div>
