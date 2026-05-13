@@ -2,20 +2,20 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CalendarIcon, Clock, User, Phone, Mail, CreditCard, Copy, Check } from "lucide-react";
+import { User, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
-import caskanLogo from "@/assets/caskan-logo.png";
+import { PublicNavigation } from "@/components/public/PublicNavigation";
+import { PublicFooter } from "@/components/public/PublicFooter";
+import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 
 interface Cast {
   id: string;
@@ -524,32 +524,10 @@ const BookingReservation = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">読み込み中...</p>
-        </div>
-      </div>
-    );
-  }
-
   if (bookingComplete) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: "#f8f6f3" }}>
-        <div className="bg-[#d4b5a8] text-white py-2 px-4 flex justify-between items-center text-sm">
-          <div className="container mx-auto flex justify-center items-center">
-            <span>12:00〜26:00(24:40最終受付)</span>
-          </div>
-        </div>
-        <div className="bg-white py-6">
-          <div className="container mx-auto text-center">
-            <Link to="/">
-              <img src={caskanLogo} alt="全力エステ" className="h-16 mx-auto" />
-            </Link>
-          </div>
-        </div>
+      <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+        <PublicNavigation />
         <div className="container mx-auto px-4 py-8 max-w-lg">
           <Card className="border-0 shadow-lg">
             <CardHeader className="text-center">
@@ -580,59 +558,15 @@ const BookingReservation = () => {
             </CardContent>
           </Card>
         </div>
+        <PublicFooter />
+        <FixedBottomBar />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#f8f6f3" }}>
-      {/* Top Contact Bar */}
-      <div className="bg-[#d4b5a8] text-white py-2 px-4 flex justify-between items-center text-sm">
-        <div className="container mx-auto flex justify-center items-center">
-          <span>12:00〜26:00(24:40最終受付)</span>
-        </div>
-      </div>
-
-      {/* Logo */}
-      <div className="bg-white py-6">
-        <div className="container mx-auto text-center">
-          <Link to="/">
-            <img src={caskanLogo} alt="全力エステ" className="h-24 md:h-32 mx-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
-          </Link>
-        </div>
-      </div>
-
-      {/* Navigation Menu */}
-      <nav className="bg-white border-y border-[#e5d5cc] sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto">
-          <div className="flex justify-center items-center flex-wrap">
-            <Link to="/" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
-              <div className="text-[#7a706c] font-semibold text-sm">TOP</div>
-              <div className="text-xs text-[#a89586]">トップ</div>
-            </Link>
-            <Link to="/schedule" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
-              <div className="text-[#7a706c] font-semibold text-sm">SCHEDULE</div>
-              <div className="text-xs text-[#a89586]">出勤情報</div>
-            </Link>
-            <Link to="/casts" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
-              <div className="text-[#7a706c] font-semibold text-sm">THERAPIST</div>
-              <div className="text-xs text-[#a89586]">セラピスト</div>
-            </Link>
-            <Link to="/system" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
-              <div className="text-[#7a706c] font-semibold text-sm">SYSTEM</div>
-              <div className="text-xs text-[#a89586]">システム</div>
-            </Link>
-            <Link to="/access" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
-              <div className="text-[#7a706c] font-semibold text-sm">ACCESS</div>
-              <div className="text-xs text-[#a89586]">アクセス</div>
-            </Link>
-            <Link to="/booking" className="px-8 py-4 bg-[#f8f6f3] transition-colors border-b-2 border-[#c49480]">
-              <div className="text-[#7a706c] font-semibold text-sm">BOOKING</div>
-              <div className="text-xs text-[#a89586]">WEB予約</div>
-            </Link>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+      <PublicNavigation />
 
       <main className="container py-8 px-4">
         <div className="max-w-5xl mx-auto">
@@ -929,13 +863,16 @@ const BookingReservation = () => {
                   <div className="space-y-4">
                     {/* コースタイプごとに動的表示 */}
                     {(() => {
-                      const courseTypes = [...new Set(backRates.filter(r => r.course_type !== 'DR').map(r => r.course_type))];
+                      const courseTypes = [...new Set(backRates.map(r => r.course_type))];
                       const courseDescriptions: Record<string, string> = {
                         "アロマオイル": "クイーンオイルを使用して全身で全身をアロマオイルトリートメントしていきます。",
                         "全力コース": "疲れも悩みも全てを出し切るSPコース",
+                        "DR": "ドクターズリラックスコース",
                       };
                       return courseTypes.map((type) => {
-                        const rates = backRates.filter(r => r.course_type === type).sort((a, b) => a.duration - b.duration);
+                        const rates = backRates
+                          .filter(r => r.course_type === type && (type !== 'DR' || r.duration <= 30))
+                          .sort((a, b) => a.duration - b.duration);
                         return (
                           <div
                             key={type}
@@ -1175,35 +1112,8 @@ const BookingReservation = () => {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="py-16 px-4 text-white" style={{ background: "linear-gradient(180deg, #d4b5a8 0%, #c5a89b 100%)" }}>
-        <div className="container max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-10">
-            <div>
-              <h4 className="font-bold mb-4 text-lg">営業時間</h4>
-              <p className="text-white/95">12:00〜26:00</p>
-              <p className="text-sm text-white/80">(24:40最終受付)</p>
-            </div>
-            <div>
-              <h4 className="font-bold mb-4 text-lg">メニュー</h4>
-              <div className="flex flex-col gap-3 text-sm">
-                <Link to="/casts" className="text-white/85 hover:text-[#c49480] transition-colors">
-                  セラピスト
-                </Link>
-                <Link to="/schedule" className="text-white/85 hover:text-[#c49480] transition-colors">
-                  出勤情報
-                </Link>
-                <Link to="/system" className="text-white/85 hover:text-[#c49480] transition-colors">
-                  システム
-                </Link>
-              </div>
-            </div>
-          </div>
-          <div className="text-center text-sm text-white/70 pt-10 border-t border-white/20">
-            © 2025 全力エステ ZR. All rights reserved.
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
+      <FixedBottomBar />
     </div>
   );
 };
