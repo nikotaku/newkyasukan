@@ -492,6 +492,16 @@ const BookingReservation = () => {
     }
   };
 
+  const getProfileText = (profile: string | null): string => {
+    if (!profile) return '';
+    try {
+      const p = JSON.parse(profile);
+      return p.self_introduction || p.comment || '';
+    } catch {
+      return profile;
+    }
+  };
+
   const selectedCast = casts.find(c => c.id === selectedCastId);
 
   const referralSources = [
@@ -721,7 +731,7 @@ const BookingReservation = () => {
                                   {cast.name}
                                 </h3>
                                 <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                                  {cast.profile || "プロフィール情報なし"}
+                                  {getProfileText(cast.profile) || "プロフィール情報なし"}
                                 </p>
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                                   <span>{cast.age || "-"}歳</span>
