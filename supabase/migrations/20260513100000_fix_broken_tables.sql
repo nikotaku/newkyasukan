@@ -16,6 +16,10 @@ create table if not exists public.allowances (
   created_at     timestamptz not null default now()
 );
 alter table public.allowances enable row level security;
+drop policy if exists "allowances select" on public.allowances;
+drop policy if exists "allowances insert" on public.allowances;
+drop policy if exists "allowances update" on public.allowances;
+drop policy if exists "allowances delete" on public.allowances;
 create policy "allowances select" on public.allowances for select to authenticated using (true);
 create policy "allowances insert" on public.allowances for insert to authenticated with check (true);
 create policy "allowances update" on public.allowances for update to authenticated using (true);
