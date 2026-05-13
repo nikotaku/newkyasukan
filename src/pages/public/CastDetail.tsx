@@ -5,7 +5,7 @@ import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { ChatBot } from "@/components/ChatBot";
-import { ArrowLeft, Phone, Calendar } from "lucide-react";
+import { ArrowLeft, Phone, Calendar, Star } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import { driveImgUrl } from "@/lib/drive";
 
@@ -37,22 +37,66 @@ interface Cast {
   tags: string[] | null;
 }
 
+interface TherapistProfile {
+  self_introduction: string | null;
+  comment: string | null;
+  hobbies: string | null;
+  special_skills: string | null;
+  preferred_type: string | null;
+  mbti: string | null;
+  career_history: string | null;
+  massage_skills: string | null;
+  training_count: number | null;
+}
+
+interface Review {
+  id: string;
+  reviewer_name: string;
+  rating: number;
+  body: string;
+  visit_date: string | null;
+  course: string | null;
+  created_at: string;
+}
+
 const STATUS_LABEL: Record<string, { text: string; color: string }> = {
   working: { text: "接客中", color: "#ef4444" },
   waiting: { text: "待機中", color: "#22c55e" },
   offline: { text: "退勤", color: "#9ca3af" },
 };
 
+const Stars = ({ rating }: { rating: number }) => (
+  <div className="flex gap-0.5">
+    {[1, 2, 3, 4, 5].map((i) => (
+      <Star
+        key={i}
+        size={14}
+        fill={i <= rating ? "#c49480" : "none"}
+        stroke={i <= rating ? "#c49480" : "#d1c4be"}
+      />
+    ))}
+  </div>
+);
+
+const SectionHeader = ({ label, sub }: { label: string; sub?: string }) => (
+  <div className="px-5 py-3 border-b border-[#f0e4df]" style={{ background: "#2a2320" }}>
+    <h3 className="text-sm font-bold tracking-widest" style={{ color: "#c49480" }}>{label}</h3>
+    {sub && <p className="text-[10px] mt-0.5" style={{ color: "#7a706c" }}>{sub}</p>}
+  </div>
+);
+
 const CastDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [cast, setCast] = useState<Cast | null>(null);
+  const [profile, setProfile] = useState<TherapistProfile | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   useEffect(() => {
-    if (id) fetchCastDetail();
+    if (id) fetchAll();
   }, [id]);
 
   useEffect(() => {
@@ -63,12 +107,18 @@ const CastDetail = () => {
     return () => { emblaApi.off("select", onSelect); };
   }, [emblaApi]);
 
-  const fetchCastDetail = async () => {
+  const fetchAll = async () => {
     try {
-      const { data, error } = await supabase.from("casts").select("*").eq("id", id).single();
-      if (error) throw error;
-      setCast(data);
-      document.title = `${data.name} | 全力エステ`;
+      const [castRes, profileRes, reviewsRes] = await Promise.all([
+        supabase.from("casts").select("*").eq("id", id).single(),
+        supabase.from("therapist_profiles").select("*").eq("cast_id", id).maybeSingle(),
+        supabase.from("cast_reviews").select("*").eq("cast_id", id).eq("is_visible", true).order("created_at", { ascending: false }),
+      ]);
+      if (castRes.error) throw castRes.error;
+      setCast(castRes.data);
+      setProfile(profileRes.data ?? null);
+      setReviews(reviewsRes.data ?? []);
+      document.title = `${castRes.data.name} | 全力エステ`;
     } catch {
       navigate("/casts");
     } finally {
@@ -86,14 +136,11 @@ const CastDetail = () => {
 
   if (!cast) return null;
 
-  // Parse profile JSON if it exists (old data stored stats as JSON in profile field)
+  // Parse profile JSON if stored as JSON in the profile field
   let profileJson: Record<string, any> | null = null;
   let profileText: string | null = cast.profile;
   if (cast.profile && cast.profile.trimStart().startsWith("{")) {
-    try {
-      profileJson = JSON.parse(cast.profile);
-      profileText = null;
-    } catch { /* keep as text */ }
+    try { profileJson = JSON.parse(cast.profile); profileText = null; } catch { /* keep as text */ }
   }
 
   const displayAge    = cast.age    ?? profileJson?.age    ?? null;
@@ -104,7 +151,6 @@ const CastDetail = () => {
   const displayWeight = profileJson?.weight ?? null;
   const displayBlood  = cast.blood_type ?? profileJson?.blood_type ?? null;
 
-  // Use photos array directly (already includes main photo); fall back to [photo]
   const allPhotos = (cast.photos && cast.photos.length > 0
     ? cast.photos
     : cast.photo ? [cast.photo] : []
@@ -112,16 +158,30 @@ const CastDetail = () => {
 
   const status = STATUS_LABEL[cast.status] ?? { text: cast.status, color: "#9ca3af" };
 
-  const interview: { label: string; value: string | null | undefined }[] = [
-    { label: "セラピスト歴", value: cast.therapist_years != null ? `${cast.therapist_years}年` : null },
-    { label: "得意な施術", value: cast.favorite_techniques },
-    { label: "好きな食べ物", value: cast.favorite_food },
-    { label: "似ている芸能人", value: cast.celebrity_lookalike },
-    { label: "趣味・特技", value: cast.hobbies },
-    { label: "休日の過ごし方", value: cast.day_off_activities },
-    { label: "好みのタイプ", value: cast.ideal_type },
-    { label: "血液型", value: displayBlood ? null : cast.blood_type },
-  ].filter((i) => i.value);
+  // Build interview items from both casts columns and therapist_profiles
+  const interviewItems: { q: string; a: string }[] = [
+    profile?.self_introduction && { q: "自己紹介", a: profile.self_introduction },
+    cast.therapist_years != null && { q: "セラピスト歴", a: `${cast.therapist_years}年` },
+    (profile?.massage_skills || cast.favorite_techniques) && { q: "得意な施術", a: profile?.massage_skills ?? cast.favorite_techniques ?? "" },
+    profile?.career_history && { q: "エステ経歴", a: profile.career_history },
+    profile?.training_count != null && { q: "研修回数", a: `${profile.training_count}回` },
+    (profile?.hobbies || cast.hobbies) && { q: "趣味・特技", a: profile?.hobbies ?? cast.hobbies ?? "" },
+    profile?.special_skills && { q: "特技", a: profile.special_skills },
+    cast.favorite_food && { q: "好きな食べ物", a: cast.favorite_food },
+    cast.celebrity_lookalike && { q: "似ている芸能人", a: cast.celebrity_lookalike },
+    cast.day_off_activities && { q: "休日の過ごし方", a: cast.day_off_activities },
+    (profile?.preferred_type || cast.ideal_type) && { q: "好みのタイプ", a: profile?.preferred_type ?? cast.ideal_type ?? "" },
+    profile?.mbti && { q: "MBTI", a: profile.mbti },
+    displayBlood && { q: "血液型", a: `${displayBlood}型` },
+  ].filter(Boolean) as { q: string; a: string }[];
+
+  // Shop comment from profile or message
+  const shopComment = profile?.comment || cast.message;
+
+  // Average rating
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+    : null;
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
@@ -140,7 +200,8 @@ const CastDetail = () => {
           </button>
 
           <div className="bg-white rounded-lg overflow-hidden shadow-md">
-            {/* Photo carousel */}
+
+            {/* ── Photo carousel ── */}
             <div className="relative bg-black">
               {allPhotos.length > 0 ? (
                 <>
@@ -161,9 +222,7 @@ const CastDetail = () => {
                   {allPhotos.length > 1 && (
                     <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
                       {allPhotos.map((_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => emblaApi?.scrollTo(i)}
+                        <button key={i} onClick={() => emblaApi?.scrollTo(i)}
                           className="w-1.5 h-1.5 rounded-full transition-all"
                           style={{ background: i === selectedIndex ? "#fff" : "rgba(255,255,255,0.4)" }}
                         />
@@ -176,15 +235,11 @@ const CastDetail = () => {
                   <span className="text-7xl font-bold text-white/60">{cast.name.charAt(0)}</span>
                 </div>
               )}
-
               {cast.tags && cast.tags.length > 0 && (
                 <div className="absolute top-3 left-3 flex flex-col gap-1">
                   {cast.tags.map((tag, i) => (
-                    <span
-                      key={i}
-                      className="text-white text-xs font-bold px-2 py-0.5 rounded shadow"
-                      style={{ background: tag === "人気セラピスト" ? "#ef4444" : tag === "新人" ? "#ec4899" : "#3b82f6" }}
-                    >
+                    <span key={i} className="text-white text-xs font-bold px-2 py-0.5 rounded shadow"
+                      style={{ background: tag === "人気セラピスト" ? "#ef4444" : tag === "新人" ? "#ec4899" : "#3b82f6" }}>
                       {tag}
                     </span>
                   ))}
@@ -196,39 +251,38 @@ const CastDetail = () => {
             {allPhotos.length > 1 && (
               <div className="flex gap-1.5 px-3 py-2 overflow-x-auto bg-[#f9f4f2]">
                 {allPhotos.map((photo, i) => (
-                  <button
-                    key={i}
-                    onClick={() => emblaApi?.scrollTo(i)}
+                  <button key={i} onClick={() => emblaApi?.scrollTo(i)}
                     className="flex-shrink-0 rounded overflow-hidden border-2 transition-all"
-                    style={{
-                      width: 52, height: 52,
-                      borderColor: i === selectedIndex ? "#c49480" : "transparent",
-                      opacity: i === selectedIndex ? 1 : 0.55,
-                    }}
-                  >
+                    style={{ width: 52, height: 52, borderColor: i === selectedIndex ? "#c49480" : "transparent", opacity: i === selectedIndex ? 1 : 0.55 }}>
                     <img src={driveImgUrl(photo, 400)} alt="" className="w-full h-full object-cover object-top" />
                   </button>
                 ))}
               </div>
             )}
 
-            {/* Name & status */}
+            {/* ── Name & status ── */}
             <div className="px-5 pt-5 pb-3 border-b border-[#f0e4df]">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
                   <h1 className="text-2xl font-bold" style={{ color: "#1a1817" }}>{cast.name}</h1>
                   {displayAge && <p className="text-sm mt-0.5" style={{ color: "#a89586" }}>{displayAge}歳</p>}
                 </div>
-                <span
-                  className="text-sm font-bold px-4 py-1.5 rounded-full text-white"
-                  style={{ background: status.color }}
-                >
-                  {status.text}
-                </span>
+                <div className="flex items-center gap-3">
+                  {avgRating && (
+                    <div className="flex items-center gap-1">
+                      <Stars rating={Math.round(Number(avgRating))} />
+                      <span className="text-sm font-bold" style={{ color: "#c49480" }}>{avgRating}</span>
+                    </div>
+                  )}
+                  <span className="text-sm font-bold px-4 py-1.5 rounded-full text-white"
+                    style={{ background: status.color }}>
+                    {status.text}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Stats grid */}
+            {/* ── Stats grid ── */}
             {(displayHeight || displayBust || displayWaist || displayHip || displayWeight || displayBlood) && (
               <div className="border-b border-[#f0e4df]">
                 <div className={`grid divide-x divide-[#f0e4df] ${[displayHeight, displayBust, displayWaist, displayHip].filter(Boolean).length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
@@ -276,76 +330,97 @@ const CastDetail = () => {
               </div>
             )}
 
-            {/* Shop comment */}
-            {cast.message && (
-              <div className="px-5 py-4 border-b border-[#f0e4df]" style={{ background: "#fffaf8" }}>
-                <h3 className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#b8a49a" }}>COMMENT</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>
-                  {cast.message}
-                </p>
-              </div>
-            )}
+            {/* ── CTA buttons ── */}
+            <div className="px-5 py-4 flex flex-col gap-3 border-b border-[#f0e4df]">
+              <a href="tel:09081264042"
+                className="flex items-center justify-center gap-2 py-3.5 rounded-lg text-white font-bold text-base transition-opacity hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, #c49480, #a87b65)" }}>
+                <Phone size={17} />電話で予約する
+              </a>
+              <Link to="/booking"
+                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[#f2e4de]"
+                style={{ borderColor: "#c49480", color: "#7a706c" }}>
+                <Calendar size={15} />Web予約はこちら
+              </Link>
+            </div>
 
-            {/* Profile text */}
-            {profileText && (
-              <div className="px-5 py-4 border-b border-[#f0e4df]">
-                <h3 className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#b8a49a" }}>PROFILE</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>
-                  {profileText}
-                </p>
-              </div>
-            )}
-
-            {/* Interview Q&A */}
-            {interview.length > 0 && (
-              <div className="px-5 py-4 border-b border-[#f0e4df]">
-                <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#b8a49a" }}>INTERVIEW</h3>
-                <dl className="space-y-2.5">
-                  {interview.map(({ label, value }) => (
-                    <div key={label} className="flex gap-3 text-sm">
-                      <dt className="shrink-0 font-semibold w-28" style={{ color: "#a89586" }}>Q. {label}</dt>
-                      <dd className="leading-relaxed" style={{ color: "#1a1817" }}>{value}</dd>
+            {/* ── インタビュー ── */}
+            {interviewItems.length > 0 && (
+              <>
+                <SectionHeader label="INTERVIEW" sub="インタビュー" />
+                <div className="divide-y divide-[#f0e4df]">
+                  {interviewItems.map(({ q, a }) => (
+                    <div key={q} className="px-5 py-3 flex gap-4 text-sm">
+                      <dt className="shrink-0 font-semibold w-28 text-[#a89586]">Q. {q}</dt>
+                      <dd className="leading-relaxed text-[#1a1817] whitespace-pre-wrap">{a}</dd>
                     </div>
                   ))}
-                </dl>
-              </div>
+                </div>
+              </>
             )}
 
-            {/* X account */}
+            {/* ── コメント ── */}
+            {shopComment && (
+              <>
+                <SectionHeader label="COMMENT" sub="コメント" />
+                <div className="px-5 py-4" style={{ background: "#fffaf8" }}>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>
+                    {shopComment}
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* ── Profile text (legacy) ── */}
+            {profileText && (
+              <>
+                <SectionHeader label="PROFILE" sub="プロフィール" />
+                <div className="px-5 py-4">
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>{profileText}</p>
+                </div>
+              </>
+            )}
+
+            {/* ── X account ── */}
             {cast.x_account && (
-              <div className="px-5 py-3 border-b border-[#f0e4df] flex items-center gap-3">
+              <div className="px-5 py-3 border-t border-[#f0e4df] flex items-center gap-3">
                 <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-5 h-5" />
                 <a
                   href={cast.x_account.startsWith("http") ? cast.x_account : `https://twitter.com/${cast.x_account}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm hover:underline"
-                  style={{ color: "#c49480" }}
-                >
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-sm hover:underline" style={{ color: "#c49480" }}>
                   {cast.x_account}
                 </a>
               </div>
             )}
 
-            {/* CTA buttons */}
-            <div className="px-5 py-5 flex flex-col gap-3">
-              <a
-                href="tel:09081264042"
-                className="flex items-center justify-center gap-2 py-3.5 rounded-lg text-white font-bold text-base transition-opacity hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #c49480, #a87b65)" }}
-              >
-                <Phone size={17} />
-                電話で予約する
-              </a>
-              <Link
-                to="/schedule"
-                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[#f2e4de]"
-                style={{ borderColor: "#c49480", color: "#7a706c" }}
-              >
-                <Calendar size={15} />
-                出勤スケジュールを見る
-              </Link>
-            </div>
+            {/* ── 口コミ ── */}
+            <>
+              <SectionHeader label="VOICE" sub={`口コミ（${reviews.length}件）`} />
+              {reviews.length === 0 ? (
+                <div className="px-5 py-8 text-center text-sm" style={{ color: "#b8a49a" }}>
+                  まだ口コミがありません
+                </div>
+              ) : (
+                <div className="divide-y divide-[#f0e4df]">
+                  {reviews.map((r) => (
+                    <div key={r.id} className="px-5 py-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Stars rating={r.rating} />
+                        <span className="text-xs font-bold" style={{ color: "#c49480" }}>{r.rating}.0</span>
+                        <span className="text-xs" style={{ color: "#b8a49a" }}>
+                          {r.reviewer_name}
+                          {r.visit_date && ` · ${r.visit_date}`}
+                          {r.course && ` · ${r.course}`}
+                        </span>
+                      </div>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>{r.body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+
           </div>
 
           <div className="text-center mt-6 mb-2">
