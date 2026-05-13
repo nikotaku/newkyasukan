@@ -61,7 +61,7 @@ CREATE TABLE public.shop_settings (
   business_hours TEXT,
   description TEXT,
   logo_url TEXT,
-  updated_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  updated_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
@@ -91,14 +91,7 @@ BEFORE UPDATE ON public.shop_settings
 FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
 
--- 初期店舗設定データ
-INSERT INTO public.shop_settings (shop_name, shop_phone, shop_email, shop_address, business_hours, description, updated_by)
-VALUES (
-  '全力エステ 仙台',
-  '022-XXX-XXXX',
-  'info@zenryoku-esthe.com',
-  '宮城県仙台市青葉区',
-  '13:00 - 25:00',
-  '仙台で人気のメンズエステ店です。',
-  '57a7f7ab-0d99-4ee2-aa75-0540cdf6ac18'
-);
+-- 初期店舗設定データ (only if table is empty)
+INSERT INTO public.shop_settings (shop_name, shop_phone, shop_email, shop_address, business_hours, description)
+SELECT '全力エステ 仙台', '022-XXX-XXXX', 'info@zenryoku-esthe.com', '宮城県仙台市青葉区', '13:00 - 25:00', '仙台で人気のメンズエステ店です。'
+WHERE NOT EXISTS (SELECT 1 FROM public.shop_settings LIMIT 1);
