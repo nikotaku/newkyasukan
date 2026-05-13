@@ -3,6 +3,30 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Component, ReactNode } from "react";
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 32, fontFamily: "sans-serif" }}>
+          <h1 style={{ color: "#c00" }}>アプリ読み込みエラー</h1>
+          <pre style={{ background: "#f5f5f5", padding: 16, overflow: "auto", fontSize: 13 }}>
+            {(this.state.error as Error).message}
+            {"\n"}
+            {(this.state.error as Error).stack}
+          </pre>
+          <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: "8px 16px" }}>
+            再読み込み
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import Staff from "./pages/Staff";
 import Shift from "./pages/Shift";
 import ShiftSubmission from "./pages/ShiftSubmission";
@@ -81,6 +105,7 @@ import TextTemplates from "./pages/TextTemplates";
 const queryClient = new QueryClient();
 
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -173,6 +198,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
