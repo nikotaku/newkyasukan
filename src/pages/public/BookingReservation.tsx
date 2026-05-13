@@ -929,13 +929,16 @@ const BookingReservation = () => {
                   <div className="space-y-4">
                     {/* コースタイプごとに動的表示 */}
                     {(() => {
-                      const courseTypes = [...new Set(backRates.filter(r => r.course_type !== 'DR').map(r => r.course_type))];
+                      const courseTypes = [...new Set(backRates.map(r => r.course_type))];
                       const courseDescriptions: Record<string, string> = {
                         "アロマオイル": "クイーンオイルを使用して全身で全身をアロマオイルトリートメントしていきます。",
                         "全力コース": "疲れも悩みも全てを出し切るSPコース",
+                        "DR": "ドクターズリラックスコース",
                       };
                       return courseTypes.map((type) => {
-                        const rates = backRates.filter(r => r.course_type === type).sort((a, b) => a.duration - b.duration);
+                        const rates = backRates
+                          .filter(r => r.course_type === type && (type !== 'DR' || r.duration <= 30))
+                          .sort((a, b) => a.duration - b.duration);
                         return (
                           <div
                             key={type}
