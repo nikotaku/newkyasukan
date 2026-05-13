@@ -25,7 +25,7 @@ export const PublicNavigation = () => {
     <>
       {/* Logo Header with right-aligned business info (公式準拠) */}
       <div
-        className="relative py-8 md:py-12 border-b border-[#3a3634]"
+        className="relative py-3 md:py-10 border-b border-[#3a3634]"
         style={{
           background:
             "linear-gradient(135deg, #2e2b29 0%, #242220 50%, #2e2b29 100%)",
@@ -53,13 +53,13 @@ export const PublicNavigation = () => {
             <img
               src={SHOP_LOGO}
               alt="全力エステ 仙台"
-              className="h-20 md:h-36 mx-auto object-contain"
+              className="h-12 md:h-28 mx-auto object-contain"
               loading="eager"
             />
           </Link>
 
           {/* SP: business info under logo */}
-          <div className="md:hidden flex justify-center items-center gap-3 mt-3 text-[11px]" style={{ color: "#c49480" }}>
+          <div className="md:hidden flex justify-center items-center gap-3 mt-1.5 text-[10px]" style={{ color: "#c49480" }}>
             <span className="inline-flex items-center gap-1">
               <Clock size={11} /> 12:00〜26:00
             </span>

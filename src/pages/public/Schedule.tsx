@@ -150,15 +150,15 @@ const Schedule = () => {
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
       <PublicNavigation />
 
-      {/* Section Heading 公式準拠 */}
-      <div className="text-center pt-10 pb-6">
+      {/* Section Heading */}
+      <div className="text-center pt-5 md:pt-10 pb-4 md:pb-6">
         <h1
-          className="text-3xl md:text-4xl tracking-[0.3em] font-light"
+          className="text-2xl md:text-4xl tracking-[0.3em] font-light"
           style={{ color: "#3a3a4a" }}
         >
           SCHEDULE
         </h1>
-        <p className="mt-2 text-sm tracking-widest text-[#7a706c]">出勤情報</p>
+        <p className="mt-1 text-xs md:text-sm tracking-widest text-[#7a706c]">出勤情報</p>
       </div>
 
       {/* Date Strip - 公式と同じ横ストリップ */}

@@ -66,10 +66,10 @@ const Access = () => {
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
       <PublicNavigation />
 
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-3 md:px-4 py-5 md:py-10">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl md:text-5xl font-bold text-center mb-4" style={{ color: "#7a706c" }}>ACCESS</h1>
-          <p className="text-center text-[#a89586] mb-12 text-lg">アクセス</p>
+          <h1 className="text-2xl md:text-4xl font-bold text-center mb-2 md:mb-4" style={{ color: "#7a706c" }}>ACCESS</h1>
+          <p className="text-center text-[#a89586] mb-5 md:mb-10 text-sm md:text-base">アクセス</p>
 
           <Card className="mb-8 border-[#e5d5cc] bg-white">
             <CardHeader>
@@ -142,9 +142,9 @@ const Access = () => {
         </div>
       </div>
 
-      <div className="py-16 text-center" style={{ backgroundColor: "#edddd6" }}>
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold mb-8" style={{ color: "#7a706c" }}>ご予約・お問い合わせ</h2>
+      <div className="py-8 md:py-14 text-center" style={{ backgroundColor: "#edddd6" }}>
+        <div className="container mx-auto px-3 md:px-4">
+          <h2 className="text-xl md:text-3xl font-bold mb-5 md:mb-8" style={{ color: "#7a706c" }}>ご予約・お問い合わせ</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <a href={lineUrl} target="_blank" rel="noopener noreferrer">
               <Button size="lg" className="gap-2 px-8 py-6 text-lg" style={{ backgroundColor: "#06C755", color: "white" }}>

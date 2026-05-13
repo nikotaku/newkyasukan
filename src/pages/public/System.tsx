@@ -70,10 +70,10 @@ const System = () => {
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
       <PublicNavigation />
 
-      <main className="container mx-auto px-4 py-12 max-w-3xl">
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold mb-2" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>SYSTEM</h1>
+      <main className="container mx-auto px-3 md:px-4 py-5 md:py-12 max-w-3xl">
+        <div className="bg-white rounded-lg shadow-lg p-4 md:p-8 mb-5 md:mb-8">
+          <div className="text-center mb-5 md:mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>SYSTEM</h1>
             <p className="text-sm" style={{ color: "#a89586", letterSpacing: "0.1em" }}>料金システム</p>
           </div>
 

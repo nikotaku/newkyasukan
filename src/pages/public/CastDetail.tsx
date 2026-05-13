@@ -190,7 +190,7 @@ const CastDetail = () => {
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
       <PublicNavigation />
 
-      <main className="container py-6 px-4">
+      <main className="container py-3 md:py-6 px-2 md:px-4">
         <div className="max-w-3xl mx-auto">
 
           <button
