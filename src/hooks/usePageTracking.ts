@@ -6,6 +6,6 @@ export function usePageTracking() {
   const location = useLocation();
 
   useEffect(() => {
-    supabase.rpc("record_page_view", { p_path: location.pathname }).catch(() => {});
+    supabase.rpc("record_page_view", { p_path: location.pathname }).then(() => {}, () => {});
   }, [location.pathname]);
 }
