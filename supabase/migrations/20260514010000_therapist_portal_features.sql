@@ -14,7 +14,12 @@ alter table public.therapist_transport_expenses enable row level security;
 
 create policy "Admins can manage transport expenses"
   on public.therapist_transport_expenses for all
-  using (public.has_role(auth.uid(), 'admin'::app_role));
+  using (
+    exists (
+      select 1 from public.user_roles
+      where user_id = auth.uid() and role = 'admin'
+    )
+  );
 
 -- RPC: get monthly settlements for therapist (token-based, anon-safe)
 create or replace function public.get_therapist_monthly_settlements(
