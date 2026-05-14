@@ -71,7 +71,7 @@ export default function TherapistMyPage() {
     await fetchTherapists();
   };
 
-  const portalLink = (token: string) => `${window.location.origin}/therapist/${token}`;
+  const portalLink = (token: string) => `${import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin}/therapist/${token}`;
 
   const copyLink = (token: string) => {
     navigator.clipboard.writeText(portalLink(token));

@@ -520,7 +520,7 @@ export default function Staff() {
   };
 
   const copyPortalLink = (token: string) => {
-    const link = `${window.location.origin}/therapist/${token}`;
+    const link = `${import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin}/therapist/${token}`;
     navigator.clipboard.writeText(link);
     toast({
       title: "リンクをコピーしました",
