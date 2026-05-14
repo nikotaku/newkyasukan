@@ -138,7 +138,11 @@ export default function TextTemplates() {
     } else {
       ({ error } = await supabase.from("text_templates" as any).insert([{ ...payload, display_order: items.length }]));
     }
-    if (error) { toast.error("保存に失敗しました"); return; }
+    if (error) {
+      console.error("text_templates save error:", error);
+      toast.error(`保存に失敗しました: ${error.message}`);
+      return;
+    }
     toast.success(formTarget ? "更新しました" : "作成しました");
     setShowForm(false);
     if (selected?.id === formTarget?.id) setSelected(null);
