@@ -137,27 +137,33 @@ export default function SystemOptions() {
                       <Label>お客様料金（円）</Label>
                       <Input
                         type="number"
+                        inputMode="numeric"
                         min="0"
-                        value={formData.customer_price}
-                        onChange={(e) => setFormData({ ...formData, customer_price: Number(e.target.value) })}
+                        placeholder="0"
+                        value={formData.customer_price === 0 ? "" : formData.customer_price}
+                        onChange={(e) => setFormData({ ...formData, customer_price: Number(e.target.value) || 0 })}
                       />
                     </div>
                     <div>
                       <Label>セラピスト報酬（円）</Label>
                       <Input
                         type="number"
+                        inputMode="numeric"
                         min="0"
-                        value={formData.therapist_back}
-                        onChange={(e) => setFormData({ ...formData, therapist_back: Number(e.target.value) })}
+                        placeholder="0"
+                        value={formData.therapist_back === 0 ? "" : formData.therapist_back}
+                        onChange={(e) => setFormData({ ...formData, therapist_back: Number(e.target.value) || 0 })}
                       />
                     </div>
                     <div>
                       <Label>延長時間（分、0=なし）</Label>
                       <Input
                         type="number"
+                        inputMode="numeric"
                         min="0"
-                        value={formData.extension_minutes}
-                        onChange={(e) => setFormData({ ...formData, extension_minutes: Number(e.target.value) })}
+                        placeholder="0"
+                        value={formData.extension_minutes === 0 ? "" : formData.extension_minutes}
+                        onChange={(e) => setFormData({ ...formData, extension_minutes: Number(e.target.value) || 0 })}
                       />
                     </div>
                   </div>
