@@ -45,6 +45,11 @@ export default function TextTemplates() {
   const [selected, setSelected] = useState<Template | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // drag state
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [dragOverParent, setDragOverParent] = useState(false);
+
   // form
   const [showForm, setShowForm] = useState(false);
   const [formTarget, setFormTarget] = useState<Template | null>(null);
@@ -158,6 +163,63 @@ export default function TextTemplates() {
     fetchItems();
   };
 
+  const handleDragStart = (e: React.DragEvent, item: Template) => {
+    setDraggingId(item.id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", item.id);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDragOverId(null);
+    setDragOverParent(false);
+  };
+
+  const handleDropOnItem = async (e: React.DragEvent, target: Template) => {
+    e.preventDefault();
+    setDragOverId(null);
+    if (!draggingId || draggingId === target.id) return;
+
+    const draggedItem = items.find(i => i.id === draggingId);
+    if (!draggedItem) return;
+
+    if (target.is_folder) {
+      // Move dragged item into this folder
+      const { error } = await (supabase.from("text_templates" as any) as any)
+        .update({ parent_id: target.id })
+        .eq("id", draggingId);
+      if (error) { toast.error("移動に失敗しました"); return; }
+      toast.success(`「${draggedItem.label}」を「${target.label}」に移動しました`);
+    } else {
+      // Reorder: insert dragged before target
+      const newOrder = items.filter(i => i.id !== draggingId);
+      const targetIdx = newOrder.findIndex(i => i.id === target.id);
+      newOrder.splice(targetIdx, 0, draggedItem);
+      await Promise.all(
+        newOrder.map((item, idx) =>
+          (supabase.from("text_templates" as any) as any).update({ display_order: idx }).eq("id", item.id)
+        )
+      );
+    }
+    setDraggingId(null);
+    fetchItems();
+  };
+
+  const handleDropOnParent = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverParent(false);
+    if (!draggingId) return;
+    const parentId = history[history.length - 1]?.id || null;
+    const { error } = await (supabase.from("text_templates" as any) as any)
+      .update({ parent_id: parentId })
+      .eq("id", draggingId);
+    const draggedItem = items.find(i => i.id === draggingId);
+    if (error) { toast.error("移動に失敗しました"); return; }
+    toast.success(`「${draggedItem?.label}」を上の階層に移動しました`);
+    setDraggingId(null);
+    fetchItems();
+  };
+
   const title = currentFolder ? currentFolder.label : "文章テンプレート";
 
   return (
@@ -213,69 +275,112 @@ export default function TextTemplates() {
           <div style={{ backgroundColor: "#1c1c1e", minHeight: "calc(100vh - 120px)" }}>
             {loading ? (
               <div className="text-center py-16 text-[#8e8e93] text-sm">読み込み中...</div>
-            ) : items.length === 0 ? (
-              <div className="text-center py-16 text-[#8e8e93] text-sm">
-                <p>テンプレートがありません</p>
-                <div className="flex gap-3 justify-center mt-4">
-                  <button onClick={() => openCreate(false)} className="text-[#3b82f6] text-sm">+ テンプレート追加</button>
-                  <button onClick={() => openCreate(true)} className="text-[#3b82f6] text-sm">+ フォルダ追加</button>
-                </div>
-              </div>
             ) : (
               <>
-                {items.map((item, idx) => (
-                  <button
-                    key={item.id}
-                    onClick={() => openItem(item)}
-                    className="w-full flex items-center gap-3 px-4 py-3 border-b transition-colors text-left"
+                {/* Drop zone for moving to parent folder */}
+                {editMode && currentFolder && draggingId && (
+                  <div
+                    onDragOver={e => { e.preventDefault(); setDragOverParent(true); }}
+                    onDragLeave={() => setDragOverParent(false)}
+                    onDrop={handleDropOnParent}
+                    className="flex items-center gap-2 px-4 py-3 border-b text-sm transition-colors"
                     style={{
                       borderColor: "#2c2c2e",
-                      backgroundColor: selected?.id === item.id ? "#2c2c2e" : "transparent",
+                      backgroundColor: dragOverParent ? "#1d3a5f" : "#161618",
+                      color: dragOverParent ? "#60a5fa" : "#8e8e93",
                     }}
                   >
-                    {editMode && (
-                      <GripVertical size={16} className="text-[#8e8e93] shrink-0" />
-                    )}
-                    <IconBox color={item.color} isFolder={item.is_folder} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">{item.label}</p>
-                      {!item.is_folder && item.content && (
-                        <p className="text-[#8e8e93] text-xs mt-0.5 truncate">{item.content}</p>
-                      )}
-                    </div>
-                    {editMode ? (
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={e => openEdit(item, e)}
-                          className="w-7 h-7 rounded-full bg-[#3b82f6] flex items-center justify-center"
-                        >
-                          <Pencil size={13} color="white" />
-                        </button>
-                        <button
-                          onClick={e => handleDelete(item, e)}
-                          className="w-7 h-7 rounded-full bg-[#ef4444] flex items-center justify-center"
-                        >
-                          <Trash2 size={13} color="white" />
-                        </button>
-                      </div>
-                    ) : (
-                      <ChevronRight size={16} className="text-[#8e8e93] shrink-0" />
-                    )}
-                  </button>
-                ))}
+                    <ChevronLeft size={14} />
+                    <span>ここにドロップして上の階層へ移動</span>
+                  </div>
+                )}
 
-                {/* Add folder button at bottom */}
-                {!editMode && !currentFolder && (
-                  <button
-                    onClick={() => openCreate(true)}
-                    className="w-full flex items-center gap-3 px-4 py-3 border-b"
-                    style={{ borderColor: "#2c2c2e" }}
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-[#2c2c2e] flex items-center justify-center">
-                      <Plus size={20} className="text-[#8e8e93]" />
+                {items.length === 0 ? (
+                  <div className="text-center py-16 text-[#8e8e93] text-sm">
+                    <p>テンプレートがありません</p>
+                    <div className="flex gap-3 justify-center mt-4">
+                      <button onClick={() => openCreate(false)} className="text-[#3b82f6] text-sm">+ テンプレート追加</button>
+                      <button onClick={() => openCreate(true)} className="text-[#3b82f6] text-sm">+ フォルダ追加</button>
                     </div>
-                    <span className="text-[#8e8e93] text-sm">フォルダを追加</span>
-                  </button>
+                  </div>
+                ) : (
+                  <>
+                    {items.map((item) => {
+                      const isDragging = draggingId === item.id;
+                      const isDragOver = dragOverId === item.id;
+                      const folderHighlight = isDragOver && item.is_folder;
+                      return (
+                        <div
+                          key={item.id}
+                          draggable={editMode}
+                          onDragStart={e => handleDragStart(e, item)}
+                          onDragEnd={handleDragEnd}
+                          onDragOver={e => { e.preventDefault(); setDragOverId(item.id); }}
+                          onDragLeave={() => setDragOverId(null)}
+                          onDrop={e => handleDropOnItem(e, item)}
+                          onClick={() => openItem(item)}
+                          className="w-full flex items-center gap-3 px-4 py-3 border-b transition-all text-left cursor-pointer"
+                          style={{
+                            borderColor: folderHighlight ? item.color : "#2c2c2e",
+                            borderLeftWidth: folderHighlight ? 3 : 0,
+                            borderLeftStyle: "solid" as const,
+                            backgroundColor: folderHighlight
+                              ? `${item.color}22`
+                              : isDragOver && !item.is_folder
+                              ? "#2c2c2e"
+                              : selected?.id === item.id
+                              ? "#2c2c2e"
+                              : "transparent",
+                            opacity: isDragging ? 0.35 : 1,
+                            cursor: editMode ? "grab" : "pointer",
+                          }}
+                        >
+                          {editMode && (
+                            <GripVertical size={16} className="text-[#8e8e93] shrink-0" />
+                          )}
+                          <IconBox color={item.color} isFolder={item.is_folder} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{item.label}</p>
+                            {!item.is_folder && item.content && (
+                              <p className="text-[#8e8e93] text-xs mt-0.5 truncate">{item.content}</p>
+                            )}
+                          </div>
+                          {editMode ? (
+                            <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
+                              <button
+                                onClick={e => openEdit(item, e)}
+                                className="w-7 h-7 rounded-full bg-[#3b82f6] flex items-center justify-center"
+                              >
+                                <Pencil size={13} color="white" />
+                              </button>
+                              <button
+                                onClick={e => handleDelete(item, e)}
+                                className="w-7 h-7 rounded-full bg-[#ef4444] flex items-center justify-center"
+                              >
+                                <Trash2 size={13} color="white" />
+                              </button>
+                            </div>
+                          ) : (
+                            <ChevronRight size={16} className="text-[#8e8e93] shrink-0" />
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Add folder button at bottom */}
+                    {!editMode && !currentFolder && (
+                      <button
+                        onClick={() => openCreate(true)}
+                        className="w-full flex items-center gap-3 px-4 py-3 border-b"
+                        style={{ borderColor: "#2c2c2e" }}
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-[#2c2c2e] flex items-center justify-center">
+                          <Plus size={20} className="text-[#8e8e93]" />
+                        </div>
+                        <span className="text-[#8e8e93] text-sm">フォルダを追加</span>
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}
