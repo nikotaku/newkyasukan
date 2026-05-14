@@ -46,7 +46,7 @@ const CATEGORY_KEYS = CATEGORIES.slice(1).map(c => c.key);
 const emptyForm = { title: "", content: "", category: "マニュアル", tags: "" };
 
 export default function Knowledge() {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -266,7 +266,7 @@ export default function Knowledge() {
               <BookOpen size={15} />
               {CATEGORIES.find(c => c.key === activeCategory)?.label || "ナレッジ"}
             </h1>
-            {isAdmin && (
+            {!!user && (
               <Button size="sm" className="h-7 text-xs px-2.5" onClick={openNew}>
                 <Plus size={12} className="mr-1" />追加
               </Button>
@@ -288,7 +288,7 @@ export default function Knowledge() {
               <div className="text-center text-muted-foreground py-12 px-4">
                 <FileText size={32} className="mx-auto mb-2 opacity-30" />
                 <p className="text-xs">{search ? "該当する記事がありません" : "まだ記事がありません"}</p>
-                {isAdmin && !search && (
+                {!!user && !search && (
                   <Button size="sm" variant="outline" className="mt-3 text-xs" onClick={openNew}>
                     <Plus size={12} className="mr-1" />最初の記事を作成
                   </Button>
@@ -424,7 +424,7 @@ export default function Knowledge() {
                     {new Date(selected.updated_at).toLocaleDateString("ja-JP")} 更新
                   </span>
                 </div>
-                {isAdmin && (
+                {!!user && (
                   <div className="flex gap-1 shrink-0">
                     <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={e => handleTogglePin(selected, e)}>
                       <Pin size={12} className={selected.is_pinned ? "text-primary" : ""} />
@@ -457,7 +457,7 @@ export default function Knowledge() {
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
               <FolderOpen size={48} className="opacity-20" />
               <p className="text-sm">記事を選択してください</p>
-              {isAdmin && (
+              {!!user && (
                 <Button variant="outline" size="sm" onClick={openNew}>
                   <Plus size={14} className="mr-1.5" />新規作成
                 </Button>
