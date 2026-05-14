@@ -166,52 +166,77 @@ const System = () => {
           </div>
 
           {/* Flow */}
-          <div className="mb-12">
-            <div className="bg-white border-2 border-[#c49480] rounded-lg p-6">
-              <h3 className="text-2xl font-bold text-center mb-6" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>FLOW</h3>
-              <p className="text-sm text-center mb-6" style={{ color: "#a89586" }}>ご利用の流れ</p>
-              <div className="space-y-4 text-sm text-gray-700">
-                <p className="font-bold mb-1">お電話にて</p>
-                <p>・コース・指名をお伝えください</p>
-                <p>・ご希望のお時間をお伝えください</p>
-                <p>・ご利用場所をお伝えください</p>
+          <div className="mb-10">
+            <div className="text-center mb-4">
+              <h3 className="text-xl md:text-2xl font-bold" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>FLOW</h3>
+              <p className="text-xs mt-1" style={{ color: "#a89586" }}>ご利用方法</p>
+            </div>
+            <div className="space-y-4 text-sm text-gray-700">
+              <div className="border-l-4 border-[#c49480] pl-4">
+                <p className="font-bold mb-1">「当店ご利用方法」</p>
+                <p>「ご予約方法」</p>
+                <p>お電話/WEBにてご予約をお取りになります。</p>
+              </div>
+              <div className="border-l-4 border-[#c49480] pl-4">
+                <p className="font-bold mb-1">「お部屋」</p>
+                <p>近郊ホテル/出張専門</p>
+                <p>お部屋のご用意/ご移動がない場合はご自宅にも出張が可能です。</p>
               </div>
             </div>
           </div>
 
           {/* Notice */}
-          <div className="mb-12">
-            <div className="bg-white border-2 border-[#c49480] rounded-lg p-6">
-              <h3 className="text-2xl font-bold text-center mb-6" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>NOTICE</h3>
-              <p className="text-sm text-center mb-6" style={{ color: "#a89586" }}>ご注意事項</p>
-              <div className="space-y-3 text-sm text-gray-700">
-                <p>・全てのコースに消費税が含まれております</p>
-                <p>・表示価格は全て税込み価格となります</p>
-                <p>・ご予約のキャンセルは前日まで無料、当日は50%、無断キャンセルは100%のキャンセル料が発生いたします</p>
-                <p>・セラピストの指名は無料です</p>
-                <p>・延長は10分単位で承っております</p>
-                <p>・お支払いは現金、クレジットカード、電子マネーをご利用いただけます</p>
-                <p>・風俗店ではございません</p>
-                <p>・18歳未満の方のご利用はお断りしております</p>
-                <p>・泥酔状態でのご利用はお断りする場合がございます</p>
-                <p>・セラピストへの迷惑行為は固くお断りいたします</p>
-              </div>
+          <div className="mb-10">
+            <div className="text-center mb-4">
+              <h3 className="text-xl md:text-2xl font-bold" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>NOTICE</h3>
+              <p className="text-xs mt-1" style={{ color: "#a89586" }}>注意事項</p>
+            </div>
+            <div className="text-xs text-gray-600 leading-relaxed space-y-2">
+              <p className="font-bold">【ご利用規則】</p>
+              <p>仙台リラクゼーションサロン【全力エステ】（以下「当店」といいます。）を、ご利用いただく際には、本利用規約に同意されたものとみなします。</p>
+              <p>※コース内にシャワーのお時間は含まれますのでご了承ください。</p>
+              <p>※18歳未満の方、スカウト目的の方、同業者、暴力団関係者、泥酔者、薬物使用者、その他当店が相応しくないと判断した方の、お問い合わせ及びご利用は固くお断り致します。</p>
+              <p>※当店は、番号非通知及び公衆電話からの受付は致しかねます。</p>
+              <p>※当店は、リラクゼーションを目的とした施術を提供するプライベートサロンであり、医療行為、治療行為、風俗的なサービス等は一切行なっておりません。</p>
+              <p>※セラピストの引き抜き行為やスカウト行為が発覚した場合は、例外なく損害賠償請求、法的措置等も視野にいれた然るべき対応をとらせていただきます。</p>
+              <p>※セラピストとの個人的な連絡先交換や店外へのお誘いは堅くお断り致します。</p>
+              <p>※盗撮や盗聴等の行為があった際は、所轄警察署に被害届を提出し、法的手続きをとらせていただきます。</p>
+              <p className="font-bold mt-3">【対応言語について】</p>
+              <p>日本語のみ対応しております。</p>
             </div>
           </div>
 
           {/* Shop Info */}
           <div className="mb-8">
-            <div className="bg-white border-2 border-[#c49480] rounded-lg p-6">
-              <h3 className="text-2xl font-bold text-center mb-6" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>SHOP</h3>
-              <p className="text-sm text-center mb-6" style={{ color: "#a89586" }}>店舗情報</p>
-              <div className="space-y-4 text-sm text-gray-700">
-                {[['店舗名', '全力エステ'], ['営業時間', '12:00～26:00（24:40最終受付）'], ['定休日', '年中無休'], ['エリア', '出張専門']].map(([k, v]) => (
-                  <div key={k} className="flex justify-between py-2 border-b border-gray-200">
-                    <span className="font-bold">{k}</span>
-                    <span>{v}</span>
-                  </div>
-                ))}
-              </div>
+            <div className="text-center mb-4">
+              <h3 className="text-xl md:text-2xl font-bold" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>SHOP</h3>
+              <p className="text-xs mt-1" style={{ color: "#a89586" }}>店舗情報</p>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <table className="w-full text-sm">
+                <tbody>
+                  {[
+                    ['店舗名', '全力エステ 仙台'],
+                    ['URL', null],
+                    ['営業時間', '12:00〜26:00(24:40最終受付)'],
+                    ['TEL', null],
+                    ['最寄り駅', '北四番丁駅｜勾当台公園駅｜仙台駅'],
+                    ['定休日', '年中無休'],
+                    ['エリア', '出張専門'],
+                  ].map(([k, v]) => (
+                    <tr key={k} className="border-b border-gray-100">
+                      <td className="py-3 px-4 font-bold text-[#7a706c] w-1/3 bg-[#faf5f2] align-top">{k}</td>
+                      <td className="py-3 px-4 text-gray-700">
+                        {k === 'URL' ? (
+                          <a href="https://zenryoku-esthe.com" className="text-blue-600 hover:underline">https://zenryoku-esthe.com</a>
+                        ) : k === 'TEL' ? (
+                          <a href="tel:09081264042" className="hover:underline">090-8126-4042</a>
+                        ) : v}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 

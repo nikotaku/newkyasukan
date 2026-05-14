@@ -33,6 +33,10 @@ interface Cast {
   hp_notice: string | null;
   upload_check: string | null;
   x_account: string | null;
+  message: string | null;
+  line_url: string | null;
+  litlink_url: string | null;
+  o2_url: string | null;
   join_date: string;
   access_token?: string | null;
   therapist_years: number | null;
@@ -296,6 +300,10 @@ export default function Staff() {
           photo: photos.length > 0 ? photos[0] : null,
           photos: photos.length > 0 ? photos : null,
           x_account: editingCast.x_account || null,
+          message: editingCast.message || null,
+          line_url: editingCast.line_url || null,
+          litlink_url: editingCast.litlink_url || null,
+          o2_url: editingCast.o2_url || null,
           hp_notice: editingCast.hp_notice || null,
           therapist_years: editingCast.therapist_years || null,
           favorite_techniques: editingCast.favorite_techniques || null,
@@ -1027,6 +1035,47 @@ export default function Staff() {
                           value={editingCast.x_account || ""}
                           onChange={(e) => setEditingCast({...editingCast, x_account: e.target.value})}
                         />
+                      </div>
+
+                      <div className="space-y-3">
+                        <Label className="text-sm font-semibold text-muted-foreground">公開プロフィール</Label>
+                        <div>
+                          <Label htmlFor="edit-message">セラピストコメント（公開）</Label>
+                          <Textarea
+                            id="edit-message"
+                            rows={3}
+                            placeholder="セラピスト本人からのコメント..."
+                            value={editingCast.message || ""}
+                            onChange={(e) => setEditingCast({...editingCast, message: e.target.value})}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="edit-line-url">LINE URL</Label>
+                          <Input
+                            id="edit-line-url"
+                            placeholder="https://lin.ee/..."
+                            value={editingCast.line_url || ""}
+                            onChange={(e) => setEditingCast({...editingCast, line_url: e.target.value})}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="edit-litlink-url">リットリンク URL</Label>
+                          <Input
+                            id="edit-litlink-url"
+                            placeholder="https://lit.link/..."
+                            value={editingCast.litlink_url || ""}
+                            onChange={(e) => setEditingCast({...editingCast, litlink_url: e.target.value})}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="edit-o2-url">口コミ（O2）URL</Label>
+                          <Input
+                            id="edit-o2-url"
+                            placeholder="https://..."
+                            value={editingCast.o2_url || ""}
+                            onChange={(e) => setEditingCast({...editingCast, o2_url: e.target.value})}
+                          />
+                        </div>
                       </div>
 
                       <div>

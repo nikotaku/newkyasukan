@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  Plus, Search, Pin, Pencil, Trash2, BookOpen, X, ChevronRight, FolderOpen, FileText, Save
+  Plus, Search, Pin, Pencil, Trash2, BookOpen, X, ChevronRight, FolderOpen, FileText, Save, Image
 } from "lucide-react";
 
 interface Article {
@@ -46,7 +46,7 @@ const CATEGORY_KEYS = CATEGORIES.slice(1).map(c => c.key);
 const emptyForm = { title: "", content: "", category: "マニュアル", tags: "" };
 
 export default function Knowledge() {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +56,9 @@ export default function Knowledge() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { fetchArticles(); }, []);
 
@@ -100,7 +102,7 @@ export default function Knowledge() {
       ({ error } = await supabase.from("knowledge_articles").insert(payload));
     }
     setSaving(false);
-    if (error) { toast.error("保存に失敗しました"); return; }
+    if (error) { toast.error(`保存に失敗しました: ${error.message}`); return; }
     toast.success(selected ? "更新しました" : "作成しました");
     setEditing(false);
     await fetchArticles();
@@ -134,6 +136,85 @@ export default function Knowledge() {
 
   const catCount = (key: string) =>
     key === "すべて" ? articles.length : articles.filter(a => a.category === key).length;
+
+  const insertAtCursor = (text: string) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart ?? form.content.length;
+    const end = ta.selectionEnd ?? start;
+    const newContent = form.content.slice(0, start) + text + form.content.slice(end);
+    setForm(f => ({ ...f, content: newContent }));
+    setTimeout(() => {
+      ta.focus();
+      const pos = start + text.length;
+      ta.setSelectionRange(pos, pos);
+    }, 0);
+  };
+
+  const handleImageUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    setImageUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const randomId = Math.random().toString(36).slice(2, 9);
+      const path = `${Date.now()}-${randomId}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("knowledge-images")
+        .upload(path, file, { contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage
+        .from("knowledge-images")
+        .getPublicUrl(path);
+      insertAtCursor(`\n![画像](${publicUrl})\n`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error("画像のアップロードに失敗しました: " + msg);
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find(item => item.type.startsWith("image/"));
+    if (imageItem) {
+      e.preventDefault();
+      const file = imageItem.getAsFile();
+      if (file) handleImageUpload(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+    const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith("image/"));
+    if (file) handleImageUpload(file);
+  };
+
+  const renderContent = (content: string) => {
+    if (!content) return <span className="text-muted-foreground italic">内容がありません</span>;
+    const parts = content.split(/(!\[([^\]]*)\]\(([^)]+)\))/g);
+    const elements: React.ReactNode[] = [];
+    let i = 0;
+    while (i < parts.length) {
+      const part = parts[i];
+      if (/^!\[/.test(part)) {
+        const alt = parts[i + 1] ?? "";
+        const url = parts[i + 2] ?? "";
+        elements.push(
+          <img key={i} src={url} alt={alt} className="max-w-full rounded-lg my-3 block" />
+        );
+        i += 3;
+      } else {
+        if (part) elements.push(<span key={i} className="whitespace-pre-wrap">{part}</span>);
+        i += 1;
+      }
+    }
+    return <>{elements}</>;
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -185,7 +266,7 @@ export default function Knowledge() {
               <BookOpen size={15} />
               {CATEGORIES.find(c => c.key === activeCategory)?.label || "ナレッジ"}
             </h1>
-            {isAdmin && (
+            {!!user && (
               <Button size="sm" className="h-7 text-xs px-2.5" onClick={openNew}>
                 <Plus size={12} className="mr-1" />追加
               </Button>
@@ -207,7 +288,7 @@ export default function Knowledge() {
               <div className="text-center text-muted-foreground py-12 px-4">
                 <FileText size={32} className="mx-auto mb-2 opacity-30" />
                 <p className="text-xs">{search ? "該当する記事がありません" : "まだ記事がありません"}</p>
-                {isAdmin && !search && (
+                {!!user && !search && (
                   <Button size="sm" variant="outline" className="mt-3 text-xs" onClick={openNew}>
                     <Plus size={12} className="mr-1" />最初の記事を作成
                   </Button>
@@ -251,6 +332,27 @@ export default function Knowledge() {
               <div className="flex items-center justify-between px-4 py-2.5 border-b shrink-0">
                 <span className="text-sm font-semibold">{selected ? "編集" : "新規作成"}</span>
                 <div className="flex gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={imageUploading}
+                  >
+                    <Image size={12} className="mr-1" />
+                    {imageUploading ? "アップロード中..." : "画像"}
+                  </Button>
                   <Button variant="outline" size="sm" className="h-8 text-xs" onClick={cancelEdit}>キャンセル</Button>
                   <Button size="sm" className="h-8 text-xs" onClick={handleSave} disabled={saving}>
                     <Save size={12} className="mr-1" />{saving ? "保存中..." : "保存"}
@@ -298,6 +400,9 @@ export default function Knowledge() {
                     onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
                     placeholder="ここに内容を入力..."
                     className="mt-0.5 min-h-[calc(100vh-320px)] text-sm font-mono resize-none"
+                    onPaste={handlePaste}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
                   />
                 </div>
               </div>
@@ -319,7 +424,7 @@ export default function Knowledge() {
                     {new Date(selected.updated_at).toLocaleDateString("ja-JP")} 更新
                   </span>
                 </div>
-                {isAdmin && (
+                {!!user && (
                   <div className="flex gap-1 shrink-0">
                     <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={e => handleTogglePin(selected, e)}>
                       <Pin size={12} className={selected.is_pinned ? "text-primary" : ""} />
@@ -342,8 +447,8 @@ export default function Knowledge() {
                     ))}
                   </div>
                 )}
-                <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                  {selected.content || <span className="text-muted-foreground italic">内容がありません</span>}
+                <div className="text-sm leading-relaxed text-foreground">
+                  {renderContent(selected.content)}
                 </div>
               </div>
             </div>
@@ -352,7 +457,7 @@ export default function Knowledge() {
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
               <FolderOpen size={48} className="opacity-20" />
               <p className="text-sm">記事を選択してください</p>
-              {isAdmin && (
+              {!!user && (
                 <Button variant="outline" size="sm" onClick={openNew}>
                   <Plus size={14} className="mr-1.5" />新規作成
                 </Button>

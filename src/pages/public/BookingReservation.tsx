@@ -98,6 +98,7 @@ const BookingReservation = () => {
   const [startTime, setStartTime] = useState<string>("");
   const [duration, setDuration] = useState<number>(80);
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  const [selectedDROption, setSelectedDROption] = useState<string>("none");
   const [nominationType, setNominationType] = useState<string>("none");
   const [customerName, setCustomerName] = useState<string>("");
   const [customerFurigana, setCustomerFurigana] = useState<string>("");
@@ -492,6 +493,32 @@ const BookingReservation = () => {
     }
   };
 
+  const getProfileText = (profile: string | null): string => {
+    if (!profile) return '';
+    try {
+      const p = JSON.parse(profile);
+      return p.self_introduction || p.comment || '';
+    } catch {
+      return profile;
+    }
+  };
+
+  const drOptionRates = optionRates
+    .filter(r => r.option_name.startsWith("DR"))
+    .sort((a, b) => {
+      const aMin = parseInt(a.option_name.replace(/\D/g, "")) || 0;
+      const bMin = parseInt(b.option_name.replace(/\D/g, "")) || 0;
+      return aMin - bMin;
+    });
+
+  const regularOptionRates = optionRates.filter(r => !r.option_name.startsWith("DR"));
+
+  const handleDROptionChange = (value: string) => {
+    setSelectedDROption(value);
+    const withoutDR = selectedOptions.filter(o => !o.startsWith("DR"));
+    setSelectedOptions(value === "none" ? withoutDR : [...withoutDR, value]);
+  };
+
   const selectedCast = casts.find(c => c.id === selectedCastId);
 
   const referralSources = [
@@ -721,7 +748,7 @@ const BookingReservation = () => {
                                   {cast.name}
                                 </h3>
                                 <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                                  {cast.profile || "プロフィール情報なし"}
+                                  {getProfileText(cast.profile) || "プロフィール情報なし"}
                                 </p>
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                                   <span>{cast.age || "-"}歳</span>
@@ -861,7 +888,7 @@ const BookingReservation = () => {
                   </h2>
                   
                   <div className="space-y-4">
-                    {/* コースタイプごとに動的表示 */}
+                    {/* コースタイプ（DRを除く） */}
                     {(() => {
                       const courseTypes = [...new Set(backRates.map(r => r.course_type))];
                       const courseDescriptions: Record<string, string> = {
@@ -871,7 +898,7 @@ const BookingReservation = () => {
                       };
                       return courseTypes.map((type) => {
                         const rates = backRates
-                          .filter(r => r.course_type === type && (type !== 'DR' || r.duration <= 30))
+                          .filter(r => r.course_type === type)
                           .sort((a, b) => a.duration - b.duration);
                         return (
                           <div
@@ -911,36 +938,58 @@ const BookingReservation = () => {
                       });
                     })()}
 
-                    {/* オプション */}
-                    <div>
-                      <h3 className="font-semibold mb-2">オプション</h3>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        ※オプションはセラピストごとに異なりますのでお問い合わせ下さい。
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {optionRates.map((option) => (
-                          <div
-                            key={option.id}
-                            className={cn(
-                              "border rounded-lg p-3 cursor-pointer transition-all",
-                              selectedOptions.includes(option.option_name)
-                                ? "border-[#c49480] bg-[#f8f6f3]/50"
-                                : "border-gray-200"
-                            )}
-                            onClick={() => {
-                              if (selectedOptions.includes(option.option_name)) {
-                                setSelectedOptions(selectedOptions.filter(o => o !== option.option_name));
-                              } else {
-                                setSelectedOptions([...selectedOptions, option.option_name]);
-                              }
-                            }}
-                          >
-                            <div className="font-semibold">{option.option_name}</div>
-                            <div className="text-sm">+¥{option.customer_price.toLocaleString()}</div>
-                          </div>
-                        ))}
+                    {/* DRオプション（プルダウン） */}
+                    {drOptionRates.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold mb-2">DR（ディープリンパ）</h3>
+                        <Select value={selectedDROption} onValueChange={handleDROptionChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="なし（選択してください）" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">なし</SelectItem>
+                            {drOptionRates.map((opt) => (
+                              <SelectItem key={opt.id} value={opt.option_name}>
+                                {opt.option_name}（+¥{opt.customer_price.toLocaleString()}）
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                    </div>
+                    )}
+
+                    {/* その他オプション */}
+                    {regularOptionRates.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold mb-2">オプション</h3>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          ※オプションはセラピストごとに異なりますのでお問い合わせ下さい。
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {regularOptionRates.map((option) => (
+                            <div
+                              key={option.id}
+                              className={cn(
+                                "border rounded-lg p-3 cursor-pointer transition-all",
+                                selectedOptions.includes(option.option_name)
+                                  ? "border-[#c49480] bg-[#f8f6f3]/50"
+                                  : "border-gray-200"
+                              )}
+                              onClick={() => {
+                                if (selectedOptions.includes(option.option_name)) {
+                                  setSelectedOptions(selectedOptions.filter(o => o !== option.option_name));
+                                } else {
+                                  setSelectedOptions([...selectedOptions, option.option_name]);
+                                }
+                              }}
+                            >
+                              <div className="font-semibold">{option.option_name}</div>
+                              <div className="text-sm">+¥{option.customer_price.toLocaleString()}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* 合計金額 */}
                     <div className="bg-muted p-4 rounded-lg">

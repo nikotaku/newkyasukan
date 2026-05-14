@@ -1,14 +1,17 @@
 import { useState, useEffect, useMemo } from "react";
 import { format, addDays, subDays, parse, addMinutes, startOfMonth, endOfMonth } from "date-fns";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Check } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { TabMenu } from "@/components/TabMenu";
 import { DailyReservationTimeline } from "@/components/DailyReservationTimeline";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ReservationForm } from "@/components/ReservationForm";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -46,16 +49,17 @@ interface Reservation {
   status: string;
   payment_status: string;
   room: string | null;
+  notes: string | null;
 }
 
 const TIME_START = 10;
-const TIME_END = 26; // 翌2:00
-const HOUR_WIDTH = 120; // px per hour
-const TICK_WIDTH = HOUR_WIDTH / 6; // 10min = 20px
-const ROW_HEIGHT = 80;
+const TIME_END = 26;
+const HOUR_HEIGHT = 80; // px per hour (vertical)
+const TIME_LABEL_W = 48;
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 border-amber-400 text-amber-900",
+  sms_waiting: "bg-purple-100 border-purple-400 text-purple-900",
   confirmed: "bg-blue-100 border-blue-400 text-blue-900",
   completed: "bg-emerald-100 border-emerald-400 text-emerald-900",
   cancelled: "bg-rose-100 border-rose-300 text-rose-700 opacity-50",
@@ -63,10 +67,22 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "確認中",
+  sms_waiting: "SMS送信待ち",
   confirmed: "確定",
   completed: "完了",
   cancelled: "キャンセル",
 };
+
+const TOTAL_HEIGHT = (TIME_END - TIME_START) * HOUR_HEIGHT;
+
+function timeToMinutes(time: string) {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function minutesToPx(minutes: number) {
+  return ((minutes - TIME_START * 60) / 60) * HOUR_HEIGHT;
+}
 
 export default function Schedule() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -78,11 +94,15 @@ export default function Schedule() {
   const [loading, setLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
+  // Detail/Edit sheet
+  const [detailRes, setDetailRes] = useState<Reservation | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editFields, setEditFields] = useState<Partial<Reservation>>({});
+
   const { user, loading: authLoading, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // form state for new reservation
   const [formData, setFormData] = useState({
     cast_id: "",
     customer_name: "",
@@ -142,21 +162,9 @@ export default function Schedule() {
     const monthEnd = format(endOfMonth(selectedDate), "yyyy-MM-dd");
 
     const [{ data: shiftsData }, { data: reservationsData }, { data: monthData }] = await Promise.all([
-      supabase
-        .from("shifts")
-        .select("*, cast:casts(id, name, photo)")
-        .eq("shift_date", dateStr),
-      supabase
-        .from("reservations")
-        .select("*")
-        .eq("reservation_date", dateStr)
-        .neq("status", "cancelled"),
-      supabase
-        .from("reservations")
-        .select("price")
-        .gte("reservation_date", monthStart)
-        .lte("reservation_date", monthEnd)
-        .neq("status", "cancelled"),
+      supabase.from("shifts").select("*, cast:casts(id, name, photo)").eq("shift_date", dateStr),
+      supabase.from("reservations").select("*").eq("reservation_date", dateStr).neq("status", "cancelled"),
+      supabase.from("reservations").select("price").gte("reservation_date", monthStart).lte("reservation_date", monthEnd).neq("status", "cancelled"),
     ]);
 
     setShifts((shiftsData as any) || []);
@@ -165,18 +173,12 @@ export default function Schedule() {
     setLoading(false);
   };
 
-  const dailyTotal = useMemo(
-    () => reservations.reduce((sum, r) => sum + (r.price || 0), 0),
-    [reservations]
-  );
+  const dailyTotal = useMemo(() => reservations.reduce((sum, r) => sum + (r.price || 0), 0), [reservations]);
 
-  // Group shifts by cast
   const castRows = useMemo(() => {
     const map = new Map<string, { cast: Cast; shift: Shift & { cast: Cast }; reservations: Reservation[] }>();
     shifts.forEach((s) => {
-      if (!map.has(s.cast_id)) {
-        map.set(s.cast_id, { cast: s.cast, shift: s, reservations: [] });
-      }
+      if (!map.has(s.cast_id)) map.set(s.cast_id, { cast: s.cast, shift: s, reservations: [] });
     });
     reservations.forEach((r) => {
       const row = map.get(r.cast_id);
@@ -185,32 +187,21 @@ export default function Schedule() {
     return Array.from(map.values());
   }, [shifts, reservations]);
 
-  const timeToMinutes = (time: string) => {
-    const [h, m] = time.split(":").map(Number);
-    return h * 60 + m;
-  };
-
-  const minutesToPx = (minutes: number) => {
-    const startMin = TIME_START * 60;
-    return ((minutes - startMin) / 60) * HOUR_WIDTH;
-  };
-
   const hours = Array.from({ length: TIME_END - TIME_START }, (_, i) => TIME_START + i);
-  const ticks = Array.from({ length: (TIME_END - TIME_START) * 6 }, (_, i) => TIME_START * 60 + i * 10);
 
-  const handleTimelineClick = (castId: string, minutesFromStart: number) => {
-    const totalMin = TIME_START * 60 + minutesFromStart;
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const isToday = format(selectedDate, "yyyy-MM-dd") === format(now, "yyyy-MM-dd");
+  const nowPx = minutesToPx(nowMinutes);
+
+  const handleTimelineClick = (castId: string, clickY: number) => {
+    if (!isAdmin) return;
+    const totalMin = TIME_START * 60 + (clickY / HOUR_HEIGHT) * 60;
     const snapped = Math.floor(totalMin / 10) * 10;
     const h = Math.floor(snapped / 60);
     const m = snapped % 60;
     const timeStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-
-    setFormData((prev) => ({
-      ...prev,
-      cast_id: castId,
-      reservation_date: selectedDate,
-      start_time: timeStr,
-    }));
+    setFormData((prev) => ({ ...prev, cast_id: castId, reservation_date: selectedDate, start_time: timeStr }));
     setIsAddOpen(true);
   };
 
@@ -243,13 +234,56 @@ export default function Schedule() {
     }
   };
 
-  const totalWidth = hours.length * HOUR_WIDTH;
+  const openDetail = (res: Reservation) => {
+    setDetailRes(res);
+    setEditFields({
+      customer_name: res.customer_name,
+      customer_phone: res.customer_phone,
+      course_name: res.course_name,
+      start_time: res.start_time.slice(0, 5),
+      duration: res.duration,
+      price: res.price,
+      status: res.status,
+      notes: res.notes ?? "",
+    });
+    setEditMode(false);
+  };
 
-  // Current time indicator
-  const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const isToday = format(selectedDate, "yyyy-MM-dd") === format(now, "yyyy-MM-dd");
-  const nowPx = minutesToPx(nowMinutes);
+  const handleSaveEdit = async () => {
+    if (!detailRes) return;
+    try {
+      const { error } = await supabase.from("reservations").update({
+        customer_name: editFields.customer_name,
+        customer_phone: editFields.customer_phone,
+        course_name: editFields.course_name,
+        start_time: editFields.start_time,
+        duration: Number(editFields.duration),
+        price: Number(editFields.price),
+        status: editFields.status,
+        notes: editFields.notes || null,
+      }).eq("id", detailRes.id);
+      if (error) throw error;
+      toast({ title: "更新しました" });
+      setEditMode(false);
+      setDetailRes(null);
+      fetchData();
+    } catch {
+      toast({ title: "エラー", description: "更新に失敗しました", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteReservation = async () => {
+    if (!detailRes || !confirm("この予約をキャンセルしますか？")) return;
+    try {
+      const { error } = await supabase.from("reservations").update({ status: "cancelled" }).eq("id", detailRes.id);
+      if (error) throw error;
+      toast({ title: "キャンセルしました" });
+      setDetailRes(null);
+      fetchData();
+    } catch {
+      toast({ title: "エラー", description: "キャンセルに失敗しました", variant: "destructive" });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -257,52 +291,36 @@ export default function Schedule() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <main className="pt-[60px] md:ml-[180px] transition-all duration-300">
-        <div className="p-4">
-          {/* Header controls */}
-          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-            <div className="flex items-center gap-2">
+        <div className="p-3 md:p-4">
+          {/* Header */}
+          <div className="space-y-2 mb-2">
+            {/* Row 1: date navigation */}
+            <div className="flex items-center justify-center gap-1 flex-wrap">
               <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 1))}>
                 <ChevronLeft size={18} />
               </Button>
-              <h1 className="text-xl font-bold min-w-[160px] text-center">
-                {format(selectedDate, "yyyy年M月d日 (E)", { locale: ja })}
+              <h1 className="text-base font-bold px-2 min-w-[120px] text-center">
+                {format(selectedDate, "M月d日 (E)", { locale: ja })}
               </h1>
               <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 1))}>
                 <ChevronRight size={18} />
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setSelectedDate(new Date())}>
-                今日
-              </Button>
+              <Button variant="outline" size="sm" onClick={() => setSelectedDate(new Date())}>今日</Button>
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                size="sm"
-                variant={selectedView === "cast" ? "default" : "outline"}
-                onClick={() => setSelectedView("cast")}
-              >
-                キャスト別
-              </Button>
-              <Button
-                size="sm"
-                variant={selectedView === "room" ? "default" : "outline"}
-                onClick={() => setSelectedView("room")}
-              >
-                ルーム別
-              </Button>
-            </div>
-
-            {isAdmin && (
+            {/* Row 2: view toggle + add */}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant={selectedView === "cast" ? "default" : "outline"} onClick={() => setSelectedView("cast")}>キャスト別</Button>
+                <Button size="sm" variant={selectedView === "room" ? "default" : "outline"} onClick={() => setSelectedView("room")}>ルーム別</Button>
+              </div>
               <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
                 <SheetTrigger asChild>
-                  <Button size="sm">
-                    <Plus size={16} className="mr-1" />
-                    新規予約
+                  <Button size="sm" className="bg-[#c49480] hover:bg-[#a87b65]">
+                    <Plus size={16} className="mr-1" />新規予約
                   </Button>
                 </SheetTrigger>
                 <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-                  <SheetHeader>
-                    <SheetTitle>新しい予約を追加</SheetTitle>
-                  </SheetHeader>
+                  <SheetHeader><SheetTitle>新しい予約を追加</SheetTitle></SheetHeader>
                   <div className="mt-6">
                     <ReservationForm
                       formData={formData}
@@ -317,10 +335,10 @@ export default function Schedule() {
                   </div>
                 </SheetContent>
               </Sheet>
-            )}
+            </div>
           </div>
 
-          {/* Week date tabs */}
+          {/* Week tabs */}
           <TabMenu
             activeDate={format(selectedDate, "yyyy-MM-dd")}
             dates={Array.from({ length: 7 }, (_, i) => {
@@ -330,225 +348,319 @@ export default function Schedule() {
             onDateChange={(dateStr) => setSelectedDate(new Date(dateStr))}
           />
 
-          {/* Room view */}
           {selectedView === "room" && (
-            <div className="mb-4">
-              <DailyReservationTimeline />
-            </div>
+            <div className="mb-4"><DailyReservationTimeline /></div>
           )}
 
           {selectedView === "cast" && (
-          <>
-          {/* Sales summary */}
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <Card className="p-3 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <TrendingUp size={18} className="text-primary" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs text-muted-foreground">本日の売上</div>
-                <div className="text-lg sm:text-xl font-bold truncate">
-                  ¥{dailyTotal.toLocaleString()}
-                </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {reservations.length}件の予約
-                </div>
-              </div>
-            </Card>
-            <Card className="p-3 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-accent/30 flex items-center justify-center flex-shrink-0">
-                <CalendarIcon size={18} className="text-foreground" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs text-muted-foreground">
-                  {format(selectedDate, "M月", { locale: ja })}の売上合計
-                </div>
-                <div className="text-lg sm:text-xl font-bold truncate">
-                  ¥{monthlyTotal.toLocaleString()}
-                </div>
-                <div className="text-[10px] text-muted-foreground">月次累計</div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Timechart */}
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <div style={{ minWidth: totalWidth + 140 }}>
-                {/* Time header */}
-                <div className="flex border-b bg-muted/30 sticky top-0 z-10">
-                  <div className="w-[140px] flex-shrink-0 p-2 text-xs font-semibold border-r bg-muted/50 flex items-center">
-                    キャスト
+            <>
+              {/* Sales summary */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <Card className="p-3 flex items-center gap-2">
+                  <TrendingUp size={16} className="text-primary flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-[10px] text-muted-foreground">本日の売上</div>
+                    <div className="text-base font-bold truncate">¥{dailyTotal.toLocaleString()}</div>
+                    <div className="text-[10px] text-muted-foreground">{reservations.length}件の予約</div>
                   </div>
-                  <div className="flex relative">
-                    {hours.map((h) => (
-                      <div
-                        key={h}
-                        className="border-r border-border/40 text-xs text-center font-medium text-muted-foreground relative"
-                        style={{ width: HOUR_WIDTH }}
-                      >
-                        <div className="py-2">{h >= 24 ? h - 24 : h}:00</div>
-                        {/* 10-min tick marks */}
-                        <div className="absolute bottom-0 left-0 right-0 flex">
-                          {[0, 1, 2, 3, 4, 5].map((t) => (
-                            <div
-                              key={t}
-                              className="border-r border-border/20 flex-1"
-                              style={{ height: t === 3 ? 6 : 3 }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+                </Card>
+                <Card className="p-3 flex items-center gap-2">
+                  <CalendarIcon size={16} className="text-muted-foreground flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-[10px] text-muted-foreground">{format(selectedDate, "M月", { locale: ja })}の売上合計</div>
+                    <div className="text-base font-bold truncate">¥{monthlyTotal.toLocaleString()}</div>
+                    <div className="text-[10px] text-muted-foreground">月次累計</div>
                   </div>
-                </div>
+                </Card>
+              </div>
 
-                {/* Cast rows */}
-                {loading ? (
-                  <div className="p-8 text-center text-muted-foreground">読み込み中...</div>
-                ) : castRows.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">
-                    この日の出勤データがありません
-                  </div>
-                ) : (
-                  castRows.map(({ cast, shift, reservations: castRes }) => {
-                    const shiftStartMin = timeToMinutes(shift.start_time);
-                    const shiftEndMin = timeToMinutes(shift.end_time);
-                    const shiftLeft = minutesToPx(shiftStartMin);
-                    const shiftWidth = ((shiftEndMin - shiftStartMin) / 60) * HOUR_WIDTH;
-
-                    return (
-                      <div key={cast.id} className="flex border-b hover:bg-accent/20 transition-colors" style={{ height: ROW_HEIGHT }}>
-                        {/* Cast info */}
-                        <div className="w-[140px] flex-shrink-0 p-2 border-r flex items-center gap-2 bg-card">
-                          {cast.photo ? (
-                            <img src={cast.photo} alt={cast.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-xs font-bold flex-shrink-0">
-                              {cast.name.charAt(0)}
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold truncate">{cast.name}</div>
-                            <div className="text-[10px] text-muted-foreground">
+              {/* Vertical timeline */}
+              {loading ? (
+                <div className="p-8 text-center text-muted-foreground">読み込み中...</div>
+              ) : castRows.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">この日の出勤データがありません</div>
+              ) : (
+                <Card className="overflow-hidden">
+                  <div className="w-full">
+                    <div className="w-full">
+                      {/* Cast header row */}
+                      <div className="flex border-b bg-muted/30 sticky top-0 z-20">
+                        <div style={{ width: TIME_LABEL_W }} className="flex-shrink-0 border-r bg-muted/50" />
+                        {castRows.map(({ cast, shift }) => (
+                          <div
+                            key={cast.id}
+                            className="flex-1 border-r last:border-r-0 p-1 text-center min-w-0"
+                          >
+                            {cast.photo ? (
+                              <img src={cast.photo} alt={cast.name} className="w-6 h-6 rounded-full object-cover mx-auto mb-0.5" />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold mx-auto mb-0.5">
+                                {cast.name.charAt(0)}
+                              </div>
+                            )}
+                            <div className="text-[10px] font-semibold truncate leading-tight">{cast.name}</div>
+                            <div className="text-[9px] text-muted-foreground leading-tight">
                               {shift.start_time.slice(0, 5)}~{shift.end_time.slice(0, 5)}
                             </div>
-                            {shift.room && (
-                              <div className="text-[10px] text-primary font-medium">{shift.room}</div>
-                            )}
                           </div>
-                        </div>
-
-                        {/* Timeline area */}
-                        <div
-                          className="flex-1 relative cursor-crosshair"
-                          onClick={(e) => {
-                            if (!isAdmin) return;
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const x = e.clientX - rect.left;
-                            const minutesFromStart = (x / HOUR_WIDTH) * 60;
-                            handleTimelineClick(cast.id, minutesFromStart);
-                          }}
-                        >
-                          {/* 10-min grid lines */}
-                          {ticks.map((tickMin) => {
-                            const isHour = tickMin % 60 === 0;
-                            const is30 = tickMin % 30 === 0;
-                            return (
-                              <div
-                                key={tickMin}
-                                className={cn(
-                                  "absolute top-0 bottom-0 border-r",
-                                  isHour ? "border-border/40" : is30 ? "border-border/25" : "border-border/10"
-                                )}
-                                style={{ left: minutesToPx(tickMin) }}
-                              />
-                            );
-                          })}
-
-                          {/* Shift background bar */}
-                          <div
-                            className="absolute top-1 bottom-1 bg-primary/5 border border-primary/20 rounded"
-                            style={{ left: shiftLeft, width: shiftWidth }}
-                          />
-
-                          {/* Reservation blocks */}
-                          {castRes.map((res) => {
-                            const resStartMin = timeToMinutes(res.start_time);
-                            const resLeft = minutesToPx(resStartMin);
-                            const resWidth = (res.duration / 60) * HOUR_WIDTH;
-                            const statusClass = STATUS_COLORS[res.status] || STATUS_COLORS.pending;
-
-                            const endTime = format(
-                              addMinutes(parse(res.start_time, "HH:mm:ss", new Date()), res.duration),
-                              "HH:mm"
-                            );
-
-                            return (
-                              <div
-                                key={res.id}
-                                className={cn(
-                                  "absolute top-1 bottom-1 rounded border-l-4 px-1.5 py-0.5 overflow-hidden cursor-pointer hover:shadow-md transition-shadow",
-                                  statusClass
-                                )}
-                                style={{ left: resLeft, width: Math.max(resWidth, 60) }}
-                                title={`${res.customer_name} | ${res.course_name} | ¥${res.price.toLocaleString()}`}
-                              >
-                                <div className="text-[10px] font-bold leading-tight">
-                                  {res.start_time.slice(0, 5)}~{endTime}
-                                </div>
-                                <div className="text-xs font-semibold truncate leading-tight">
-                                  {res.customer_name}
-                                </div>
-                                <div className="text-[10px] truncate leading-tight">
-                                  {res.duration}分 ¥{res.price.toLocaleString()}
-                                </div>
-                                {res.nomination_type && (
-                                  <div className="text-[9px] font-medium truncate">
-                                    {res.nomination_type === "honshimei" ? "本指名" : res.nomination_type === "photo" ? "写真指名" : res.nomination_type}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-
-                          {/* Current time indicator */}
-                          {isToday && nowMinutes >= TIME_START * 60 && nowMinutes <= TIME_END * 60 && (
-                            <div
-                              className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-20"
-                              style={{ left: nowPx }}
-                            >
-                              <div className="absolute -top-1 -left-1.5 w-3 h-3 bg-red-500 rounded-full" />
-                            </div>
-                          )}
-                        </div>
+                        ))}
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </Card>
 
-          {/* Legend */}
-          <div className="flex gap-4 mt-3 flex-wrap text-xs">
-            {Object.entries(STATUS_LABELS).map(([key, label]) => (
-              <div key={key} className="flex items-center gap-1">
-                <div className={cn("w-3 h-3 rounded border-l-2", STATUS_COLORS[key])} />
-                <span className="text-muted-foreground">{label}</span>
+                      {/* Timeline body */}
+                      <div className="flex relative" style={{ height: TOTAL_HEIGHT }}>
+                        {/* Time labels */}
+                        <div style={{ width: TIME_LABEL_W }} className="flex-shrink-0 border-r relative">
+                          {hours.map((h) => (
+                            <div
+                              key={h}
+                              className="absolute text-[10px] text-muted-foreground text-right pr-2 leading-none"
+                              style={{ top: (h - TIME_START) * HOUR_HEIGHT - 6, right: 0, width: TIME_LABEL_W }}
+                            >
+                              {h >= 24 ? h - 24 : h}:00
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Cast columns */}
+                        {castRows.map(({ cast, shift, reservations: castRes }) => {
+                          const shiftStartMin = timeToMinutes(shift.start_time);
+                          const shiftEndMin = timeToMinutes(shift.end_time);
+                          const shiftTop = minutesToPx(shiftStartMin);
+                          const shiftH = ((shiftEndMin - shiftStartMin) / 60) * HOUR_HEIGHT;
+
+                          return (
+                            <div
+                              key={cast.id}
+                              className="flex-1 min-w-0 border-r last:border-r-0 relative cursor-crosshair"
+                              onClick={(e) => {
+                                if (!isAdmin) return;
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const y = e.clientY - rect.top;
+                                handleTimelineClick(cast.id, y);
+                              }}
+                            >
+                              {/* Hour grid lines */}
+                              {hours.map((h) => (
+                                <div
+                                  key={h}
+                                  className="absolute left-0 right-0 border-t border-border/30"
+                                  style={{ top: (h - TIME_START) * HOUR_HEIGHT }}
+                                />
+                              ))}
+                              {/* Half-hour lines */}
+                              {hours.map((h) => (
+                                <div
+                                  key={`${h}h`}
+                                  className="absolute left-0 right-0 border-t border-border/15"
+                                  style={{ top: (h - TIME_START) * HOUR_HEIGHT + HOUR_HEIGHT / 2 }}
+                                />
+                              ))}
+
+                              {/* Shift background */}
+                              <div
+                                className="absolute left-1 right-1 bg-primary/5 border border-primary/20 rounded"
+                                style={{ top: shiftTop, height: shiftH }}
+                              />
+
+                              {/* Reservation blocks */}
+                              {castRes.map((res) => {
+                                const resStartMin = timeToMinutes(res.start_time);
+                                const resTop = minutesToPx(resStartMin);
+                                const resH = Math.max((res.duration / 60) * HOUR_HEIGHT, 28);
+                                const statusClass = STATUS_COLORS[res.status] || STATUS_COLORS.pending;
+                                const endTime = format(
+                                  addMinutes(parse(res.start_time.slice(0, 5), "HH:mm", new Date()), res.duration),
+                                  "HH:mm"
+                                );
+                                return (
+                                  <div
+                                    key={res.id}
+                                    className={cn(
+                                      "absolute left-1 right-1 rounded border-t-4 px-1.5 py-0.5 overflow-hidden cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98] z-10",
+                                      statusClass
+                                    )}
+                                    style={{ top: resTop + 2, height: resH - 4 }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openDetail(res);
+                                    }}
+                                  >
+                                    <div className="text-[10px] font-bold leading-tight">
+                                      {res.start_time.slice(0, 5)}~{endTime}
+                                    </div>
+                                    <div className="text-xs font-semibold truncate leading-tight">
+                                      {res.customer_name}
+                                    </div>
+                                    {resH > 40 && (
+                                      <div className="text-[10px] truncate leading-tight">
+                                        {res.duration}分 ¥{res.price.toLocaleString()}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+
+                              {/* Current time line */}
+                              {isToday && nowMinutes >= TIME_START * 60 && nowMinutes <= TIME_END * 60 && (
+                                <div
+                                  className="absolute left-0 right-0 border-t-2 border-red-500 z-20 pointer-events-none"
+                                  style={{ top: nowPx }}
+                                >
+                                  <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-red-500 rounded-full" />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* Legend */}
+              <div className="flex gap-3 mt-2 flex-wrap text-xs">
+                {Object.entries(STATUS_LABELS).map(([key, label]) => (
+                  <div key={key} className="flex items-center gap-1">
+                    <div className={cn("w-3 h-3 rounded border-t-2", STATUS_COLORS[key])} />
+                    <span className="text-muted-foreground">{label}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          </>
+            </>
           )}
         </div>
 
-        <footer className="mt-auto py-4 px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <p className="text-xs text-muted-foreground">© 2025 caskan.jp All rights reserved</p>
-          </div>
+        <footer className="py-4 px-4">
+          <p className="text-xs text-muted-foreground text-center">© 2025 caskan.jp All rights reserved</p>
         </footer>
       </main>
+
+      {/* Reservation detail sheet */}
+      <Sheet open={!!detailRes} onOpenChange={(open) => { if (!open) setDetailRes(null); }}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <div className="flex items-center justify-between">
+              <SheetTitle>{editMode ? "予約を編集" : "予約詳細"}</SheetTitle>
+              {isAdmin && !editMode && (
+                <Button size="sm" variant="outline" onClick={() => setEditMode(true)}>
+                  <Pencil size={14} className="mr-1" />編集
+                </Button>
+              )}
+            </div>
+          </SheetHeader>
+
+          {detailRes && (
+            <div className="mt-4 space-y-4">
+              {editMode ? (
+                <>
+                  <div className="space-y-3">
+                    <div>
+                      <Label>ステータス</Label>
+                      <Select value={editFields.status} onValueChange={(v) => setEditFields((f) => ({ ...f, status: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                            <SelectItem key={k} value={k}>{v}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>顧客名</Label>
+                      <Input value={editFields.customer_name ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, customer_name: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label>電話番号</Label>
+                      <Input value={editFields.customer_phone ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, customer_phone: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label>コース名</Label>
+                      <Input value={editFields.course_name ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, course_name: e.target.value }))} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label>開始時間</Label>
+                        <Input value={editFields.start_time ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, start_time: e.target.value }))} placeholder="HH:MM" />
+                      </div>
+                      <div>
+                        <Label>時間（分）</Label>
+                        <Input type="number" value={editFields.duration ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, duration: Number(e.target.value) }))} />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>料金</Label>
+                      <Input type="number" value={editFields.price ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, price: Number(e.target.value) }))} />
+                    </div>
+                    <div>
+                      <Label>備考</Label>
+                      <Input value={editFields.notes ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, notes: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button className="flex-1" onClick={handleSaveEdit}><Check size={14} className="mr-1" />保存</Button>
+                    <Button variant="outline" className="flex-1" onClick={() => setEditMode(false)}>キャンセル</Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-xs px-2 py-1 rounded", STATUS_COLORS[detailRes.status])}>
+                        {STATUS_LABELS[detailRes.status] ?? detailRes.status}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-y-2 text-sm">
+                      <span className="text-muted-foreground">日時</span>
+                      <span className="font-medium">
+                        {format(new Date(detailRes.reservation_date), "M月d日", { locale: ja })} {detailRes.start_time.slice(0, 5)} ({detailRes.duration}分)
+                      </span>
+                      <span className="text-muted-foreground">顧客名</span>
+                      <span className="font-medium">{detailRes.customer_name}</span>
+                      <span className="text-muted-foreground">電話番号</span>
+                      <span className="font-medium">{detailRes.customer_phone}</span>
+                      <span className="text-muted-foreground">コース</span>
+                      <span className="font-medium">{detailRes.course_name}</span>
+                      <span className="text-muted-foreground">料金</span>
+                      <span className="font-medium">¥{detailRes.price.toLocaleString()}</span>
+                      {detailRes.nomination_type && (
+                        <>
+                          <span className="text-muted-foreground">指名</span>
+                          <span className="font-medium">{detailRes.nomination_type}</span>
+                        </>
+                      )}
+                      {detailRes.room && (
+                        <>
+                          <span className="text-muted-foreground">ルーム</span>
+                          <span className="font-medium">{detailRes.room}</span>
+                        </>
+                      )}
+                      {detailRes.notes && (
+                        <>
+                          <span className="text-muted-foreground">備考</span>
+                          <span className="font-medium">{detailRes.notes}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {isAdmin && (
+                    <div className="pt-2 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-rose-600 border-rose-200 hover:bg-rose-50 w-full"
+                        onClick={handleDeleteReservation}
+                      >
+                        <X size={14} className="mr-1" />キャンセルにする
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

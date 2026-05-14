@@ -37,15 +37,19 @@ export default function TherapistMyPage() {
 
   const fetchTherapists = async () => {
     setLoading(true);
-    const { data: casts } = await supabase.from("casts").select("id, name").order("name");
-    const { data: tokenData } = await supabase.rpc("get_cast_access_tokens");
-    const tokenMap: Record<string, string> = {};
-    (tokenData || []).forEach((t: any) => { tokenMap[t.cast_id] = t.access_token; });
-    const merged = (casts || []).map((c: any) => ({ ...c, access_token: tokenMap[c.id] || null }));
-    setTherapists(merged);
-    if (selected) {
-      const updated = merged.find((t) => t.id === selected.id);
-      if (updated) setSelected(updated);
+    const { data, error } = await supabase
+      .from("casts")
+      .select("id, name, access_token")
+      .order("name");
+    if (error) {
+      toast.error(`読み込みに失敗しました: ${error.message}`);
+    } else {
+      const list = (data || []) as Therapist[];
+      setTherapists(list);
+      if (selected) {
+        const updated = list.find((t) => t.id === selected.id);
+        if (updated) setSelected(updated);
+      }
     }
     setLoading(false);
   };
@@ -54,13 +58,16 @@ export default function TherapistMyPage() {
     if (!selected) return;
     setGenerating(true);
     const token = crypto.randomUUID();
-    const { error } = await supabase.rpc("set_cast_access_token", {
-      p_cast_id: selected.id,
-      p_token: token,
-    });
+    const { error } = await supabase
+      .from("casts")
+      .update({ access_token: token })
+      .eq("id", selected.id);
     setGenerating(false);
-    if (error) { toast.error("パスコードの発行に失敗しました"); return; }
-    toast.success("パスコードを発行しました");
+    if (error) {
+      toast.error(`リンクの発行に失敗しました: ${error.message}`);
+      return;
+    }
+    toast.success("リンクを発行しました");
     await fetchTherapists();
   };
 
@@ -124,46 +131,36 @@ export default function TherapistMyPage() {
                 <div className="space-y-4">
                   <h2 className="text-xl font-bold">{selected.name}</h2>
 
-                  {/* Passcode / Access Link */}
                   <Card className="border-primary/30">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base flex items-center gap-2">
                         <KeyRound size={16} className="text-primary" />
-                        マイページアクセス
+                        マイページアクセスリンク
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {selected.access_token ? (
                         <>
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">アクセスリンク</p>
-                            <div className="flex items-center gap-2">
-                              <code className="flex-1 bg-muted px-3 py-2 rounded text-xs font-mono truncate">
-                                {portalLink(selected.access_token)}
-                              </code>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => copyLink(selected.access_token!)}
-                                className="shrink-0"
-                              >
-                                <Copy size={13} className="mr-1" />コピー
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => window.open(portalLink(selected.access_token!), "_blank")}
-                                className="shrink-0"
-                              >
-                                <ExternalLink size={13} />
-                              </Button>
-                            </div>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">パスコード（トークン）</p>
-                            <code className="block bg-muted px-3 py-2 rounded text-xs font-mono text-muted-foreground">
-                              {selected.access_token}
+                          <div className="flex items-center gap-2">
+                            <code className="flex-1 bg-muted px-3 py-2 rounded text-xs font-mono truncate">
+                              {portalLink(selected.access_token)}
                             </code>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => copyLink(selected.access_token!)}
+                              className="shrink-0"
+                            >
+                              <Copy size={13} className="mr-1" />コピー
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => window.open(portalLink(selected.access_token!), "_blank")}
+                              className="shrink-0"
+                            >
+                              <ExternalLink size={13} />
+                            </Button>
                           </div>
                           <Button
                             variant="outline"
@@ -172,27 +169,20 @@ export default function TherapistMyPage() {
                             disabled={generating}
                           >
                             <RefreshCw size={13} className="mr-1.5" />
-                            {generating ? "発行中..." : "パスコードを再発行する"}
+                            {generating ? "発行中..." : "リンクを再発行する"}
                           </Button>
                         </>
                       ) : (
                         <div className="text-center py-4">
                           <p className="text-sm text-muted-foreground mb-4">
-                            まだパスコードが発行されていません
+                            まだリンクが発行されていません
                           </p>
                           <Button onClick={handleGenerateToken} disabled={generating}>
                             <KeyRound size={14} className="mr-2" />
-                            {generating ? "発行中..." : "パスコードを発行する"}
+                            {generating ? "発行中..." : "リンクを発行する"}
                           </Button>
                         </div>
                       )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Placeholder for future tabs */}
-                  <Card>
-                    <CardContent className="py-6 text-center text-sm text-muted-foreground">
-                      マイページの追加機能は今後実装予定です
                     </CardContent>
                   </Card>
                 </div>

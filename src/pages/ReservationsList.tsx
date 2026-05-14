@@ -34,6 +34,7 @@ interface Reservation {
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-900",
+  sms_waiting: "bg-purple-100 text-purple-900",
   confirmed: "bg-blue-100 text-blue-900",
   completed: "bg-emerald-100 text-emerald-900",
   cancelled: "bg-rose-100 text-rose-700",
@@ -41,10 +42,65 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "確認中",
+  sms_waiting: "SMS送信待ち",
   confirmed: "確定",
   completed: "完了",
   cancelled: "キャンセル",
 };
+
+function StatusBox({
+  title,
+  color,
+  borderColor,
+  reservations,
+  onStatusChange,
+}: {
+  title: string;
+  color: string;
+  borderColor: string;
+  reservations: Reservation[];
+  onStatusChange: (id: string, status: string) => void;
+}) {
+  return (
+    <div className={`rounded-lg border-2 ${borderColor} bg-white flex flex-col`}>
+      <div className={`px-4 py-3 rounded-t-lg ${color} font-bold flex items-center justify-between`}>
+        <span>{title}</span>
+        <span className="text-sm font-normal opacity-80">{reservations.length}件</span>
+      </div>
+      <div className="flex-1 p-3 space-y-2 min-h-[120px] max-h-[400px] overflow-y-auto">
+        {reservations.length === 0 ? (
+          <p className="text-center text-muted-foreground text-sm py-6">なし</p>
+        ) : (
+          reservations.map((res) => (
+            <div key={res.id} className="bg-gray-50 rounded-md p-3 text-sm border border-gray-100">
+              <div className="font-semibold mb-1">{res.customer_name}</div>
+              <div className="text-muted-foreground text-xs space-y-0.5">
+                <div>{format(new Date(res.reservation_date), "M/d", { locale: ja })} {res.start_time.slice(0, 5)} ({res.duration}分)</div>
+                <div>{res.casts?.name ?? "未設定"} / {res.course_name}</div>
+                <div>{res.customer_phone}</div>
+              </div>
+              <div className="mt-2 flex gap-1 flex-wrap">
+                {["sms_waiting", "confirmed", "completed"].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => onStatusChange(res.id, s)}
+                    className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                      res.status === s
+                        ? `${STATUS_COLORS[s]} border-transparent`
+                        : "bg-white border-gray-200 text-gray-500 hover:bg-gray-100"
+                    }`}
+                  >
+                    {STATUS_LABELS[s]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ReservationsList() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -53,6 +109,7 @@ export default function ReservationsList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [boxDate, setBoxDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -72,17 +129,11 @@ export default function ReservationsList() {
   const fetchReservations = async () => {
     setLoading(true);
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from("reservations")
         .select("*, casts(name)")
         .order("reservation_date", { ascending: false })
         .limit(500);
-
-      if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
       setReservations(data || []);
@@ -93,12 +144,34 @@ export default function ReservationsList() {
     }
   };
 
-  const filteredReservations = reservations.filter(
-    (res) =>
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from("reservations")
+        .update({ status: newStatus })
+        .eq("id", id);
+      if (error) throw error;
+      setReservations((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r))
+      );
+    } catch (err) {
+      console.error("Status update failed:", err);
+    }
+  };
+
+  const todayReservations = reservations.filter((r) => r.reservation_date === boxDate);
+  const smsWaiting = todayReservations.filter((r) => r.status === "sms_waiting");
+  const visitWaiting = todayReservations.filter((r) => r.status === "confirmed");
+  const completed = todayReservations.filter((r) => r.status === "completed");
+
+  const filteredReservations = reservations.filter((res) => {
+    const matchesSearch =
       res.customer_name.includes(searchQuery) ||
       res.customer_phone.includes(searchQuery) ||
-      res.course_name.includes(searchQuery)
-  );
+      res.course_name.includes(searchQuery);
+    const matchesStatus = statusFilter === "all" || res.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -117,6 +190,43 @@ export default function ReservationsList() {
             </Button>
           </div>
 
+          {/* ステータスBOX */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <h2 className="font-semibold text-sm text-muted-foreground">当日ステータス</h2>
+              <input
+                type="date"
+                value={boxDate}
+                onChange={(e) => setBoxDate(e.target.value)}
+                className="text-sm border rounded px-2 py-1 text-muted-foreground"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <StatusBox
+                title="📩 SMS送信待ち"
+                color="bg-purple-100 text-purple-800"
+                borderColor="border-purple-300"
+                reservations={smsWaiting}
+                onStatusChange={handleStatusChange}
+              />
+              <StatusBox
+                title="🏃 来店待ち"
+                color="bg-blue-100 text-blue-800"
+                borderColor="border-blue-300"
+                reservations={visitWaiting}
+                onStatusChange={handleStatusChange}
+              />
+              <StatusBox
+                title="✅ 接客完了"
+                color="bg-emerald-100 text-emerald-800"
+                borderColor="border-emerald-300"
+                reservations={completed}
+                onStatusChange={handleStatusChange}
+              />
+            </div>
+          </div>
+
+          {/* 検索・フィルター */}
           <Card className="mb-6">
             <CardContent className="pt-6">
               <div className="flex gap-4 flex-wrap">
@@ -131,13 +241,14 @@ export default function ReservationsList() {
                   </div>
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-[170px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">全て</SelectItem>
                     <SelectItem value="pending">確認中</SelectItem>
-                    <SelectItem value="confirmed">確定</SelectItem>
+                    <SelectItem value="sms_waiting">SMS送信待ち</SelectItem>
+                    <SelectItem value="confirmed">来店待ち</SelectItem>
                     <SelectItem value="completed">完了</SelectItem>
                     <SelectItem value="cancelled">キャンセル</SelectItem>
                   </SelectContent>
@@ -146,6 +257,7 @@ export default function ReservationsList() {
             </CardContent>
           </Card>
 
+          {/* 予約テーブル */}
           {loading ? (
             <div className="text-center text-muted-foreground">読み込み中...</div>
           ) : filteredReservations.length === 0 ? (
@@ -153,43 +265,46 @@ export default function ReservationsList() {
               予約がありません
             </div>
           ) : (
-            <div className="space-y-3">
-              {filteredReservations.map((res) => (
-                <Card key={res.id} className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="font-semibold">{res.customer_name}</div>
-                        <span
-                          className={`text-xs px-2 py-1 rounded ${
-                            STATUS_COLORS[res.status]
-                          }`}
-                        >
-                          {STATUS_LABELS[res.status]}
-                        </span>
-                      </div>
-                      <div className="text-sm text-muted-foreground space-y-1">
-                        <div>
-                          {format(new Date(res.reservation_date), "yyyy/MM/dd", {
-                            locale: ja,
-                          })}{" "}
-                          {res.start_time.slice(0, 5)} ({res.duration}分)
-                        </div>
-                        <div>
-                          セラピスト: {res.casts?.name ?? "未設定"} | {res.course_name}
-                        </div>
-                        <div>電話: {res.customer_phone}</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold">
-                        ¥{res.price.toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+            <Card>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">日付</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">時間</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">顧客名</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">電話番号</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">セラピスト</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">コース</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">料金</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">ステータス</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {filteredReservations.map((res) => (
+                      <tr key={res.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {format(new Date(res.reservation_date), "yyyy/MM/dd", { locale: ja })}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {res.start_time.slice(0, 5)}<span className="text-muted-foreground ml-1">({res.duration}分)</span>
+                        </td>
+                        <td className="px-4 py-3 font-medium whitespace-nowrap">{res.customer_name}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">{res.customer_phone}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">{res.casts?.name ?? <span className="text-muted-foreground">未設定</span>}</td>
+                        <td className="px-4 py-3">{res.course_name}</td>
+                        <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">¥{res.price.toLocaleString()}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`text-xs px-2 py-1 rounded ${STATUS_COLORS[res.status] ?? "bg-gray-100 text-gray-700"}`}>
+                            {STATUS_LABELS[res.status] ?? res.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           )}
         </div>
       </main>

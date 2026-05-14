@@ -177,8 +177,8 @@ const CastDetail = () => {
     displayBlood && { q: "血液型", a: `${displayBlood}型` },
   ].filter(Boolean) as { q: string; a: string }[];
 
-  // Shop comment from profile or message
-  const shopComment = profile?.comment || cast.message;
+  const therapistComment = cast.message ?? null;
+  const shopComment = profile?.comment ?? null;
 
   // Average rating
   const avgRating = reviews.length > 0
@@ -346,10 +346,10 @@ const CastDetail = () => {
               </Link>
             </div>
 
-            {/* ── インタビュー ── */}
+            {/* ── セラピストインタビュー ── */}
             {interviewItems.length > 0 && (
               <>
-                <SectionHeader label="INTERVIEW" sub="インタビュー" />
+                <SectionHeader label="INTERVIEW" sub="セラピストインタビュー" />
                 <div className="divide-y divide-[#f0e4df]">
                   {interviewItems.map(({ q, a }) => (
                     <div key={q} className="px-5 py-3 flex gap-4 text-sm">
@@ -361,11 +361,23 @@ const CastDetail = () => {
               </>
             )}
 
-            {/* ── コメント ── */}
+            {/* ── セラピストコメント ── */}
+            {therapistComment && (
+              <>
+                <SectionHeader label="THERAPIST COMMENT" sub="セラピストコメント" />
+                <div className="px-5 py-4" style={{ background: "#fffaf8" }}>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>
+                    {therapistComment}
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* ── ショップコメント ── */}
             {shopComment && (
               <>
-                <SectionHeader label="COMMENT" sub="コメント" />
-                <div className="px-5 py-4" style={{ background: "#fffaf8" }}>
+                <SectionHeader label="SHOP COMMENT" sub="ショップコメント" />
+                <div className="px-5 py-4" style={{ background: "#f5f0ee" }}>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>
                     {shopComment}
                   </p>
