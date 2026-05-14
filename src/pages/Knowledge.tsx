@@ -102,7 +102,7 @@ export default function Knowledge() {
       ({ error } = await supabase.from("knowledge_articles").insert(payload));
     }
     setSaving(false);
-    if (error) { toast.error("保存に失敗しました"); return; }
+    if (error) { toast.error(`保存に失敗しました: ${error.message}`); return; }
     toast.success(selected ? "更新しました" : "作成しました");
     setEditing(false);
     await fetchArticles();
