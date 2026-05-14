@@ -59,7 +59,11 @@ export default function TherapistMyPage() {
       p_token: token,
     });
     setGenerating(false);
-    if (error) { toast.error("パスコードの発行に失敗しました"); return; }
+    if (error) {
+      console.error("set_cast_access_token error:", error);
+      toast.error(`パスコードの発行に失敗しました: ${error.message}`);
+      return;
+    }
     toast.success("パスコードを発行しました");
     await fetchTherapists();
   };
