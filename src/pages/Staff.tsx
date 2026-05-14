@@ -487,10 +487,10 @@ export default function Staff() {
 
     try {
       const token = crypto.randomUUID();
-      const { error } = await supabase.rpc('set_cast_access_token', {
-        p_cast_id: castId,
-        p_token: token,
-      });
+      const { error } = await supabase
+        .from('casts')
+        .update({ access_token: token })
+        .eq('id', castId);
 
       if (error) throw error;
 
