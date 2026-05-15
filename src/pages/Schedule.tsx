@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { format, addDays, subDays, parse, addMinutes, startOfMonth, endOfMonth } from "date-fns";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Check, Copy } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { TabMenu } from "@/components/TabMenu";
@@ -643,8 +643,30 @@ export default function Schedule() {
                       )}
                     </div>
                   </div>
-                  {isAdmin && (
-                    <div className="pt-2 border-t">
+                  <div className="pt-2 border-t space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        const d = detailRes;
+                        const dateStr = format(new Date(d.reservation_date), "M月d日", { locale: ja });
+                        const lines = [
+                          `【予約確認】`,
+                          `日時：${dateStr} ${d.start_time.slice(0, 5)}（${d.duration}分）`,
+                          `コース：${d.course_name}`,
+                          `料金：¥${d.price.toLocaleString()}`,
+                          d.nomination_type ? `指名：${d.nomination_type}` : null,
+                          d.room ? `ルーム：${d.room}` : null,
+                          d.notes ? `備考：${d.notes}` : null,
+                        ].filter(Boolean).join("\n");
+                        navigator.clipboard.writeText(lines);
+                        toast({ title: "SMSをコピーしました" });
+                      }}
+                    >
+                      <Copy size={14} className="mr-1" />SMSをコピー
+                    </Button>
+                    {isAdmin && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -653,8 +675,8 @@ export default function Schedule() {
                       >
                         <X size={14} className="mr-1" />キャンセルにする
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </>
               )}
             </div>
