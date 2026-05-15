@@ -322,11 +322,90 @@ export default function TherapistDatabase() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Tabs defaultValue="estama">
+                    <Tabs defaultValue="public">
                       <TabsList className="mb-4">
+                        <TabsTrigger value="public">公開プロフィール</TabsTrigger>
                         <TabsTrigger value="estama">エスタ魂掲載</TabsTrigger>
                         <TabsTrigger value="internal">内部管理</TabsTrigger>
                       </TabsList>
+
+                      {/* ── 公開プロフィールタブ ── */}
+                      <TabsContent value="public" className="space-y-5">
+                        <div className="space-y-1">
+                          <Label className="text-sm font-semibold">セラピストコメント</Label>
+                          <p className="text-xs text-muted-foreground">セラピスト本人からのメッセージ（HP公開）</p>
+                          <Textarea
+                            value={castEdit.message ?? ""}
+                            onChange={(e) => setCast("message", e.target.value)}
+                            rows={4}
+                            placeholder="セラピスト本人からのコメントを入力..."
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-sm font-semibold">ショップコメント</Label>
+                          <p className="text-xs text-muted-foreground">お店からのおすすめコメント（HP公開）</p>
+                          <Textarea
+                            value={internal.comment ?? ""}
+                            onChange={(e) => setInt("comment", e.target.value)}
+                            rows={4}
+                            placeholder="お店からのおすすめポイントを入力..."
+                          />
+                        </div>
+
+                        <div className="border-t pt-4 space-y-3">
+                          <Label className="text-sm font-semibold text-muted-foreground tracking-wider">インタビュー項目（HP公開）</Label>
+                          <div className="space-y-1">
+                            <Label>自己紹介</Label>
+                            <Textarea value={internal.self_introduction ?? ""} onChange={(e) => setInt("self_introduction", e.target.value)} rows={4} placeholder="セラピスト自身の言葉で..." />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>得意な施術</Label>
+                            <Textarea value={internal.massage_skills ?? ""} onChange={(e) => setInt("massage_skills", e.target.value)} rows={2} placeholder="例：リンパドレナージュ、アロマオイル" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>エステ経歴</Label>
+                            <Textarea value={internal.career_history ?? ""} onChange={(e) => setInt("career_history", e.target.value)} rows={2} placeholder="例：エステサロン勤務3年" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <Label>趣味・特技</Label>
+                              <Input value={castEdit.hobbies ?? ""} onChange={(e) => setCast("hobbies", e.target.value)} placeholder="例：料理、ヨガ" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>好みのタイプ</Label>
+                              <Input value={internal.preferred_type ?? ""} onChange={(e) => setInt("preferred_type", e.target.value)} placeholder="例：優しい人" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>好きな食べ物</Label>
+                              <Input value={castEdit.favorite_food ?? ""} onChange={(e) => setCast("favorite_food", e.target.value)} placeholder="例：パスタ" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>休日の過ごし方</Label>
+                              <Input value={castEdit.day_off_activities ?? ""} onChange={(e) => setCast("day_off_activities", e.target.value)} placeholder="例：カフェ巡り" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>MBTI</Label>
+                              <Input value={internal.mbti ?? ""} onChange={(e) => setInt("mbti", e.target.value)} placeholder="例: INFP" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>講習回数</Label>
+                              <Input type="number" inputMode="numeric" value={internal.training_count ?? ""} onChange={(e) => setInt("training_count", e.target.value ? Number(e.target.value) : null)} placeholder="0" />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                          <Button onClick={handleSaveEstama} disabled={savingEstama} variant="outline">
+                            <Save size={14} className="mr-1.5" />
+                            {savingEstama ? "保存中..." : "基本情報を保存"}
+                          </Button>
+                          <Button onClick={handleSaveInternal} disabled={savingInternal}>
+                            <Save size={14} className="mr-1.5" />
+                            {savingInternal ? "保存中..." : "インタビューを保存"}
+                          </Button>
+                        </div>
+                      </TabsContent>
 
                       {/* ── エスタ魂掲載タブ ── */}
                       <TabsContent value="estama" className="space-y-4">
@@ -358,7 +437,7 @@ export default function TherapistDatabase() {
                           {numField("therapist_years", "セラピスト歴", "年")}
                         </div>
 
-                        {areaField("message", "お店コメント", 3)}
+                        {areaField("message", "セラピストコメント（本人メッセージ）", 3)}
                         {areaField("profile", "自己PR / プロフィール", 4)}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

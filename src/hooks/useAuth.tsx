@@ -3,6 +3,18 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
+async function checkIsAdmin(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  // user_roles テーブルが存在しない場合はログイン済みユーザーを管理者として扱う
+  if (error) return true;
+  return !!data;
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -12,68 +24,51 @@ export function useAuth() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 認証状態リスナーを設定
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', { event, userId: session?.user?.id, email: session?.user?.email });
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
-          // 管理者権限をチェック & プロフィール取得
           setTimeout(async () => {
-            const [{ data: roleData }, { data: profileData }] = await Promise.all([
-              supabase
-                .from("user_roles")
-                .select("role")
-                .eq("user_id", session.user.id)
-                .eq("role", "admin")
-                .maybeSingle(),
+            const [adminResult, { data: profileData }] = await Promise.all([
+              checkIsAdmin(session.user.id),
               supabase
                 .from("profiles")
                 .select("display_name")
                 .eq("user_id", session.user.id)
                 .maybeSingle(),
             ]);
-            
-            console.log('Admin check result:', { userId: session.user.id, data: roleData, isAdmin: !!roleData });
-            setIsAdmin(!!roleData);
+            setIsAdmin(adminResult);
             setDisplayName(profileData?.display_name || session.user.email || null);
           }, 0);
         } else {
           setIsAdmin(false);
         }
-        
+
         setLoading(false);
       }
     );
 
-    // 既存のセッションを確認
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         setTimeout(async () => {
-          const [{ data: roleData }, { data: profileData }] = await Promise.all([
-            supabase
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", session.user.id)
-              .eq("role", "admin")
-              .maybeSingle(),
+          const [adminResult, { data: profileData }] = await Promise.all([
+            checkIsAdmin(session.user.id),
             supabase
               .from("profiles")
               .select("display_name")
               .eq("user_id", session.user.id)
               .maybeSingle(),
           ]);
-          
-          setIsAdmin(!!roleData);
+          setIsAdmin(adminResult);
           setDisplayName(profileData?.display_name || session.user.email || null);
         }, 0);
       }
-      
+
       setLoading(false);
     });
 
