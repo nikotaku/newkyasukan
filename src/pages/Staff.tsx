@@ -283,7 +283,6 @@ export default function Staff() {
         .from('casts')
         .update({
           name: editingCast.name,
-          romaji_name: (editingCast as any).romaji_name || null,
           type: editingCast.type,
           room: editingCast.room,
           status: editingCast.status,
@@ -323,11 +322,12 @@ export default function Staff() {
       
       setIsEditDialogOpen(false);
       setEditingCast(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating cast:', error);
+      const msg = error?.message || error?.details || "キャストの更新に失敗しました";
       toast({
         title: "エラー",
-        description: "キャストの更新に失敗しました",
+        description: msg,
         variant: "destructive",
       });
     }
@@ -583,7 +583,7 @@ export default function Staff() {
       <div className="flex pt-[60px]">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
         
-        <main className="flex-1 p-6 md:ml-[240px]">
+        <main className="flex-1 p-4 md:p-6 md:ml-[240px] overflow-x-hidden">
           <div className="max-w-7xl mx-auto">
             <Tabs defaultValue="management" className="w-full">
               <div className="flex justify-between items-center mb-6">
@@ -893,25 +893,14 @@ export default function Staff() {
                     </TabsList>
                     
                     <TabsContent value="basic" className="space-y-4 mt-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="edit-name">セラピスト名</Label>
-                          <Input
-                            id="edit-name"
-                            placeholder="名前を入力"
-                            value={editingCast.name}
-                            onChange={(e) => setEditingCast({...editingCast, name: e.target.value})}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="edit-romaji">源氏名(ローマ字) ※ログイン用</Label>
-                          <Input
-                            id="edit-romaji"
-                            placeholder="rion"
-                            value={(editingCast as any).romaji_name || ""}
-                            onChange={(e) => setEditingCast({...editingCast, romaji_name: e.target.value.trim().toLowerCase()} as any)}
-                          />
-                        </div>
+                      <div>
+                        <Label htmlFor="edit-name">セラピスト名</Label>
+                        <Input
+                          id="edit-name"
+                          placeholder="名前を入力"
+                          value={editingCast.name}
+                          onChange={(e) => setEditingCast({...editingCast, name: e.target.value})}
+                        />
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
@@ -1373,9 +1362,9 @@ export default function Staff() {
                     {cast.room && <p className="text-xs text-muted-foreground truncate">{cast.room}</p>}
                   </div>
 
-                  {/* Status buttons */}
+                  {/* Status buttons - hidden on mobile */}
                   {isAdmin && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="hidden md:flex items-center gap-1 flex-shrink-0">
                       {['waiting', 'busy', 'offline'].map((s) => (
                         <Button
                           key={s}

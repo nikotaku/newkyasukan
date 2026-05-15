@@ -4,8 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import caskanLogo from "@/assets/caskan-logo.png";
 
-const THERAPIST_EMAIL_DOMAIN = "+chelsy.ox.0913@gmail.com";
-
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,25 +30,6 @@ export default function Auth() {
     setLoading(true);
     try {
       const trimmed = email.trim().toLowerCase();
-
-      if (trimmed.endsWith(THERAPIST_EMAIL_DOMAIN)) {
-        const romaji = trimmed.slice(0, -THERAPIST_EMAIL_DOMAIN.length);
-        if (!romaji) throw new Error("源氏名(ローマ字)を入力してください");
-
-        const { data, error } = await supabase
-          .from("casts")
-          .select("id, access_token, romaji_name")
-          .eq("romaji_name", romaji)
-          .maybeSingle();
-
-        if (error) throw error;
-        if (!data) throw new Error("該当するセラピストが見つかりません");
-        if (!data.access_token) throw new Error("マイページのリンクが未発行です。管理者にご連絡ください。");
-
-        navigate(`/therapist/${data.access_token}`);
-        return;
-      }
-
       if (!password) throw new Error("パスワードを入力してください");
       const { error } = await supabase.auth.signInWithPassword({
         email: trimmed,
@@ -73,8 +52,6 @@ export default function Auth() {
       setLoading(false);
     }
   };
-
-  const isTherapistEmail = email.trim().toLowerCase().endsWith(THERAPIST_EMAIL_DOMAIN);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center" style={{ backgroundColor: '#f5f5f5' }}>
@@ -102,24 +79,20 @@ export default function Auth() {
                 disabled={loading}
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-400"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                セラピストの方は「源氏名(ローマ字){THERAPIST_EMAIL_DOMAIN}」
-              </p>
             </div>
 
-            {!isTherapistEmail && (
-              <div>
-                <label className="block text-sm text-muted-foreground mb-1">パスワード</label>
-                <input
-                  type="password"
-                  placeholder="パスワード"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-400"
-                />
-              </div>
-            )}
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">パスワード</label>
+              <input
+                type="password"
+                placeholder="パスワード"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loading}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-400"
+              />
+            </div>
 
             <div className="flex justify-center pt-2">
               <button
