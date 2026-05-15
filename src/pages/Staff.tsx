@@ -22,7 +22,6 @@ import { supabase } from "@/integrations/supabase/client";
 interface Cast {
   id: string;
   name: string;
-  romaji_name?: string | null;
   type: string;
   status: string;
   photo: string | null;
@@ -284,7 +283,6 @@ export default function Staff() {
         .from('casts')
         .update({
           name: editingCast.name,
-          romaji_name: editingCast.romaji_name || null,
           type: editingCast.type,
           room: editingCast.room,
           status: editingCast.status,
@@ -895,25 +893,14 @@ export default function Staff() {
                     </TabsList>
                     
                     <TabsContent value="basic" className="space-y-4 mt-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="edit-name">セラピスト名</Label>
-                          <Input
-                            id="edit-name"
-                            placeholder="名前を入力"
-                            value={editingCast.name}
-                            onChange={(e) => setEditingCast({...editingCast, name: e.target.value})}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="edit-romaji">源氏名(ローマ字) ※ログイン用</Label>
-                          <Input
-                            id="edit-romaji"
-                            placeholder="rion"
-                            value={editingCast.romaji_name || ""}
-                            onChange={(e) => setEditingCast({...editingCast, romaji_name: e.target.value.trim().toLowerCase()})}
-                          />
-                        </div>
+                      <div>
+                        <Label htmlFor="edit-name">セラピスト名</Label>
+                        <Input
+                          id="edit-name"
+                          placeholder="名前を入力"
+                          value={editingCast.name}
+                          onChange={(e) => setEditingCast({...editingCast, name: e.target.value})}
+                        />
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
