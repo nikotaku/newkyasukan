@@ -88,7 +88,6 @@ import SystemSMS from "./pages/SystemSMS";
 import SystemSMSAuto from "./pages/SystemSMSAuto";
 import TherapistCheckout from "./pages/TherapistCheckout";
 import SNSDatabase from "./pages/SNSDatabase";
-import TherapistDatabase from "./pages/TherapistDatabase";
 import TherapistMyPage from "./pages/TherapistMyPage";
 import CustomerDatabase from "./pages/CustomerDatabase";
 import FacilitiesRooms from "./pages/FacilitiesRooms";
@@ -176,7 +175,6 @@ const App = () => (
           <Route path="/system/sms" element={<SystemSMS />} />
           <Route path="/system/sms-auto" element={<SystemSMSAuto />} />
           <Route path="/database/knowledge/sns" element={<SNSDatabase />} />
-          <Route path="/database/therapist/profiles" element={<TherapistDatabase />} />
           <Route path="/database/therapist/mypage" element={<TherapistMyPage />} />
           <Route path="/database/customers" element={<CustomerDatabase />} />
           <Route path="/facilities/rooms" element={<FacilitiesRooms />} />
