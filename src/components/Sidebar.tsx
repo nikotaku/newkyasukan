@@ -147,7 +147,6 @@ const menuItems: MenuItem[] = [
     icon: UserCircle,
     children: [
       { href: "/staff", label: "新規登録" },
-      { href: "/database/therapist/mypage", label: "マイページ" },
     ],
   },
   {

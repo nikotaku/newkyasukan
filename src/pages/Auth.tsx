@@ -1,25 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
 import caskanLogo from "@/assets/caskan-logo.png";
 
-const authSchema = z.object({
-  email: z.string().email({ message: "正しいメールアドレスを入力してください" }),
-  password: z.string().min(6, { message: "パスワードは6文字以上で入力してください" }),
-  displayName: z.string().optional(),
-});
+const THERAPIST_EMAIL_DOMAIN = "+chelsy.ox.0913@gmail.com";
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("saito.crow@gmail.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -29,136 +18,108 @@ export default function Auth() {
   }, []);
 
   useEffect(() => {
-    // 既にログインしている場合はダッシュボードにリダイレクト
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate("/dashboard");
-      }
+      if (session) navigate("/dashboard");
     });
-
-    // 認証状態の変更を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session && event === "SIGNED_IN") {
-        navigate("/dashboard");
-      }
+      if (session && event === "SIGNED_IN") navigate("/dashboard");
     });
-
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
-      // バリデーション
-      const validatedData = authSchema.parse({
-        email,
+      const trimmed = email.trim().toLowerCase();
+
+      if (trimmed.endsWith(THERAPIST_EMAIL_DOMAIN)) {
+        const romaji = trimmed.slice(0, -THERAPIST_EMAIL_DOMAIN.length);
+        if (!romaji) throw new Error("源氏名(ローマ字)を入力してください");
+
+        const { data, error } = await supabase
+          .from("casts")
+          .select("id, access_token, romaji_name")
+          .eq("romaji_name", romaji)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!data) throw new Error("該当するセラピストが見つかりません");
+        if (!data.access_token) throw new Error("マイページのリンクが未発行です。管理者にご連絡ください。");
+
+        navigate(`/therapist/${data.access_token}`);
+        return;
+      }
+
+      if (!password) throw new Error("パスワードを入力してください");
+      const { error } = await supabase.auth.signInWithPassword({
+        email: trimmed,
         password,
-        displayName: isLogin ? undefined : displayName,
       });
-
-      if (isLogin) {
-        // ログイン
-        const { error } = await supabase.auth.signInWithPassword({
-          email: validatedData.email,
-          password: validatedData.password,
-        });
-
-        if (error) {
-          if (error.message.includes("Invalid login credentials")) {
-            throw new Error("メールアドレスまたはパスワードが正しくありません");
-          }
-          throw error;
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          throw new Error("メールアドレスまたはパスワードが正しくありません");
         }
-
-        toast({
-          title: "ログイン成功",
-          description: "管理画面にアクセスできます",
-        });
-      } else {
-        // サインアップ
-        const redirectUrl = `${window.location.origin}/dashboard`;
-        
-        const { error } = await supabase.auth.signUp({
-          email: validatedData.email,
-          password: validatedData.password,
-          options: {
-            emailRedirectTo: redirectUrl,
-            data: {
-              display_name: validatedData.displayName || "",
-            },
-          },
-        });
-
-        if (error) {
-          if (error.message.includes("User already registered")) {
-            throw new Error("このメールアドレスは既に登録されています");
-          }
-          throw error;
-        }
-
-        toast({
-          title: "アカウント作成成功",
-          description: "ログインできます",
-        });
-        
-        setIsLogin(true);
+        throw error;
       }
+      toast({ title: "ログイン成功" });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast({
-          title: "入力エラー",
-          description: error.errors[0].message,
-          variant: "destructive",
-        });
-      } else if (error instanceof Error) {
-        toast({
-          title: isLogin ? "ログインエラー" : "アカウント作成エラー",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "ログインエラー",
+        description: error instanceof Error ? error.message : "ログインに失敗しました",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  const isTherapistEmail = email.trim().toLowerCase().endsWith(THERAPIST_EMAIL_DOMAIN);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center" style={{ backgroundColor: '#f5f5f5' }}>
-      {/* Caskan Logo */}
       <div className="mb-6">
-        <img 
-          src={caskanLogo} 
-          alt="Caskan" 
-          className="h-16"
-        />
+        <img src={caskanLogo} alt="Caskan" className="h-16" />
       </div>
 
-      {/* Login Card */}
       <div className="w-full max-w-[500px] bg-white rounded shadow-sm border border-gray-200">
-        {/* Header */}
         <div className="px-6 py-3 border-b border-gray-200" style={{ backgroundColor: '#fafafa' }}>
-          <h2 className="text-base font-normal text-foreground">
-            {isLogin ? "スタッフログイン" : "新規登録"}
-          </h2>
+          <h2 className="text-base font-normal text-foreground">ログイン</h2>
         </div>
 
-      {/* Form */}
         <div className="px-6 py-5">
-          <form onSubmit={handleAuth} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm text-muted-foreground mb-1">パスコード</label>
+              <label className="block text-sm text-muted-foreground mb-1">メールアドレス</label>
               <input
-                type="password"
-                placeholder="パスコードを入力"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="メールアドレスを入力"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-400 text-center tracking-widest"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-400"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                セラピストの方は「源氏名(ローマ字){THERAPIST_EMAIL_DOMAIN}」
+              </p>
             </div>
+
+            {!isTherapistEmail && (
+              <div>
+                <label className="block text-sm text-muted-foreground mb-1">パスワード</label>
+                <input
+                  type="password"
+                  placeholder="パスワード"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-400"
+                />
+              </div>
+            )}
 
             <div className="flex justify-center pt-2">
               <button
@@ -174,7 +135,6 @@ export default function Auth() {
         </div>
       </div>
 
-      {/* Footer */}
       <div className="mt-auto py-6 text-center text-xs text-gray-400">
         © 2026 caskan.jp All rights reserved
       </div>
