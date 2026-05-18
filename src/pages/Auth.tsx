@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import caskanLogo from "@/assets/caskan-logo.png";
 
+const ADMIN_EMAIL = "saito.crow@gmail.com";
+
 export default function Auth() {
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -29,15 +30,13 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     try {
-      const trimmed = email.trim().toLowerCase();
-      if (!password) throw new Error("パスワードを入力してください");
       const { error } = await supabase.auth.signInWithPassword({
-        email: trimmed,
+        email: ADMIN_EMAIL,
         password,
       });
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
-          throw new Error("メールアドレスまたはパスワードが正しくありません");
+          throw new Error("パスワードが正しくありません");
         }
         throw error;
       }
@@ -67,29 +66,15 @@ export default function Auth() {
         <div className="px-6 py-5">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm text-muted-foreground mb-1">メールアドレス</label>
-              <input
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                placeholder="メールアドレスを入力"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-400"
-              />
-            </div>
-
-            <div>
               <label className="block text-sm text-muted-foreground mb-1">パスワード</label>
               <input
                 type="password"
-                placeholder="パスワード"
+                placeholder="パスワードを入力"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
+                autoFocus
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-400"
               />
             </div>
