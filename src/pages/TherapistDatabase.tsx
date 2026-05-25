@@ -331,6 +331,32 @@ export default function TherapistDatabase() {
 
                       {/* ── 公開プロフィールタブ ── */}
                       <TabsContent value="public" className="space-y-5">
+
+                        {/* プロフィールフォーマット */}
+                        <div className="space-y-1">
+                          <Label className="text-sm font-semibold">プロフィールフォーマット</Label>
+                          <p className="text-xs text-muted-foreground">HP掲載用のプロフィール文（自由記述）</p>
+                          <Textarea
+                            value={castEdit.profile ?? ""}
+                            onChange={(e) => setCast("profile", e.target.value)}
+                            rows={4}
+                            placeholder="プロフィールテキストを入力..."
+                          />
+                        </div>
+
+                        {/* お店コメント */}
+                        <div className="space-y-1">
+                          <Label className="text-sm font-semibold">お店コメント</Label>
+                          <p className="text-xs text-muted-foreground">お店からのおすすめコメント（HP公開）</p>
+                          <Textarea
+                            value={internal.comment ?? ""}
+                            onChange={(e) => setInt("comment", e.target.value)}
+                            rows={4}
+                            placeholder="お店からのおすすめポイントを入力..."
+                          />
+                        </div>
+
+                        {/* セラピストコメント */}
                         <div className="space-y-1">
                           <Label className="text-sm font-semibold">セラピストコメント</Label>
                           <p className="text-xs text-muted-foreground">セラピスト本人からのメッセージ（HP公開）</p>
@@ -342,56 +368,56 @@ export default function TherapistDatabase() {
                           />
                         </div>
 
-                        <div className="space-y-1">
-                          <Label className="text-sm font-semibold">ショップコメント</Label>
-                          <p className="text-xs text-muted-foreground">お店からのおすすめコメント（HP公開）</p>
-                          <Textarea
-                            value={internal.comment ?? ""}
-                            onChange={(e) => setInt("comment", e.target.value)}
-                            rows={4}
-                            placeholder="お店からのおすすめポイントを入力..."
-                          />
-                        </div>
-
-                        <div className="border-t pt-4 space-y-3">
-                          <Label className="text-sm font-semibold text-muted-foreground tracking-wider">インタビュー項目（HP公開）</Label>
-                          <div className="space-y-1">
-                            <Label>自己紹介</Label>
-                            <Textarea value={internal.self_introduction ?? ""} onChange={(e) => setInt("self_introduction", e.target.value)} rows={4} placeholder="セラピスト自身の言葉で..." />
+                        {/* セラピストインタビュー */}
+                        <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
+                          <Label className="text-sm font-semibold">セラピストインタビュー</Label>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <Label className="text-xs text-muted-foreground">身長</Label>
+                              <Input type="number" value={castEdit.height ?? ""} onChange={(e) => setCast("height", e.target.value ? Number(e.target.value) : null)} placeholder="cm" />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">カップ数</Label>
+                              <Input value={castEdit.cup_size ?? ""} onChange={(e) => setCast("cup_size", e.target.value)} placeholder="例：D" />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">年齢</Label>
+                              <Input type="number" value={castEdit.age ?? ""} onChange={(e) => setCast("age", e.target.value ? Number(e.target.value) : null)} placeholder="歳" />
+                            </div>
                           </div>
-                          <div className="space-y-1">
-                            <Label>得意な施術</Label>
-                            <Textarea value={internal.massage_skills ?? ""} onChange={(e) => setInt("massage_skills", e.target.value)} rows={2} placeholder="例：リンパドレナージュ、アロマオイル" />
-                          </div>
-                          <div className="space-y-1">
-                            <Label>エステ経歴</Label>
-                            <Textarea value={internal.career_history ?? ""} onChange={(e) => setInt("career_history", e.target.value)} rows={2} placeholder="例：エステサロン勤務3年" />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                              <Label>趣味・特技</Label>
-                              <Input value={castEdit.hobbies ?? ""} onChange={(e) => setCast("hobbies", e.target.value)} placeholder="例：料理、ヨガ" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label>好みのタイプ</Label>
-                              <Input value={internal.preferred_type ?? ""} onChange={(e) => setInt("preferred_type", e.target.value)} placeholder="例：優しい人" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label>好きな食べ物</Label>
-                              <Input value={castEdit.favorite_food ?? ""} onChange={(e) => setCast("favorite_food", e.target.value)} placeholder="例：パスタ" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label>休日の過ごし方</Label>
-                              <Input value={castEdit.day_off_activities ?? ""} onChange={(e) => setCast("day_off_activities", e.target.value)} placeholder="例：カフェ巡り" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label>MBTI</Label>
-                              <Input value={internal.mbti ?? ""} onChange={(e) => setInt("mbti", e.target.value)} placeholder="例: INFP" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label>講習回数</Label>
-                              <Input type="number" inputMode="numeric" value={internal.training_count ?? ""} onChange={(e) => setInt("training_count", e.target.value ? Number(e.target.value) : null)} placeholder="0" />
-                            </div>
+                          <div className="space-y-3 pt-1">
+                            {[
+                              { label: "【セラピスト歴】", field: "therapist_years" as keyof Cast, type: "number", placeholder: "年" },
+                            ].map(({ label, field, type, placeholder }) => (
+                              <div key={field} className="flex items-center gap-3">
+                                <Label className="text-xs text-muted-foreground shrink-0 w-36">{label}</Label>
+                                <Input
+                                  type={type}
+                                  value={(castEdit as any)[field] ?? ""}
+                                  onChange={(e) => setCast(field, type === "number" ? (e.target.value ? Number(e.target.value) : null) : e.target.value)}
+                                  placeholder={placeholder}
+                                  className="text-sm"
+                                />
+                              </div>
+                            ))}
+                            {[
+                              { label: "【得意な施術】", field: "favorite_techniques" as keyof Cast, placeholder: "例：アロマ、リンパ" },
+                              { label: "【好きな食べ物】", field: "favorite_food" as keyof Cast, placeholder: "例：パスタ、スイーツ" },
+                              { label: "【好きな男性のタイプ】", field: "ideal_type" as keyof Cast, placeholder: "例：優しい人" },
+                              { label: "【似ている芸能人】", field: "celebrity_lookalike" as keyof Cast, placeholder: "例：〇〇さん" },
+                              { label: "【休みの日は何してる？】", field: "day_off_activities" as keyof Cast, placeholder: "例：カフェ巡り" },
+                              { label: "【趣味・特技】", field: "hobbies" as keyof Cast, placeholder: "例：料理、ヨガ" },
+                            ].map(({ label, field, placeholder }) => (
+                              <div key={field} className="flex items-center gap-3">
+                                <Label className="text-xs text-muted-foreground shrink-0 w-36">{label}</Label>
+                                <Input
+                                  value={(castEdit as any)[field] ?? ""}
+                                  onChange={(e) => setCast(field, e.target.value)}
+                                  placeholder={placeholder}
+                                  className="text-sm"
+                                />
+                              </div>
+                            ))}
                           </div>
                         </div>
 
@@ -402,7 +428,7 @@ export default function TherapistDatabase() {
                           </Button>
                           <Button onClick={handleSaveInternal} disabled={savingInternal}>
                             <Save size={14} className="mr-1.5" />
-                            {savingInternal ? "保存中..." : "インタビューを保存"}
+                            {savingInternal ? "保存中..." : "コメントを保存"}
                           </Button>
                         </div>
                       </TabsContent>

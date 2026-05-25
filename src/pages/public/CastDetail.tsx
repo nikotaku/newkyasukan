@@ -344,6 +344,12 @@ const CastDetail = () => {
                 style={{ borderColor: "#c49480", color: "#7a706c" }}>
                 <Calendar size={15} />Web予約はこちら
               </Link>
+              <button
+                onClick={() => document.getElementById("reviews")?.scrollIntoView({ behavior: "smooth" })}
+                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[#f2e4de]"
+                style={{ borderColor: "#d1c4be", color: "#7a706c" }}>
+                <Star size={15} />セラピストの口コミを見る {reviews.length > 0 && `(${reviews.length}件)`}
+              </button>
             </div>
 
             {/* ── セラピストインタビュー ── */}
@@ -449,7 +455,7 @@ const CastDetail = () => {
             )}
 
             {/* ── 口コミ ── */}
-            <>
+            <div id="reviews">
               <SectionHeader label="VOICE" sub={`口コミ（${reviews.length}件）`} />
               {reviews.length === 0 ? (
                 <div className="px-5 py-8 text-center text-sm" style={{ color: "#b8a49a" }}>
@@ -473,7 +479,7 @@ const CastDetail = () => {
                   ))}
                 </div>
               )}
-            </>
+            </div>
 
           </div>
 
