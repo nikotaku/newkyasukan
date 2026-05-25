@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send } from "lucide-react";
+import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import backRatesImage from "@/assets/back-rates-table.jpg";
@@ -38,7 +38,16 @@ interface TransportExpense {
   status: string;
 }
 
-type View = "menu" | "settlement" | "transport";
+interface ShiftRow {
+  id: string;
+  shift_date: string;
+  start_time: string;
+  end_time: string;
+  room: string | null;
+  notes: string | null;
+}
+
+type View = "menu" | "settlement" | "transport" | "shift";
 
 const now = new Date();
 
@@ -55,6 +64,10 @@ export default function TherapistPortal() {
   const [settlementLoading, setSettlementLoading] = useState(false);
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+
+  // Shifts
+  const [shiftRows, setShiftRows] = useState<ShiftRow[]>([]);
+  const [shiftsLoading, setShiftsLoading] = useState(false);
 
   // Transport
   const [expenses, setExpenses] = useState<TransportExpense[]>([]);
@@ -85,7 +98,18 @@ export default function TherapistPortal() {
   useEffect(() => {
     if (view === "settlement" && cast) fetchSettlements();
     if (view === "transport" && cast) fetchExpenses();
+    if (view === "shift" && cast) fetchShifts();
   }, [view, year, month, cast]);
+
+  const fetchShifts = async () => {
+    setShiftsLoading(true);
+    const { data, error } = await supabase.rpc("get_therapist_shifts", {
+      p_token: token, p_year: year, p_month: month,
+    });
+    if (error) toast.error("シフトの取得に失敗しました");
+    else setShiftRows((data || []) as ShiftRow[]);
+    setShiftsLoading(false);
+  };
 
   const fetchSettlements = async () => {
     setSettlementLoading(true);
@@ -161,6 +185,8 @@ export default function TherapistPortal() {
 
   const menuItems = [
     { title: "シフト提出", description: "希望シフトをカレンダーから提出", icon: CalendarPlus, action: () => navigate(`/therapist/${token}/shift`) },
+    { title: "シフト確認", description: "確定したシフトと出勤ルームを確認", icon: Calendar, action: () => setView("shift") },
+    { title: "投稿管理", description: "O2・エスたまの魂への投稿", icon: Edit, action: () => navigate(`/therapist/${token}/posts`) },
     { title: "精算・売上確認", description: "今月の売上とバック（報酬）を確認", icon: DollarSign, action: () => setView("settlement") },
     { title: "バック表", description: "コース別・オプション別のバック率を確認", icon: Receipt, action: () => setShowBackRates(true) },
     { title: "交通費申請", description: "交通費の申請・申請履歴を確認", icon: Plane, action: () => setView("transport") },
@@ -183,7 +209,7 @@ export default function TherapistPortal() {
           <div className="min-w-0">
             <p className="font-bold text-base leading-tight truncate">{cast.name}様</p>
             <p className="text-xs text-muted-foreground">
-              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : "交通費申請"}
+              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : "交通費申請"}
             </p>
           </div>
         </div>
@@ -212,6 +238,53 @@ export default function TherapistPortal() {
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {/* ── SHIFT ── */}
+        {view === "shift" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <button onClick={prevMonth} className="text-muted-foreground hover:text-foreground p-1">
+                <ChevronLeft size={20} />
+              </button>
+              <span className="font-bold text-base">{monthLabel}</span>
+              <button onClick={nextMonth} className="text-muted-foreground hover:text-foreground p-1">
+                <ChevronLeft size={20} className="rotate-180" />
+              </button>
+            </div>
+
+            {shiftsLoading ? (
+              <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>
+            ) : shiftRows.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">{monthLabel}のシフトはありません</div>
+            ) : (
+              <div className="rounded-xl border overflow-hidden divide-y">
+                {shiftRows.map((s) => (
+                  <div key={s.id} className="px-3 py-3 flex items-center gap-3">
+                    <div className="text-xs text-muted-foreground whitespace-nowrap w-16">
+                      <p className="font-semibold text-foreground">
+                        {format(new Date(s.shift_date), "M/d", { locale: ja })}
+                      </p>
+                      <p>{format(new Date(s.shift_date), "(E)", { locale: ja })}</p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">
+                        {s.start_time.slice(0, 5)} - {s.end_time.slice(0, 5)}
+                      </p>
+                      {s.room && (
+                        <p className="text-xs text-primary font-medium mt-0.5">
+                          ルーム：{s.room}
+                        </p>
+                      )}
+                      {s.notes && (
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">{s.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

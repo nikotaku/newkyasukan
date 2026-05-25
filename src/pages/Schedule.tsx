@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { format, addDays, subDays, parse, addMinutes, startOfMonth, endOfMonth } from "date-fns";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Check, Copy } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { TabMenu } from "@/components/TabMenu";
@@ -643,8 +643,64 @@ export default function Schedule() {
                       )}
                     </div>
                   </div>
-                  {isAdmin && (
-                    <div className="pt-2 border-t">
+                  <div className="pt-2 border-t space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        const d = detailRes;
+                        const date = new Date(d.reservation_date);
+                        const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+                        const dayOfWeek = dayNames[date.getDay()];
+                        const dateStr = `${format(date, "M月d日", { locale: ja })}(${dayOfWeek})`;
+                        const therapist = d.nomination_type && d.nomination_type !== "none"
+                          ? d.nomination_type
+                          : "フリー（フリー）";
+                        const text = [
+                          `${d.customer_name} 様`,
+                          `ご予約ありがとうございます。`,
+                          ``,
+                          `[予約情報]`,
+                          `予約日時：${dateStr} ${d.start_time.slice(0, 5)}`,
+                          `コース：${d.course_name}`,
+                          `セラピスト：${therapist}`,
+                          d.room ? `ルーム：${d.room}` : null,
+                          `予約名：${d.customer_name}`,
+                          `ご要望など：${d.notes ?? ""}`,
+                          ``,
+                          `[料金]`,
+                          `コース料金：${d.price.toLocaleString()}円`,
+                          `指名料：0円`,
+                          `決済手数料：0円`,
+                          `総額：${d.price.toLocaleString()}円`,
+                          ``,
+                          `【住所】`,
+                          `仙台市 青葉区 春日町11-12`,
+                          `L'AZURE SENDAI(ラジュール仙台) 1107号室`,
+                          `※11階にお部屋がございます。1階とお間違い無いようにご注意ください。`,
+                          ``,
+                          `▼Googleマップ`,
+                          `https://x.gd/gQgmq`,
+                          ``,
+                          `【注意事項】`,
+                          `※必ずお読みください`,
+                          ``,
+                          `◆お時間"丁度"にインターホンを押してください。防犯上、予約時間以外のインターホンには応答しません。`,
+                          ``,
+                          `◇予約変更・キャンセルの場合は必ず`,
+                          `【TEL】090-8126-4042`,
+                          `まで"お電話"`,
+                          `にてご連絡お願い致します。`,
+                          `※メッセージでのキャンセル不可`,
+                        ].filter((l) => l !== null).join("\n");
+                        navigator.clipboard.writeText(text);
+                        toast({ title: "SMSをコピーしました" });
+                      }}
+                    >
+                      <Copy size={14} className="mr-1" />SMSをコピー
+                    </Button>
+                    {isAdmin && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -653,8 +709,8 @@ export default function Schedule() {
                       >
                         <X size={14} className="mr-1" />キャンセルにする
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </>
               )}
             </div>
