@@ -45,6 +45,7 @@ interface ShiftRow {
   end_time: string;
   room: string | null;
   notes: string | null;
+  status: string;
 }
 
 type View = "menu" | "settlement" | "transport" | "shift";
@@ -269,9 +270,18 @@ export default function TherapistPortal() {
                       <p>{format(new Date(s.shift_date), "(E)", { locale: ja })}</p>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">
-                        {s.start_time.slice(0, 5)} - {s.end_time.slice(0, 5)}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">
+                          {s.start_time.slice(0, 5)} - {s.end_time.slice(0, 5)}
+                        </p>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                          s.status === "approved" || s.status === "scheduled"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}>
+                          {s.status === "approved" || s.status === "scheduled" ? "承認済" : "未承認"}
+                        </span>
+                      </div>
                       {s.room && (
                         <p className="text-xs text-primary font-medium mt-0.5">
                           ルーム：{s.room}

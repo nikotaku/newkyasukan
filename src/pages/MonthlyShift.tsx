@@ -22,6 +22,7 @@ interface Shift {
   start_time: string;
   end_time: string;
   room: string | null;
+  status: string;
   casts: { name: string };
 }
 
@@ -106,6 +107,13 @@ export default function MonthlyShift() {
   const handleDelete = async (id: string) => {
     await supabase.from("shifts").delete().eq("id", id);
     setShifts(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleToggleApproval = async (s: Shift) => {
+    const next = (s.status === "approved" || s.status === "scheduled") ? "pending" : "approved";
+    const { error } = await supabase.from("shifts").update({ status: next }).eq("id", s.id);
+    if (error) { toast.error("ステータス更新に失敗しました"); return; }
+    setShifts(prev => prev.map(x => x.id === s.id ? { ...x, status: next } : x));
   };
 
   const prevMonth = () => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1));
@@ -198,23 +206,42 @@ export default function MonthlyShift() {
                             setShowDialog(true);
                           }}
                         >
-                          {cell.map(s => (
-                            <div key={s.id} className="group relative bg-primary/10 rounded px-1 py-0.5 mb-0.5">
-                              <div className="font-semibold text-primary leading-tight">
-                                {s.start_time.slice(0, 5)}
+                          {cell.map(s => {
+                            const approved = s.status === "approved" || s.status === "scheduled";
+                            return (
+                              <div
+                                key={s.id}
+                                className={cn(
+                                  "group relative rounded px-1 py-0.5 mb-0.5",
+                                  approved ? "bg-primary/10" : "bg-amber-100/70 border border-amber-300"
+                                )}
+                              >
+                                <div className={cn("font-semibold leading-tight", approved ? "text-primary" : "text-amber-800")}>
+                                  {s.start_time.slice(0, 5)}
+                                </div>
+                                <div className="text-muted-foreground leading-tight">
+                                  ~{s.end_time.slice(0, 5)}
+                                </div>
+                                {s.room && (
+                                  <div className="text-[10px] text-primary/70 truncate max-w-[48px]">{s.room}</div>
+                                )}
+                                <button
+                                  onClick={e => { e.stopPropagation(); handleToggleApproval(s); }}
+                                  className={cn(
+                                    "block w-full text-[10px] mt-0.5 rounded leading-tight",
+                                    approved ? "text-green-700 hover:bg-green-100" : "text-amber-700 hover:bg-amber-200"
+                                  )}
+                                  title={approved ? "クリックで未承認に戻す" : "クリックで承認"}
+                                >
+                                  {approved ? "✓承認済" : "未承認"}
+                                </button>
+                                <button
+                                  onClick={e => { e.stopPropagation(); handleDelete(s.id); }}
+                                  className="absolute top-0 right-0 hidden group-hover:flex items-center justify-center w-4 h-4 bg-red-500 text-white rounded-full text-[10px]"
+                                >×</button>
                               </div>
-                              <div className="text-muted-foreground leading-tight">
-                                ~{s.end_time.slice(0, 5)}
-                              </div>
-                              {s.room && (
-                                <div className="text-[10px] text-primary/70 truncate max-w-[48px]">{s.room}</div>
-                              )}
-                              <button
-                                onClick={e => { e.stopPropagation(); handleDelete(s.id); }}
-                                className="absolute top-0 right-0 hidden group-hover:flex items-center justify-center w-4 h-4 bg-red-500 text-white rounded-full text-[10px]"
-                              >×</button>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </td>
                       );
                     })}
