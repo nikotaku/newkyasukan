@@ -42,7 +42,7 @@ export default function TherapistPostPage() {
   const [showCreds, setShowCreds] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ title: "", body: "", image_urls: "" });
-  const [credForm, setCredForm] = useState({ o2_id: "", o2_pw: "", esutama_id: "", esutama_pw: "" });
+  const [credForm, setCredForm] = useState({ o2_id: "", o2_pw: "", esutama_url: "" });
 
   useEffect(() => {
     if (!token) { navigate("/"); return; }
@@ -72,7 +72,11 @@ export default function TherapistPostPage() {
       .from("cast_site_credentials")
       .select("site, login_id")
       .eq("cast_id", id);
-    setCreds((data || []) as Credential[]);
+    const list = (data || []) as Credential[];
+    setCreds(list);
+    const eUrl = list.find(c => c.site === "esutama")?.login_id ?? "";
+    const oId  = list.find(c => c.site === "o2")?.login_id ?? "";
+    setCredForm(f => ({ ...f, esutama_url: eUrl, o2_id: oId }));
   };
 
   const handlePost = async () => {
@@ -100,9 +104,13 @@ export default function TherapistPostPage() {
     if (!castId) return;
     setSubmitting(true);
     const upserts = [
-      { cast_id: castId, site: "o2", login_id: credForm.o2_id, password: credForm.o2_pw },
-      { cast_id: castId, site: "esutama", login_id: credForm.esutama_id, password: credForm.esutama_pw },
-    ].filter(c => c.login_id && c.password);
+      credForm.o2_id && credForm.o2_pw
+        ? { cast_id: castId, site: "o2", login_id: credForm.o2_id, password: credForm.o2_pw }
+        : null,
+      credForm.esutama_url
+        ? { cast_id: castId, site: "esutama", login_id: credForm.esutama_url, password: "token" }
+        : null,
+    ].filter((c): c is { cast_id: string; site: string; login_id: string; password: string } => c !== null);
     for (const c of upserts) {
       await supabase.from("cast_site_credentials").upsert(c, { onConflict: "cast_id,site" });
     }
@@ -233,16 +241,15 @@ export default function TherapistPostPage() {
             </div>
             <div>
               <p className="text-sm font-semibold mb-2">エスたまの魂</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs">ログインID</Label>
-                  <Input value={credForm.esutama_id} onChange={e => setCredForm({ ...credForm, esutama_id: e.target.value })} placeholder="ID" />
-                </div>
-                <div>
-                  <Label className="text-xs">パスワード</Label>
-                  <Input type="password" value={credForm.esutama_pw} onChange={e => setCredForm({ ...credForm, esutama_pw: e.target.value })} placeholder="password" />
-                </div>
-              </div>
+              <Label className="text-xs">ログインURL（トークン付き）</Label>
+              <Input
+                value={credForm.esutama_url}
+                onChange={e => setCredForm({ ...credForm, esutama_url: e.target.value })}
+                placeholder="https://estama.jp/tamathera/login/token/..."
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                エスたまから届いたログインURLをそのまま貼り付けてください。URLを開くだけでログインできるリンクです。
+              </p>
             </div>
             <Button className="w-full" onClick={handleSaveCreds} disabled={submitting}>保存</Button>
           </div>

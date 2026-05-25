@@ -52,10 +52,10 @@ serve(async (req) => {
       results.o2 = { status: "skipped" };
     }
 
-    // Post to Esutama
-    if (credMap.esutama) {
+    // Post to Esutama (login_id stores the token login URL)
+    if (credMap.esutama && credMap.esutama.login_id) {
       try {
-        const r = await postToEsutama(credMap.esutama.login_id, credMap.esutama.password, post);
+        const r = await postToEsutama(credMap.esutama.login_id, post);
         results.esutama = r;
       } catch (e: any) {
         results.esutama = { status: "failed", error: e.message };
@@ -158,9 +158,12 @@ async function postToO2(loginId: string, password: string, post: any) {
   return { status: "posted" };
 }
 
-async function postToEsutama(loginId: string, password: string, post: any) {
-  // エスたまの魂 diary posting via HTTP form submission
-  const BASE = "https://s-tama.jp";
+async function postToEsutama(loginUrl: string, post: any) {
+  // エスたまの魂: token login URL approach.
+  // GET https://estama.jp/tamathera/login/token/{TOKEN} establishes the session;
+  // subsequent requests use those cookies to reach the diary post page.
+  const u = new URL(loginUrl);
+  const BASE = `${u.protocol}//${u.host}`;
   const jar: Record<string, string> = {};
 
   const cookieHeader = () =>
@@ -175,32 +178,24 @@ async function postToEsutama(loginId: string, password: string, post: any) {
     }
   };
 
-  const loginPage = await fetch(`${BASE}/cast/login`, { redirect: "follow" });
-  setCookies(loginPage);
-  const loginHtml = await loginPage.text();
-  const tokenMatch = loginHtml.match(/name="_token"\s+value="([^"]+)"/);
-  const csrfToken = tokenMatch?.[1] ?? "";
-
-  const loginRes = await fetch(`${BASE}/cast/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: cookieHeader(),
-    },
-    body: new URLSearchParams({ _token: csrfToken, login_id: loginId, password }).toString(),
-    redirect: "manual",
+  // Token login: a GET to the URL establishes the session.
+  const loginRes = await fetch(loginUrl, {
+    redirect: "follow",
+    headers: { "User-Agent": "Mozilla/5.0" },
   });
   setCookies(loginRes);
 
-  if (loginRes.status >= 400) throw new Error("エスたまログイン失敗");
+  if (loginRes.status >= 400) throw new Error("エスたまログインURL無効: " + loginRes.status);
 
-  const diaryPage = await fetch(`${BASE}/cast/diary/create`, {
-    headers: { Cookie: cookieHeader() },
+  // Diary post page (path based on the tamathera namespace)
+  const diaryPage = await fetch(`${BASE}/tamathera/diary/create`, {
+    headers: { Cookie: cookieHeader(), "User-Agent": "Mozilla/5.0" },
     redirect: "follow",
   });
   setCookies(diaryPage);
   const diaryHtml = await diaryPage.text();
-  const dTokenMatch = diaryHtml.match(/name="_token"\s+value="([^"]+)"/);
+  const dTokenMatch = diaryHtml.match(/name="_token"\s+value="([^"]+)"/)
+    ?? diaryHtml.match(/name="csrf[-_]?token"\s+(?:content|value)="([^"]+)"/i);
   const dToken = dTokenMatch?.[1] ?? "";
 
   const body = new URLSearchParams({
@@ -212,11 +207,12 @@ async function postToEsutama(loginId: string, password: string, post: any) {
     body.append("image_url", post.image_urls[0]);
   }
 
-  const postRes = await fetch(`${BASE}/cast/diary`, {
+  const postRes = await fetch(`${BASE}/tamathera/diary`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Cookie: cookieHeader(),
+      "User-Agent": "Mozilla/5.0",
     },
     body: body.toString(),
     redirect: "manual",
