@@ -147,6 +147,7 @@ const menuItems: MenuItem[] = [
     icon: UserCircle,
     children: [
       { href: "/staff", label: "新規登録" },
+      { href: "/post-management", label: "投稿管理" },
     ],
   },
   {

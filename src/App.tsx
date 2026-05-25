@@ -100,6 +100,8 @@ import CustomerImport from "./pages/CustomerImport";
 import SalesClosing from "./pages/SalesClosing";
 import Analytics from "./pages/Analytics";
 import TextTemplates from "./pages/TextTemplates";
+import CastPostManagement from "./pages/CastPostManagement";
+import TherapistPostPage from "./pages/TherapistPostPage";
 
 const queryClient = new QueryClient();
 
@@ -189,6 +191,8 @@ const App = () => (
           <Route path="/therapist/:token" element={<TherapistPortal />} />
           <Route path="/therapist/:token/shift" element={<TherapistShiftSubmission />} />
           <Route path="/therapist/:token/checkout" element={<TherapistCheckout />} />
+          <Route path="/therapist/:token/posts" element={<TherapistPostPage />} />
+          <Route path="/post-management" element={<CastPostManagement />} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
