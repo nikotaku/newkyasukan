@@ -26,22 +26,6 @@ const News = () => {
     document.title = "お知らせ｜全力エステ 仙台店";
   }, []);
 
-  useEffect(() => {
-    const id = "twitter-wjs";
-    if (document.getElementById(id)) {
-      (window as any).twttr?.widgets?.load();
-      return;
-    }
-    const script = document.createElement("script");
-    script.id = id;
-    script.src = "https://platform.twitter.com/widgets.js";
-    script.async = true;
-    script.charset = "utf-8";
-    document.body.appendChild(script);
-    return () => {
-      document.getElementById(id)?.remove();
-    };
-  }, []);
 
   useEffect(() => {
     (async () => {
@@ -124,25 +108,19 @@ const News = () => {
           </div>
         )}
 
-        {/* X (Twitter) Timeline Widget */}
+        {/* m-sns.net Timeline Widget */}
         <div className="mt-10 mb-8">
           <div className="text-center mb-4">
-            <h3 className="text-xl font-bold" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>SNS</h3>
-            <p className="text-xs mt-1" style={{ color: "#a89586" }}>公式X（旧Twitter）</p>
+            <h3 className="text-xl font-bold" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>NEWS</h3>
+            <p className="text-xs mt-1" style={{ color: "#a89586" }}>最新情報</p>
           </div>
           <div className="flex justify-center">
-            <div style={{ maxWidth: "550px", width: "100%" }}>
-              <a
-                className="twitter-timeline"
-                data-lang="ja"
-                data-height="500"
-                data-theme="light"
-                data-chrome="noheader nofooter noborders"
-                href="https://twitter.com/zr_sendai"
-              >
-                Tweets by @zr_sendai
-              </a>
-            </div>
+            <iframe
+              src="https://m-sns.net/s/@zr_sendai2"
+              style={{ width: "100%", maxWidth: "550px", height: "600px", border: "none", borderRadius: "8px" }}
+              title="ニュースラン タイムライン"
+              loading="lazy"
+            />
           </div>
         </div>
 
