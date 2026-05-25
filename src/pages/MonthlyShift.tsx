@@ -31,6 +31,11 @@ interface Cast {
   name: string;
 }
 
+interface Room {
+  id: string;
+  name: string;
+}
+
 const WEEKDAY = ["日", "月", "火", "水", "木", "金", "土"];
 
 export default function MonthlyShift() {
@@ -38,6 +43,7 @@ export default function MonthlyShift() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [reservationCounts, setReservationCounts] = useState<Record<string, number>>({});
   const [casts, setCasts] = useState<Cast[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [viewMode, setViewMode] = useState<"matrix" | "calendar">("matrix");
@@ -62,6 +68,7 @@ export default function MonthlyShift() {
     if (user) {
       fetchMonthlyShifts();
       fetchCasts();
+      fetchRooms();
     }
   }, [user, selectedMonth]);
 
@@ -100,6 +107,15 @@ export default function MonthlyShift() {
       .order("display_order", { ascending: true })
       .order("name");
     setCasts(data || []);
+  };
+
+  const fetchRooms = async () => {
+    const { data } = await supabase
+      .from("rooms")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("name");
+    setRooms(data || []);
   };
 
   const handleSave = async () => {
@@ -153,16 +169,21 @@ export default function MonthlyShift() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <main className="pt-[60px] md:ml-[240px] p-2 md:p-6 overflow-x-auto">
-        <div className="mb-4 flex items-center justify-between min-w-0">
-          <div className="flex items-center gap-2">
+        <div className="mb-4 space-y-2">
+          <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold">月別シフト</h1>
-            <Button size="sm" variant="ghost" onClick={prevMonth}><ChevronLeft size={16} /></Button>
-            <span className="text-sm font-medium min-w-[90px] text-center">
-              {format(selectedMonth, "yyyy年M月", { locale: ja })}
-            </span>
-            <Button size="sm" variant="ghost" onClick={nextMonth}><ChevronRight size={16} /></Button>
+            <Button onClick={() => setShowDialog(true)} size="sm">
+              <Plus size={14} className="mr-1" />シフト追加
+            </Button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={prevMonth}><ChevronLeft size={16} /></Button>
+              <span className="text-sm font-medium min-w-[80px] text-center">
+                {format(selectedMonth, "yyyy年M月", { locale: ja })}
+              </span>
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={nextMonth}><ChevronRight size={16} /></Button>
+            </div>
             <div className="flex rounded-md border overflow-hidden">
               <button
                 onClick={() => setViewMode("matrix")}
@@ -173,9 +194,6 @@ export default function MonthlyShift() {
                 className={cn("px-2 py-1 text-xs", viewMode === "calendar" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}
               >カレンダー</button>
             </div>
-            <Button onClick={() => setShowDialog(true)} size="sm">
-              <Plus size={14} className="mr-1" />シフト追加
-            </Button>
           </div>
         </div>
 
@@ -394,7 +412,13 @@ export default function MonthlyShift() {
             </div>
             <div>
               <Label>ルーム（任意）</Label>
-              <Input value={form.room} onChange={e => setForm({ ...form, room: e.target.value })} placeholder="例：インroom" />
+              <Select value={form.room || "__none__"} onValueChange={v => setForm({ ...form, room: v === "__none__" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="選択してください（任意）" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">指定なし</SelectItem>
+                  {rooms.map(r => <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex gap-2 pt-2">
               <Button className="flex-1" onClick={handleSave} disabled={saving}>{saving ? "保存中..." : "保存"}</Button>
