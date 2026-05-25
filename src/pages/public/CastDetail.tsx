@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
-import { ArrowLeft, Phone, Calendar, Star } from "lucide-react";
+import { ArrowLeft, Phone, Calendar, Star, MessageCircle, X } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import { driveImgUrl } from "@/lib/drive";
 
@@ -21,6 +21,7 @@ interface Cast {
   therapist_years: number | null;
   type: string;
   status: string;
+  is_online: boolean;
   photo: string | null;
   photos: string[] | null;
   profile: string | null;
@@ -51,35 +52,6 @@ interface TherapistProfile {
   training_count: number | null;
 }
 
-interface Review {
-  id: string;
-  reviewer_name: string;
-  rating: number;
-  body: string;
-  visit_date: string | null;
-  course: string | null;
-  created_at: string;
-}
-
-const STATUS_LABEL: Record<string, { text: string; color: string }> = {
-  working: { text: "接客中", color: "#ef4444" },
-  waiting: { text: "待機中", color: "#22c55e" },
-  offline: { text: "退勤", color: "#9ca3af" },
-};
-
-const Stars = ({ rating }: { rating: number }) => (
-  <div className="flex gap-0.5">
-    {[1, 2, 3, 4, 5].map((i) => (
-      <Star
-        key={i}
-        size={14}
-        fill={i <= rating ? "#c49480" : "none"}
-        stroke={i <= rating ? "#c49480" : "#d1c4be"}
-      />
-    ))}
-  </div>
-);
-
 const SectionHeader = ({ label, sub }: { label: string; sub?: string }) => (
   <div className="px-5 py-3 border-b border-[#f0e4df]" style={{ background: "#2a2320" }}>
     <h3 className="text-sm font-bold tracking-widest" style={{ color: "#c49480" }}>{label}</h3>
@@ -92,10 +64,14 @@ const CastDetail = () => {
   const navigate = useNavigate();
   const [cast, setCast] = useState<Cast | null>(null);
   const [profile, setProfile] = useState<TherapistProfile | null>(null);
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [msgOpen, setMsgOpen] = useState(false);
+  const [msgName, setMsgName] = useState("");
+  const [msgBody, setMsgBody] = useState("");
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgSent, setMsgSent] = useState(false);
 
   useEffect(() => {
     if (id) fetchAll();
@@ -111,15 +87,13 @@ const CastDetail = () => {
 
   const fetchAll = async () => {
     try {
-      const [castRes, profileRes, reviewsRes] = await Promise.all([
+      const [castRes, profileRes] = await Promise.all([
         supabase.from("casts").select("*").eq("id", id).single(),
         supabase.from("therapist_profiles").select("*").eq("cast_id", id).maybeSingle(),
-        supabase.from("cast_reviews").select("*").eq("cast_id", id).eq("is_visible", true).order("created_at", { ascending: false }),
       ]);
       if (castRes.error) throw castRes.error;
       setCast(castRes.data);
       setProfile(profileRes.data ?? null);
-      setReviews(reviewsRes.data ?? []);
       document.title = `${castRes.data.name} | 全力エステ`;
     } catch {
       navigate("/casts");
@@ -158,7 +132,19 @@ const CastDetail = () => {
     : cast.photo ? [cast.photo] : []
   ).filter(Boolean);
 
-  const status = STATUS_LABEL[cast.status] ?? { text: cast.status, color: "#9ca3af" };
+  const handleSendMessage = async () => {
+    if (!msgName.trim() || !msgBody.trim()) return;
+    setMsgSending(true);
+    await supabase.from("cast_messages" as any).insert([{
+      cast_id: cast.id,
+      sender_name: msgName.trim(),
+      message: msgBody.trim(),
+    }]);
+    setMsgSending(false);
+    setMsgSent(true);
+    setMsgName("");
+    setMsgBody("");
+  };
 
   // Build interview items from both casts columns and therapist_profiles
   const interviewItems: { q: string; a: string }[] = [
@@ -179,11 +165,6 @@ const CastDetail = () => {
 
   const therapistComment = cast.message ?? null;
   const shopComment = profile?.comment ?? null;
-
-  // Average rating
-  const avgRating = reviews.length > 0
-    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
-    : null;
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
@@ -270,15 +251,9 @@ const CastDetail = () => {
                   {displayAge && <p className="text-sm mt-0.5" style={{ color: "#a89586" }}>{displayAge}歳</p>}
                 </div>
                 <div className="flex items-center gap-3">
-                  {avgRating && (
-                    <div className="flex items-center gap-1">
-                      <Stars rating={Math.round(Number(avgRating))} />
-                      <span className="text-sm font-bold" style={{ color: "#c49480" }}>{avgRating}</span>
-                    </div>
-                  )}
                   <span className="text-sm font-bold px-4 py-1.5 rounded-full text-white"
-                    style={{ background: status.color }}>
-                    {status.text}
+                    style={{ background: cast.is_online ? "#22c55e" : "#9ca3af" }}>
+                    {cast.is_online ? "オンライン" : "オフライン"}
                   </span>
                 </div>
               </div>
@@ -344,11 +319,21 @@ const CastDetail = () => {
                 style={{ borderColor: "#c49480", color: "#7a706c" }}>
                 <Calendar size={15} />Web予約はこちら
               </Link>
+              {cast.o2_url && (
+                <a
+                  href={cast.o2_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[#f2e4de]"
+                  style={{ borderColor: "#d1c4be", color: "#7a706c" }}>
+                  <Star size={15} />セラピストの口コミを見る
+                </a>
+              )}
               <button
-                onClick={() => document.getElementById("reviews")?.scrollIntoView({ behavior: "smooth" })}
+                onClick={() => { setMsgOpen(true); setMsgSent(false); }}
                 className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[#f2e4de]"
-                style={{ borderColor: "#d1c4be", color: "#7a706c" }}>
-                <Star size={15} />セラピストの口コミを見る {reviews.length > 0 && `(${reviews.length}件)`}
+                style={{ borderColor: "#c49480", color: "#c49480" }}>
+                <MessageCircle size={15} />{cast.name}にメッセージを送る
               </button>
             </div>
 
@@ -454,32 +439,6 @@ const CastDetail = () => {
               </>
             )}
 
-            {/* ── 口コミ ── */}
-            <div id="reviews">
-              <SectionHeader label="VOICE" sub={`口コミ（${reviews.length}件）`} />
-              {reviews.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm" style={{ color: "#b8a49a" }}>
-                  まだ口コミがありません
-                </div>
-              ) : (
-                <div className="divide-y divide-[#f0e4df]">
-                  {reviews.map((r) => (
-                    <div key={r.id} className="px-5 py-4">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Stars rating={r.rating} />
-                        <span className="text-xs font-bold" style={{ color: "#c49480" }}>{r.rating}.0</span>
-                        <span className="text-xs" style={{ color: "#b8a49a" }}>
-                          {r.reviewer_name}
-                          {r.visit_date && ` · ${r.visit_date}`}
-                          {r.course && ` · ${r.course}`}
-                        </span>
-                      </div>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>{r.body}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
           </div>
 
@@ -493,6 +452,63 @@ const CastDetail = () => {
 
       <PublicFooter />
       <FixedBottomBar />
+
+      {/* ── メッセージ送信ダイアログ ── */}
+      {msgOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ background: "#2a2320" }}>
+              <p className="text-white font-semibold text-sm">{cast.name}へメッセージ</p>
+              <button onClick={() => setMsgOpen(false)} className="text-white/70 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+            {msgSent ? (
+              <div className="px-6 py-10 text-center space-y-3">
+                <div className="text-4xl">💌</div>
+                <p className="font-semibold text-[#7a706c]">メッセージを送りました！</p>
+                <p className="text-sm text-[#a89586]">{cast.name}に届きます。お楽しみに♪</p>
+                <button
+                  onClick={() => setMsgOpen(false)}
+                  className="mt-2 px-6 py-2 rounded-full text-sm font-semibold text-white"
+                  style={{ background: "#c49480" }}>
+                  閉じる
+                </button>
+              </div>
+            ) : (
+              <div className="px-5 py-5 space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-[#7a706c] block mb-1">お名前（ニックネームOK）</label>
+                  <input
+                    type="text"
+                    value={msgName}
+                    onChange={e => setMsgName(e.target.value)}
+                    placeholder="例：タロウ"
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#c49480]"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[#7a706c] block mb-1">メッセージ</label>
+                  <textarea
+                    value={msgBody}
+                    onChange={e => setMsgBody(e.target.value)}
+                    placeholder={`${cast.name}へのメッセージを入力...`}
+                    rows={4}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#c49480] resize-none"
+                  />
+                </div>
+                <button
+                  onClick={handleSendMessage}
+                  disabled={msgSending || !msgName.trim() || !msgBody.trim()}
+                  className="w-full py-3 rounded-xl text-white font-bold text-sm transition-opacity disabled:opacity-40"
+                  style={{ background: "linear-gradient(135deg, #c49480, #a87b65)" }}>
+                  {msgSending ? "送信中..." : "送信する"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

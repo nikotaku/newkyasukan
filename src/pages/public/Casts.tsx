@@ -17,7 +17,7 @@ interface Cast {
   waist: number | null;
   hip: number | null;
   type: string;
-  status: string;
+  is_online: boolean;
   photo: string | null;
   photos: string[] | null;
   tags: string[] | null;
@@ -66,10 +66,8 @@ const Casts = () => {
     return Math.ceil(Math.abs(now.getTime() - join.getTime()) / (1000 * 60 * 60 * 24)) <= 30;
   };
 
-  const isWorkingToday = (status: string) => status === 'waiting' || status === 'busy';
-
   const filteredCasts = casts.filter((cast) => {
-    if (filter === 'today') return isWorkingToday(cast.status);
+    if (filter === 'today') return cast.is_online;
     if (filter === 'newface') return isNewFace(cast.join_date);
     return true;
   });
@@ -144,6 +142,11 @@ const Casts = () => {
                           <span className="bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded shadow-md">新人</span>
                         )}
                       </div>
+                      {cast.is_online && (
+                        <div className="absolute top-2 right-2 z-10">
+                          <span className="bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">オンライン</span>
+                        </div>
+                      )}
                       {cast.photo ? (
                         <img src={driveImgUrl(cast.photo)} alt={cast.name} className="w-full aspect-[3/4] object-cover" />
                       ) : (

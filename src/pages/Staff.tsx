@@ -310,7 +310,8 @@ export default function Staff() {
           dispatch_status: editingCast.dispatch_status || 'none',
           repeat_scheduled: editingCast.repeat_scheduled || false,
           is_visible: editingCast.is_visible,
-        })
+          is_online: (editingCast as any).is_online ?? false,
+        } as any)
         .eq('id', editingCast.id);
 
       if (error) throw error;
@@ -410,11 +411,11 @@ export default function Staff() {
     }
   };
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
+  const handleOnlineToggle = async (id: string, currentOnline: boolean) => {
     if (!isAdmin) {
       toast({
         title: "権限エラー",
-        description: "管理者のみステータスを変更できます",
+        description: "管理者のみ変更できます",
         variant: "destructive",
       });
       return;
@@ -423,18 +424,17 @@ export default function Staff() {
     try {
       const { error } = await supabase
         .from('casts')
-        .update({ status: newStatus })
+        .update({ is_online: !currentOnline } as any)
         .eq('id', id);
 
       if (error) throw error;
 
-      const statusText = newStatus;
       toast({
         title: "ステータス変更",
-        description: `ステータスを「${statusText}」に変更しました`,
+        description: !currentOnline ? "オンラインにしました" : "オフラインにしました",
       });
     } catch (error) {
-      console.error('Error updating status:', error);
+      console.error('Error updating online status:', error);
       toast({
         title: "エラー",
         description: "ステータスの変更に失敗しました",
@@ -938,21 +938,20 @@ export default function Staff() {
                         </div>
                       </div>
                       
-                      <div>
-                        <Label htmlFor="edit-status">ステータス</Label>
-                        <Select 
-                          value={editingCast.status}
-                          onValueChange={(value) => setEditingCast({...editingCast, status: value})}
+                      <div className="flex items-center justify-between p-3 rounded-lg border">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-block w-2 h-2 rounded-full ${(editingCast as any).is_online ? "bg-green-500" : "bg-gray-400"}`} />
+                          <Label>オンライン表示（HP）</Label>
+                        </div>
+                        <Button
+                          type="button"
+                          variant={(editingCast as any).is_online ? "default" : "outline"}
+                          size="sm"
+                          className={(editingCast as any).is_online ? "bg-green-500 hover:bg-green-600" : ""}
+                          onClick={() => setEditingCast({...editingCast, is_online: !(editingCast as any).is_online} as any)}
                         >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="waiting">待機中</SelectItem>
-                            <SelectItem value="busy">接客中</SelectItem>
-                            <SelectItem value="offline">退勤</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          {(editingCast as any).is_online ? "オンライン" : "オフライン"}
+                        </Button>
                       </div>
                       
                       <div>
@@ -1362,21 +1361,17 @@ export default function Staff() {
                     {cast.room && <p className="text-xs text-muted-foreground truncate">{cast.room}</p>}
                   </div>
 
-                  {/* Status buttons - hidden on mobile */}
+                  {/* Online toggle - hidden on mobile */}
                   {isAdmin && (
                     <div className="hidden md:flex items-center gap-1 flex-shrink-0">
-                      {['waiting', 'busy', 'offline'].map((s) => (
-                        <Button
-                          key={s}
-                          variant={cast.status === s ? "default" : "outline"}
-                          size="sm"
-                          className="text-[11px] h-7 px-2"
-                          disabled={cast.status === s}
-                          onClick={(e) => { e.stopPropagation(); handleStatusChange(cast.id, s); }}
-                        >
-                          {s === 'waiting' ? '待機' : s === 'busy' ? '接客' : '退勤'}
-                        </Button>
-                      ))}
+                      <Button
+                        variant={(cast as any).is_online ? "default" : "outline"}
+                        size="sm"
+                        className={`text-[11px] h-7 px-3 ${(cast as any).is_online ? "bg-green-500 hover:bg-green-600 border-green-500" : "text-muted-foreground"}`}
+                        onClick={(e) => { e.stopPropagation(); handleOnlineToggle(cast.id, (cast as any).is_online); }}
+                      >
+                        {(cast as any).is_online ? "オンライン" : "オフライン"}
+                      </Button>
                     </div>
                   )}
 
