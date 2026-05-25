@@ -15,13 +15,10 @@ interface Cast {
   photo: string | null;
 }
 
-const SHIFT_TYPES = [
-  { id: "early1", label: "早番❶", start: "11:00", end: "15:00", emoji: "🌅" },
-  { id: "early2", label: "早番❷", start: "12:00", end: "17:00", emoji: "☀️" },
-  { id: "late1", label: "遅番❶", start: "16:00", end: "23:00", emoji: "🌆" },
-  { id: "late2", label: "遅番❷", start: "18:00", end: "23:00", emoji: "🌙" },
-  { id: "full", label: "通し", start: "11:00", end: "23:00", emoji: "💪" },
-];
+interface ShiftEntry {
+  start: string;
+  end: string;
+}
 
 const WEEK_DAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -32,7 +29,7 @@ export default function TherapistShiftSubmission() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
-  const [selections, setSelections] = useState<Record<string, string>>({}); // dateStr -> shiftType id
+  const [selections, setSelections] = useState<Record<string, ShiftEntry>>({}); // dateStr -> {start, end}
 
   useEffect(() => {
     if (!token) {
@@ -63,22 +60,30 @@ export default function TherapistShiftSubmission() {
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
   const firstDay = getDay(startOfMonth(currentMonth));
 
-  const setShift = (dateStr: string, shiftId: string) => {
+  const toggleDay = (dateStr: string) => {
     setSelections(prev => {
-      if (prev[dateStr] === shiftId) {
+      if (prev[dateStr]) {
         const { [dateStr]: _, ...rest } = prev;
         return rest;
       }
-      return { ...prev, [dateStr]: shiftId };
+      return { ...prev, [dateStr]: { start: "12:00", end: "21:00" } };
     });
+  };
+
+  const updateTime = (dateStr: string, field: "start" | "end", value: string) => {
+    setSelections(prev => ({
+      ...prev,
+      [dateStr]: { ...prev[dateStr], [field]: value },
+    }));
   };
 
   const handleSubmit = async () => {
     if (!token) return;
-    const shifts = Object.entries(selections).map(([date, shiftId]) => {
-      const t = SHIFT_TYPES.find(s => s.id === shiftId)!;
-      return { shift_date: date, start_time: t.start, end_time: t.end };
-    });
+    const shifts = Object.entries(selections).map(([date, entry]) => ({
+      shift_date: date,
+      start_time: entry.start,
+      end_time: entry.end,
+    }));
     if (shifts.length === 0) {
       toast.error("シフトを選択してください");
       return;
@@ -130,25 +135,6 @@ export default function TherapistShiftSubmission() {
       <main className="container mx-auto px-4 py-6 max-w-3xl space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">シフト種類を選んで日付をタップ</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-3">
-              下のカレンダーで日付をタップ → シフト種類を選択。同じシフトをもう一度タップで取消。
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              {SHIFT_TYPES.map(s => (
-                <div key={s.id} className="text-xs px-2 py-2 border rounded-md text-center bg-muted/30">
-                  <div className="font-bold">{s.emoji} {s.label}</div>
-                  <div className="text-muted-foreground">{s.start}〜{s.end}</div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <div className="flex items-center justify-between">
               <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(addMonths(currentMonth, -1))}>
                 <ChevronLeft className="h-4 w-4" />前月
@@ -160,6 +146,7 @@ export default function TherapistShiftSubmission() {
             </div>
           </CardHeader>
           <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">日付をタップして出勤日を追加。時間は自由に変更できます。</p>
             <div className="grid grid-cols-7 gap-1 mb-2">
               {WEEK_DAYS.map((d, i) => (
                 <div key={d} className={`text-center text-xs font-semibold py-1 ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-muted-foreground"}`}>{d}</div>
@@ -169,25 +156,37 @@ export default function TherapistShiftSubmission() {
               {Array.from({ length: firstDay }).map((_, i) => <div key={`pad-${i}`} />)}
               {days.map(day => {
                 const dateStr = format(day, "yyyy-MM-dd");
-                const sel = selections[dateStr];
-                const t = sel ? SHIFT_TYPES.find(s => s.id === sel) : null;
+                const entry = selections[dateStr];
+                const dow = day.getDay();
                 return (
-                  <div key={dateStr} className="border rounded-md p-1 min-h-[64px] flex flex-col">
-                    <div className="text-xs font-bold mb-1">{format(day, "d")}</div>
-                    <div className="flex flex-wrap gap-0.5">
-                      {SHIFT_TYPES.map(s => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => setShift(dateStr, s.id)}
-                          className={`text-[10px] px-1 rounded ${sel === s.id ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"}`}
-                          title={s.label}
-                        >
-                          {s.emoji}
-                        </button>
-                      ))}
+                  <div
+                    key={dateStr}
+                    className={`border rounded-md p-1 min-h-[60px] flex flex-col transition-colors ${entry ? "bg-primary/10 border-primary/40" : "hover:bg-muted/40 cursor-pointer"} ${dow === 0 ? "border-red-200" : dow === 6 ? "border-blue-200" : ""}`}
+                    onClick={() => !entry && toggleDay(dateStr)}
+                  >
+                    <div className={`text-xs font-bold mb-1 ${dow === 0 ? "text-red-500" : dow === 6 ? "text-blue-500" : ""}`}>
+                      {format(day, "d")}
                     </div>
-                    {t && <div className="text-[10px] text-primary mt-1 truncate">{t.label}</div>}
+                    {entry ? (
+                      <div className="space-y-0.5" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="time"
+                          value={entry.start}
+                          onChange={e => updateTime(dateStr, "start", e.target.value)}
+                          className="w-full text-[11px] border rounded px-0.5 py-0.5 text-center"
+                        />
+                        <input
+                          type="time"
+                          value={entry.end}
+                          onChange={e => updateTime(dateStr, "end", e.target.value)}
+                          className="w-full text-[11px] border rounded px-0.5 py-0.5 text-center"
+                        />
+                        <button
+                          onClick={() => toggleDay(dateStr)}
+                          className="w-full text-[10px] text-rose-500 hover:text-rose-700 text-center leading-tight"
+                        >✕ 取消</button>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
