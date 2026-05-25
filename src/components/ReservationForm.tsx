@@ -72,10 +72,20 @@ interface ReservationFormProps {
   onSubmit: () => void;
 }
 
+interface NgCast {
+  cast_id: string;
+  cast_name: string;
+  reason: string | null;
+}
+
 interface CustomerInfo {
+  id: string;
   name: string;
   visit_count: number | null;
   last_visited: string | null;
+  is_banned: boolean;
+  ban_reason: string | null;
+  ng_casts: NgCast[];
 }
 
 interface RecentReservation {
@@ -98,6 +108,10 @@ export function ReservationForm({
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [recentReservations, setRecentReservations] = useState<RecentReservation[]>([]);
   const [searchingCustomer, setSearchingCustomer] = useState(false);
+  const [banReason, setBanReason] = useState("");
+  const [ngCastId, setNgCastId] = useState("");
+  const [ngReason, setNgReason] = useState("");
+  const [saving, setSaving] = useState(false);
   const courseTypes = useMemo(() => {
     const types = [...new Set(backRates.map(r => r.course_type))];
     return types;
@@ -149,7 +163,7 @@ export function ReservationForm({
       const [custRes, resRes] = await Promise.all([
         supabase
           .from("customers")
-          .select("name, visit_count, last_visited")
+          .select("id, name, visit_count, last_visited, is_banned, ban_reason, customer_ng_casts(cast_id, reason, casts(name))")
           .or(`phone.eq.${phone},phone.eq.${formData.customer_phone}`)
           .maybeSingle(),
         supabase
@@ -162,9 +176,25 @@ export function ReservationForm({
       ]);
       setSearchingCustomer(false);
       if (custRes.data) {
-        setCustomerInfo(custRes.data as CustomerInfo);
-        if (!formData.customer_name && custRes.data.name) {
-          setFormData({ ...formData, customer_name: custRes.data.name });
+        const raw = custRes.data as any;
+        const ngCasts: NgCast[] = (raw.customer_ng_casts || []).map((n: any) => ({
+          cast_id: n.cast_id,
+          cast_name: n.casts?.name ?? "",
+          reason: n.reason,
+        }));
+        const info: CustomerInfo = {
+          id: raw.id,
+          name: raw.name,
+          visit_count: raw.visit_count,
+          last_visited: raw.last_visited,
+          is_banned: raw.is_banned ?? false,
+          ban_reason: raw.ban_reason,
+          ng_casts: ngCasts,
+        };
+        setCustomerInfo(info);
+        setBanReason(info.ban_reason ?? "");
+        if (!formData.customer_name && info.name) {
+          setFormData({ ...formData, customer_name: info.name });
         }
       } else {
         setCustomerInfo(null);
@@ -173,6 +203,50 @@ export function ReservationForm({
     }, 500);
     return () => clearTimeout(timer);
   }, [formData.customer_phone]);
+
+  const handleToggleBan = async () => {
+    if (!customerInfo) return;
+    setSaving(true);
+    const newBanned = !customerInfo.is_banned;
+    const { error } = await supabase
+      .from("customers")
+      .update({ is_banned: newBanned, ban_reason: newBanned ? banReason || null : null })
+      .eq("id", customerInfo.id);
+    setSaving(false);
+    if (!error) setCustomerInfo({ ...customerInfo, is_banned: newBanned, ban_reason: newBanned ? banReason : null });
+  };
+
+  const handleAddNg = async () => {
+    if (!customerInfo || !ngCastId) return;
+    setSaving(true);
+    const { error } = await supabase.from("customer_ng_casts").insert({
+      customer_id: customerInfo.id,
+      cast_id: ngCastId,
+      reason: ngReason || null,
+    });
+    setSaving(false);
+    if (!error) {
+      const castName = casts.find(c => c.id === ngCastId)?.name ?? "";
+      setCustomerInfo({
+        ...customerInfo,
+        ng_casts: [...customerInfo.ng_casts, { cast_id: ngCastId, cast_name: castName, reason: ngReason || null }],
+      });
+      setNgCastId("");
+      setNgReason("");
+    }
+  };
+
+  const handleRemoveNg = async (castId: string) => {
+    if (!customerInfo) return;
+    await supabase.from("customer_ng_casts")
+      .delete()
+      .eq("customer_id", customerInfo.id)
+      .eq("cast_id", castId);
+    setCustomerInfo({
+      ...customerInfo,
+      ng_casts: customerInfo.ng_casts.filter(n => n.cast_id !== castId),
+    });
+  };
 
   const handleOptionToggle = useCallback((optionName: string) => {
     const newOptions = formData.selectedOptions.includes(optionName)
@@ -235,44 +309,140 @@ export function ReservationForm({
         <p className="text-xs text-muted-foreground">検索中...</p>
       )}
       {!searchingCustomer && formData.customer_phone.replace(/[-\s]/g, "").length >= 10 && (
-        <div className={cn(
-          "rounded-lg border p-3 text-sm space-y-2",
-          customerInfo ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800" : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800"
-        )}>
-          {customerInfo ? (
-            <>
-              <div className="flex items-center gap-2 font-semibold text-green-700 dark:text-green-400">
-                <UserCheck size={14} />
-                {customerInfo.name}（既存顧客）
+        <div className="space-y-2">
+          {/* 出入り禁止バナー */}
+          {customerInfo?.is_banned && (
+            <div className="rounded-lg border border-red-400 bg-red-50 dark:bg-red-950/30 p-3 flex items-start gap-2">
+              <span className="text-red-600 text-lg font-bold leading-none">⛔</span>
+              <div>
+                <p className="font-bold text-red-700 dark:text-red-400 text-sm">出入り禁止</p>
+                {customerInfo.ban_reason && <p className="text-xs text-red-600 mt-0.5">{customerInfo.ban_reason}</p>}
               </div>
-              <div className="flex gap-4 text-xs text-muted-foreground">
-                <span>来店回数：<strong className="text-foreground">{customerInfo.visit_count ?? 0}回</strong></span>
-                {customerInfo.last_visited && (
-                  <span>最終来店：<strong className="text-foreground">{format(new Date(customerInfo.last_visited), "M月d日", { locale: ja })}</strong></span>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold">
-              <UserCheck size={14} />
-              新規顧客
             </div>
           )}
-          {recentReservations.length > 0 && (
-            <div className="pt-1 border-t border-current/10 space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                <Clock size={11} />直近の来店
-              </p>
-              {recentReservations.map((r, i) => (
-                <div key={i} className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    {format(new Date(r.reservation_date), "M/d(E)", { locale: ja })}　{r.course_name}
-                  </span>
-                  <span className="font-medium">¥{r.price.toLocaleString()}</span>
+
+          {/* NGキャスト警告 */}
+          {customerInfo && customerInfo.ng_casts.length > 0 && formData.cast_id &&
+            customerInfo.ng_casts.some(n => n.cast_id === formData.cast_id) && (
+            <div className="rounded-lg border border-orange-400 bg-orange-50 dark:bg-orange-950/30 p-3 flex items-start gap-2">
+              <span className="text-orange-500 text-lg font-bold leading-none">⚠️</span>
+              <div>
+                <p className="font-bold text-orange-700 dark:text-orange-400 text-sm">NGキャスト</p>
+                <p className="text-xs text-orange-600 mt-0.5">
+                  {customerInfo.ng_casts.find(n => n.cast_id === formData.cast_id)?.reason || "この顧客はこのセラピストをNGに設定しています"}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* 顧客情報 */}
+          <div className={cn(
+            "rounded-lg border p-3 text-sm space-y-2",
+            customerInfo ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800" : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800"
+          )}>
+            {customerInfo ? (
+              <>
+                <div className="flex items-center gap-2 font-semibold text-green-700 dark:text-green-400">
+                  <UserCheck size={14} />
+                  {customerInfo.name}（既存顧客）
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="flex gap-4 text-xs text-muted-foreground">
+                  <span>来店回数：<strong className="text-foreground">{customerInfo.visit_count ?? 0}回</strong></span>
+                  {customerInfo.last_visited && (
+                    <span>最終来店：<strong className="text-foreground">{format(new Date(customerInfo.last_visited), "M月d日", { locale: ja })}</strong></span>
+                  )}
+                </div>
+                {/* NGキャスト一覧 */}
+                {customerInfo.ng_casts.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {customerInfo.ng_casts.map(n => (
+                      <span key={n.cast_id} className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-700 rounded px-1.5 py-0.5">
+                        NG:{n.cast_name}
+                        <button onClick={() => handleRemoveNg(n.cast_id)} className="hover:text-red-600 font-bold">×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold">
+                <UserCheck size={14} />
+                新規顧客
+              </div>
+            )}
+
+            {/* 直近来店 */}
+            {recentReservations.length > 0 && (
+              <div className="pt-1 border-t border-current/10 space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                  <Clock size={11} />直近の来店
+                </p>
+                {recentReservations.map((r, i) => (
+                  <div key={i} className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      {format(new Date(r.reservation_date), "M/d(E)", { locale: ja })}　{r.course_name}
+                    </span>
+                    <span className="font-medium">¥{r.price.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 管理操作（既存顧客のみ） */}
+            {customerInfo && (
+              <div className="pt-2 border-t border-current/10 space-y-2">
+                {/* 出入り禁止トグル */}
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    placeholder="禁止理由（任意）"
+                    value={banReason}
+                    onChange={e => setBanReason(e.target.value)}
+                    className="flex-1 text-xs px-2 py-1 border rounded"
+                  />
+                  <button
+                    onClick={handleToggleBan}
+                    disabled={saving}
+                    className={cn(
+                      "text-xs px-2 py-1 rounded font-semibold whitespace-nowrap",
+                      customerInfo.is_banned
+                        ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        : "bg-red-100 text-red-700 hover:bg-red-200"
+                    )}
+                  >
+                    {customerInfo.is_banned ? "禁止解除" : "出入り禁止"}
+                  </button>
+                </div>
+                {/* NGキャスト追加 */}
+                <div className="flex gap-2 items-center">
+                  <select
+                    value={ngCastId}
+                    onChange={e => setNgCastId(e.target.value)}
+                    className="flex-1 text-xs px-2 py-1 border rounded"
+                  >
+                    <option value="">キャストを選択</option>
+                    {casts.filter(c => !customerInfo.ng_casts.some(n => n.cast_id === c.id)).map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="理由（任意）"
+                    value={ngReason}
+                    onChange={e => setNgReason(e.target.value)}
+                    className="flex-1 text-xs px-2 py-1 border rounded"
+                  />
+                  <button
+                    onClick={handleAddNg}
+                    disabled={saving || !ngCastId}
+                    className="text-xs px-2 py-1 rounded font-semibold bg-orange-100 text-orange-700 hover:bg-orange-200 whitespace-nowrap disabled:opacity-40"
+                  >
+                    NG追加
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
