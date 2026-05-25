@@ -117,6 +117,7 @@ export default function Schedule() {
     course_type: "aroma",
     course_name: "80分 アロマオイルコース",
     selectedOptions: [] as string[],
+    selectedDiscountIds: [] as string[],
     price: 12000,
     payment_method: "cash",
     reservation_method: "",
@@ -128,6 +129,7 @@ export default function Schedule() {
   const [backRates, setBackRates] = useState<any[]>([]);
   const [optionRates, setOptionRates] = useState<any[]>([]);
   const [nominationRates, setNominationRates] = useState<any[]>([]);
+  const [discounts, setDiscounts] = useState<any[]>([]);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -141,18 +143,20 @@ export default function Schedule() {
   }, [user, selectedDate]);
 
   const fetchFormData = async () => {
-    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }] = await Promise.all([
+    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }] = await Promise.all([
       supabase.from("casts").select("id, name").order("name"),
       supabase.from("rooms").select("id, name, address").eq("is_active", true).order("name"),
       supabase.from("back_rates").select("*"),
       supabase.from("option_rates").select("*"),
       supabase.from("nomination_rates").select("*"),
+      supabase.from("discounts").select("id, name, discount_type, discount_value").eq("is_active", true).order("name"),
     ]);
     if (c) setCasts(c);
     if (r) setRooms(r);
     if (b) setBackRates(b);
     if (o) setOptionRates(o);
     if (n) setNominationRates(n);
+    if (d) setDiscounts(d);
   };
 
   const fetchData = async () => {
@@ -330,6 +334,7 @@ export default function Schedule() {
                       backRates={backRates}
                       optionRates={optionRates}
                       nominationRates={nominationRates}
+                      discounts={discounts}
                       onSubmit={handleAddReservation}
                     />
                   </div>
