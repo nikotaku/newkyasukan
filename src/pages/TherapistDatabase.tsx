@@ -52,9 +52,12 @@ interface InternalProfile {
   special_skills: string;
   preferred_type: string;
   mbti: string;
+  love_type: string;
   career_history: string;
   massage_skills: string;
   training_count: number | null;
+  sns_operation_notes: string;
+  customer_age_range: string;
 }
 
 const emptyInternal = (cast_id: string): InternalProfile => ({
@@ -66,9 +69,12 @@ const emptyInternal = (cast_id: string): InternalProfile => ({
   special_skills: "",
   preferred_type: "",
   mbti: "",
+  love_type: "",
   career_history: "",
   massage_skills: "",
   training_count: null,
+  sns_operation_notes: "",
+  customer_age_range: "",
 });
 
 export default function TherapistDatabase() {
@@ -524,6 +530,18 @@ export default function TherapistDatabase() {
                             <Label>MBTI</Label>
                             <Input value={internal.mbti ?? ""} onChange={(e) => setInt("mbti", e.target.value)} placeholder="例: INFP" />
                           </div>
+                          <div>
+                            <Label>ラブタイプ</Label>
+                            <Input value={internal.love_type ?? ""} onChange={(e) => setInt("love_type", e.target.value)} placeholder="例: 献身的な愛情タイプ" />
+                          </div>
+                          <div>
+                            <Label>よく利用する客層の年齢</Label>
+                            <Input value={internal.customer_age_range ?? ""} onChange={(e) => setInt("customer_age_range", e.target.value)} placeholder="例: 30〜50代" />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>SNS運用シート</Label>
+                          <Textarea value={internal.sns_operation_notes ?? ""} onChange={(e) => setInt("sns_operation_notes", e.target.value)} rows={4} placeholder="投稿ジャンル、頻度、NG内容など運用メモ..." />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
