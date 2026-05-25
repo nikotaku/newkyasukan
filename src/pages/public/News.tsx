@@ -27,6 +27,23 @@ const News = () => {
   }, []);
 
   useEffect(() => {
+    const id = "twitter-wjs";
+    if (document.getElementById(id)) {
+      (window as any).twttr?.widgets?.load();
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = id;
+    script.src = "https://platform.twitter.com/widgets.js";
+    script.async = true;
+    script.charset = "utf-8";
+    document.body.appendChild(script);
+    return () => {
+      document.getElementById(id)?.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     (async () => {
       setLoading(true);
       const from = (page - 1) * PAGE_SIZE;
@@ -106,6 +123,28 @@ const News = () => {
             </Button>
           </div>
         )}
+
+        {/* X (Twitter) Timeline Widget */}
+        <div className="mt-10 mb-8">
+          <div className="text-center mb-4">
+            <h3 className="text-xl font-bold" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>SNS</h3>
+            <p className="text-xs mt-1" style={{ color: "#a89586" }}>公式X（旧Twitter）</p>
+          </div>
+          <div className="flex justify-center">
+            <div style={{ maxWidth: "550px", width: "100%" }}>
+              <a
+                className="twitter-timeline"
+                data-lang="ja"
+                data-height="500"
+                data-theme="light"
+                data-chrome="noheader nofooter noborders"
+                href="https://twitter.com/zr_sendai"
+              >
+                Tweets by @zr_sendai
+              </a>
+            </div>
+          </div>
+        </div>
 
         {/* SHOP Section */}
         <div className="mt-8">
