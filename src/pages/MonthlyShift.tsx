@@ -254,18 +254,26 @@ export default function MonthlyShift() {
                         return (
                           <div
                             key={s.id}
-                            onClick={e => { e.stopPropagation(); handleToggleApproval(s); }}
                             className={cn(
-                              "text-[10px] rounded px-1 py-0.5 leading-tight cursor-pointer",
-                              approved ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300"
+                              "group relative text-[10px] rounded px-1 py-0.5 leading-tight",
+                              approved ? "bg-primary/10 text-primary" : "bg-amber-100 text-amber-800 border border-amber-300"
                             )}
-                            title={approved ? "クリックで未承認に戻す" : "クリックで承認"}
                           >
-                            <div className="font-semibold truncate">{s.casts?.name}</div>
-                            <div className="text-[9px] text-muted-foreground">
-                              {s.start_time.slice(0, 5)}~{s.end_time.slice(0, 5)}
+                            <div
+                              onClick={e => { e.stopPropagation(); handleToggleApproval(s); }}
+                              className="cursor-pointer hover:opacity-70"
+                              title={approved ? "クリックで未承認に戻す" : "クリックで承認"}
+                            >
+                              <div className="font-semibold truncate pr-3">{s.casts?.name}</div>
+                              <div className="text-[9px] text-muted-foreground">
+                                {s.start_time.slice(0, 5)}~{s.end_time.slice(0, 5)}
+                              </div>
+                              {s.room && <div className="text-[9px] truncate">{s.room}</div>}
                             </div>
-                            {s.room && <div className="text-[9px] truncate">{s.room}</div>}
+                            <button
+                              onClick={e => { e.stopPropagation(); handleDelete(s.id); }}
+                              className="absolute top-0 right-0 hidden group-hover:flex items-center justify-center w-3.5 h-3.5 bg-red-500 text-white rounded-full text-[9px] leading-none"
+                            >×</button>
                           </div>
                         );
                       })}
