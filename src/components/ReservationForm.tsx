@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, UserCheck, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Cast {
   id: string;
@@ -71,6 +72,19 @@ interface ReservationFormProps {
   onSubmit: () => void;
 }
 
+interface CustomerInfo {
+  name: string;
+  visit_count: number | null;
+  last_visited: string | null;
+}
+
+interface RecentReservation {
+  reservation_date: string;
+  course_name: string;
+  price: number;
+  status: string;
+}
+
 export function ReservationForm({
   formData,
   setFormData,
@@ -81,6 +95,9 @@ export function ReservationForm({
   nominationRates,
   onSubmit,
 }: ReservationFormProps) {
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
+  const [recentReservations, setRecentReservations] = useState<RecentReservation[]>([]);
+  const [searchingCustomer, setSearchingCustomer] = useState(false);
   const courseTypes = useMemo(() => {
     const types = [...new Set(backRates.map(r => r.course_type))];
     return types;
@@ -119,6 +136,43 @@ export function ReservationForm({
       setFormData({ ...formData, price: totalPrice });
     }
   }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, backRates, optionRates, nominationRates]);
+
+  useEffect(() => {
+    const phone = formData.customer_phone.replace(/[-\s]/g, "");
+    if (phone.length < 10) {
+      setCustomerInfo(null);
+      setRecentReservations([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearchingCustomer(true);
+      const [custRes, resRes] = await Promise.all([
+        supabase
+          .from("customers")
+          .select("name, visit_count, last_visited")
+          .or(`phone.eq.${phone},phone.eq.${formData.customer_phone}`)
+          .maybeSingle(),
+        supabase
+          .from("reservations")
+          .select("reservation_date, course_name, price, status")
+          .or(`customer_phone.eq.${phone},customer_phone.eq.${formData.customer_phone}`)
+          .neq("status", "cancelled")
+          .order("reservation_date", { ascending: false })
+          .limit(5),
+      ]);
+      setSearchingCustomer(false);
+      if (custRes.data) {
+        setCustomerInfo(custRes.data as CustomerInfo);
+        if (!formData.customer_name && custRes.data.name) {
+          setFormData({ ...formData, customer_name: custRes.data.name });
+        }
+      } else {
+        setCustomerInfo(null);
+      }
+      setRecentReservations((resRes.data || []) as RecentReservation[]);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [formData.customer_phone]);
 
   const handleOptionToggle = useCallback((optionName: string) => {
     const newOptions = formData.selectedOptions.includes(optionName)
@@ -175,6 +229,52 @@ export function ReservationForm({
           />
         </div>
       </div>
+
+      {/* 顧客情報パネル */}
+      {searchingCustomer && (
+        <p className="text-xs text-muted-foreground">検索中...</p>
+      )}
+      {!searchingCustomer && formData.customer_phone.replace(/[-\s]/g, "").length >= 10 && (
+        <div className={cn(
+          "rounded-lg border p-3 text-sm space-y-2",
+          customerInfo ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800" : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800"
+        )}>
+          {customerInfo ? (
+            <>
+              <div className="flex items-center gap-2 font-semibold text-green-700 dark:text-green-400">
+                <UserCheck size={14} />
+                {customerInfo.name}（既存顧客）
+              </div>
+              <div className="flex gap-4 text-xs text-muted-foreground">
+                <span>来店回数：<strong className="text-foreground">{customerInfo.visit_count ?? 0}回</strong></span>
+                {customerInfo.last_visited && (
+                  <span>最終来店：<strong className="text-foreground">{format(new Date(customerInfo.last_visited), "M月d日", { locale: ja })}</strong></span>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold">
+              <UserCheck size={14} />
+              新規顧客
+            </div>
+          )}
+          {recentReservations.length > 0 && (
+            <div className="pt-1 border-t border-current/10 space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                <Clock size={11} />直近の来店
+              </p>
+              {recentReservations.map((r, i) => (
+                <div key={i} className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    {format(new Date(r.reservation_date), "M/d(E)", { locale: ja })}　{r.course_name}
+                  </span>
+                  <span className="font-medium">¥{r.price.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div>
