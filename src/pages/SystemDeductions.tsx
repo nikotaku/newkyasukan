@@ -70,7 +70,7 @@ export default function SystemDeductions() {
     try {
       const { error } = await supabase.from("deductions").insert([formData]);
       if (error) throw error;
-      setFormData({ name: "", deduction_type: "fixed", amount: 0, is_active: true });
+      setFormData({ name: "", deduction_type: "fixed", amount: 0, rule: "", is_active: true });
       setShowForm(false);
       fetchDeductions();
     } catch (error) {
