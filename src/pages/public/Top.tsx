@@ -320,6 +320,17 @@ const Top = () => {
               if (item.kind === "shift") {
                 const c = item.cast;
                 const slots = slotsToday(c.id);
+                const hasPosts = posts.some((p) => p.cast_id === c.id);
+                const interview: { q: string; a: string }[] = [];
+                if (!hasPosts) {
+                  if (c.message) interview.push({ q: "お客様へのメッセージ", a: c.message });
+                  if (c.favorite_techniques) interview.push({ q: "得意な施術", a: c.favorite_techniques });
+                  if (c.ideal_partner || c.ideal_type) interview.push({ q: "理想のタイプ", a: (c.ideal_partner || c.ideal_type)! });
+                  if (c.hobbies) interview.push({ q: "趣味", a: c.hobbies });
+                  if (c.favorite_food) interview.push({ q: "好きな食べ物", a: c.favorite_food });
+                  if (c.mbti) interview.push({ q: "MBTI", a: c.mbti });
+                  if (c.therapist_years) interview.push({ q: "セラピスト歴", a: `${c.therapist_years}年` });
+                }
                 return (
                   <article key={`shift-${c.id}`} className="px-4 py-3 bg-[#c49480]/5">
                     <div className="flex gap-3">
@@ -341,6 +352,19 @@ const Top = () => {
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#c49480]/30 text-[#f0d2c2] ml-1">本日出勤</span>
                           <span className="text-white/50 whitespace-nowrap ml-auto text-[12px]">{item.startTime.slice(0,5)}〜</span>
                         </div>
+                        {!hasPosts && interview.length > 0 && (
+                          <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                            <div className="text-[11px] font-bold tracking-widest text-[#c49480] mb-2">セラピストインタビュー</div>
+                            <dl className="space-y-2">
+                              {interview.slice(0, 4).map((it, i) => (
+                                <div key={i}>
+                                  <dt className="text-[11px] text-white/40">Q. {it.q}</dt>
+                                  <dd className="text-[14px] leading-relaxed whitespace-pre-wrap break-words mt-0.5">A. {it.a}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                          </div>
+                        )}
                         {slots.length > 0 && (
                           <div className="mt-2 -mx-1 overflow-x-auto scrollbar-thin">
                             <table className="border-separate border-spacing-0 bg-white text-gray-700 rounded-md overflow-hidden">
