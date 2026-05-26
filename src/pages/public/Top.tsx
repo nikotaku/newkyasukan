@@ -69,14 +69,13 @@ const Top = () => {
     (c.x_account?.replace(/^@?/, "").replace(/^https?:\/\/.*\//, "")) || `zr_${c.id.slice(0, 8)}`;
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0 bg-black text-white">
+    <div className="min-h-screen pb-20 bg-black text-white">
       <SEO
         title="仙台のメンズエステ"
         description="全力エステ 仙台店｜セラピストの最新つぶやきタイムライン。仙台のメンズエステサロン。Tel: 090-8126-4042"
         path="/"
         jsonLd={LOCAL_BUSINESS_JSON_LD}
       />
-      <PublicNavigation />
 
       <main className="max-w-xl mx-auto border-x border-white/10 min-h-screen">
         {/* Timeline */}
