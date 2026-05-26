@@ -109,6 +109,7 @@ const menuItems: MenuItem[] = [
           { href: "/system/courses", label: "コース" },
           { href: "/system/options", label: "オプション" },
           { href: "/system/discounts", label: "各種割引" },
+          { href: "/system/recommended-courses", label: "おすすめコース（タイムライン枠）" },
         ],
       },
       {
