@@ -70,21 +70,21 @@ export default function FacilitiesRooms() {
   const fetchRooms = async () => {
     setLoading(true);
     const { data } = await supabase
-      .from("rooms" as any)
+      .from("rooms")
       .select("id,name,room_type,floor,capacity,address,entry_flow,rules,key_info")
       .order("name");
-    setRooms((data || []) as Room[]);
+    setRooms(((data as any) || []) as Room[]);
     setLoading(false);
   };
 
   const fetchSupplies = async (roomId: string) => {
     const { data } = await supabase
-      .from("room_supplies" as any)
+      .from("room_supplies")
       .select("*")
       .eq("room_id", roomId)
       .order("category")
       .order("name");
-    setSupplies((data || []) as Supply[]);
+    setSupplies(((data as any) || []) as Supply[]);
   };
 
   const selectRoom = (room: Room) => {

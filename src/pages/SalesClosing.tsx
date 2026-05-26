@@ -90,14 +90,14 @@ export default function SalesClosing() {
         .in("status", ["confirmed", "completed"])
         .order("start_time"),
       supabase
-        .from("closings" as any)
+        .from("closings")
         .select("*")
         .eq("period_type", "daily")
         .eq("period_date", dateStr)
         .maybeSingle(),
     ]);
     setDailyReservations((resResult.data as any[]) || []);
-    setDailyClosing(closingResult.data as Closing | null);
+    setDailyClosing((closingResult.data as any) ?? null);
     setDailyNotes((closingResult.data as any)?.notes || "");
     setDailyLoading(false);
   };
@@ -109,19 +109,19 @@ export default function SalesClosing() {
     const end = format(endOfMonth(monthlyDate), "yyyy-MM-dd");
     const [monthClosing, dayClosings] = await Promise.all([
       supabase
-        .from("closings" as any)
+        .from("closings")
         .select("*")
         .eq("period_type", "monthly")
         .eq("period_date", start)
         .maybeSingle(),
       supabase
-        .from("closings" as any)
+        .from("closings")
         .select("*")
         .eq("period_type", "daily")
         .gte("period_date", start)
         .lte("period_date", end),
     ]);
-    setMonthlyClosing(monthClosing.data as Closing | null);
+    setMonthlyClosing((monthClosing.data as any) ?? null);
     setMonthlyNotes((monthClosing.data as any)?.notes || "");
     const map: Record<string, Closing> = {};
     ((dayClosings.data as any[]) || []).forEach((c: Closing) => { map[c.period_date] = c; });

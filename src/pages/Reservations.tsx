@@ -101,6 +101,7 @@ export default function Reservations() {
     payment_method: "cash",
     reservation_method: "",
     notes: "",
+    selectedDiscountIds: [] as string[],
   });
 
   const { toast } = useToast();

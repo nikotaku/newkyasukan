@@ -68,18 +68,18 @@ export default function TextTemplates() {
 
   const fetchItems = async () => {
     setLoading(true);
-    const q = supabase
-      .from("text_templates" as any)
+    let q = supabase
+      .from("text_templates")
       .select("*")
       .order("display_order")
       .order("created_at");
     if (currentFolder) {
-      q.eq("parent_id", currentFolder.id);
+      q = q.eq("parent_id", currentFolder.id);
     } else {
-      q.is("parent_id", null);
+      q = q.is("parent_id", null);
     }
     const { data } = await q;
-    setItems((data || []) as Template[]);
+    setItems(((data as any) || []) as Template[]);
     setLoading(false);
   };
 
