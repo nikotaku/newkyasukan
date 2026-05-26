@@ -147,10 +147,13 @@ export type Database = {
           body: string
           cast_id: string
           created_at: string
+          esutama_error: string | null
+          esutama_status: string
           id: string
           image_urls: string[] | null
           o2_error: string | null
           o2_status: string
+          posted_at: string | null
           status: string
           title: string | null
           updated_at: string
@@ -159,10 +162,13 @@ export type Database = {
           body: string
           cast_id: string
           created_at?: string
+          esutama_error?: string | null
+          esutama_status?: string
           id?: string
           image_urls?: string[] | null
           o2_error?: string | null
           o2_status?: string
+          posted_at?: string | null
           status?: string
           title?: string | null
           updated_at?: string
@@ -171,15 +177,26 @@ export type Database = {
           body?: string
           cast_id?: string
           created_at?: string
+          esutama_error?: string | null
+          esutama_status?: string
           id?: string
           image_urls?: string[] | null
           o2_error?: string | null
           o2_status?: string
+          posted_at?: string | null
           status?: string
           title?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cast_posts_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cast_site_credentials: {
         Row: {
@@ -238,6 +255,7 @@ export type Database = {
           id: string
           ideal_partner: string | null
           ideal_type: string | null
+          is_active: boolean
           is_visible: boolean
           join_date: string
           marks: string[] | null
@@ -288,6 +306,7 @@ export type Database = {
           id?: string
           ideal_partner?: string | null
           ideal_type?: string | null
+          is_active?: boolean
           is_visible?: boolean
           join_date?: string
           marks?: string[] | null
@@ -338,6 +357,7 @@ export type Database = {
           id?: string
           ideal_partner?: string | null
           ideal_type?: string | null
+          is_active?: boolean
           is_visible?: boolean
           join_date?: string
           marks?: string[] | null
@@ -521,6 +541,126 @@ export type Database = {
           },
         ]
       }
+      facility_contracts: {
+        Row: {
+          address: string | null
+          amount: number | null
+          auto_lock: boolean
+          contract_holder: string | null
+          contract_status: string | null
+          contract_terms: string | null
+          created_at: string
+          end_date: string | null
+          floor_plan: string | null
+          id: string
+          internet_connection: string | null
+          key_count: number | null
+          login_id: string | null
+          login_password: string | null
+          mailbox_code: string | null
+          management_company: string | null
+          management_url: string | null
+          name: string
+          nominal_holder: string | null
+          notes: string | null
+          payment_method: string | null
+          renewal_fee: number | null
+          resident_manager: boolean
+          start_date: string | null
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          amount?: number | null
+          auto_lock?: boolean
+          contract_holder?: string | null
+          contract_status?: string | null
+          contract_terms?: string | null
+          created_at?: string
+          end_date?: string | null
+          floor_plan?: string | null
+          id?: string
+          internet_connection?: string | null
+          key_count?: number | null
+          login_id?: string | null
+          login_password?: string | null
+          mailbox_code?: string | null
+          management_company?: string | null
+          management_url?: string | null
+          name?: string
+          nominal_holder?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          renewal_fee?: number | null
+          resident_manager?: boolean
+          start_date?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          amount?: number | null
+          auto_lock?: boolean
+          contract_holder?: string | null
+          contract_status?: string | null
+          contract_terms?: string | null
+          created_at?: string
+          end_date?: string | null
+          floor_plan?: string | null
+          id?: string
+          internet_connection?: string | null
+          key_count?: number | null
+          login_id?: string | null
+          login_password?: string | null
+          mailbox_code?: string | null
+          management_company?: string | null
+          management_url?: string | null
+          name?: string
+          nominal_holder?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          renewal_fee?: number | null
+          resident_manager?: boolean
+          start_date?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      facility_equipment: {
+        Row: {
+          created_at: string
+          id: string
+          item_type: string
+          name: string
+          notes: string | null
+          quantity: number
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_type?: string
+          name: string
+          notes?: string | null
+          quantity?: number
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_type?: string
+          name?: string
+          notes?: string | null
+          quantity?: number
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hp_analytics_daily: {
         Row: {
           created_at: string
@@ -672,6 +812,33 @@ export type Database = {
           id?: string
           is_published?: boolean
           slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      hp_bulletin: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_published: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
           title?: string
           updated_at?: string
         }
@@ -1030,6 +1197,50 @@ export type Database = {
           },
         ]
       }
+      room_supplies: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          quantity: number
+          room_id: string
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          quantity?: number
+          room_id: string
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          quantity?: number
+          room_id?: string
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_supplies_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rooms: {
         Row: {
           address: string | null
@@ -1037,13 +1248,18 @@ export type Database = {
           capacity: number | null
           created_at: string
           description: string | null
+          entry_flow: string | null
           equipment_costumes: string | null
           equipment_placement: string | null
+          floor: string | null
           garbage_disposal: string | null
           id: string
           is_active: boolean
+          key_info: string | null
           name: string
           room_photos: string[] | null
+          room_type: string | null
+          rules: string | null
           updated_at: string
         }
         Insert: {
@@ -1052,13 +1268,18 @@ export type Database = {
           capacity?: number | null
           created_at?: string
           description?: string | null
+          entry_flow?: string | null
           equipment_costumes?: string | null
           equipment_placement?: string | null
+          floor?: string | null
           garbage_disposal?: string | null
           id?: string
           is_active?: boolean
+          key_info?: string | null
           name: string
           room_photos?: string[] | null
+          room_type?: string | null
+          rules?: string | null
           updated_at?: string
         }
         Update: {
@@ -1067,13 +1288,18 @@ export type Database = {
           capacity?: number | null
           created_at?: string
           description?: string | null
+          entry_flow?: string | null
           equipment_costumes?: string | null
           equipment_placement?: string | null
+          floor?: string | null
           garbage_disposal?: string | null
           id?: string
           is_active?: boolean
+          key_info?: string | null
           name?: string
           room_photos?: string[] | null
+          room_type?: string | null
+          rules?: string | null
           updated_at?: string
         }
         Relationships: []
