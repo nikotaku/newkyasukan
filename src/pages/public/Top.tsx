@@ -36,7 +36,7 @@ interface News {
   is_pinned: boolean;
 }
 
-const BANNER_SLIDES = [
+const FALLBACK_BANNERS = [
   "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750253573.png",
   "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750762260.png",
 ];
@@ -44,6 +44,7 @@ const BANNER_SLIDES = [
 const Top = () => {
   const [todayShifts, setTodayShifts] = useState<TodayShift[]>([]);
   const [news, setNews] = useState<News[]>([]);
+  const [bannerSlides, setBannerSlides] = useState<string[]>(FALLBACK_BANNERS);
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
   const navigate = useNavigate();
@@ -55,14 +56,14 @@ const Top = () => {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % BANNER_SLIDES.length);
+      setCurrentSlide((prev) => (prev + 1) % bannerSlides.length);
     }, 5000);
     return () => clearInterval(timer);
   }, []);
 
   const fetchAll = async () => {
     const today = format(new Date(), "yyyy-MM-dd");
-    const [s, n] = await Promise.all([
+    const [s, n, b] = await Promise.all([
       supabase
         .from("shifts")
         .select("id,cast_id,start_time,end_time,casts(id,name,photo,age,height,cup_size,message,tags,x_account)")
@@ -74,6 +75,11 @@ const Top = () => {
         .order("is_pinned", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(4),
+      supabase
+        .from("banners")
+        .select("image_url")
+        .eq("is_active", true)
+        .order("display_order", { ascending: true }),
     ]);
 
     if (s.data) {
@@ -86,6 +92,9 @@ const Top = () => {
       setTodayShifts(unique as TodayShift[]);
     }
     if (n.data) setNews(n.data as News[]);
+    if (b.data && b.data.length > 0) {
+      setBannerSlides(b.data.map((r: any) => r.image_url));
+    }
     setLoading(false);
   };
 
@@ -104,25 +113,25 @@ const Top = () => {
       <div className="relative overflow-hidden">
         <AspectRatio ratio={16 / 9}>
           <img
-            src={BANNER_SLIDES[currentSlide]}
+            src={bannerSlides[currentSlide]}
             alt="トップバナー | 全力エステ 仙台"
             className="w-full h-full object-cover transition-opacity duration-500"
           />
         </AspectRatio>
         <button
-          onClick={() => setCurrentSlide((prev) => (prev - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length)}
+          onClick={() => setCurrentSlide((prev) => (prev - 1 + bannerSlides.length) % bannerSlides.length)}
           className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
         <button
-          onClick={() => setCurrentSlide((prev) => (prev + 1) % BANNER_SLIDES.length)}
+          onClick={() => setCurrentSlide((prev) => (prev + 1) % bannerSlides.length)}
           className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
-          {BANNER_SLIDES.map((_, i) => (
+          {bannerSlides.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrentSlide(i)}
