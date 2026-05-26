@@ -96,6 +96,32 @@ export default function SystemCourses() {
     }
   };
 
+  const handleUpdateRate = async (id: string, patch: Partial<BackRate>) => {
+    setRates((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    const { error } = await supabase.from("back_rates").update(patch).eq("id", id);
+    if (error) {
+      toast.error("更新に失敗しました");
+      fetchRates();
+    }
+  };
+
+  const handleRenameType = async (oldType: string, newType: string) => {
+    const trimmed = newType.trim();
+    if (!trimmed || trimmed === oldType) return;
+    setRates((prev) => prev.map((r) => (r.course_type === oldType ? { ...r, course_type: trimmed } : r)));
+    const { error } = await supabase
+      .from("back_rates")
+      .update({ course_type: trimmed })
+      .eq("course_type", oldType);
+    if (error) {
+      toast.error("コース名の更新に失敗しました");
+      fetchRates();
+    } else {
+      toast.success("コース名を更新しました");
+      setExpandedTypes((prev) => prev.map((t) => (t === oldType ? trimmed : t)));
+    }
+  };
+
   const toggleType = (type: string) => {
     setExpandedTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
