@@ -933,6 +933,79 @@ export default function Staff() {
                         />
                       </div>
 
+                      {/* カスタムプロパティ（テキスト / リンク / 画像） */}
+                      <div className="border-t pt-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-semibold text-muted-foreground">カスタムプロパティ</Label>
+                          <div className="flex gap-1">
+                            <Button type="button" variant="outline" size="sm" onClick={() => {
+                              const list = Array.isArray(editingCast.custom_properties) ? editingCast.custom_properties : [];
+                              setEditingCast({ ...editingCast, custom_properties: [...list, { id: crypto.randomUUID(), label: "", type: "text", value: "" }] });
+                            }}>+ テキスト</Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => {
+                              const list = Array.isArray(editingCast.custom_properties) ? editingCast.custom_properties : [];
+                              setEditingCast({ ...editingCast, custom_properties: [...list, { id: crypto.randomUUID(), label: "", type: "link", value: "" }] });
+                            }}>+ リンク</Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => {
+                              const list = Array.isArray(editingCast.custom_properties) ? editingCast.custom_properties : [];
+                              setEditingCast({ ...editingCast, custom_properties: [...list, { id: crypto.randomUUID(), label: "", type: "image", value: "" }] });
+                            }}>+ 画像</Button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          {(Array.isArray(editingCast.custom_properties) ? editingCast.custom_properties : []).map((cp: any, idx: number) => {
+                            const updateCp = (patch: any) => {
+                              const list = [...editingCast.custom_properties];
+                              list[idx] = { ...list[idx], ...patch };
+                              setEditingCast({ ...editingCast, custom_properties: list });
+                            };
+                            const removeCp = () => {
+                              const list = editingCast.custom_properties.filter((_: any, i: number) => i !== idx);
+                              setEditingCast({ ...editingCast, custom_properties: list });
+                            };
+                            return (
+                              <div key={cp.id || idx} className="flex gap-2 items-start p-2 border rounded">
+                                <div className="flex-1 space-y-2">
+                                  <div className="flex gap-2 items-center">
+                                    <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                                      {cp.type === "image" ? "画像" : cp.type === "link" ? "リンク" : "テキスト"}
+                                    </span>
+                                    <Input placeholder="項目名" value={cp.label || ""} onChange={(e) => updateCp({ label: e.target.value })} />
+                                  </div>
+                                  {cp.type === "image" ? (
+                                    <div className="space-y-1">
+                                      {cp.value && <img src={cp.value} alt="" className="w-24 h-24 object-cover rounded border" />}
+                                      <Input type="file" accept="image/*" onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+                                        const ext = file.name.split(".").pop() || "jpg";
+                                        const path = `custom/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+                                        const { error } = await supabase.storage.from("cast-photos").upload(path, file);
+                                        if (error) { toast({ variant: "destructive", title: "アップロード失敗", description: error.message }); return; }
+                                        const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(path);
+                                        updateCp({ value: publicUrl });
+                                      }} />
+                                    </div>
+                                  ) : (
+                                    <Input
+                                      type={cp.type === "link" ? "url" : "text"}
+                                      placeholder={cp.type === "link" ? "https://..." : "値"}
+                                      value={cp.value || ""}
+                                      onChange={(e) => updateCp({ value: e.target.value })}
+                                    />
+                                  )}
+                                </div>
+                                <Button type="button" variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={removeCp}>
+                                  <Trash2 size={14} />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                          {(!editingCast.custom_properties || editingCast.custom_properties.length === 0) && (
+                            <p className="text-xs text-muted-foreground text-center py-2">上の「+」ボタンで項目を追加できます</p>
+                          )}
+                        </div>
+                      </div>
 
                   </div>
                   
