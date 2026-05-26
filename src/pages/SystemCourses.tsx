@@ -17,6 +17,7 @@ interface BackRate {
   duration: number;
   customer_price: number;
   therapist_back?: number;
+  shop_back?: number;
 }
 
 export default function SystemCourses() {
@@ -92,6 +93,32 @@ export default function SystemCourses() {
     } catch (error) {
       console.error("Error deleting rate:", error);
       toast.error("削除に失敗しました");
+    }
+  };
+
+  const handleUpdateRate = async (id: string, patch: Partial<BackRate>) => {
+    setRates((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    const { error } = await supabase.from("back_rates").update(patch).eq("id", id);
+    if (error) {
+      toast.error("更新に失敗しました");
+      fetchRates();
+    }
+  };
+
+  const handleRenameType = async (oldType: string, newType: string) => {
+    const trimmed = newType.trim();
+    if (!trimmed || trimmed === oldType) return;
+    setRates((prev) => prev.map((r) => (r.course_type === oldType ? { ...r, course_type: trimmed } : r)));
+    const { error } = await supabase
+      .from("back_rates")
+      .update({ course_type: trimmed })
+      .eq("course_type", oldType);
+    if (error) {
+      toast.error("コース名の更新に失敗しました");
+      fetchRates();
+    } else {
+      toast.success("コース名を更新しました");
+      setExpandedTypes((prev) => prev.map((t) => (t === oldType ? trimmed : t)));
     }
   };
 
@@ -204,37 +231,62 @@ export default function SystemCourses() {
                 const isExpanded = expandedTypes.includes(type);
                 return (
                   <Card key={type}>
-                    <CardHeader
-                      className="cursor-pointer select-none"
-                      onClick={() => toggleType(type)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">{type}コース</CardTitle>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">
-                            {typeRates.length}プラン
-                          </span>
-                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    <CardHeader className="select-none">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Input
+                            defaultValue={type}
+                            onBlur={(e) => handleRenameType(type, e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                            className="font-semibold max-w-[260px]"
+                            onClick={(e) => e.stopPropagation()}
+                          />
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleType(type)}
+                          className="flex items-center gap-2 text-sm text-muted-foreground"
+                        >
+                          <span>{typeRates.length}プラン</span>
+                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
                       </div>
                     </CardHeader>
                     {isExpanded && (
                       <CardContent>
                         <div className="space-y-2">
+                          <div className="grid grid-cols-[80px_1fr_1fr_1fr_40px] gap-2 text-xs text-muted-foreground px-1">
+                            <span>時間</span>
+                            <span>料金</span>
+                            <span>セラピスト報酬</span>
+                            <span>店舗取り分</span>
+                            <span></span>
+                          </div>
                           {typeRates.map((rate) => (
                             <div
                               key={rate.id}
-                              className="flex items-center justify-between py-2 border-b border-border last:border-0"
+                              className="grid grid-cols-[80px_1fr_1fr_1fr_40px] gap-2 items-center py-1"
                             >
-                              <div className="flex gap-6 text-sm">
-                                <span className="font-medium">{rate.duration}分</span>
-                                <span>¥{rate.customer_price.toLocaleString()}</span>
-                                {rate.therapist_back !== undefined && rate.therapist_back > 0 && (
-                                  <span className="text-muted-foreground">
-                                    バック ¥{rate.therapist_back.toLocaleString()}
-                                  </span>
-                                )}
-                              </div>
+                              <Input
+                                type="number"
+                                defaultValue={rate.duration}
+                                onBlur={(e) => handleUpdateRate(rate.id, { duration: Number(e.target.value) || 0 })}
+                              />
+                              <Input
+                                type="number"
+                                defaultValue={rate.customer_price}
+                                onBlur={(e) => handleUpdateRate(rate.id, { customer_price: Number(e.target.value) || 0 })}
+                              />
+                              <Input
+                                type="number"
+                                defaultValue={rate.therapist_back ?? 0}
+                                onBlur={(e) => handleUpdateRate(rate.id, { therapist_back: Number(e.target.value) || 0 })}
+                              />
+                              <Input
+                                type="number"
+                                defaultValue={rate.shop_back ?? 0}
+                                onBlur={(e) => handleUpdateRate(rate.id, { shop_back: Number(e.target.value) || 0 })}
+                              />
                               <Button
                                 size="sm"
                                 variant="ghost"
