@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Phone, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import caskanLogo from "@/assets/caskan-logo.png";
+import { PublicNavigation } from "@/components/public/PublicNavigation";
+import { PublicFooter } from "@/components/public/PublicFooter";
+import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 
 interface BackRate {
   id: string;
@@ -68,45 +71,8 @@ export default function Pricing() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#f8f6f3" }}>
-      {/* Top Contact Bar */}
-      <div className="bg-[#d4b5a8] text-white py-2 px-4 flex justify-between items-center text-sm">
-        <div className="container mx-auto flex justify-center items-center">
-          <span>12:00〜26:00(24:40最終受付)</span>
-        </div>
-      </div>
-
-      {/* Navigation Menu */}
-      <nav className="bg-white border-y border-[#e5d5cc] sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto">
-          <div className="flex justify-center items-center flex-wrap">
-            <Link to="/" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
-              <div className="text-[#7a706c] font-semibold text-sm">TOP</div>
-              <div className="text-xs text-[#a89586]">トップ</div>
-            </Link>
-            <Link to="/schedule" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
-              <div className="text-[#7a706c] font-semibold text-sm">SCHEDULE</div>
-              <div className="text-xs text-[#a89586]">出勤情報</div>
-            </Link>
-            <Link to="/casts" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
-              <div className="text-[#7a706c] font-semibold text-sm">THERAPIST</div>
-              <div className="text-xs text-[#a89586]">セラピスト</div>
-            </Link>
-            <Link to="/system" className="px-8 py-4 bg-[#f8f6f3] transition-colors border-b-2 border-[#c49480]">
-              <div className="text-[#7a706c] font-semibold text-sm">SYSTEM</div>
-              <div className="text-xs text-[#a89586]">システム</div>
-            </Link>
-            <Link to="/access" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
-              <div className="text-[#7a706c] font-semibold text-sm">ACCESS</div>
-              <div className="text-xs text-[#a89586]">アクセス</div>
-            </Link>
-            <Link to="/booking" className="px-8 py-4 hover:bg-[#f8f6f3] transition-colors border-b-2 border-transparent hover:border-[#c49480]">
-              <div className="text-[#7a706c] font-semibold text-sm">BOOKING</div>
-              <div className="text-xs text-[#a89586]">WEB予約</div>
-            </Link>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+      <PublicNavigation />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-12 max-w-4xl">
@@ -219,6 +185,8 @@ export default function Pricing() {
           </div>
         </div>
       </main>
+      <PublicFooter />
+      <FixedBottomBar />
     </div>
   );
 }
