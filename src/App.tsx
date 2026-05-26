@@ -181,6 +181,7 @@ const App = () => (
           <Route path="/system/sms" element={<SystemSMS />} />
           <Route path="/system/sms-auto" element={<SystemSMSAuto />} />
           <Route path="/system/recommended-courses" element={<SystemRecommendedCourses />} />
+          <Route path="/system/advertising" element={<SystemAdvertising />} />
           <Route path="/database/knowledge/sns" element={<SNSDatabase />} />
           <Route path="/database/therapist/mypage" element={<TherapistMyPage />} />
           <Route path="/database/customers" element={<CustomerDatabase />} />
