@@ -88,6 +88,7 @@ import SystemAllowances from "./pages/SystemAllowances";
 import SystemSMS from "./pages/SystemSMS";
 import SystemSMSAuto from "./pages/SystemSMSAuto";
 import SystemRecommendedCourses from "./pages/SystemRecommendedCourses";
+import SystemAdvertising from "./pages/SystemAdvertising";
 import TherapistCheckout from "./pages/TherapistCheckout";
 import SNSDatabase from "./pages/SNSDatabase";
 import TherapistMyPage from "./pages/TherapistMyPage";
