@@ -322,30 +322,39 @@ const Top = () => {
                         </Link>
                       )}
                       {(() => {
-                        const t = earliestToday(c.id);
-                        if (!t) return null;
+                        const slots = slotsToday(c.id);
+                        if (slots.length === 0) return null;
                         return (
-                          <div className="mt-2 flex items-center gap-2 rounded-xl border border-[#c49480]/40 bg-[#c49480]/5 px-3 py-2">
-                            <Clock size={14} className="text-[#c49480] flex-shrink-0" />
-                            <div className="flex-1 text-[13px]">
-                              <span className="text-white/60">本日最短</span>{" "}
-                              <span className="font-bold text-white">{t}〜</span>
+                          <div className="mt-2 -mx-1">
+                            <div className="flex items-center gap-1 px-1 mb-1 text-[11px] text-white/50">
+                              <Clock size={12} className="text-[#c49480]" />
+                              <span>本日の空き状況（タップで予約）</span>
                             </div>
-                            <button
-                              onClick={() => quickBook(c.id, t)}
-                              className="px-3 py-1 rounded-full bg-[#c49480] hover:bg-[#a87b65] text-white text-[12px] font-bold whitespace-nowrap transition-colors"
-                            >
-                              60分で予約
-                            </button>
+                            <div className="flex gap-1.5 overflow-x-auto pb-1 px-1 scrollbar-thin">
+                              {slots.map((s) => (
+                                <button
+                                  key={s.time}
+                                  disabled={!s.available}
+                                  onClick={() =>
+                                    s.available &&
+                                    setSlotModal({ castId: c.id, castName: c.name, time: s.time })
+                                  }
+                                  className={`flex-shrink-0 flex flex-col items-center justify-center w-12 py-1.5 rounded-lg border text-[11px] transition-colors ${
+                                    s.available
+                                      ? "border-[#c49480]/60 bg-[#c49480]/10 hover:bg-[#c49480]/25 text-white"
+                                      : "border-white/10 bg-white/[0.02] text-white/30 cursor-not-allowed"
+                                  }`}
+                                >
+                                  <span className="font-bold leading-tight">{s.time}</span>
+                                  <span className={`text-[13px] leading-tight ${s.available ? "text-[#c49480]" : ""}`}>
+                                    {s.available ? "○" : "×"}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         );
                       })()}
-                      <div className="mt-2 flex items-center justify-between max-w-xs text-white/50 text-xs">
-                        <button className="flex items-center gap-1.5 hover:text-[#1d9bf0] transition-colors"><Reply size={16} /></button>
-                        <button className="flex items-center gap-1.5 hover:text-green-500 transition-colors"><Repeat2 size={16} /></button>
-                        <button className="flex items-center gap-1.5 hover:text-pink-500 transition-colors"><Heart size={16} /></button>
-                        <button className="flex items-center gap-1.5 hover:text-[#1d9bf0] transition-colors"><Share size={16} /></button>
-                      </div>
                     </div>
                   </div>
                 </article>
