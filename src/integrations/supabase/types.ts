@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      advertising_costs: {
+        Row: {
+          clicks: number
+          conversions: number
+          cost: number
+          created_at: string
+          date: string
+          id: string
+          impressions: number
+          platform: string
+          updated_at: string
+        }
+        Insert: {
+          clicks?: number
+          conversions?: number
+          cost?: number
+          created_at?: string
+          date: string
+          id?: string
+          impressions?: number
+          platform?: string
+          updated_at?: string
+        }
+        Update: {
+          clicks?: number
+          conversions?: number
+          cost?: number
+          created_at?: string
+          date?: string
+          id?: string
+          impressions?: number
+          platform?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      allowances: {
+        Row: {
+          allowance_type: string
+          amount: number
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          allowance_type?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          allowance_type?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       back_rates: {
         Row: {
           course_type: string
@@ -113,6 +179,36 @@ export type Database = {
         }
         Relationships: []
       }
+      card_sales: {
+        Row: {
+          amount: number
+          card_type: string
+          created_at: string
+          date: string
+          id: string
+          transaction_count: number
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          card_type?: string
+          created_at?: string
+          date: string
+          id?: string
+          transaction_count?: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          card_type?: string
+          created_at?: string
+          date?: string
+          id?: string
+          transaction_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cast_access_tokens: {
         Row: {
           access_token: string
@@ -141,6 +237,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      cast_messages: {
+        Row: {
+          cast_id: string
+          created_at: string
+          id: string
+          message: string
+          sender_name: string
+        }
+        Insert: {
+          cast_id: string
+          created_at?: string
+          id?: string
+          message: string
+          sender_name?: string
+        }
+        Update: {
+          cast_id?: string
+          created_at?: string
+          id?: string
+          message?: string
+          sender_name?: string
+        }
+        Relationships: []
       }
       cast_posts: {
         Row: {
@@ -384,6 +504,72 @@ export type Database = {
         }
         Relationships: []
       }
+      cleaning_checklists: {
+        Row: {
+          cast_id: string | null
+          created_at: string
+          date: string
+          details: Json | null
+          id: string
+          notes: string | null
+          submitted_by: string | null
+        }
+        Insert: {
+          cast_id?: string | null
+          created_at?: string
+          date: string
+          details?: Json | null
+          id?: string
+          notes?: string | null
+          submitted_by?: string | null
+        }
+        Update: {
+          cast_id?: string | null
+          created_at?: string
+          date?: string
+          details?: Json | null
+          id?: string
+          notes?: string | null
+          submitted_by?: string | null
+        }
+        Relationships: []
+      }
+      closings: {
+        Row: {
+          closed_at: string
+          created_at: string
+          id: string
+          notes: string | null
+          period_date: string
+          period_type: string
+          total_reservations: number
+          total_sales: number
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          period_date: string
+          period_type: string
+          total_reservations?: number
+          total_sales?: number
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          period_date?: string
+          period_type?: string
+          total_reservations?: number
+          total_sales?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customer_ng_casts: {
         Row: {
           cast_id: string
@@ -461,6 +647,159 @@ export type Database = {
           total_spent?: number
           updated_at?: string
           visit_count?: number
+        }
+        Relationships: []
+      }
+      daily_feedback: {
+        Row: {
+          cast_id: string | null
+          created_at: string
+          customer_feedback: string | null
+          date: string
+          details: Json | null
+          id: string
+          rating: number | null
+          submitted_by: string | null
+        }
+        Insert: {
+          cast_id?: string | null
+          created_at?: string
+          customer_feedback?: string | null
+          date: string
+          details?: Json | null
+          id?: string
+          rating?: number | null
+          submitted_by?: string | null
+        }
+        Update: {
+          cast_id?: string | null
+          created_at?: string
+          customer_feedback?: string | null
+          date?: string
+          details?: Json | null
+          id?: string
+          rating?: number | null
+          submitted_by?: string | null
+        }
+        Relationships: []
+      }
+      daily_sales_records: {
+        Row: {
+          card_amount: number
+          cash_amount: number
+          created_at: string
+          date: string
+          id: string
+          paypay_amount: number
+          submitted_by: string | null
+          total_amount: number
+        }
+        Insert: {
+          card_amount?: number
+          cash_amount?: number
+          created_at?: string
+          date: string
+          id?: string
+          paypay_amount?: number
+          submitted_by?: string | null
+          total_amount?: number
+        }
+        Update: {
+          card_amount?: number
+          cash_amount?: number
+          created_at?: string
+          date?: string
+          id?: string
+          paypay_amount?: number
+          submitted_by?: string | null
+          total_amount?: number
+        }
+        Relationships: []
+      }
+      daily_sales_targets: {
+        Row: {
+          actual_amount: number
+          created_at: string
+          date: string
+          id: string
+          target_amount: number
+          updated_at: string
+        }
+        Insert: {
+          actual_amount?: number
+          created_at?: string
+          date: string
+          id?: string
+          target_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          actual_amount?: number
+          created_at?: string
+          date?: string
+          id?: string
+          target_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      deductions: {
+        Row: {
+          amount: number
+          created_at: string
+          deduction_type: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          deduction_type?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          deduction_type?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      discounts: {
+        Row: {
+          created_at: string
+          discount_type: string
+          discount_value: number
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -880,6 +1219,30 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_documents: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       monthly_reports: {
         Row: {
           created_at: string
@@ -909,6 +1272,33 @@ export type Database = {
           revenue?: number | null
           target_amount?: number | null
           target_revenue?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      monthly_sales_targets: {
+        Row: {
+          created_at: string
+          id: string
+          month_date: string
+          target_amount: number
+          target_revenue: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          month_date: string
+          target_amount?: number
+          target_revenue?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          month_date?: string
+          target_amount?: number
+          target_revenue?: number
           updated_at?: string
         }
         Relationships: []
@@ -1033,6 +1423,63 @@ export type Database = {
         }
         Relationships: []
       }
+      paypay_sales: {
+        Row: {
+          amount: number
+          created_at: string
+          date: string
+          id: string
+          transaction_count: number
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          date: string
+          id?: string
+          transaction_count?: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          date?: string
+          id?: string
+          transaction_count?: number
+        }
+        Relationships: []
+      }
+      price_analysis: {
+        Row: {
+          created_at: string
+          id: string
+          percentage: number
+          price: number
+          sales_count: number
+          service_name: string
+          total_revenue: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          percentage?: number
+          price?: number
+          sales_count?: number
+          service_name: string
+          total_revenue?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          percentage?: number
+          price?: number
+          sales_count?: number
+          service_name?: string
+          total_revenue?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pricing: {
         Row: {
           course_type: string
@@ -1114,6 +1561,39 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      referral_fees: {
+        Row: {
+          commission_rate: number
+          created_at: string
+          customer_name: string
+          date: string
+          fee: number
+          id: string
+          referrer_name: string
+          sales_amount: number
+        }
+        Insert: {
+          commission_rate?: number
+          created_at?: string
+          customer_name?: string
+          date: string
+          fee?: number
+          id?: string
+          referrer_name?: string
+          sales_amount?: number
+        }
+        Update: {
+          commission_rate?: number
+          created_at?: string
+          customer_name?: string
+          date?: string
+          fee?: number
+          id?: string
+          referrer_name?: string
+          sales_amount?: number
         }
         Relationships: []
       }
@@ -1243,64 +1723,124 @@ export type Database = {
       }
       rooms: {
         Row: {
+          access: string | null
           address: string | null
           amenities: string[] | null
           capacity: number | null
+          cast_guide: string | null
+          cleaning_manual: string | null
           created_at: string
           description: string | null
+          display_name: string | null
+          email_text: string | null
           entry_flow: string | null
           equipment_costumes: string | null
           equipment_placement: string | null
           floor: string | null
           garbage_disposal: string | null
           id: string
+          internal_notes: string | null
           is_active: boolean
           key_info: string | null
+          map_address: string | null
+          map_url: string | null
           name: string
+          reset_procedure: string | null
           room_photos: string[] | null
           room_type: string | null
           rules: string | null
+          sms_text: string | null
           updated_at: string
         }
         Insert: {
+          access?: string | null
           address?: string | null
           amenities?: string[] | null
           capacity?: number | null
+          cast_guide?: string | null
+          cleaning_manual?: string | null
           created_at?: string
           description?: string | null
+          display_name?: string | null
+          email_text?: string | null
           entry_flow?: string | null
           equipment_costumes?: string | null
           equipment_placement?: string | null
           floor?: string | null
           garbage_disposal?: string | null
           id?: string
+          internal_notes?: string | null
           is_active?: boolean
           key_info?: string | null
+          map_address?: string | null
+          map_url?: string | null
           name: string
+          reset_procedure?: string | null
           room_photos?: string[] | null
           room_type?: string | null
           rules?: string | null
+          sms_text?: string | null
           updated_at?: string
         }
         Update: {
+          access?: string | null
           address?: string | null
           amenities?: string[] | null
           capacity?: number | null
+          cast_guide?: string | null
+          cleaning_manual?: string | null
           created_at?: string
           description?: string | null
+          display_name?: string | null
+          email_text?: string | null
           entry_flow?: string | null
           equipment_costumes?: string | null
           equipment_placement?: string | null
           floor?: string | null
           garbage_disposal?: string | null
           id?: string
+          internal_notes?: string | null
           is_active?: boolean
           key_info?: string | null
+          map_address?: string | null
+          map_url?: string | null
           name?: string
+          reset_procedure?: string | null
           room_photos?: string[] | null
           room_type?: string | null
           rules?: string | null
+          sms_text?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sales_expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          date: string
+          description: string | null
+          id: string
+          payment_method: string | null
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          created_at?: string
+          date?: string
+          description?: string | null
+          id?: string
+          payment_method?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          date?: string
+          description?: string | null
+          id?: string
+          payment_method?: string | null
         }
         Relationships: []
       }
@@ -1420,6 +1960,285 @@ export type Database = {
           shop_phone?: string | null
           updated_at?: string
           updated_by?: string
+        }
+        Relationships: []
+      }
+      sms_auto_templates: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          message: string
+          name: string
+          timing_minutes: number
+          trigger: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          message?: string
+          name: string
+          timing_minutes?: number
+          trigger?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          message?: string
+          name?: string
+          timing_minutes?: number
+          trigger?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sms_logs: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          phone: string
+          sent_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          phone: string
+          sent_at?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          phone?: string
+          sent_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      sns_accounts: {
+        Row: {
+          category: string
+          created_at: string
+          email: string | null
+          id: string
+          login_id: string | null
+          login_password: string | null
+          management_url: string | null
+          name: string
+          profile_link: string | null
+          published_to_hp: boolean
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          login_id?: string | null
+          login_password?: string | null
+          management_url?: string | null
+          name: string
+          profile_link?: string | null
+          published_to_hp?: boolean
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          login_id?: string | null
+          login_password?: string | null
+          management_url?: string | null
+          name?: string
+          profile_link?: string | null
+          published_to_hp?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      store_info: {
+        Row: {
+          address: string | null
+          created_at: string
+          description: string | null
+          email: string | null
+          holiday: string | null
+          hours: string | null
+          id: string
+          lat: number | null
+          line_url: string | null
+          lng: number | null
+          name: string
+          phone: string | null
+          twitter_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          description?: string | null
+          email?: string | null
+          holiday?: string | null
+          hours?: string | null
+          id?: string
+          lat?: number | null
+          line_url?: string | null
+          lng?: number | null
+          name?: string
+          phone?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          description?: string | null
+          email?: string | null
+          holiday?: string | null
+          hours?: string | null
+          id?: string
+          lat?: number | null
+          line_url?: string | null
+          lng?: number | null
+          name?: string
+          phone?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      text_templates: {
+        Row: {
+          color: string
+          content: string | null
+          created_at: string
+          display_order: number
+          id: string
+          is_folder: boolean
+          label: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          content?: string | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_folder?: boolean
+          label: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          content?: string | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_folder?: boolean
+          label?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      therapist_profiles: {
+        Row: {
+          career_history: string | null
+          cast_id: string
+          comment: string | null
+          created_at: string
+          customer_age_range: string | null
+          id: string
+          love_type: string | null
+          massage_skills: string | null
+          mbti: string | null
+          preferred_type: string | null
+          self_introduction: string | null
+          sns_operation_notes: string | null
+          special_skills: string | null
+          tags: string[] | null
+          training_count: number | null
+          updated_at: string
+          weight: number | null
+        }
+        Insert: {
+          career_history?: string | null
+          cast_id: string
+          comment?: string | null
+          created_at?: string
+          customer_age_range?: string | null
+          id?: string
+          love_type?: string | null
+          massage_skills?: string | null
+          mbti?: string | null
+          preferred_type?: string | null
+          self_introduction?: string | null
+          sns_operation_notes?: string | null
+          special_skills?: string | null
+          tags?: string[] | null
+          training_count?: number | null
+          updated_at?: string
+          weight?: number | null
+        }
+        Update: {
+          career_history?: string | null
+          cast_id?: string
+          comment?: string | null
+          created_at?: string
+          customer_age_range?: string | null
+          id?: string
+          love_type?: string | null
+          massage_skills?: string | null
+          mbti?: string | null
+          preferred_type?: string | null
+          self_introduction?: string | null
+          sns_operation_notes?: string | null
+          special_skills?: string | null
+          tags?: string[] | null
+          training_count?: number | null
+          updated_at?: string
+          weight?: number | null
+        }
+        Relationships: []
+      }
+      therapist_sales: {
+        Row: {
+          average_visit_price: number
+          created_at: string
+          id: string
+          name: string
+          total_sales: number
+          updated_at: string
+          visit_count: number
+        }
+        Insert: {
+          average_visit_price?: number
+          created_at?: string
+          id?: string
+          name: string
+          total_sales?: number
+          updated_at?: string
+          visit_count?: number
+        }
+        Update: {
+          average_visit_price?: number
+          created_at?: string
+          id?: string
+          name?: string
+          total_sales?: number
+          updated_at?: string
+          visit_count?: number
         }
         Relationships: []
       }
