@@ -55,7 +55,7 @@ export default function SystemDeductions() {
     try {
       const { data, error } = await supabase.from("deductions").select("*").order("name");
       if (error && error.code !== "PGRST116") throw error;
-      setDeductions(data || []);
+      setDeductions(((data as any) || []) as Deduction[]);
     } catch (error) {
       console.error("Error fetching deductions:", error);
     } finally {

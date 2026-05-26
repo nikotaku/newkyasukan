@@ -109,8 +109,8 @@ export default function TherapistDatabase() {
         supabase.from("casts").select(
           "id,name,photo,age,height,bust,cup_size,waist,hip,blood_type,therapist_years,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,message,profile,x_account,line_url,litlink_url,o2_url,format_type"
         ).order("name"),
-        supabase.from("therapist_profiles" as any).select("*"),
-        supabase.rpc("get_cast_access_tokens").catch(() => ({ data: null })),
+        supabase.from("therapist_profiles").select("*"),
+        Promise.resolve(await supabase.rpc("get_cast_access_tokens")).catch(() => ({ data: null })),
       ]);
       setCasts(castsRes.data || []);
       const map: Record<string, InternalProfile> = {};

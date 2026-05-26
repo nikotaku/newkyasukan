@@ -38,11 +38,12 @@ const Access = () => {
   }, []);
 
   useEffect(() => {
-    supabase
-      .from("store_info")
-      .select("name, address, phone, hours, holiday, twitter_url, line_url")
-      .single()
-      .then(({ data }) => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("store_info")
+          .select("name, address, phone, hours, holiday, twitter_url, line_url")
+          .single();
         if (data) {
           setStore({
             name: data.name || DEFAULTS.name,
@@ -54,8 +55,8 @@ const Access = () => {
             line_url: (data as any).line_url || DEFAULTS.line_url,
           });
         }
-      })
-      .catch(() => {});
+      } catch {}
+    })();
   }, []);
 
   const phoneRaw = store.phone.replace(/[-\s]/g, "");

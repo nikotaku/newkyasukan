@@ -350,6 +350,7 @@ export type Database = {
       }
       casts: {
         Row: {
+          access_token: string | null
           age: number | null
           blood_type: string | null
           body_type: string | null
@@ -375,14 +376,19 @@ export type Database = {
           id: string
           ideal_partner: string | null
           ideal_type: string | null
+          instagram_url: string | null
           is_active: boolean
+          is_online: boolean | null
           is_visible: boolean
           join_date: string
+          line_url: string | null
+          litlink_url: string | null
           marks: string[] | null
           media_registration: string[] | null
           memo: string | null
           message: string | null
           name: string
+          o2_url: string | null
           photo: string | null
           photos: string[] | null
           profile: string | null
@@ -394,13 +400,16 @@ export type Database = {
           status: string
           tags: string[] | null
           therapist_years: number | null
+          tiktok_url: string | null
           type: string
           updated_at: string
           upload_check: string | null
           waist: number | null
           x_account: string | null
+          x_url: string | null
         }
         Insert: {
+          access_token?: string | null
           age?: number | null
           blood_type?: string | null
           body_type?: string | null
@@ -426,14 +435,19 @@ export type Database = {
           id?: string
           ideal_partner?: string | null
           ideal_type?: string | null
+          instagram_url?: string | null
           is_active?: boolean
+          is_online?: boolean | null
           is_visible?: boolean
           join_date?: string
+          line_url?: string | null
+          litlink_url?: string | null
           marks?: string[] | null
           media_registration?: string[] | null
           memo?: string | null
           message?: string | null
           name: string
+          o2_url?: string | null
           photo?: string | null
           photos?: string[] | null
           profile?: string | null
@@ -445,13 +459,16 @@ export type Database = {
           status?: string
           tags?: string[] | null
           therapist_years?: number | null
+          tiktok_url?: string | null
           type: string
           updated_at?: string
           upload_check?: string | null
           waist?: number | null
           x_account?: string | null
+          x_url?: string | null
         }
         Update: {
+          access_token?: string | null
           age?: number | null
           blood_type?: string | null
           body_type?: string | null
@@ -477,14 +494,19 @@ export type Database = {
           id?: string
           ideal_partner?: string | null
           ideal_type?: string | null
+          instagram_url?: string | null
           is_active?: boolean
+          is_online?: boolean | null
           is_visible?: boolean
           join_date?: string
+          line_url?: string | null
+          litlink_url?: string | null
           marks?: string[] | null
           media_registration?: string[] | null
           memo?: string | null
           message?: string | null
           name?: string
+          o2_url?: string | null
           photo?: string | null
           photos?: string[] | null
           profile?: string | null
@@ -496,11 +518,13 @@ export type Database = {
           status?: string
           tags?: string[] | null
           therapist_years?: number | null
+          tiktok_url?: string | null
           type?: string
           updated_at?: string
           upload_check?: string | null
           waist?: number | null
           x_account?: string | null
+          x_url?: string | null
         }
         Relationships: []
       }
@@ -607,8 +631,10 @@ export type Database = {
           ban_reason: string | null
           created_at: string
           email: string | null
+          first_visit_date: string | null
           id: string
           is_banned: boolean
+          last_visit_date: string | null
           last_visited: string | null
           name: string
           notes: string | null
@@ -622,8 +648,10 @@ export type Database = {
           ban_reason?: string | null
           created_at?: string
           email?: string | null
+          first_visit_date?: string | null
           id?: string
           is_banned?: boolean
+          last_visit_date?: string | null
           last_visited?: string | null
           name?: string
           notes?: string | null
@@ -637,8 +665,10 @@ export type Database = {
           ban_reason?: string | null
           created_at?: string
           email?: string | null
+          first_visit_date?: string | null
           id?: string
           is_banned?: boolean
+          last_visit_date?: string | null
           last_visited?: string | null
           name?: string
           notes?: string | null
@@ -1246,32 +1276,50 @@ export type Database = {
       monthly_reports: {
         Row: {
           created_at: string
+          customer_count: number | null
+          discount: number | null
           gross_profit: number | null
           id: string
           month_date: string
+          new_customers: number | null
+          repeat_customers: number | null
           revenue: number | null
+          session_count: number | null
           target_amount: number | null
           target_revenue: number | null
+          therapist_pay: number | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          customer_count?: number | null
+          discount?: number | null
           gross_profit?: number | null
           id?: string
           month_date: string
+          new_customers?: number | null
+          repeat_customers?: number | null
           revenue?: number | null
+          session_count?: number | null
           target_amount?: number | null
           target_revenue?: number | null
+          therapist_pay?: number | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          customer_count?: number | null
+          discount?: number | null
           gross_profit?: number | null
           id?: string
           month_date?: string
+          new_customers?: number | null
+          repeat_customers?: number | null
           revenue?: number | null
+          session_count?: number | null
           target_amount?: number | null
           target_revenue?: number | null
+          therapist_pay?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -1607,6 +1655,7 @@ export type Database = {
           customer_email: string | null
           customer_name: string
           customer_phone: string
+          discount_ids: string[] | null
           duration: number
           id: string
           nomination_type: string | null
@@ -1630,6 +1679,7 @@ export type Database = {
           customer_email?: string | null
           customer_name: string
           customer_phone: string
+          discount_ids?: string[] | null
           duration?: number
           id?: string
           nomination_type?: string | null
@@ -1653,6 +1703,7 @@ export type Database = {
           customer_email?: string | null
           customer_name?: string
           customer_phone?: string
+          discount_ids?: string[] | null
           duration?: number
           id?: string
           nomination_type?: string | null
@@ -2159,6 +2210,7 @@ export type Database = {
           comment: string | null
           created_at: string
           customer_age_range: string | null
+          hobbies: string | null
           id: string
           love_type: string | null
           massage_skills: string | null
@@ -2178,6 +2230,7 @@ export type Database = {
           comment?: string | null
           created_at?: string
           customer_age_range?: string | null
+          hobbies?: string | null
           id?: string
           love_type?: string | null
           massage_skills?: string | null
@@ -2197,6 +2250,7 @@ export type Database = {
           comment?: string | null
           created_at?: string
           customer_age_range?: string | null
+          hobbies?: string | null
           id?: string
           love_type?: string | null
           massage_skills?: string | null
@@ -2210,7 +2264,15 @@ export type Database = {
           updated_at?: string
           weight?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "therapist_profiles_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: true
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       therapist_sales: {
         Row: {
