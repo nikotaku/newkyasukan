@@ -116,14 +116,16 @@ function parseCSV(text: string): string[][] {
 
 async function readFileAsText(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
-  // Try Shift-JIS first (files from caskan are Shift-JIS encoded)
+  // UTF-8 (strict) first — throws on invalid sequences
   try {
-    const decoder = new TextDecoder("shift_jis");
-    const text = decoder.decode(buffer);
-    // Sanity check: if result has replacement chars, fall back to UTF-8
-    if (!text.includes("�")) return text;
+    return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
   } catch {
-    // ignore
+    // Not valid UTF-8 → try Shift-JIS (caskan default)
+  }
+  try {
+    return new TextDecoder("shift_jis").decode(buffer);
+  } catch {
+    // last resort
   }
   return new TextDecoder("utf-8").decode(buffer);
 }
@@ -135,6 +137,8 @@ export default function ReservationImport() {
   const [importing, setImporting] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
   const [fileName, setFileName] = useState("");
+  const [parseError, setParseError] = useState("");
+  const [detectedHeaders, setDetectedHeaders] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { user, loading: authLoading } = useAuth();
@@ -159,16 +163,27 @@ export default function ReservationImport() {
     setFileName(file.name);
     setParsed([]);
     setImportedCount(0);
+    setParseError("");
+    setDetectedHeaders([]);
 
     const text = await readFileAsText(file);
     const cleaned = text.replace(/^﻿/, ""); // strip BOM
     const rows = parseCSV(cleaned);
     if (rows.length < 2) {
-      toast.error("データが見つかりません");
+      setParseError("データが見つかりません（行数が足りません）");
       return;
     }
 
     const headers = rows[0].map((h) => h.trim());
+    setDetectedHeaders(headers);
+
+    const REQUIRED = ["開始日時", "氏名", "キャスト", "コース"];
+    const missing = REQUIRED.filter((h) => !headers.includes(h));
+    if (missing.length > 0) {
+      setParseError(`列が見つかりません: ${missing.join(", ")}\n検出された列: ${headers.slice(0, 8).join(", ")}...`);
+      return;
+    }
+
     const getCol = (row: string[], name: string) => (row[headers.indexOf(name)] || "").trim();
 
     const result: ParsedRow[] = [];
@@ -297,6 +312,19 @@ export default function ReservationImport() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Parse error */}
+          {parseError && (
+            <Card className="mb-6 border-red-200 bg-red-50">
+              <CardContent className="pt-4 flex items-start gap-3">
+                <AlertCircle size={18} className="text-red-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-red-800 font-medium text-sm">ファイルの読み込みに失敗しました</p>
+                  <p className="text-red-700 text-xs mt-1 whitespace-pre-wrap">{parseError}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {parsed.length > 0 && (
             <>
