@@ -273,8 +273,9 @@ export default function Reservations() {
         title: "予約追加",
         description: "新しい予約が追加されました",
       });
-      
+
       setIsAddDialogOpen(false);
+      fetchReservations();
       setFormData({
         cast_id: "",
         customer_name: "",
