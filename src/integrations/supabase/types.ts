@@ -364,6 +364,86 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_ng_casts: {
+        Row: {
+          cast_id: string
+          created_at: string
+          customer_id: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          cast_id: string
+          created_at?: string
+          customer_id: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          cast_id?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_ng_casts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          ban_reason: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_banned: boolean
+          last_visited: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          tags: string[] | null
+          total_spent: number
+          updated_at: string
+          visit_count: number
+        }
+        Insert: {
+          ban_reason?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_banned?: boolean
+          last_visited?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          tags?: string[] | null
+          total_spent?: number
+          updated_at?: string
+          visit_count?: number
+        }
+        Update: {
+          ban_reason?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_banned?: boolean
+          last_visited?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          tags?: string[] | null
+          total_spent?: number
+          updated_at?: string
+          visit_count?: number
+        }
+        Relationships: []
+      }
       expense_rates: {
         Row: {
           created_at: string
@@ -441,6 +521,162 @@ export type Database = {
           },
         ]
       }
+      hp_analytics_daily: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          page_views: number
+          unique_visitors: number
+          updated_at: string
+          visits: number
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          page_views?: number
+          unique_visitors?: number
+          updated_at?: string
+          visits?: number
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          page_views?: number
+          unique_visitors?: number
+          updated_at?: string
+          visits?: number
+        }
+        Relationships: []
+      }
+      hp_analytics_hourly: {
+        Row: {
+          created_at: string
+          hour: number
+          id: string
+          unique_visitors: number
+          updated_at: string
+          visits: number
+        }
+        Insert: {
+          created_at?: string
+          hour: number
+          id?: string
+          unique_visitors?: number
+          updated_at?: string
+          visits?: number
+        }
+        Update: {
+          created_at?: string
+          hour?: number
+          id?: string
+          unique_visitors?: number
+          updated_at?: string
+          visits?: number
+        }
+        Relationships: []
+      }
+      hp_analytics_pages: {
+        Row: {
+          avg_stay_seconds: number
+          created_at: string
+          id: string
+          page_path: string
+          page_title: string | null
+          updated_at: string
+          views: number
+          visit_count: number
+        }
+        Insert: {
+          avg_stay_seconds?: number
+          created_at?: string
+          id?: string
+          page_path: string
+          page_title?: string | null
+          updated_at?: string
+          views?: number
+          visit_count?: number
+        }
+        Update: {
+          avg_stay_seconds?: number
+          created_at?: string
+          id?: string
+          page_path?: string
+          page_title?: string | null
+          updated_at?: string
+          views?: number
+          visit_count?: number
+        }
+        Relationships: []
+      }
+      hp_analytics_traffic: {
+        Row: {
+          conversion_rate: number
+          created_at: string
+          id: string
+          medium: string
+          source: string
+          unique_visitors: number
+          updated_at: string
+          visits: number
+        }
+        Insert: {
+          conversion_rate?: number
+          created_at?: string
+          id?: string
+          medium?: string
+          source: string
+          unique_visitors?: number
+          updated_at?: string
+          visits?: number
+        }
+        Update: {
+          conversion_rate?: number
+          created_at?: string
+          id?: string
+          medium?: string
+          source?: string
+          unique_visitors?: number
+          updated_at?: string
+          visits?: number
+        }
+        Relationships: []
+      }
+      hp_articles: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          id: string
+          is_published: boolean
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       knowledge_articles: {
         Row: {
           category: string
@@ -473,6 +709,39 @@ export type Database = {
           is_pinned?: boolean
           tags?: string[] | null
           title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      monthly_reports: {
+        Row: {
+          created_at: string
+          gross_profit: number | null
+          id: string
+          month_date: string
+          revenue: number | null
+          target_amount: number | null
+          target_revenue: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          gross_profit?: number | null
+          id?: string
+          month_date: string
+          revenue?: number | null
+          target_amount?: number | null
+          target_revenue?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          gross_profit?: number | null
+          id?: string
+          month_date?: string
+          revenue?: number | null
+          target_amount?: number | null
+          target_revenue?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -995,6 +1264,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      record_page_view: { Args: { p_path: string }; Returns: undefined }
       set_cast_access_token: {
         Args: { p_cast_id: string; p_token: string }
         Returns: undefined
