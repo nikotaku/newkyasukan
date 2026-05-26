@@ -152,14 +152,15 @@ export default function SystemDeductions() {
               {deductions.map((deduction) => (
                 <Card key={deduction.id}>
                   <CardContent className="pt-4">
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
                         <div className="font-semibold">{deduction.name}</div>
                         <p className="text-sm text-muted-foreground">
                           {deduction.deduction_type === "fixed"
                             ? `¥${(deduction.amount || 0).toLocaleString()}`
                             : `${deduction.amount || 0}%`}
                         </p>
+                        {deduction.rule && <div className="text-sm mt-1 whitespace-pre-wrap">{deduction.rule}</div>}
                       </div>
                       <Button size="sm" variant="ghost" onClick={() => handleDelete(deduction.id)}>
                         <Trash2 size={14} />
