@@ -325,33 +325,46 @@ const Top = () => {
                         const slots = slotsToday(c.id);
                         if (slots.length === 0) return null;
                         return (
-                          <div className="mt-2 -mx-1">
-                            <div className="flex items-center gap-1 px-1 mb-1 text-[11px] text-white/50">
-                              <Clock size={12} className="text-[#c49480]" />
-                              <span>本日の空き状況（タップで予約）</span>
-                            </div>
-                            <div className="flex gap-1.5 overflow-x-auto pb-1 px-1 scrollbar-thin">
-                              {slots.map((s) => (
-                                <button
-                                  key={s.time}
-                                  disabled={!s.available}
-                                  onClick={() =>
-                                    s.available &&
-                                    setSlotModal({ castId: c.id, castName: c.name, time: s.time })
-                                  }
-                                  className={`flex-shrink-0 flex flex-col items-center justify-center w-12 py-1.5 rounded-lg border text-[11px] transition-colors ${
-                                    s.available
-                                      ? "border-[#c49480]/60 bg-[#c49480]/10 hover:bg-[#c49480]/25 text-white"
-                                      : "border-white/10 bg-white/[0.02] text-white/30 cursor-not-allowed"
-                                  }`}
-                                >
-                                  <span className="font-bold leading-tight">{s.time}</span>
-                                  <span className={`text-[13px] leading-tight ${s.available ? "text-[#c49480]" : ""}`}>
-                                    {s.available ? "○" : "×"}
-                                  </span>
-                                </button>
-                              ))}
-                            </div>
+                          <div className="mt-2 -mx-1 overflow-x-auto scrollbar-thin">
+                            <table className="border-separate border-spacing-0 bg-white text-gray-700 rounded-md overflow-hidden">
+                              <thead>
+                                <tr>
+                                  {slots.map((s) => (
+                                    <th
+                                      key={s.time}
+                                      className="px-3 py-1.5 text-[12px] font-medium bg-gray-100 border-b border-gray-200 whitespace-nowrap"
+                                    >
+                                      {s.time}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  {slots.map((s) => (
+                                    <td
+                                      key={s.time}
+                                      className="px-3 py-2 text-center border-r border-gray-100 last:border-r-0"
+                                    >
+                                      <button
+                                        disabled={!s.available}
+                                        onClick={() =>
+                                          s.available &&
+                                          setSlotModal({ castId: c.id, castName: c.name, time: s.time })
+                                        }
+                                        className={`text-[18px] leading-none ${
+                                          s.available
+                                            ? "text-gray-500 hover:text-[#2a8fc9]"
+                                            : "text-gray-300 cursor-not-allowed"
+                                        }`}
+                                      >
+                                        {s.available ? "○" : "×"}
+                                      </button>
+                                    </td>
+                                  ))}
+                                </tr>
+                              </tbody>
+                            </table>
                           </div>
                         );
                       })()}
