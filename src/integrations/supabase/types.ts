@@ -350,6 +350,7 @@ export type Database = {
       }
       casts: {
         Row: {
+          access_token: string | null
           age: number | null
           blood_type: string | null
           body_type: string | null
@@ -386,6 +387,7 @@ export type Database = {
           memo: string | null
           message: string | null
           name: string
+          o2_url: string | null
           photo: string | null
           photos: string[] | null
           profile: string | null
@@ -406,6 +408,7 @@ export type Database = {
           x_url: string | null
         }
         Insert: {
+          access_token?: string | null
           age?: number | null
           blood_type?: string | null
           body_type?: string | null
@@ -442,6 +445,7 @@ export type Database = {
           memo?: string | null
           message?: string | null
           name: string
+          o2_url?: string | null
           photo?: string | null
           photos?: string[] | null
           profile?: string | null
@@ -462,6 +466,7 @@ export type Database = {
           x_url?: string | null
         }
         Update: {
+          access_token?: string | null
           age?: number | null
           blood_type?: string | null
           body_type?: string | null
@@ -498,6 +503,7 @@ export type Database = {
           memo?: string | null
           message?: string | null
           name?: string
+          o2_url?: string | null
           photo?: string | null
           photos?: string[] | null
           profile?: string | null
@@ -1267,32 +1273,50 @@ export type Database = {
       monthly_reports: {
         Row: {
           created_at: string
+          customer_count: number | null
+          discount: number | null
           gross_profit: number | null
           id: string
           month_date: string
+          new_customers: number | null
+          repeat_customers: number | null
           revenue: number | null
+          session_count: number | null
           target_amount: number | null
           target_revenue: number | null
+          therapist_pay: number | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          customer_count?: number | null
+          discount?: number | null
           gross_profit?: number | null
           id?: string
           month_date: string
+          new_customers?: number | null
+          repeat_customers?: number | null
           revenue?: number | null
+          session_count?: number | null
           target_amount?: number | null
           target_revenue?: number | null
+          therapist_pay?: number | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          customer_count?: number | null
+          discount?: number | null
           gross_profit?: number | null
           id?: string
           month_date?: string
+          new_customers?: number | null
+          repeat_customers?: number | null
           revenue?: number | null
+          session_count?: number | null
           target_amount?: number | null
           target_revenue?: number | null
+          therapist_pay?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -2234,7 +2258,15 @@ export type Database = {
           updated_at?: string
           weight?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "therapist_profiles_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: true
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       therapist_sales: {
         Row: {
