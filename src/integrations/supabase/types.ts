@@ -375,9 +375,12 @@ export type Database = {
           id: string
           ideal_partner: string | null
           ideal_type: string | null
+          instagram_url: string | null
           is_active: boolean
           is_visible: boolean
           join_date: string
+          line_url: string | null
+          litlink_url: string | null
           marks: string[] | null
           media_registration: string[] | null
           memo: string | null
@@ -394,11 +397,13 @@ export type Database = {
           status: string
           tags: string[] | null
           therapist_years: number | null
+          tiktok_url: string | null
           type: string
           updated_at: string
           upload_check: string | null
           waist: number | null
           x_account: string | null
+          x_url: string | null
         }
         Insert: {
           age?: number | null
@@ -426,9 +431,12 @@ export type Database = {
           id?: string
           ideal_partner?: string | null
           ideal_type?: string | null
+          instagram_url?: string | null
           is_active?: boolean
           is_visible?: boolean
           join_date?: string
+          line_url?: string | null
+          litlink_url?: string | null
           marks?: string[] | null
           media_registration?: string[] | null
           memo?: string | null
@@ -445,11 +453,13 @@ export type Database = {
           status?: string
           tags?: string[] | null
           therapist_years?: number | null
+          tiktok_url?: string | null
           type: string
           updated_at?: string
           upload_check?: string | null
           waist?: number | null
           x_account?: string | null
+          x_url?: string | null
         }
         Update: {
           age?: number | null
@@ -477,9 +487,12 @@ export type Database = {
           id?: string
           ideal_partner?: string | null
           ideal_type?: string | null
+          instagram_url?: string | null
           is_active?: boolean
           is_visible?: boolean
           join_date?: string
+          line_url?: string | null
+          litlink_url?: string | null
           marks?: string[] | null
           media_registration?: string[] | null
           memo?: string | null
@@ -496,11 +509,13 @@ export type Database = {
           status?: string
           tags?: string[] | null
           therapist_years?: number | null
+          tiktok_url?: string | null
           type?: string
           updated_at?: string
           upload_check?: string | null
           waist?: number | null
           x_account?: string | null
+          x_url?: string | null
         }
         Relationships: []
       }
@@ -607,8 +622,10 @@ export type Database = {
           ban_reason: string | null
           created_at: string
           email: string | null
+          first_visit_date: string | null
           id: string
           is_banned: boolean
+          last_visit_date: string | null
           last_visited: string | null
           name: string
           notes: string | null
@@ -622,8 +639,10 @@ export type Database = {
           ban_reason?: string | null
           created_at?: string
           email?: string | null
+          first_visit_date?: string | null
           id?: string
           is_banned?: boolean
+          last_visit_date?: string | null
           last_visited?: string | null
           name?: string
           notes?: string | null
@@ -637,8 +656,10 @@ export type Database = {
           ban_reason?: string | null
           created_at?: string
           email?: string | null
+          first_visit_date?: string | null
           id?: string
           is_banned?: boolean
+          last_visit_date?: string | null
           last_visited?: string | null
           name?: string
           notes?: string | null
@@ -1607,6 +1628,7 @@ export type Database = {
           customer_email: string | null
           customer_name: string
           customer_phone: string
+          discount_ids: string[] | null
           duration: number
           id: string
           nomination_type: string | null
@@ -1630,6 +1652,7 @@ export type Database = {
           customer_email?: string | null
           customer_name: string
           customer_phone: string
+          discount_ids?: string[] | null
           duration?: number
           id?: string
           nomination_type?: string | null
@@ -1653,6 +1676,7 @@ export type Database = {
           customer_email?: string | null
           customer_name?: string
           customer_phone?: string
+          discount_ids?: string[] | null
           duration?: number
           id?: string
           nomination_type?: string | null
