@@ -442,6 +442,7 @@ export default function Reservations() {
                 backRates={backRates}
                 optionRates={optionRates}
                 nominationRates={nominationRates}
+                discounts={[]}
                 onSubmit={handleAddReservation}
               />
                         </div>
