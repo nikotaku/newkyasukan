@@ -17,7 +17,9 @@ interface Post {
   body: string;
   status: string;
   o2_status: string;
+  esutama_status: string;
   o2_error: string | null;
+  esutama_error: string | null;
   created_at: string;
 }
 interface Credential { site: string; login_id: string; }
@@ -40,7 +42,7 @@ export default function TherapistPostPage() {
   const [showCreds, setShowCreds] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ title: "", body: "", image_urls: "" });
-  const [credForm, setCredForm] = useState({ o2_id: "", o2_pw: "" });
+  const [credForm, setCredForm] = useState({ o2_id: "", o2_pw: "", esutama_url: "" });
 
   useEffect(() => {
     if (!token) { navigate("/"); return; }
@@ -58,7 +60,7 @@ export default function TherapistPostPage() {
   const fetchPosts = async (id: string) => {
     const { data } = await supabase
       .from("cast_posts")
-      .select("id, title, body, status, o2_status, o2_error, created_at")
+      .select("id, title, body, status, o2_status, esutama_status, o2_error, esutama_error, created_at")
       .eq("cast_id", id)
       .order("created_at", { ascending: false })
       .limit(30);
@@ -72,8 +74,9 @@ export default function TherapistPostPage() {
       .eq("cast_id", id);
     const list = (data || []) as Credential[];
     setCreds(list);
+    const eUrl = list.find(c => c.site === "esutama")?.login_id ?? "";
     const oId  = list.find(c => c.site === "o2")?.login_id ?? "";
-    setCredForm(f => ({ ...f, o2_id: oId }));
+    setCredForm(f => ({ ...f, esutama_url: eUrl, o2_id: oId }));
   };
 
   const handlePost = async () => {
@@ -100,11 +103,16 @@ export default function TherapistPostPage() {
   const handleSaveCreds = async () => {
     if (!castId) return;
     setSubmitting(true);
-    if (credForm.o2_id && credForm.o2_pw) {
-      await supabase.from("cast_site_credentials").upsert(
-        { cast_id: castId, site: "o2", login_id: credForm.o2_id, password: credForm.o2_pw },
-        { onConflict: "cast_id,site" }
-      );
+    const upserts = [
+      credForm.o2_id && credForm.o2_pw
+        ? { cast_id: castId, site: "o2", login_id: credForm.o2_id, password: credForm.o2_pw }
+        : null,
+      credForm.esutama_url
+        ? { cast_id: castId, site: "esutama", login_id: credForm.esutama_url, password: "token" }
+        : null,
+    ].filter((c): c is { cast_id: string; site: string; login_id: string; password: string } => c !== null);
+    for (const c of upserts) {
+      await supabase.from("cast_site_credentials").upsert(c, { onConflict: "cast_id,site" });
     }
     toast.success("ログイン情報を保存しました");
     setShowCreds(false);
@@ -119,6 +127,7 @@ export default function TherapistPostPage() {
   );
 
   const o2Cred = creds.find(c => c.site === "o2");
+  const esutamaCred = creds.find(c => c.site === "esutama");
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -129,7 +138,7 @@ export default function TherapistPostPage() {
           </button>
           <div className="flex-1">
             <p className="font-bold text-base">投稿管理</p>
-            <p className="text-xs text-muted-foreground">O2への投稿</p>
+            <p className="text-xs text-muted-foreground">O2・エスたまの魂への投稿</p>
           </div>
           <button onClick={() => setShowCreds(true)} className="text-muted-foreground hover:text-foreground">
             <Settings size={18} />
@@ -139,13 +148,18 @@ export default function TherapistPostPage() {
 
       <main className="container mx-auto px-4 py-4 max-w-2xl space-y-3">
         {/* ログイン情報の状態 */}
-        <div className={`text-xs p-2 rounded border text-center ${o2Cred ? "bg-green-50 border-green-200 text-green-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
-          O2: {o2Cred ? "✓ 設定済み" : "未設定"}
+        <div className="flex gap-2">
+          <div className={`flex-1 text-xs p-2 rounded border text-center ${o2Cred ? "bg-green-50 border-green-200 text-green-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+            O2: {o2Cred ? "✓ 設定済み" : "未設定"}
+          </div>
+          <div className={`flex-1 text-xs p-2 rounded border text-center ${esutamaCred ? "bg-green-50 border-green-200 text-green-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+            エスたま: {esutamaCred ? "✓ 設定済み" : "未設定"}
+          </div>
         </div>
 
-        {!o2Cred && (
+        {(!o2Cred || !esutamaCred) && (
           <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
-            右上の⚙️ からO2のログイン情報を登録してください（初回のみ）
+            右上の⚙️ からO2とエスたまの魂のログイン情報を登録してください（初回のみ）
           </div>
         )}
 
@@ -166,6 +180,7 @@ export default function TherapistPostPage() {
                   </div>
                   <div className="flex flex-col gap-1 items-end text-xs shrink-0">
                     <div className="flex items-center gap-1">{SITE_ICON[post.o2_status]}<span className="text-muted-foreground">O2</span></div>
+                    <div className="flex items-center gap-1">{SITE_ICON[post.esutama_status]}<span className="text-muted-foreground">エスたま</span></div>
                   </div>
                 </div>
               </div>
@@ -200,7 +215,7 @@ export default function TherapistPostPage() {
             </div>
             <Button className="w-full" onClick={handlePost} disabled={submitting}>
               {submitting ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Send size={14} className="mr-1" />}
-              O2に投稿
+              O2・エスたまに投稿
             </Button>
           </div>
         </DialogContent>
@@ -223,6 +238,18 @@ export default function TherapistPostPage() {
                   <Input type="password" value={credForm.o2_pw} onChange={e => setCredForm({ ...credForm, o2_pw: e.target.value })} placeholder="password" />
                 </div>
               </div>
+            </div>
+            <div>
+              <p className="text-sm font-semibold mb-2">エスたまの魂</p>
+              <Label className="text-xs">ログインURL（トークン付き）</Label>
+              <Input
+                value={credForm.esutama_url}
+                onChange={e => setCredForm({ ...credForm, esutama_url: e.target.value })}
+                placeholder="https://estama.jp/tamathera/login/token/..."
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                エスたまから届いたログインURLをそのまま貼り付けてください。URLを開くだけでログインできるリンクです。
+              </p>
             </div>
             <Button className="w-full" onClick={handleSaveCreds} disabled={submitting}>保存</Button>
           </div>
