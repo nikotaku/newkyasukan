@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
-import { ArrowLeft, Search, MoreHorizontal, MessageCircle, Phone, Calendar, Star, X, Heart, Repeat2, Share, MessageCircle as Reply } from "lucide-react";
+import { ArrowLeft, Search, MoreHorizontal, MessageCircle, Phone, Calendar, Star, X, Heart, Repeat2, Share, MessageCircle as Reply, Clock } from "lucide-react";
 import { SEO } from "@/components/SEO";
 import { driveImgUrl } from "@/lib/drive";
 
@@ -48,6 +48,20 @@ interface Post {
   posted_at: string | null;
 }
 
+interface TodayShift {
+  cast_id: string;
+  start_time: string;
+  end_time: string;
+}
+
+interface TodayRes {
+  cast_id: string;
+  start_time: string;
+  duration: number;
+}
+
+const TEL = "09081264042";
+
 const CastDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -60,18 +74,30 @@ const CastDetail = () => {
   const [msgSending, setMsgSending] = useState(false);
   const [msgSent, setMsgSent] = useState(false);
   const [tab, setTab] = useState<"posts" | "profile">("posts");
+  const [todayShifts, setTodayShifts] = useState<TodayShift[]>([]);
+  const [todayRes, setTodayRes] = useState<TodayRes[]>([]);
+  const [slotModal, setSlotModal] = useState<{ castId: string; castName: string; time: string } | null>(null);
 
   useEffect(() => { if (id) fetchAll(); }, [id]);
 
   const fetchAll = async () => {
     try {
-      const [castRes, postRes] = await Promise.all([
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const [castRes, postRes, shiftRes, resRes] = await Promise.all([
         supabase.from("casts").select("*").eq("id", id).single(),
         supabase.from("cast_posts").select("id,body,image_urls,created_at,posted_at").eq("cast_id", id).order("created_at", { ascending: false }).limit(20),
+        supabase.from("shifts").select("cast_id,start_time,end_time").eq("shift_date", dateStr).eq("cast_id", id),
+        supabase.rpc("get_reservation_slots", { p_date: dateStr, p_cast_id: id }),
       ]);
       if (castRes.error) throw castRes.error;
       setCast(castRes.data);
       setPosts((postRes.data ?? []) as Post[]);
+      setTodayShifts((shiftRes.data ?? []) as TodayShift[]);
+      setTodayRes(((resRes.data as any[]) ?? []).map((x) => ({
+        cast_id: x.cast_id,
+        start_time: x.start_time,
+        duration: x.duration,
+      })));
       document.title = `${castRes.data.name} | 全力エステ`;
     } catch {
       navigate("/casts");
@@ -149,6 +175,39 @@ const CastDetail = () => {
     if (diffH < 24) return `${Math.floor(diffH)}時間`;
     if (diffH < 24 * 7) return `${Math.floor(diffH / 24)}日`;
     return `${d.getMonth() + 1}月${d.getDate()}日`;
+  };
+
+  const quickBook = (castId: string, time: string) => {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    navigate(`/booking?castId=${castId}&date=${dateStr}&time=${time}`);
+  };
+
+  const slotsToday = (castId: string): { time: string; available: boolean }[] => {
+    const shift = todayShifts.find((s) => s.cast_id === castId);
+    if (!shift) return [];
+    const now = new Date();
+    const [sh, sm] = shift.start_time.split(":").map(Number);
+    const [eh, em] = shift.end_time.split(":").map(Number);
+    const start = sh * 60 + sm;
+    const end = eh * 60 + em;
+    const cur = now.getHours() * 60 + now.getMinutes();
+    const reserved = todayRes
+      .filter((r) => r.cast_id === castId)
+      .map((r) => {
+        const [h, m] = r.start_time.split(":").map(Number);
+        const s = h * 60 + m;
+        return { start: s, end: s + r.duration + 30 };
+      });
+
+    const out: { time: string; available: boolean }[] = [];
+    for (let t = start; t + 60 <= end; t += 10) {
+      if (t < cur) continue;
+      const conflict = reserved.some((b) => t < b.end && t + 60 > b.start);
+      const hh = String(Math.floor(t / 60)).padStart(2, "0");
+      const mm = String(t % 60).padStart(2, "0");
+      out.push({ time: `${hh}:${mm}`, available: !conflict });
+    }
+    return out;
   };
 
   const castDescription = cast.message
