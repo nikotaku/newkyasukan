@@ -97,6 +97,7 @@ export default function Reservations() {
     course_type: "アロマオイル",
     course_name: "アロマオイル 80分",
     selectedOptions: [] as string[],
+    selectedDiscountIds: [] as string[],
     price: 12000,
     payment_method: "cash",
     reservation_method: "",
@@ -441,6 +442,7 @@ export default function Reservations() {
                 backRates={backRates}
                 optionRates={optionRates}
                 nominationRates={nominationRates}
+                discounts={[]}
                 onSubmit={handleAddReservation}
               />
                         </div>
