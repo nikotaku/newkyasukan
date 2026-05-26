@@ -655,39 +655,22 @@ export default function Staff() {
                           />
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="room">ルーム</Label>
-                            <Select 
-                              value={formData.room}
-                              onValueChange={(value) => setFormData({...formData, room: value})}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="ルームを選択" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="インルーム">インルーム</SelectItem>
-                                <SelectItem value="ラスルーム">ラスルーム</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label htmlFor="status">ステータス</Label>
-                            <Select 
-                              value={formData.status}
-                              onValueChange={(value) => setFormData({...formData, status: value})}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="ステータスを選択" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="派遣中">派遣中</SelectItem>
-                                <SelectItem value="リピート予定">リピート予定</SelectItem>
-                                <SelectItem value="残タスク">残タスク</SelectItem>
-                                <SelectItem value="未着手">未着手</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                        <div>
+                          <Label htmlFor="status">ステータス</Label>
+                          <Select 
+                            value={formData.status}
+                            onValueChange={(value) => setFormData({...formData, status: value})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="ステータスを選択" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="派遣中">派遣中</SelectItem>
+                              <SelectItem value="リピート予定">リピート予定</SelectItem>
+                              <SelectItem value="残タスク">残タスク</SelectItem>
+                              <SelectItem value="未着手">未着手</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         
                         <div>
@@ -814,40 +797,6 @@ export default function Staff() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="edit-type">タイプ</Label>
-                          <Select 
-                            value={editingCast.type}
-                            onValueChange={(value) => setEditingCast({...editingCast, type: value})}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="新人">新人</SelectItem>
-                              <SelectItem value="standard">スタンダード</SelectItem>
-                              <SelectItem value="premium">プレミアム</SelectItem>
-                              <SelectItem value="VIP">VIP</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="edit-room">ルーム</Label>
-                          <Select 
-                            value={editingCast.room || ""}
-                            onValueChange={(value) => setEditingCast({...editingCast, room: value})}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="ルームを選択" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="インルーム">インルーム</SelectItem>
-                              <SelectItem value="ラスルーム">ラスルーム</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
                       
                       <div className="flex items-center justify-between p-3 rounded-lg border">
                         <div className="flex items-center gap-2">
