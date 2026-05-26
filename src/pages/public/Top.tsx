@@ -1,376 +1,200 @@
-import { useEffect, useState, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
-import { ExternalLink, Clock, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { Heart, Repeat2, Share, MessageCircle as Reply, Sparkles, BadgeCheck } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { SEO, LOCAL_BUSINESS_JSON_LD } from "@/components/SEO";
 
-interface TodayShift {
+interface CastLite {
+  id: string;
+  name: string;
+  photo: string | null;
+  x_account: string | null;
+  is_visible?: boolean;
+}
+
+interface Post {
   id: string;
   cast_id: string;
-  start_time: string;
-  end_time: string;
-  casts: {
-    id: string;
-    name: string;
-    photo: string | null;
-    age: number | null;
-    height: number | null;
-    cup_size: string | null;
-    message: string | null;
-    tags: string[] | null;
-    x_account: string | null;
-  };
-}
-
-interface News {
-  id: string;
-  title: string;
-  content: string;
+  body: string;
+  image_urls: string[] | null;
   created_at: string;
-  is_pinned: boolean;
+  casts: CastLite | null;
 }
-
-const FALLBACK_BANNERS = [
-  { image_url: "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750253573.png", link_url: null as string | null },
-  { image_url: "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750762260.png", link_url: null as string | null },
-];
-
 
 const Top = () => {
-  const [todayShifts, setTodayShifts] = useState<TodayShift[]>([]);
-  const [news, setNews] = useState<News[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [banners, setBanners] = useState<{ image_url: string; link_url: string | null }[]>(FALLBACK_BANNERS);
-  const navigate = useNavigate();
+  const [tab, setTab] = useState<"foryou" | "following">("foryou");
 
-  useEffect(() => {
-    fetchAll();
-  }, []);
-
-  useEffect(() => {
-    if (banners.length <= 1) return;
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % banners.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [banners.length]);
-
+  useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
-    const today = format(new Date(), "yyyy-MM-dd");
-    const [s, n, b] = await Promise.all([
-      supabase
-        .from("shifts")
-        .select("id,cast_id,start_time,end_time,casts(id,name,photo,age,height,cup_size,message,tags,x_account)")
-        .eq("shift_date", today)
-        .order("start_time", { ascending: true }),
-      supabase
-        .from("board_posts")
-        .select("id,title,content,created_at,is_pinned")
-        .order("is_pinned", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(4),
-      supabase
-        .from("banners")
-        .select("image_url,link_url,display_order,is_active")
-        .eq("is_active", true)
-        .order("display_order", { ascending: true }),
-    ]);
-
-    if (s.data) {
-      const seen = new Set<string>();
-      const unique = (s.data as any[]).filter(sh => {
-        if (seen.has(sh.cast_id)) return false;
-        seen.add(sh.cast_id);
-        return sh.casts?.is_visible !== false;
-      });
-      setTodayShifts(unique as TodayShift[]);
-    }
-    if (n.data) setNews(n.data as News[]);
-    if (b.data && b.data.length > 0) {
-      setBanners((b.data as any[]).map((x) => ({ image_url: x.image_url, link_url: x.link_url })));
-      setCurrentSlide(0);
+    const { data } = await supabase
+      .from("cast_posts")
+      .select("id,cast_id,body,image_urls,created_at,casts(id,name,photo,x_account,is_visible)")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) {
+      const filtered = (data as any[]).filter(p => p.casts && p.casts.is_visible !== false) as Post[];
+      setPosts(filtered);
     }
     setLoading(false);
   };
 
-
-  const todayLabel = format(new Date(), "M月d日(E)", { locale: ja });
-
-  const formatDate = (iso: string) => {
+  const fmtDate = (iso: string) => {
     const d = new Date(iso);
-    return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+    const diffH = (Date.now() - d.getTime()) / 3600000;
+    if (diffH < 1) return `${Math.max(1, Math.floor(diffH * 60))}分`;
+    if (diffH < 24) return `${Math.floor(diffH)}時間`;
+    if (diffH < 24 * 7) return `${Math.floor(diffH / 24)}日`;
+    return `${d.getMonth() + 1}月${d.getDate()}日`;
   };
 
+  const handle = (c: CastLite) =>
+    (c.x_account?.replace(/^@?/, "").replace(/^https?:\/\/.*\//, "")) || `zr_${c.id.slice(0, 8)}`;
+
   return (
-    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+    <div className="min-h-screen pb-20 md:pb-0 bg-black text-white">
       <SEO
         title="仙台のメンズエステ"
-        description="全力エステ 仙台店｜仙台のメンズエステサロン。厳選セラピストによる本格リラクゼーション。出張・インルーム対応。お得なコース多数。Tel: 090-8126-4042"
+        description="全力エステ 仙台店｜セラピストの最新つぶやきタイムライン。仙台のメンズエステサロン。Tel: 090-8126-4042"
         path="/"
         jsonLd={LOCAL_BUSINESS_JSON_LD}
       />
       <PublicNavigation />
 
-      {/* ===== Banner Slider ===== */}
-      <div className="relative overflow-hidden">
-        <AspectRatio ratio={16 / 9}>
-          {banners[currentSlide]?.link_url ? (
-            <a href={banners[currentSlide].link_url!} target="_blank" rel="noopener noreferrer">
-              <img
-                src={banners[currentSlide].image_url}
-                alt="トップバナー | 全力エステ 仙台"
-                className="w-full h-full object-cover transition-opacity duration-500"
-              />
-            </a>
-          ) : (
-            <img
-              src={banners[currentSlide]?.image_url}
-              alt="トップバナー | 全力エステ 仙台"
-              className="w-full h-full object-cover transition-opacity duration-500"
-            />
-          )}
-        </AspectRatio>
-        {banners.length > 1 && (
-          <>
-            <button
-              onClick={() => setCurrentSlide((prev) => (prev - 1 + banners.length) % banners.length)}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setCurrentSlide((prev) => (prev + 1) % banners.length)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
-              {banners.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentSlide(i)}
-                  className={`w-2.5 h-2.5 rounded-full transition-all ${i === currentSlide ? "bg-white" : "bg-white/50"}`}
-                />
-              ))}
-            </div>
-          </>
-        )}
-
-      </div>
-
-      {/* ===== 本日の出勤 HERO ===== */}
-      <section className="py-5 md:py-10" style={{ background: "linear-gradient(180deg, #2e2b29 0%, #3a3330 100%)" }}>
-        <div className="container mx-auto max-w-6xl px-3 md:px-6">
-          {/* header */}
-          <div className="flex items-center justify-between mb-4 md:mb-6">
-            <div>
-              <div className="flex items-center gap-2 text-[#c49480] text-xs tracking-widest mb-0.5">
-                <Calendar size={13} />
-                <span>{todayLabel} 本日の出勤</span>
-              </div>
-              <h2 className="text-lg md:text-2xl font-bold tracking-wider text-white">TODAY'S SCHEDULE</h2>
-            </div>
-            <Link
-              to="/schedule"
-              className="text-xs md:text-sm text-[#c49480] border border-[#c49480]/50 px-3 py-1.5 rounded hover:bg-[#c49480]/10 transition"
-            >
-              全員を見る →
-            </Link>
+      <main className="max-w-xl mx-auto border-x border-white/10 min-h-screen">
+        {/* Tabs header */}
+        <div className="sticky top-0 z-20 backdrop-blur bg-black/70 border-b border-white/10">
+          <div className="grid grid-cols-2">
+            {([
+              { k: "foryou", label: "おすすめ" },
+              { k: "following", label: "出勤中" },
+            ] as const).map(t => (
+              <button
+                key={t.k}
+                onClick={() => setTab(t.k)}
+                className="relative py-4 text-sm font-semibold hover:bg-white/5 transition-colors"
+              >
+                <span className={tab === t.k ? "text-white" : "text-white/50"}>{t.label}</span>
+                {tab === t.k && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full bg-[#1d9bf0]" />}
+              </button>
+            ))}
           </div>
+        </div>
 
-          {loading ? (
-            <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide">
-              {[1,2,3].map(i => (
-                <div key={i} className="shrink-0 w-[130px] md:w-[160px] h-[200px] md:h-[240px] bg-white/10 rounded-lg animate-pulse" />
-              ))}
-            </div>
-          ) : todayShifts.length === 0 ? (
-            <div className="text-center py-10 text-[#9a8c88]">
-              <p className="text-sm">本日の出勤情報はまだありません</p>
-              <Link to="/schedule" className="mt-3 inline-block text-[#c49480] text-xs underline">出勤スケジュールを確認する</Link>
-            </div>
-          ) : (
-            <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide snap-x snap-mandatory">
-              {todayShifts.map((shift) => {
-                const c = shift.casts;
-                return (
-                  <Link
-                    to={`/casts/${c.id}`}
-                    key={shift.id}
-                    className="shrink-0 w-[130px] md:w-[160px] snap-start group"
-                  >
-                    <div className="relative rounded-lg overflow-hidden bg-[#2a2320] shadow-lg">
-                      <div className="aspect-[3/4] bg-gradient-to-br from-[#3a3634] to-[#2a2320]">
+        {/* Composer-like CTA */}
+        <div className="px-4 py-3 border-b border-white/10 flex gap-3 items-center">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#c49480] to-[#a87b65] flex items-center justify-center flex-shrink-0">
+            <Sparkles size={18} className="text-white" />
+          </div>
+          <Link
+            to="/booking"
+            className="flex-1 text-left text-white/40 text-base hover:text-white/60 transition-colors"
+          >
+            今すぐWeb予約する…
+          </Link>
+          <Link
+            to="/booking"
+            className="px-4 py-1.5 rounded-full bg-[#1d9bf0] hover:bg-[#1a8cd8] text-white font-bold text-sm transition-colors"
+          >
+            予約
+          </Link>
+        </div>
+
+        {/* Timeline */}
+        {loading ? (
+          <div className="divide-y divide-white/10">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="px-4 py-4 flex gap-3 animate-pulse">
+                <div className="w-10 h-10 rounded-full bg-white/10" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 w-1/3 bg-white/10 rounded" />
+                  <div className="h-3 w-full bg-white/10 rounded" />
+                  <div className="h-40 w-full bg-white/10 rounded-2xl" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="py-20 text-center text-white/40 text-sm">
+            まだ投稿がありません
+          </div>
+        ) : (
+          <div className="divide-y divide-white/10">
+            {posts.map((p) => {
+              const c = p.casts!;
+              return (
+                <article key={p.id} className="px-4 py-3 hover:bg-white/[0.02] transition-colors">
+                  <div className="flex gap-3">
+                    <Link to={`/casts/${c.id}`} className="flex-shrink-0">
+                      <div className="w-11 h-11 rounded-full overflow-hidden bg-white/10">
                         {c.photo ? (
-                          <img
-                            src={driveImgUrl(c.photo, 400)}
-                            alt={c.name}
-                            className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                            loading="lazy"
-                          />
+                          <img src={driveImgUrl(c.photo, 200)} alt={c.name} className="w-full h-full object-cover object-top" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-3xl text-[#c49480]/50">
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#c49480] to-[#a87b65] text-base font-bold">
                             {c.name.charAt(0)}
                           </div>
                         )}
                       </div>
-                      {/* time badge */}
-                      <div className="absolute top-1.5 left-1.5 bg-black/60 backdrop-blur-sm rounded px-1.5 py-0.5 flex items-center gap-1">
-                        <Clock size={9} className="text-[#c49480]" />
-                        <span className="text-[10px] text-white font-medium">
-                          {shift.start_time.slice(0,5)}〜{shift.end_time.slice(0,5)}
-                        </span>
+                    </Link>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1 text-[15px]">
+                        <Link to={`/casts/${c.id}`} className="font-bold truncate hover:underline">{c.name}</Link>
+                        <BadgeCheck size={15} className="text-[#1d9bf0] flex-shrink-0" />
+                        <span className="text-white/50 truncate">@{handle(c)}</span>
+                        <span className="text-white/50">·</span>
+                        <span className="text-white/50 whitespace-nowrap">{fmtDate(p.created_at)}</span>
+                      </div>
+                      {p.body && (
+                        <p className="mt-0.5 text-[15px] leading-relaxed whitespace-pre-wrap break-words">{p.body}</p>
+                      )}
+                      {p.image_urls && p.image_urls.length > 0 && (
+                        <Link to={`/casts/${c.id}`} className="block mt-2">
+                          <div className={`rounded-2xl overflow-hidden border border-white/10 grid gap-0.5 ${p.image_urls.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                            {p.image_urls.slice(0, 4).map((url, i) => (
+                              <img
+                                key={i}
+                                src={driveImgUrl(url, 800)}
+                                alt=""
+                                className="w-full object-cover"
+                                style={{
+                                  maxHeight: p.image_urls!.length === 1 ? 520 : 240,
+                                  aspectRatio: p.image_urls!.length === 1 ? "auto" : "1/1",
+                                }}
+                                loading="lazy"
+                              />
+                            ))}
+                          </div>
+                        </Link>
+                      )}
+                      <div className="mt-2 flex items-center justify-between max-w-xs text-white/50 text-xs">
+                        <button className="flex items-center gap-1.5 hover:text-[#1d9bf0] transition-colors"><Reply size={16} /></button>
+                        <button className="flex items-center gap-1.5 hover:text-green-500 transition-colors"><Repeat2 size={16} /></button>
+                        <button className="flex items-center gap-1.5 hover:text-pink-500 transition-colors"><Heart size={16} /></button>
+                        <button className="flex items-center gap-1.5 hover:text-[#1d9bf0] transition-colors"><Share size={16} /></button>
                       </div>
                     </div>
-                    <div className="pt-1.5 pb-1 px-0.5">
-                      <p className="text-sm font-bold text-white truncate">{c.name}</p>
-                      <p className="text-[10px] text-[#9a8c88]">
-                        {c.age && `${c.age}歳`}{c.height && ` ${c.height}㎝`}
-                        {c.cup_size && ` (${c.cup_size})`}
-                      </p>
-                    </div>
-                  </Link>
-                );
-              })}
-              {/* more card */}
-              <Link
-                to="/schedule"
-                className="shrink-0 w-[100px] md:w-[120px] snap-start flex flex-col items-center justify-center text-center text-[#c49480] border border-[#c49480]/30 rounded-lg hover:bg-[#c49480]/10 transition-colors gap-2 py-6"
-              >
-                <span className="text-2xl font-light">+</span>
-                <span className="text-xs">全員</span>
-              </Link>
-            </div>
-          )}
-
-          {/* quick book CTA */}
-          <div className="mt-4 md:mt-6 flex gap-2 justify-center flex-wrap">
-            <Link
-              to="/booking"
-              className="inline-block bg-[#c49480] hover:bg-[#b08370] text-white font-bold text-sm px-6 py-2.5 rounded shadow transition"
-            >
-              Web予約はこちら
-            </Link>
-            <Link
-              to="/schedule"
-              className="inline-block border border-[#c49480] text-[#c49480] hover:bg-[#c49480]/10 font-semibold text-sm px-6 py-2.5 rounded transition"
-            >
-              出勤カレンダー
-            </Link>
+                  </div>
+                </article>
+              );
+            })}
           </div>
-        </div>
-      </section>
+        )}
 
-      {/* ===== NEWS ===== */}
-      <section className="py-8 md:py-12 bg-white/40">
-        <div className="container mx-auto max-w-4xl px-3 md:px-6">
-          <SectionTitle en="NEWS" jp="お知らせ" />
-          {news.length === 0 ? (
-            <p className="text-center text-[#a89586] text-sm mt-4">お知らせはまだありません</p>
-          ) : (
-            <ul className="mt-5 md:mt-8 space-y-2 md:space-y-4">
-              {news.map((n) => (
-                <li
-                  key={n.id}
-                  className="bg-white rounded-lg p-3 md:p-5 shadow-sm hover:shadow-md transition-shadow border border-[#e5d5cc]"
-                >
-                  <p className="text-[10px] md:text-xs text-[#a89586] mb-0.5">{formatDate(n.created_at)}</p>
-                  <h3 className="text-sm md:text-base font-bold mb-1" style={{ color: "#7a706c" }}>
-                    {n.title}
-                  </h3>
-                  <p className="text-xs text-[#5c4a3a] whitespace-pre-wrap line-clamp-2">{n.content}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="text-center mt-5 md:mt-8">
-            <Link to="/news" className="text-sm text-[#7a706c] hover:text-[#c49480] transition-colors font-semibold tracking-wider">
-              その他のお知らせ →
-            </Link>
-          </div>
+        <div className="text-center py-6">
+          <Link to="/casts" className="text-sm text-white/40 hover:underline">セラピスト一覧を見る →</Link>
         </div>
-      </section>
-
-      {/* ===== CONCEPT ===== */}
-      <section
-        className="py-10 md:py-20"
-        style={{ background: "linear-gradient(135deg, #efd0c2 0%, #f5e1d8 50%, #efd0c2 100%)" }}
-      >
-        <div className="container mx-auto max-w-3xl px-3 md:px-6 text-center">
-          <SectionTitle en="CONCEPT" jp="コンセプト" />
-          <div className="space-y-3 mt-6 md:mt-10 leading-loose tracking-wider text-sm md:text-base" style={{ color: "#5c4a3a" }}>
-            <p>素直で愛嬌があり不器用でも全力心でサービス</p>
-            <p>選び抜かれたビジュアル</p>
-            <p>洗練された施術</p>
-            <p>妥協のない接客</p>
-            <p className="pt-3 text-base md:text-xl font-bold tracking-widest">"全力エステ"は</p>
-            <p>仙台のメンズエステ界における</p>
-            <p className="text-base md:text-lg">「<span className="font-bold text-[#7a706c]">頂点</span>」を本気で狙う</p>
-            <p>ハイレベルサロンです。</p>
-            <p className="pt-3">ただ癒すだけじゃない。</p>
-            <p>あなたの五感すべてを圧倒する</p>
-            <p className="text-xl md:text-3xl font-bold tracking-widest pt-2 text-[#7a706c]">「全力の一撃」</p>
-            <p>をご堪能ください。</p>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== SNS / 外部リンク ===== */}
-      <section className="py-8 md:py-12 bg-white/60">
-        <div className="container mx-auto max-w-3xl px-3 md:px-6 text-center">
-          <SectionTitle en="LINKS" jp="公式リンク" />
-          <div className="flex flex-wrap justify-center gap-3 mt-5 md:mt-8">
-            <a
-              href="https://r.caskan.jp/zenryoku1209"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#c49480] hover:bg-[#b08370] text-white text-sm font-semibold rounded shadow transition"
-            >
-              Web予約 <ExternalLink size={14} />
-            </a>
-            <a
-              href="https://twitter.com/zenryoku_esthe"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 border-2 border-[#c49480] text-[#7a706c] hover:bg-[#f8f6f3] text-sm font-semibold rounded transition"
-            >
-              X (Twitter) <ExternalLink size={14} />
-            </a>
-            <a
-              href="https://bsky.app/profile/zenryoku-esthe.bsky.social"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 border-2 border-[#c49480] text-[#7a706c] hover:bg-[#f8f6f3] text-sm font-semibold rounded transition"
-            >
-              Bluesky <ExternalLink size={14} />
-            </a>
-          </div>
-        </div>
-      </section>
+      </main>
 
       <PublicFooter />
       <FixedBottomBar />
     </div>
   );
 };
-
-const SectionTitle = ({ en, jp }: { en: string; jp: string }) => (
-  <div className="text-center">
-    <h2 className="text-2xl md:text-4xl font-bold tracking-[0.3em]" style={{ color: "#7a706c" }}>
-      {en}
-    </h2>
-    <p className="text-xs md:text-sm mt-1 tracking-widest text-[#a89586]">{jp}</p>
-    <div className="mx-auto mt-2 h-px w-12 bg-[#c49480]" />
-  </div>
-);
 
 export default Top;
