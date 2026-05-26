@@ -323,6 +323,16 @@ export default function Staff() {
           repeat_scheduled: editingCast.repeat_scheduled || false,
           is_visible: editingCast.is_visible,
           is_online: (editingCast as any).is_online ?? false,
+          height: editingCast.height ?? null,
+          cup_size: editingCast.cup_size ?? null,
+          bust: editingCast.bust ?? null,
+          waist: editingCast.waist ?? null,
+          hip: editingCast.hip ?? null,
+          target_customers: editingCast.target_customers ?? null,
+          customer_age_range: editingCast.customer_age_range ?? null,
+          mbti: editingCast.mbti ?? null,
+          account_info: editingCast.account_info ?? null,
+          custom_properties: editingCast.custom_properties ?? [],
         } as any)
         .eq('id', editingCast.id);
 
