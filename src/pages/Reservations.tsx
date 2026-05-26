@@ -294,6 +294,7 @@ export default function Reservations() {
         payment_method: "cash",
         reservation_method: "",
         notes: "",
+        selectedDiscountIds: [],
       });
     } catch (error) {
       console.error('Error adding reservation:', error);
