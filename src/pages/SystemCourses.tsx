@@ -17,6 +17,7 @@ interface BackRate {
   duration: number;
   customer_price: number;
   therapist_back?: number;
+  shop_back?: number;
 }
 
 export default function SystemCourses() {
