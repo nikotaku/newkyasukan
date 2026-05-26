@@ -90,7 +90,7 @@ export default function SystemRecommendedCourses() {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader onMenuClick={() => setSidebarOpen(true)} />
+      <DashboardHeader onToggleSidebar={() => setSidebarOpen(true)} />
       <div className="flex">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <main className="flex-1 p-4 md:p-8 max-w-5xl">
