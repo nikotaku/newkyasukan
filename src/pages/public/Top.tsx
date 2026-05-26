@@ -362,35 +362,42 @@ const Top = () => {
                             </dl>
                           </div>
                         )}
-                        {slots.length > 0 && (
-                          <div className="mt-2 -mx-1 overflow-x-auto scrollbar-thin">
-                            <table className="border-separate border-spacing-0 bg-white text-gray-700 rounded-md overflow-hidden">
-                              <thead>
-                                <tr>
-                                  {slots.map((s) => (
-                                    <th key={s.time} className="px-3 py-1.5 text-[12px] font-medium bg-gray-100 border-b border-gray-200 whitespace-nowrap">
-                                      {s.time}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr>
-                                  {slots.map((s) => (
-                                    <td key={s.time} className="px-3 py-2 text-center border-r border-gray-100 last:border-r-0">
-                                      <button
-                                        disabled={!s.available}
-                                        onClick={() => s.available && setSlotModal({ castId: c.id, castName: c.name, time: s.time })}
-                                        className={`text-[18px] leading-none ${s.available ? "text-gray-500 hover:text-[#2a8fc9]" : "text-gray-300 cursor-not-allowed"}`}
-                                      >
-                                        {s.available ? "○" : "×"}
-                                      </button>
-                                    </td>
-                                  ))}
-                                </tr>
-                              </tbody>
-                            </table>
+                        {slots.length > 0 ? (
+                          <div className="mt-3">
+                            <div className="text-[10px] text-white/40 mb-1.5 tracking-wide">本日の空き状況</div>
+                            <div className="-mx-1 overflow-x-auto">
+                              <table className="border-collapse bg-white text-gray-700 rounded-xl overflow-hidden w-max">
+                                <thead>
+                                  <tr>
+                                    {slots.map((s) => (
+                                      <th key={s.time} className="px-4 py-2 text-[12px] font-semibold bg-gray-50 border-b border-gray-200 whitespace-nowrap text-gray-600">
+                                        {s.time}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr>
+                                    {slots.map((s) => (
+                                      <td key={s.time} className="px-4 py-2.5 text-center border-r border-gray-100 last:border-r-0">
+                                        <button
+                                          disabled={!s.available}
+                                          onClick={() => s.available && setSlotModal({ castId: c.id, castName: c.name, time: s.time })}
+                                          className={`text-[20px] leading-none transition-colors ${s.available ? "text-gray-400 hover:text-[#2a8fc9]" : "text-gray-200 cursor-not-allowed"}`}
+                                        >
+                                          {s.available ? "○" : "×"}
+                                        </button>
+                                      </td>
+                                    ))}
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
+                        ) : (
+                          <Link to={`/booking?castId=${c.id}`} className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-[#c49480]/40 bg-[#c49480]/10 py-2.5 text-[13px] font-semibold text-[#f0d2c2] hover:bg-[#c49480]/20 transition-colors">
+                            📅 予約する
+                          </Link>
                         )}
                       </div>
                     </div>
@@ -445,48 +452,42 @@ const Top = () => {
                       )}
                       {(() => {
                         const slots = slotsToday(c.id);
-                        if (slots.length === 0) return null;
+                        if (slots.length === 0) return (
+                          <Link to={`/booking?castId=${c.id}`} className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-[#c49480]/40 bg-[#c49480]/10 py-2.5 text-[13px] font-semibold text-[#f0d2c2] hover:bg-[#c49480]/20 transition-colors">
+                            📅 予約する
+                          </Link>
+                        );
                         return (
-                          <div className="mt-2 -mx-1 overflow-x-auto scrollbar-thin">
-                            <table className="border-separate border-spacing-0 bg-white text-gray-700 rounded-md overflow-hidden">
-                              <thead>
-                                <tr>
-                                  {slots.map((s) => (
-                                    <th
-                                      key={s.time}
-                                      className="px-3 py-1.5 text-[12px] font-medium bg-gray-100 border-b border-gray-200 whitespace-nowrap"
-                                    >
-                                      {s.time}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr>
-                                  {slots.map((s) => (
-                                    <td
-                                      key={s.time}
-                                      className="px-3 py-2 text-center border-r border-gray-100 last:border-r-0"
-                                    >
-                                      <button
-                                        disabled={!s.available}
-                                        onClick={() =>
-                                          s.available &&
-                                          setSlotModal({ castId: c.id, castName: c.name, time: s.time })
-                                        }
-                                        className={`text-[18px] leading-none ${
-                                          s.available
-                                            ? "text-gray-500 hover:text-[#2a8fc9]"
-                                            : "text-gray-300 cursor-not-allowed"
-                                        }`}
-                                      >
-                                        {s.available ? "○" : "×"}
-                                      </button>
-                                    </td>
-                                  ))}
-                                </tr>
-                              </tbody>
-                            </table>
+                          <div className="mt-3">
+                            <div className="text-[10px] text-white/40 mb-1.5 tracking-wide">本日の空き状況</div>
+                            <div className="-mx-1 overflow-x-auto">
+                              <table className="border-collapse bg-white text-gray-700 rounded-xl overflow-hidden w-max">
+                                <thead>
+                                  <tr>
+                                    {slots.map((s) => (
+                                      <th key={s.time} className="px-4 py-2 text-[12px] font-semibold bg-gray-50 border-b border-gray-200 whitespace-nowrap text-gray-600">
+                                        {s.time}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr>
+                                    {slots.map((s) => (
+                                      <td key={s.time} className="px-4 py-2.5 text-center border-r border-gray-100 last:border-r-0">
+                                        <button
+                                          disabled={!s.available}
+                                          onClick={() => s.available && setSlotModal({ castId: c.id, castName: c.name, time: s.time })}
+                                          className={`text-[20px] leading-none transition-colors ${s.available ? "text-gray-400 hover:text-[#2a8fc9]" : "text-gray-200 cursor-not-allowed"}`}
+                                        >
+                                          {s.available ? "○" : "×"}
+                                        </button>
+                                      </td>
+                                    ))}
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
                         );
                       })()}
