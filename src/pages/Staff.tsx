@@ -64,7 +64,7 @@ interface Cast {
   customer_age_range?: string | null;
   mbti?: string | null;
   account_info?: string | null;
-  custom_properties?: Array<{ id: string; label: string; type: "text" | "number" | "url"; value: string }> | null;
+  custom_properties?: any;
 }
 
 type CustomProp = { id: string; label: string; type: "text" | "number" | "url"; value: string };
