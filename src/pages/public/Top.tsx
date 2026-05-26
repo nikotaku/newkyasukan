@@ -177,10 +177,12 @@ const Top = () => {
   // 30-min granular slots for today; available means a 60m+30m buffer fits
   const slotsToday = (castId: string): { time: string; available: boolean }[] => {
     const shift = todayShifts.find((s) => s.cast_id === castId);
-    if (!shift) return [];
+    // Fallback: shop hours 12:00-26:00 if no shift registered
+    const startStr = shift?.start_time ?? "12:00";
+    const endStr = shift?.end_time ?? "26:00";
     const now = new Date();
-    const [sh, sm] = shift.start_time.split(":").map(Number);
-    const [eh, em] = shift.end_time.split(":").map(Number);
+    const [sh, sm] = startStr.split(":").map(Number);
+    const [eh, em] = endStr.split(":").map(Number);
     const start = sh * 60 + sm;
     const end = eh * 60 + em;
     const cur = now.getHours() * 60 + now.getMinutes();
@@ -192,7 +194,7 @@ const Top = () => {
         return { start: s, end: s + r.duration + 30 };
       });
     const out: { time: string; available: boolean }[] = [];
-    for (let t = start; t + 60 <= end; t += 10) {
+    for (let t = start; t + 60 <= end; t += 30) {
       if (t < cur) continue;
       const conflict = reserved.some((b) => t < b.end && t + 60 > b.start);
       const hh = String(Math.floor(t / 60)).padStart(2, "0");
@@ -201,6 +203,7 @@ const Top = () => {
     }
     return out;
   };
+
 
   const [slotModal, setSlotModal] = useState<{ castId: string; castName: string; time: string } | null>(null);
 
