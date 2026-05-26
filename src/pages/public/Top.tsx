@@ -262,7 +262,7 @@ const Top = () => {
         {/* Timeline */}
         {loading ? (
           <div className="py-20 text-center text-white/40 text-sm">読み込み中…</div>
-        ) : posts.length === 0 ? (
+        ) : posts.length === 0 && workingCasts.length === 0 ? (
           <div className="py-20 text-center text-white/40 text-sm">
             まだ投稿がありません
           </div>
