@@ -35,7 +35,8 @@ interface RecCourse {
 
 type TimelineItem =
   | { kind: "post"; post: Post }
-  | { kind: "rec"; rec: RecCourse; key: string };
+  | { kind: "rec"; rec: RecCourse; key: string }
+  | { kind: "shift"; cast: CastLite; startTime: string };
 
 const NAV_LINKS = [
   { to: "/", label: "TOP" },
@@ -102,18 +103,49 @@ const Top = () => {
     setTodayRes(((resData as any[]) || []).map((x) => ({
       cast_id: x.cast_id, start_time: x.start_time, duration: x.duration,
     })));
+
+    // Fetch working-today casts (for shift entries at top)
+    const ids = Array.from(new Set(((shiftData as TodayShift[]) || []).map(s => s.cast_id)));
+    if (ids.length > 0) {
+      const { data: castData } = await supabase
+        .from("casts")
+        .select("id,name,photo,x_account,is_visible")
+        .in("id", ids);
+      const visible = ((castData as CastLite[]) || []).filter(c => c.is_visible !== false);
+      setWorkingCasts(visible);
+    } else {
+      setWorkingCasts([]);
+    }
     setLoading(false);
   };
 
-  // Interleave: for each active rec, insert after every interval_posts posts
+  const [workingCasts, setWorkingCasts] = useState<CastLite[]>([]);
+
+  // Interleave: shift entries (working casts) first by start_time, then posts (working casts' posts first), with rec inserts
   const timeline: TimelineItem[] = (() => {
-    const items: TimelineItem[] = posts.map((p) => ({ kind: "post" as const, post: p }));
+    const workingIds = new Set(todayShifts.map(s => s.cast_id));
+    const startMap = new Map(todayShifts.map(s => [s.cast_id, s.start_time]));
+
+    const shiftItems: TimelineItem[] = workingCasts
+      .map(c => ({ kind: "shift" as const, cast: c, startTime: startMap.get(c.id) || "99:99" }))
+      .sort((a, b) => (a as any).startTime.localeCompare((b as any).startTime));
+
+    const sortedPosts = [...posts].sort((a, b) => {
+      const aw = workingIds.has(a.cast_id) ? 0 : 1;
+      const bw = workingIds.has(b.cast_id) ? 0 : 1;
+      if (aw !== bw) return aw - bw;
+      return b.created_at.localeCompare(a.created_at);
+    });
+    const postItems: TimelineItem[] = sortedPosts.map((p) => ({ kind: "post" as const, post: p }));
+
+    const items: TimelineItem[] = [...shiftItems, ...postItems];
     if (recs.length === 0) return items;
     const out: TimelineItem[] = [];
     const counters = new Map<string, number>(recs.map((r) => [r.id, 0]));
     let postIdx = 0;
     items.forEach((it) => {
       out.push(it);
+      if (it.kind !== "post") return;
       postIdx += 1;
       recs.forEach((r) => {
         if (r.interval_posts > 0 && postIdx % r.interval_posts === 0) {
@@ -230,7 +262,7 @@ const Top = () => {
         {/* Timeline */}
         {loading ? (
           <div className="py-20 text-center text-white/40 text-sm">読み込み中…</div>
-        ) : posts.length === 0 ? (
+        ) : posts.length === 0 && workingCasts.length === 0 ? (
           <div className="py-20 text-center text-white/40 text-sm">
             まだ投稿がありません
           </div>
@@ -273,6 +305,65 @@ const Top = () => {
                   )
                 ) : (
                   <div key={item.key}>{Inner}</div>
+                );
+              }
+              if (item.kind === "shift") {
+                const c = item.cast;
+                const slots = slotsToday(c.id);
+                return (
+                  <article key={`shift-${c.id}`} className="px-4 py-3 bg-[#c49480]/5">
+                    <div className="flex gap-3">
+                      <Link to={`/casts/${c.id}`} className="flex-shrink-0">
+                        <div className="w-11 h-11 rounded-full overflow-hidden bg-white/10">
+                          {c.photo ? (
+                            <img src={driveImgUrl(c.photo, 200)} alt={c.name} className="w-full h-full object-cover object-top" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#c49480] to-[#a87b65] text-base font-bold">
+                              {c.name.charAt(0)}
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 text-[15px]">
+                          <Link to={`/casts/${c.id}`} className="font-bold truncate hover:underline">{c.name}</Link>
+                          <BadgeCheck size={15} className="text-[#1d9bf0] flex-shrink-0" />
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#c49480]/30 text-[#f0d2c2] ml-1">本日出勤</span>
+                          <span className="text-white/50 whitespace-nowrap ml-auto text-[12px]">{item.startTime.slice(0,5)}〜</span>
+                        </div>
+                        {slots.length > 0 && (
+                          <div className="mt-2 -mx-1 overflow-x-auto scrollbar-thin">
+                            <table className="border-separate border-spacing-0 bg-white text-gray-700 rounded-md overflow-hidden">
+                              <thead>
+                                <tr>
+                                  {slots.map((s) => (
+                                    <th key={s.time} className="px-3 py-1.5 text-[12px] font-medium bg-gray-100 border-b border-gray-200 whitespace-nowrap">
+                                      {s.time}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  {slots.map((s) => (
+                                    <td key={s.time} className="px-3 py-2 text-center border-r border-gray-100 last:border-r-0">
+                                      <button
+                                        disabled={!s.available}
+                                        onClick={() => s.available && setSlotModal({ castId: c.id, castName: c.name, time: s.time })}
+                                        className={`text-[18px] leading-none ${s.available ? "text-gray-500 hover:text-[#2a8fc9]" : "text-gray-300 cursor-not-allowed"}`}
+                                      >
+                                        {s.available ? "○" : "×"}
+                                      </button>
+                                    </td>
+                                  ))}
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </article>
                 );
               }
               const p = item.post;
