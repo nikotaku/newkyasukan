@@ -50,6 +50,36 @@ export type Database = {
         }
         Relationships: []
       }
+      advertising_expenses: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          rule: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          rule?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          rule?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       allowances: {
         Row: {
           allowance_type: string
@@ -799,6 +829,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          rule: string | null
           updated_at: string
         }
         Insert: {
@@ -808,6 +839,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          rule?: string | null
           updated_at?: string
         }
         Update: {
@@ -817,6 +849,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          rule?: string | null
           updated_at?: string
         }
         Relationships: []
