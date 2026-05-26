@@ -104,7 +104,7 @@ export default function TherapistPortal() {
 
   const fetchShifts = async () => {
     setShiftsLoading(true);
-    const { data, error } = await supabase.rpc("get_therapist_shifts", {
+    const { data, error } = await (supabase.rpc as any)("get_therapist_shifts", {
       p_token: token, p_year: year, p_month: month,
     });
     if (error) toast.error("シフトの取得に失敗しました");
@@ -114,7 +114,7 @@ export default function TherapistPortal() {
 
   const fetchSettlements = async () => {
     setSettlementLoading(true);
-    const { data, error } = await supabase.rpc("get_therapist_monthly_settlements", {
+    const { data, error } = await (supabase.rpc as any)("get_therapist_monthly_settlements", {
       p_token: token, p_year: year, p_month: month,
     });
     if (error) toast.error("データの取得に失敗しました");
@@ -124,7 +124,7 @@ export default function TherapistPortal() {
 
   const fetchExpenses = async () => {
     setExpensesLoading(true);
-    const { data, error } = await supabase.rpc("get_therapist_transport_expenses", {
+    const { data, error } = await (supabase.rpc as any)("get_therapist_transport_expenses", {
       p_token: token, p_year: year, p_month: month,
     });
     if (error) toast.error("データの取得に失敗しました");
@@ -137,7 +137,7 @@ export default function TherapistPortal() {
       toast.error("金額を入力してください"); return;
     }
     setSubmitting(true);
-    const { error } = await supabase.rpc("submit_therapist_transport_expense", {
+    const { error } = await (supabase.rpc as any)("submit_therapist_transport_expense", {
       p_token: token,
       p_date: transportForm.date,
       p_amount: Number(transportForm.amount),

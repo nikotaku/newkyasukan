@@ -52,9 +52,9 @@ export default function SystemAllowances() {
   const fetchAllowances = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from("allowances" as any).select("*").order("name");
+      const { data, error } = await supabase.from("allowances").select("*").order("name");
       if (error && error.code !== "PGRST116") throw error;
-      setAllowances(data || []);
+      setAllowances(((data as any) || []) as Allowance[]);
     } catch (error) {
       console.error("Error fetching allowances:", error);
     } finally {

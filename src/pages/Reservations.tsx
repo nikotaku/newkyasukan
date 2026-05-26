@@ -101,6 +101,7 @@ export default function Reservations() {
     payment_method: "cash",
     reservation_method: "",
     notes: "",
+    selectedDiscountIds: [] as string[],
   });
 
   const { toast } = useToast();
@@ -294,6 +295,7 @@ export default function Reservations() {
         payment_method: "cash",
         reservation_method: "",
         notes: "",
+        selectedDiscountIds: [],
       });
     } catch (error) {
       console.error('Error adding reservation:', error);
@@ -442,6 +444,7 @@ export default function Reservations() {
                 backRates={backRates}
                 optionRates={optionRates}
                 nominationRates={nominationRates}
+                discounts={[]}
                 onSubmit={handleAddReservation}
               />
                         </div>

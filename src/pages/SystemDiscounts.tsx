@@ -75,7 +75,7 @@ export default function SystemDiscounts() {
     try {
       const { data, error } = await supabase.from("discounts").select("*").order("name");
       if (error && error.code !== "PGRST116") throw error;
-      setDiscounts(data || []);
+      setDiscounts(((data as any) || []) as Discount[]);
     } catch (error) {
       console.error("Error fetching discounts:", error);
     } finally {
