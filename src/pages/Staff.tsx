@@ -910,8 +910,8 @@ export default function Staff() {
                   </DialogHeader>
                   <Tabs defaultValue="basic" className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="basic">基本情報</TabsTrigger>
-                      <TabsTrigger value="details">詳細情報</TabsTrigger>
+                      <TabsTrigger value="basic">プロフィール</TabsTrigger>
+                      <TabsTrigger value="details">詳細</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="basic" className="space-y-4 mt-4">
