@@ -87,6 +87,8 @@ import SystemDeductions from "./pages/SystemDeductions";
 import SystemAllowances from "./pages/SystemAllowances";
 import SystemSMS from "./pages/SystemSMS";
 import SystemSMSAuto from "./pages/SystemSMSAuto";
+import SystemRecommendedCourses from "./pages/SystemRecommendedCourses";
+import SystemAdvertising from "./pages/SystemAdvertising";
 import TherapistCheckout from "./pages/TherapistCheckout";
 import SNSDatabase from "./pages/SNSDatabase";
 import TherapistMyPage from "./pages/TherapistMyPage";
@@ -103,6 +105,7 @@ import Analytics from "./pages/Analytics";
 import TextTemplates from "./pages/TextTemplates";
 import CastPostManagement from "./pages/CastPostManagement";
 import TherapistPostPage from "./pages/TherapistPostPage";
+import { WidgetRails } from "./components/widgets/WidgetRails";
 
 const queryClient = new QueryClient();
 
@@ -114,6 +117,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <WidgetRails />
         <Routes>
           {/* Public Pages */}
           <Route path="/" element={<Top />} />
@@ -178,6 +182,8 @@ const App = () => (
           <Route path="/system/allowances" element={<SystemAllowances />} />
           <Route path="/system/sms" element={<SystemSMS />} />
           <Route path="/system/sms-auto" element={<SystemSMSAuto />} />
+          <Route path="/system/recommended-courses" element={<SystemRecommendedCourses />} />
+          <Route path="/system/advertising" element={<SystemAdvertising />} />
           <Route path="/database/knowledge/sns" element={<SNSDatabase />} />
           <Route path="/database/therapist/mypage" element={<TherapistMyPage />} />
           <Route path="/database/customers" element={<CustomerDatabase />} />

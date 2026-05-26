@@ -55,7 +55,7 @@ export default function CastImport() {
     if (toAdd.length === 0) return;
     setImporting(true);
     try {
-      const rows = toAdd.map((name) => ({ name, is_active: true }));
+      const rows = toAdd.map((name) => ({ name, type: "therapist", is_active: true }));
       const { error } = await supabase.from("casts").insert(rows);
       if (error) throw error;
       toast.success(`${toAdd.length}名を追加しました`);

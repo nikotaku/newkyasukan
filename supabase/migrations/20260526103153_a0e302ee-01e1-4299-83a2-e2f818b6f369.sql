@@ -1,0 +1,1 @@
+ALTER TABLE public.casts DROP CONSTRAINT IF EXISTS casts_name_unique;

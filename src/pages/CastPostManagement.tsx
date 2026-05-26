@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,11 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Plus, Send, Loader2, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Plus, Send, Loader2, CheckCircle, XCircle, Clock, Trash2, X, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 
 interface Cast { id: string; name: string; }
@@ -53,7 +52,9 @@ export default function CastPostManagement() {
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ cast_id: "", title: "", body: "", image_urls: "" });
+  const [uploading, setUploading] = useState(false);
+  const [form, setForm] = useState<{ cast_id: string; title: string; body: string; images: string[] }>({ cast_id: "", title: "", body: "", images: [] });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -77,15 +78,34 @@ export default function CastPostManagement() {
     setLoading(false);
   };
 
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    const urls: string[] = [];
+    for (const file of Array.from(files)) {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `posts/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("cast-photos").upload(path, file, { upsert: false });
+      if (error) {
+        toast.error(`アップロード失敗: ${file.name}`);
+        continue;
+      }
+      const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(path);
+      urls.push(publicUrl);
+    }
+    setForm(prev => ({ ...prev, images: [...prev.images, ...urls] }));
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSubmit = async () => {
     if (!form.cast_id || !form.body.trim()) { toast.error("セラピストと本文は必須です"); return; }
     setSubmitting(true);
-    const imageUrls = form.image_urls.split("\n").map(s => s.trim()).filter(Boolean);
     const { data, error } = await supabase.from("cast_posts").insert({
       cast_id: form.cast_id,
       title: form.title || null,
       body: form.body,
-      image_urls: imageUrls.length > 0 ? imageUrls : null,
+      image_urls: form.images.length > 0 ? form.images : null,
       status: "pending",
     }).select("*, casts(name)").single();
     setSubmitting(false);
@@ -93,13 +113,20 @@ export default function CastPostManagement() {
     toast.success("投稿を作成しました。自動投稿を開始します...");
     setPosts(prev => [data as Post, ...prev]);
     setShowDialog(false);
-    setForm({ cast_id: "", title: "", body: "", image_urls: "" });
-    // Edge Functionを呼び出して自動投稿
+    setForm({ cast_id: "", title: "", body: "", images: [] });
     supabase.functions.invoke("post-to-sites", { body: { post_id: data.id } })
       .then(({ error }) => {
         if (error) toast.error("自動投稿に失敗しました: " + error.message);
         else fetchPosts();
       });
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("この投稿を削除しますか？")) return;
+    const { error } = await supabase.from("cast_posts").delete().eq("id", id);
+    if (error) { toast.error("削除に失敗しました"); return; }
+    setPosts(prev => prev.filter(p => p.id !== id));
+    toast.success("削除しました");
   };
 
   return (
@@ -141,6 +168,13 @@ export default function CastPostManagement() {
                         </div>
                         {post.title && <p className="text-sm font-medium mb-0.5">{post.title}</p>}
                         <p className="text-sm text-muted-foreground line-clamp-2">{post.body}</p>
+                        {post.image_urls && post.image_urls.length > 0 && (
+                          <div className="flex gap-1 mt-2 flex-wrap">
+                            {post.image_urls.slice(0, 4).map((u, i) => (
+                              <img key={i} src={u} alt="" className="w-14 h-14 rounded object-cover" />
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="flex flex-col gap-1 items-end shrink-0 text-xs">
                         <div className="flex items-center gap-1">
@@ -151,6 +185,9 @@ export default function CastPostManagement() {
                           {SITE_BADGE[post.esutama_status]}
                           <span className="text-muted-foreground">エスたま</span>
                         </div>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-600" onClick={() => handleDelete(post.id)}>
+                          <Trash2 size={13} />
+                        </Button>
                       </div>
                     </div>
                     {(post.o2_error || post.esutama_error) && (
@@ -194,16 +231,40 @@ export default function CastPostManagement() {
               />
             </div>
             <div>
-              <Label>画像URL（1行1URL）</Label>
-              <Textarea
-                rows={2}
-                value={form.image_urls}
-                onChange={e => setForm({ ...form, image_urls: e.target.value })}
-                placeholder="https://..."
+              <Label>画像</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={e => handleFileUpload(e.target.files)}
+                className="hidden"
               />
+              <div className="flex flex-wrap gap-2 mt-1">
+                {form.images.map((url, i) => (
+                  <div key={i} className="relative w-20 h-20 group">
+                    <img src={url} alt="" className="w-full h-full object-cover rounded border" />
+                    <button
+                      type="button"
+                      onClick={() => setForm(prev => ({ ...prev, images: prev.images.filter((_, idx) => idx !== i) }))}
+                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-20 h-20 border-2 border-dashed rounded flex flex-col items-center justify-center text-muted-foreground hover:bg-muted text-xs gap-1"
+                >
+                  {uploading ? <Loader2 size={16} className="animate-spin" /> : <><ImagePlus size={16} /><span>追加</span></>}
+                </button>
+              </div>
             </div>
             <div className="flex gap-2 pt-2">
-              <Button className="flex-1" onClick={handleSubmit} disabled={submitting}>
+              <Button className="flex-1" onClick={handleSubmit} disabled={submitting || uploading}>
                 {submitting ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Send size={14} className="mr-1" />}
                 {submitting ? "投稿中..." : "投稿する"}
               </Button>

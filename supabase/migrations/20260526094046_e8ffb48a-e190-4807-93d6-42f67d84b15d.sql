@@ -1,0 +1,1 @@
+ALTER TABLE public.casts ADD COLUMN reviews TEXT NULL;

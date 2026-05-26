@@ -4,9 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
-import { ArrowLeft, Phone, Calendar, Star, MessageCircle, X } from "lucide-react";
+import { ArrowLeft, Search, MoreHorizontal, MessageCircle, Phone, Calendar, Star, X, Heart, Repeat2, Share, MessageCircle as Reply, Clock } from "lucide-react";
 import { SEO } from "@/components/SEO";
-import useEmblaCarousel from "embla-carousel-react";
 import { driveImgUrl } from "@/lib/drive";
 
 interface Cast {
@@ -41,60 +40,64 @@ interface Cast {
   tags: string[] | null;
 }
 
-interface TherapistProfile {
-  self_introduction: string | null;
-  comment: string | null;
-  hobbies: string | null;
-  special_skills: string | null;
-  preferred_type: string | null;
-  mbti: string | null;
-  career_history: string | null;
-  massage_skills: string | null;
-  training_count: number | null;
+interface Post {
+  id: string;
+  body: string;
+  image_urls: string[] | null;
+  created_at: string;
+  posted_at: string | null;
 }
 
-const SectionHeader = ({ label, sub }: { label: string; sub?: string }) => (
-  <div className="px-5 py-3 border-b border-[#f0e4df]" style={{ background: "#2a2320" }}>
-    <h3 className="text-sm font-bold tracking-widest" style={{ color: "#c49480" }}>{label}</h3>
-    {sub && <p className="text-[10px] mt-0.5" style={{ color: "#7a706c" }}>{sub}</p>}
-  </div>
-);
+interface TodayShift {
+  cast_id: string;
+  start_time: string;
+  end_time: string;
+}
+
+interface TodayRes {
+  cast_id: string;
+  start_time: string;
+  duration: number;
+}
+
+const TEL = "09081264042";
 
 const CastDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [cast, setCast] = useState<Cast | null>(null);
-  const [profile, setProfile] = useState<TherapistProfile | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
-  const [selectedIndex, setSelectedIndex] = useState(0);
   const [msgOpen, setMsgOpen] = useState(false);
   const [msgName, setMsgName] = useState("");
   const [msgBody, setMsgBody] = useState("");
   const [msgSending, setMsgSending] = useState(false);
   const [msgSent, setMsgSent] = useState(false);
+  const [tab, setTab] = useState<"posts" | "profile">("posts");
+  const [todayShifts, setTodayShifts] = useState<TodayShift[]>([]);
+  const [todayRes, setTodayRes] = useState<TodayRes[]>([]);
+  const [slotModal, setSlotModal] = useState<{ castId: string; castName: string; time: string } | null>(null);
 
-  useEffect(() => {
-    if (id) fetchAll();
-  }, [id]);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
-    emblaApi.on("select", onSelect);
-    onSelect();
-    return () => { emblaApi.off("select", onSelect); };
-  }, [emblaApi]);
+  useEffect(() => { if (id) fetchAll(); }, [id]);
 
   const fetchAll = async () => {
     try {
-      const [castRes, profileRes] = await Promise.all([
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const [castRes, postRes, shiftRes, resRes] = await Promise.all([
         supabase.from("casts").select("*").eq("id", id).single(),
-        supabase.from("therapist_profiles").select("*").eq("cast_id", id).maybeSingle(),
+        supabase.from("cast_posts").select("id,body,image_urls,created_at,posted_at").eq("cast_id", id).order("created_at", { ascending: false }).limit(20),
+        supabase.from("shifts").select("cast_id,start_time,end_time").eq("shift_date", dateStr).eq("cast_id", id),
+        supabase.rpc("get_reservation_slots", { p_date: dateStr, p_cast_id: id }),
       ]);
       if (castRes.error) throw castRes.error;
       setCast(castRes.data);
-      setProfile(profileRes.data ?? null);
+      setPosts((postRes.data ?? []) as Post[]);
+      setTodayShifts((shiftRes.data ?? []) as TodayShift[]);
+      setTodayRes(((resRes.data as any[]) ?? []).map((x) => ({
+        cast_id: x.cast_id,
+        start_time: x.start_time,
+        duration: x.duration,
+      })));
       document.title = `${castRes.data.name} | 全力エステ`;
     } catch {
       navigate("/casts");
@@ -105,19 +108,16 @@ const CastDetail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#f8f6f3" }}>
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#c49480]" />
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white" />
       </div>
     );
   }
-
   if (!cast) return null;
 
-  // Parse profile JSON if stored as JSON in the profile field
   let profileJson: Record<string, any> | null = null;
-  let profileText: string | null = cast.profile;
   if (cast.profile && cast.profile.trimStart().startsWith("{")) {
-    try { profileJson = JSON.parse(cast.profile); profileText = null; } catch { /* keep as text */ }
+    try { profileJson = JSON.parse(cast.profile); } catch {}
   }
 
   const displayAge    = cast.age    ?? profileJson?.age    ?? null;
@@ -125,13 +125,34 @@ const CastDetail = () => {
   const displayBust   = cast.bust   ?? profileJson?.bust   ?? null;
   const displayWaist  = cast.waist  ?? profileJson?.waist  ?? null;
   const displayHip    = cast.hip    ?? profileJson?.hip    ?? null;
-  const displayWeight = profileJson?.weight ?? null;
   const displayBlood  = cast.blood_type ?? profileJson?.blood_type ?? null;
 
   const allPhotos = (cast.photos && cast.photos.length > 0
     ? cast.photos
     : cast.photo ? [cast.photo] : []
   ).filter(Boolean);
+
+  const bannerPhoto = allPhotos[1] ?? allPhotos[0] ?? null;
+  const avatarPhoto = allPhotos[0] ?? null;
+  const handle = (cast.x_account?.replace(/^@?/, "").replace(/^https?:\/\/.*\//, "")) || `zr_${cast.id.slice(0, 8)}`;
+
+  // Build timeline items: prefer posts, fallback to photos as cards (5 items)
+  const timeline: Post[] = posts.length > 0
+    ? posts.slice(0, 10)
+    : allPhotos.slice(0, 5).map((p, i) => ({
+        id: `photo-${i}`,
+        body: i === 0 && cast.message ? cast.message : "",
+        image_urls: [p],
+        created_at: new Date(Date.now() - i * 86400000).toISOString(),
+        posted_at: null,
+      }));
+
+  const stats: { label: string; value: string }[] = [];
+  if (displayAge)    stats.push({ label: "年齢", value: `${displayAge}` });
+  if (displayHeight) stats.push({ label: "身長", value: `${displayHeight}` });
+  if (displayBust)   stats.push({ label: "B", value: `${displayBust}${cast.cup_size ? cast.cup_size : ""}` });
+  if (displayWaist)  stats.push({ label: "W", value: `${displayWaist}` });
+  if (displayHip)    stats.push({ label: "H", value: `${displayHip}` });
 
   const handleSendMessage = async () => {
     if (!msgName.trim() || !msgBody.trim()) return;
@@ -147,381 +168,403 @@ const CastDetail = () => {
     setMsgBody("");
   };
 
-  // Build interview items from both casts columns and therapist_profiles
-  const interviewItems: { q: string; a: string }[] = [
-    profile?.self_introduction && { q: "自己紹介", a: profile.self_introduction },
-    cast.therapist_years != null && { q: "セラピスト歴", a: `${cast.therapist_years}年` },
-    (profile?.massage_skills || cast.favorite_techniques) && { q: "得意な施術", a: profile?.massage_skills ?? cast.favorite_techniques ?? "" },
-    profile?.career_history && { q: "エステ経歴", a: profile.career_history },
-    profile?.training_count != null && { q: "研修回数", a: `${profile.training_count}回` },
-    (profile?.hobbies || cast.hobbies) && { q: "趣味・特技", a: profile?.hobbies ?? cast.hobbies ?? "" },
-    profile?.special_skills && { q: "特技", a: profile.special_skills },
-    cast.favorite_food && { q: "好きな食べ物", a: cast.favorite_food },
-    cast.celebrity_lookalike && { q: "似ている芸能人", a: cast.celebrity_lookalike },
-    cast.day_off_activities && { q: "休日の過ごし方", a: cast.day_off_activities },
-    (profile?.preferred_type || cast.ideal_type) && { q: "好みのタイプ", a: profile?.preferred_type ?? cast.ideal_type ?? "" },
-    profile?.mbti && { q: "MBTI", a: profile.mbti },
-    displayBlood && { q: "血液型", a: `${displayBlood}型` },
-  ].filter(Boolean) as { q: string; a: string }[];
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso);
+    const diffH = (Date.now() - d.getTime()) / 3600000;
+    if (diffH < 1) return `${Math.max(1, Math.floor(diffH * 60))}分`;
+    if (diffH < 24) return `${Math.floor(diffH)}時間`;
+    if (diffH < 24 * 7) return `${Math.floor(diffH / 24)}日`;
+    return `${d.getMonth() + 1}月${d.getDate()}日`;
+  };
 
-  const therapistComment = cast.message ?? null;
-  const shopComment = profile?.comment ?? null;
+  const quickBook = (castId: string, time: string) => {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    navigate(`/booking?castId=${castId}&date=${dateStr}&time=${time}`);
+  };
+
+  const slotsToday = (castId: string): { time: string; available: boolean }[] => {
+    const shift = todayShifts.find((s) => s.cast_id === castId);
+    if (!shift) return [];
+    const now = new Date();
+    const [sh, sm] = shift.start_time.split(":").map(Number);
+    const [eh, em] = shift.end_time.split(":").map(Number);
+    const start = sh * 60 + sm;
+    const end = eh * 60 + em;
+    const cur = now.getHours() * 60 + now.getMinutes();
+    const reserved = todayRes
+      .filter((r) => r.cast_id === castId)
+      .map((r) => {
+        const [h, m] = r.start_time.split(":").map(Number);
+        const s = h * 60 + m;
+        return { start: s, end: s + r.duration + 30 };
+      });
+
+    const out: { time: string; available: boolean }[] = [];
+    for (let t = start; t + 60 <= end; t += 10) {
+      if (t < cur) continue;
+      const conflict = reserved.some((b) => t < b.end && t + 60 > b.start);
+      const hh = String(Math.floor(t / 60)).padStart(2, "0");
+      const mm = String(t % 60).padStart(2, "0");
+      out.push({ time: `${hh}:${mm}`, available: !conflict });
+    }
+    return out;
+  };
 
   const castDescription = cast.message
     ? `${cast.name}のプロフィール。${cast.message.slice(0, 80)}…`
-    : `${cast.name}のプロフィール・口コミ・出勤情報。全力エステ 仙台店のセラピスト。`;
+    : `${cast.name}のプロフィール・出勤情報。全力エステ 仙台店のセラピスト。`;
 
   return (
-    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+    <div className="min-h-screen pb-20 md:pb-0 bg-black text-white">
       <SEO
         title={cast.name}
         description={castDescription}
         path={`/casts/${cast.id}`}
         image={cast.photo ?? undefined}
         type="profile"
-        jsonLd={{
-          "@context": "https://schema.org",
-          "@type": "Person",
-          "name": cast.name,
-          "description": castDescription,
-          "url": `https://zenryokuesthe.com/casts/${cast.id}`,
-          "worksFor": { "@type": "Organization", "name": "全力エステ 仙台店" },
-        }}
       />
       <PublicNavigation />
 
-      <main className="container py-3 md:py-6 px-2 md:px-4">
-        <div className="max-w-3xl mx-auto">
-
-          <button
-            onClick={() => navigate("/casts")}
-            className="flex items-center gap-1 text-sm mb-4 hover:underline"
-            style={{ color: "#7a706c" }}
-          >
-            <ArrowLeft size={14} />
-            セラピスト一覧に戻る
+      <main className="max-w-xl mx-auto">
+        {/* Top bar */}
+        <div className="sticky top-0 z-20 backdrop-blur bg-black/70 flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <button onClick={() => navigate("/casts")} className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center hover:bg-white/10">
+            <ArrowLeft size={18} />
           </button>
+          <div className="flex items-center gap-2">
+            <button className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center hover:bg-white/10">
+              <Search size={16} />
+            </button>
+            <button className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center hover:bg-white/10">
+              <MoreHorizontal size={16} />
+            </button>
+          </div>
+        </div>
 
-          <div className="bg-white rounded-lg overflow-hidden shadow-md">
+        {/* Banner */}
+        <div className="relative h-44 sm:h-56 bg-gradient-to-br from-[#3a1a2e] via-[#1f1322] to-[#0d0a14] overflow-hidden">
+          {bannerPhoto && (
+            <img src={driveImgUrl(bannerPhoto, 1200)} alt="" className="w-full h-full object-cover opacity-60" style={{ objectPosition: "center 30%" }} />
+          )}
+        </div>
 
-            {/* ── Photo carousel ── */}
-            <div className="relative bg-black">
-              {allPhotos.length > 0 ? (
-                <>
-                  <div className="overflow-hidden" ref={emblaRef}>
-                    <div className="flex">
-                      {allPhotos.map((photo, i) => (
-                        <div key={i} className="flex-[0_0_100%] min-w-0">
-                          <img
-                            src={driveImgUrl(photo, 1200)}
-                            alt={`${cast.name} ${i + 1}`}
-                            className="w-full object-cover"
-                            style={{ maxHeight: "520px", objectPosition: "top" }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  {allPhotos.length > 1 && (
-                    <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
-                      {allPhotos.map((_, i) => (
-                        <button key={i} onClick={() => emblaApi?.scrollTo(i)}
-                          className="w-1.5 h-1.5 rounded-full transition-all"
-                          style={{ background: i === selectedIndex ? "#fff" : "rgba(255,255,255,0.4)" }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </>
+        {/* Avatar + CTA */}
+        <div className="px-4 relative">
+          <div className="flex justify-between items-start -mt-12 sm:-mt-14">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-black ring-4 ring-black overflow-hidden">
+              {avatarPhoto ? (
+                <img src={driveImgUrl(avatarPhoto, 400)} alt={cast.name} className="w-full h-full object-cover object-top" />
               ) : (
-                <div className="w-full h-72 flex items-center justify-center" style={{ background: "linear-gradient(135deg, #d4b5a8, #c5a89b)" }}>
-                  <span className="text-7xl font-bold text-white/60">{cast.name.charAt(0)}</span>
-                </div>
-              )}
-              {cast.tags && cast.tags.length > 0 && (
-                <div className="absolute top-3 left-3 flex flex-col gap-1">
-                  {cast.tags.map((tag, i) => (
-                    <span key={i} className="text-white text-xs font-bold px-2 py-0.5 rounded shadow"
-                      style={{ background: tag === "人気セラピスト" ? "#ef4444" : tag === "新人" ? "#ec4899" : "#3b82f6" }}>
-                      {tag}
-                    </span>
-                  ))}
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#c49480] to-[#a87b65] text-3xl font-bold">
+                  {cast.name.charAt(0)}
                 </div>
               )}
             </div>
-
-            {/* Thumbnail strip */}
-            {allPhotos.length > 1 && (
-              <div className="flex gap-1.5 px-3 py-2 overflow-x-auto bg-[#f9f4f2]">
-                {allPhotos.map((photo, i) => (
-                  <button key={i} onClick={() => emblaApi?.scrollTo(i)}
-                    className="flex-shrink-0 rounded overflow-hidden border-2 transition-all"
-                    style={{ width: 52, height: 52, borderColor: i === selectedIndex ? "#c49480" : "transparent", opacity: i === selectedIndex ? 1 : 0.55 }}>
-                    <img src={driveImgUrl(photo, 400)} alt="" className="w-full h-full object-cover object-top" />
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* ── Name & status ── */}
-            <div className="px-5 pt-5 pb-3 border-b border-[#f0e4df]">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <h1 className="text-2xl font-bold" style={{ color: "#1a1817" }}>{cast.name}</h1>
-                  {displayAge && <p className="text-sm mt-0.5" style={{ color: "#a89586" }}>{displayAge}歳</p>}
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold px-4 py-1.5 rounded-full text-white"
-                    style={{ background: cast.is_online ? "#22c55e" : "#9ca3af" }}>
-                    {cast.is_online ? "オンライン" : "オフライン"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Stats grid ── */}
-            {(displayHeight || displayBust || displayWaist || displayHip || displayWeight || displayBlood) && (
-              <div className="border-b border-[#f0e4df]">
-                <div className={`grid divide-x divide-[#f0e4df] ${[displayHeight, displayBust, displayWaist, displayHip].filter(Boolean).length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
-                  {displayHeight && (
-                    <div className="py-3 text-center">
-                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>身長</p>
-                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayHeight}cm</p>
-                    </div>
-                  )}
-                  {displayBust && (
-                    <div className="py-3 text-center">
-                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>バスト</p>
-                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayBust}{cast.cup_size ? `(${cast.cup_size})` : ""}</p>
-                    </div>
-                  )}
-                  {displayWaist && (
-                    <div className="py-3 text-center">
-                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>ウエスト</p>
-                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayWaist}</p>
-                    </div>
-                  )}
-                  {displayHip && (
-                    <div className="py-3 text-center">
-                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>ヒップ</p>
-                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayHip}</p>
-                    </div>
-                  )}
-                </div>
-                {(displayWeight || displayBlood) && (
-                  <div className="grid grid-cols-2 divide-x divide-[#f0e4df] border-t border-[#f0e4df]">
-                    {displayWeight && (
-                      <div className="py-3 text-center">
-                        <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>体重</p>
-                        <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayWeight}kg</p>
-                      </div>
-                    )}
-                    {displayBlood && (
-                      <div className="py-3 text-center">
-                        <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>血液型</p>
-                        <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayBlood}型</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── CTA buttons ── */}
-            <div className="px-5 py-4 flex flex-col gap-3 border-b border-[#f0e4df]">
-              <a href="tel:09081264042"
-                className="flex items-center justify-center gap-2 py-3.5 rounded-lg text-white font-bold text-base transition-opacity hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #c49480, #a87b65)" }}>
-                <Phone size={17} />電話で予約する
-              </a>
-              <Link to="/booking"
-                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[#f2e4de]"
-                style={{ borderColor: "#c49480", color: "#7a706c" }}>
-                <Calendar size={15} />Web予約はこちら
-              </Link>
-              {cast.o2_url && (
-                <a
-                  href={cast.o2_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[#f2e4de]"
-                  style={{ borderColor: "#d1c4be", color: "#7a706c" }}>
-                  <Star size={15} />セラピストの口コミを見る
-                </a>
-              )}
-              <button
-                onClick={() => { setMsgOpen(true); setMsgSent(false); }}
-                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[#f2e4de]"
-                style={{ borderColor: "#c49480", color: "#c49480" }}>
-                <MessageCircle size={15} />{cast.name}にメッセージを送る
-              </button>
-            </div>
-
-            {/* ── セラピストインタビュー ── */}
-            {interviewItems.length > 0 && (
-              <>
-                <SectionHeader label="INTERVIEW" sub="セラピストインタビュー" />
-                <div className="divide-y divide-[#f0e4df]">
-                  {interviewItems.map(({ q, a }) => (
-                    <div key={q} className="px-5 py-3 flex gap-4 text-sm">
-                      <dt className="shrink-0 font-semibold w-28 text-[#a89586]">Q. {q}</dt>
-                      <dd className="leading-relaxed text-[#1a1817] whitespace-pre-wrap">{a}</dd>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* ── セラピストコメント ── */}
-            {therapistComment && (
-              <>
-                <SectionHeader label="THERAPIST COMMENT" sub="セラピストコメント" />
-                <div className="px-5 py-4" style={{ background: "#fffaf8" }}>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>
-                    {therapistComment}
-                  </p>
-                </div>
-              </>
-            )}
-
-            {/* ── ショップコメント ── */}
-            {shopComment && (
-              <>
-                <SectionHeader label="SHOP COMMENT" sub="ショップコメント" />
-                <div className="px-5 py-4" style={{ background: "#f5f0ee" }}>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>
-                    {shopComment}
-                  </p>
-                </div>
-              </>
-            )}
-
-            {/* ── Profile text (legacy) ── */}
-            {profileText && (
-              <>
-                <SectionHeader label="PROFILE" sub="プロフィール" />
-                <div className="px-5 py-4">
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>{profileText}</p>
-                </div>
-              </>
-            )}
-
-            {/* ── SNS links ── */}
-            {(cast.x_account || cast.line_url || cast.litlink_url || cast.o2_url) && (
-              <>
-                <SectionHeader label="SNS / LINKS" sub="各種リンク" />
-                <div className="px-5 py-4 flex flex-wrap gap-3">
-                  {cast.x_account && (
-                    <a
-                      href={cast.x_account.startsWith("http") ? cast.x_account : `https://twitter.com/${cast.x_account}`}
-                      target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#f2e4de]"
-                      style={{ borderColor: "#d1c4be", color: "#1a1817" }}
-                    >
-                      <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-4 h-4" />
-                      X（Twitter）
-                    </a>
-                  )}
-                  {cast.line_url && (
-                    <a
-                      href={cast.line_url}
-                      target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#f0fff0]"
-                      style={{ borderColor: "#06c755", color: "#06c755" }}
-                    >
-                      <img src="https://storage.googleapis.com/caskan/asset/line_icon.png" alt="LINE" className="w-4 h-4" />
-                      LINE
-                    </a>
-                  )}
-                  {cast.litlink_url && (
-                    <a
-                      href={cast.litlink_url}
-                      target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#f2e4de]"
-                      style={{ borderColor: "#c49480", color: "#c49480" }}
-                    >
-                      <span className="text-xs font-bold">lit.</span>
-                      リットリンク
-                    </a>
-                  )}
-                  {cast.o2_url && (
-                    <a
-                      href={cast.o2_url}
-                      target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#fff0f0]"
-                      style={{ borderColor: "#e85298", color: "#e85298" }}
-                    >
-                      <span className="text-xs font-bold">O2</span>
-                      口コミ（O2）
-                    </a>
-                  )}
-                </div>
-              </>
-            )}
-
-
+            <button
+              onClick={() => { setMsgOpen(true); setMsgSent(false); }}
+              className="mt-14 sm:mt-16 px-5 py-2 rounded-full bg-white text-black font-bold text-sm hover:bg-white/90 transition-colors"
+            >
+              メッセージ
+            </button>
           </div>
 
-          <div className="text-center mt-6 mb-2">
-            <Link to="/casts" className="text-sm hover:underline" style={{ color: "#a89586" }}>
-              ← セラピスト一覧に戻る
+          {/* Name */}
+          <div className="mt-3">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-extrabold">{cast.name}</h1>
+              {cast.is_online && <span className="w-2 h-2 rounded-full bg-green-500" />}
+            </div>
+            <p className="text-sm text-white/50">@{handle}</p>
+          </div>
+
+          {/* Bio = message (1 line if exists) */}
+          {cast.message && (
+            <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap text-white/90">{cast.message}</p>
+          )}
+
+          {/* Stats line (replaces 福岡) */}
+          {stats.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/70">
+              {stats.map((s, i) => (
+                <span key={i} className="flex items-baseline gap-1">
+                  <span className="text-white/40 text-xs">{s.label}</span>
+                  <span className="font-semibold text-white">{s.value}</span>
+                </span>
+              ))}
+              {displayBlood && (
+                <span className="flex items-baseline gap-1">
+                  <span className="text-white/40 text-xs">血液型</span>
+                  <span className="font-semibold text-white">{displayBlood}</span>
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Followers row (sub CTAs) */}
+          <div className="mt-3 flex items-center gap-4 text-sm text-white/60">
+            <a href="tel:09081264042" className="flex items-center gap-1 hover:underline">
+              <Phone size={13} /><span className="text-white font-semibold">電話予約</span>
+            </a>
+            <Link to="/booking" className="flex items-center gap-1 hover:underline">
+              <Calendar size={13} /><span className="text-white font-semibold">Web予約</span>
             </Link>
+            {cast.o2_url && (
+              <a href={cast.o2_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline">
+                <Star size={13} /><span className="text-white font-semibold">口コミ</span>
+              </a>
+            )}
           </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="mt-5 grid grid-cols-2 border-b border-white/10 sticky top-[57px] z-10 bg-black/80 backdrop-blur">
+          {([
+            { k: "posts", label: "ポスト" },
+            { k: "profile", label: "プロフィール" },
+          ] as const).map(t => (
+            <button
+              key={t.k}
+              onClick={() => setTab(t.k)}
+              className="relative py-3.5 text-sm font-semibold hover:bg-white/5 transition-colors"
+            >
+              <span className={tab === t.k ? "text-white" : "text-white/50"}>{t.label}</span>
+              {tab === t.k && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 rounded-full bg-[#1d9bf0]" />}
+            </button>
+          ))}
+        </div>
+
+        {/* Timeline */}
+        {tab === "posts" && (
+          <div className="divide-y divide-white/10">
+            {timeline.length === 0 && (
+              <div className="py-16 text-center text-white/40 text-sm">まだ投稿がありません</div>
+            )}
+            {timeline.map((p) => (
+              <article key={p.id} className="px-4 py-3 hover:bg-white/[0.02] transition-colors">
+                <div className="flex gap-3">
+                  <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-white/10">
+                    {avatarPhoto && <img src={driveImgUrl(avatarPhoto, 200)} alt="" className="w-full h-full object-cover object-top" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1 text-sm">
+                      <span className="font-bold truncate">{cast.name}</span>
+                      <span className="text-white/50 truncate">@{handle}</span>
+                      <span className="text-white/50">·</span>
+                      <span className="text-white/50">{fmtDate(p.created_at)}</span>
+                    </div>
+                    {p.body && (
+                      <p className="mt-1 text-[15px] leading-relaxed whitespace-pre-wrap break-words">{p.body}</p>
+                    )}
+                    {p.image_urls && p.image_urls.length > 0 && (
+                      <div className={`mt-2 rounded-2xl overflow-hidden border border-white/10 grid gap-0.5 ${p.image_urls.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                        {p.image_urls.slice(0, 4).map((url, i) => (
+                          <img key={i} src={driveImgUrl(url, 800)} alt="" className="w-full object-cover" style={{ maxHeight: p.image_urls!.length === 1 ? 480 : 240, aspectRatio: p.image_urls!.length === 1 ? "auto" : "1/1" }} />
+                        ))}
+                      </div>
+                    )}
+                    {(() => {
+                      const slots = slotsToday(cast.id);
+                      if (slots.length === 0) return null;
+                      return (
+                        <div className="mt-2 -mx-1 overflow-x-auto scrollbar-thin">
+                          <table className="border-separate border-spacing-0 bg-white text-gray-700 rounded-md overflow-hidden">
+                            <thead>
+                              <tr>
+                                {slots.map((s) => (
+                                  <th
+                                    key={s.time}
+                                    className="px-3 py-1.5 text-[12px] font-medium bg-gray-100 border-b border-gray-200 whitespace-nowrap"
+                                  >
+                                    {s.time}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                {slots.map((s) => (
+                                  <td
+                                    key={s.time}
+                                    className="px-3 py-2 text-center border-r border-gray-100 last:border-r-0"
+                                  >
+                                    <button
+                                      disabled={!s.available}
+                                      onClick={() =>
+                                        s.available &&
+                                        setSlotModal({ castId: cast.id, castName: cast.name, time: s.time })
+                                      }
+                                      className={`text-[18px] leading-none ${
+                                        s.available
+                                          ? "text-gray-500 hover:text-[#2a8fc9]"
+                                          : "text-gray-300 cursor-not-allowed"
+                                      }`}
+                                    >
+                                      {s.available ? "○" : "×"}
+                                    </button>
+                                  </td>
+                                ))}
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()}
+                    <div className="mt-2 flex items-center justify-between max-w-xs text-white/50">
+                      <button className="flex items-center gap-1.5 text-xs hover:text-[#1d9bf0] transition-colors"><Reply size={15} /></button>
+                      <button className="flex items-center gap-1.5 text-xs hover:text-green-500 transition-colors"><Repeat2 size={15} /></button>
+                      <button className="flex items-center gap-1.5 text-xs hover:text-pink-500 transition-colors"><Heart size={15} /></button>
+                      <button className="flex items-center gap-1.5 text-xs hover:text-[#1d9bf0] transition-colors"><Share size={15} /></button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        {/* Profile tab */}
+        {tab === "profile" && (
+          <div className="px-4 py-4 space-y-4">
+            {cast.message && (
+              <section>
+                <h3 className="text-xs font-bold tracking-widest text-white/40 mb-2">MESSAGE</h3>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{cast.message}</p>
+              </section>
+            )}
+            {(cast.favorite_techniques || cast.hobbies || cast.favorite_food || cast.celebrity_lookalike || cast.day_off_activities || cast.ideal_type) && (
+              <section>
+                <h3 className="text-xs font-bold tracking-widest text-white/40 mb-2">INTERVIEW</h3>
+                <dl className="divide-y divide-white/10 border border-white/10 rounded-xl overflow-hidden">
+                  {[
+                    cast.therapist_years != null && { q: "セラピスト歴", a: `${cast.therapist_years}年` },
+                    cast.favorite_techniques && { q: "得意な施術", a: cast.favorite_techniques },
+                    cast.hobbies && { q: "趣味・特技", a: cast.hobbies },
+                    cast.favorite_food && { q: "好きな食べ物", a: cast.favorite_food },
+                    cast.celebrity_lookalike && { q: "似ている芸能人", a: cast.celebrity_lookalike },
+                    cast.day_off_activities && { q: "休日の過ごし方", a: cast.day_off_activities },
+                    cast.ideal_type && { q: "好みのタイプ", a: cast.ideal_type },
+                  ].filter(Boolean).map((it: any) => (
+                    <div key={it.q} className="px-4 py-3 flex gap-4 text-sm">
+                      <dt className="shrink-0 w-24 text-white/50">{it.q}</dt>
+                      <dd className="whitespace-pre-wrap">{it.a}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            )}
+            {(cast.x_account || cast.line_url || cast.litlink_url || cast.o2_url) && (
+              <section>
+                <h3 className="text-xs font-bold tracking-widest text-white/40 mb-2">LINKS</h3>
+                <div className="flex flex-wrap gap-2">
+                  {cast.x_account && <a href={cast.x_account.startsWith("http") ? cast.x_account : `https://twitter.com/${cast.x_account}`} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-full border border-white/20 text-sm hover:bg-white/10">X</a>}
+                  {cast.line_url && <a href={cast.line_url} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-full border border-green-500/50 text-green-400 text-sm hover:bg-green-500/10">LINE</a>}
+                  {cast.litlink_url && <a href={cast.litlink_url} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-full border border-white/20 text-sm hover:bg-white/10">リットリンク</a>}
+                  {cast.o2_url && <a href={cast.o2_url} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-full border border-pink-400/50 text-pink-300 text-sm hover:bg-pink-500/10">O2 口コミ</a>}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+
+        <div className="text-center py-6">
+          <Link to="/casts" className="text-sm text-white/40 hover:underline">← セラピスト一覧に戻る</Link>
         </div>
       </main>
 
       <PublicFooter />
       <FixedBottomBar />
 
-      {/* ── メッセージ送信ダイアログ ── */}
+      {slotModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center"
+          onClick={() => setSlotModal(null)}
+        >
+          <div
+            className="w-full max-w-xl bg-white text-gray-900 rounded-t-3xl p-5 pb-8 shadow-2xl animate-in slide-in-from-bottom duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <div className="text-base font-bold">{slotModal.castName} を予約</div>
+              <button onClick={() => setSlotModal(null)} className="text-gray-400 hover:text-gray-700">
+                <X size={22} />
+              </button>
+            </div>
+
+            <div className="rounded-2xl bg-gray-100 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex flex-col items-center pt-1">
+                  <div className="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center">
+                    <Clock size={16} className="text-[#1d3557]" />
+                  </div>
+                  <div className="flex flex-col gap-0.5 my-1">
+                    <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#1d3557]/40" />
+                    <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#1d3557]/40" />
+                  </div>
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className="text-xs text-gray-500">予約時間</div>
+                  <div className="text-xl font-bold text-gray-900">{slotModal.time}</div>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-2xl bg-white p-4 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full border-2 border-[#1d3557] flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#1d3557]" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-xs text-gray-500">コース</div>
+                  <div className="text-base font-bold text-gray-900">60分コース</div>
+                </div>
+                <button
+                  onClick={() => quickBook(slotModal.castId, slotModal.time)}
+                  className="px-5 py-3 rounded-full bg-[#1d3557] hover:bg-[#15253f] text-white text-sm font-bold transition-colors whitespace-nowrap"
+                >
+                  次へすすむ
+                </button>
+              </div>
+            </div>
+
+            <a
+              href={`tel:${TEL}`}
+              className="mt-4 w-full py-3 rounded-full border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-bold text-center transition-colors flex items-center justify-center gap-2"
+            >
+              <Phone size={16} /> 電話で予約 ({TEL})
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* メッセージ送信ダイアログ */}
       {msgOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ background: "#2a2320" }}>
-              <p className="text-white font-semibold text-sm">{cast.name}へメッセージ</p>
-              <button onClick={() => setMsgOpen(false)} className="text-white/70 hover:text-white">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-[#16181c] shadow-2xl overflow-hidden border border-white/10">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+              <p className="font-semibold text-sm">{cast.name}へメッセージ</p>
+              <button onClick={() => setMsgOpen(false)} className="text-white/60 hover:text-white">
                 <X size={18} />
               </button>
             </div>
             {msgSent ? (
               <div className="px-6 py-10 text-center space-y-3">
                 <div className="text-4xl">💌</div>
-                <p className="font-semibold text-[#7a706c]">メッセージを送りました！</p>
-                <p className="text-sm text-[#a89586]">{cast.name}に届きます。お楽しみに♪</p>
-                <button
-                  onClick={() => setMsgOpen(false)}
-                  className="mt-2 px-6 py-2 rounded-full text-sm font-semibold text-white"
-                  style={{ background: "#c49480" }}>
-                  閉じる
-                </button>
+                <p className="font-semibold">メッセージを送りました！</p>
+                <p className="text-sm text-white/60">{cast.name}に届きます。お楽しみに♪</p>
+                <button onClick={() => setMsgOpen(false)} className="mt-2 px-6 py-2 rounded-full text-sm font-semibold bg-white text-black">閉じる</button>
               </div>
             ) : (
               <div className="px-5 py-5 space-y-4">
                 <div>
-                  <label className="text-xs font-semibold text-[#7a706c] block mb-1">お名前（ニックネームOK）</label>
-                  <input
-                    type="text"
-                    value={msgName}
-                    onChange={e => setMsgName(e.target.value)}
-                    placeholder="例：タロウ"
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#c49480]"
-                  />
+                  <label className="text-xs font-semibold text-white/60 block mb-1">お名前（ニックネームOK）</label>
+                  <input type="text" value={msgName} onChange={e => setMsgName(e.target.value)} placeholder="例：タロウ"
+                    className="w-full bg-transparent border border-white/20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1d9bf0]" />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-[#7a706c] block mb-1">メッセージ</label>
-                  <textarea
-                    value={msgBody}
-                    onChange={e => setMsgBody(e.target.value)}
-                    placeholder={`${cast.name}へのメッセージを入力...`}
-                    rows={4}
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#c49480] resize-none"
-                  />
+                  <label className="text-xs font-semibold text-white/60 block mb-1">メッセージ</label>
+                  <textarea value={msgBody} onChange={e => setMsgBody(e.target.value)} placeholder={`${cast.name}へのメッセージを入力...`} rows={4}
+                    className="w-full bg-transparent border border-white/20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1d9bf0] resize-none" />
                 </div>
-                <button
-                  onClick={handleSendMessage}
-                  disabled={msgSending || !msgName.trim() || !msgBody.trim()}
-                  className="w-full py-3 rounded-xl text-white font-bold text-sm transition-opacity disabled:opacity-40"
-                  style={{ background: "linear-gradient(135deg, #c49480, #a87b65)" }}>
+                <button onClick={handleSendMessage} disabled={msgSending || !msgName.trim() || !msgBody.trim()}
+                  className="w-full py-3 rounded-full bg-white text-black font-bold text-sm disabled:opacity-40">
                   {msgSending ? "送信中..." : "送信する"}
                 </button>
               </div>

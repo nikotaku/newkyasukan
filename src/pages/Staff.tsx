@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Link as LinkIcon, Copy, Eye, EyeOff, CalendarPlus, GripVertical, FileUp, X } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
 import { ImportModal } from "@/components/ImportModal";
-import { DashboardHeader } from "@/components/DashboardHeader";
+
 import { Sidebar } from "@/components/Sidebar";
 import { WebsitePhotoSync } from "@/components/WebsitePhotoSync";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ interface Cast {
   status: string;
   photo: string | null;
   photos: string[] | null;
+  photo_captions?: string[] | null;
   profile: string | null;
   room: string | null;
   execution_date_start: string | null;
@@ -37,6 +38,7 @@ interface Cast {
   line_url: string | null;
   litlink_url: string | null;
   o2_url: string | null;
+  reviews: string | null;
   join_date: string;
   access_token?: string | null;
   therapist_years: number | null;
@@ -55,7 +57,19 @@ interface Cast {
   repeat_scheduled: boolean | null;
   is_visible: boolean;
   display_order?: number;
+  height?: number | null;
+  cup_size?: string | null;
+  bust?: number | null;
+  waist?: number | null;
+  hip?: number | null;
+  target_customers?: string | null;
+  customer_age_range?: string | null;
+  mbti?: string | null;
+  account_info?: string | null;
+  custom_properties?: any;
 }
+
+type CustomProp = { id: string; label: string; type: "text" | "number" | "url"; value: string };
 
 export default function Staff() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -79,6 +93,7 @@ export default function Staff() {
     profile: "",
     photo: "",
     photos: [] as string[],
+    photo_captions: [] as string[],
     therapist_years: 0,
     favorite_techniques: "",
     favorite_food: "",
@@ -93,6 +108,8 @@ export default function Staff() {
     memo: "",
     dispatch_status: "none",
     repeat_scheduled: false,
+    o2_url: "",
+    reviews: "",
   });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
@@ -185,6 +202,7 @@ export default function Staff() {
           profile: formData.profile,
           photo: formData.photos[0] || formData.photo || null,
           photos: formData.photos.length > 0 ? formData.photos : null,
+          photo_captions: formData.photo_captions.length > 0 ? formData.photo_captions : null,
           therapist_years: formData.therapist_years || null,
           favorite_techniques: formData.favorite_techniques || null,
           favorite_food: formData.favorite_food || null,
@@ -199,6 +217,8 @@ export default function Staff() {
           memo: formData.memo || null,
           dispatch_status: formData.dispatch_status || 'none',
           repeat_scheduled: formData.repeat_scheduled || false,
+          o2_url: formData.o2_url || null,
+          reviews: formData.reviews || null,
         }]);
 
       if (error) throw error;
@@ -217,6 +237,7 @@ export default function Staff() {
         profile: "",
         photo: "",
         photos: [],
+        photo_captions: [],
         therapist_years: 0,
         favorite_techniques: "",
         favorite_food: "",
@@ -231,6 +252,8 @@ export default function Staff() {
         memo: "",
         dispatch_status: "none",
         repeat_scheduled: false,
+        o2_url: "",
+        reviews: "",
       });
     } catch (error) {
       console.error('Error adding cast:', error);
@@ -289,11 +312,13 @@ export default function Staff() {
           profile: editingCast.profile,
           photo: photos.length > 0 ? photos[0] : null,
           photos: photos.length > 0 ? photos : null,
+          photo_captions: (editingCast.photo_captions && editingCast.photo_captions.length > 0) ? editingCast.photo_captions : null,
           x_account: editingCast.x_account || null,
           message: editingCast.message || null,
           line_url: editingCast.line_url || null,
           litlink_url: editingCast.litlink_url || null,
           o2_url: editingCast.o2_url || null,
+          reviews: editingCast.reviews || null,
           hp_notice: editingCast.hp_notice || null,
           therapist_years: editingCast.therapist_years || null,
           favorite_techniques: editingCast.favorite_techniques || null,
@@ -311,6 +336,16 @@ export default function Staff() {
           repeat_scheduled: editingCast.repeat_scheduled || false,
           is_visible: editingCast.is_visible,
           is_online: (editingCast as any).is_online ?? false,
+          height: editingCast.height ?? null,
+          cup_size: editingCast.cup_size ?? null,
+          bust: editingCast.bust ?? null,
+          waist: editingCast.waist ?? null,
+          hip: editingCast.hip ?? null,
+          target_customers: editingCast.target_customers ?? null,
+          customer_age_range: editingCast.customer_age_range ?? null,
+          mbti: editingCast.mbti ?? null,
+          account_info: editingCast.account_info ?? null,
+          custom_properties: editingCast.custom_properties ?? [],
         } as any)
         .eq('id', editingCast.id);
 
@@ -578,9 +613,7 @@ export default function Staff() {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
-      
-      <div className="flex pt-[60px]">
+      <div className="flex">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
         
         <main className="flex-1 p-4 md:p-6 md:ml-[240px] overflow-x-hidden">
@@ -628,39 +661,22 @@ export default function Staff() {
                           />
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="room">ルーム</Label>
-                            <Select 
-                              value={formData.room}
-                              onValueChange={(value) => setFormData({...formData, room: value})}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="ルームを選択" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="インルーム">インルーム</SelectItem>
-                                <SelectItem value="ラスルーム">ラスルーム</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label htmlFor="status">ステータス</Label>
-                            <Select 
-                              value={formData.status}
-                              onValueChange={(value) => setFormData({...formData, status: value})}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="ステータスを選択" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="派遣中">派遣中</SelectItem>
-                                <SelectItem value="リピート予定">リピート予定</SelectItem>
-                                <SelectItem value="残タスク">残タスク</SelectItem>
-                                <SelectItem value="未着手">未着手</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                        <div>
+                          <Label htmlFor="status">ステータス</Label>
+                          <Select 
+                            value={formData.status}
+                            onValueChange={(value) => setFormData({...formData, status: value})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="ステータスを選択" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="派遣中">派遣中</SelectItem>
+                              <SelectItem value="リピート予定">リピート予定</SelectItem>
+                              <SelectItem value="残タスク">残タスク</SelectItem>
+                              <SelectItem value="未着手">未着手</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         
                         <div>
@@ -675,38 +691,62 @@ export default function Staff() {
                         </div>
                         
                         <div>
-                          <Label>写真（GoogleドライブURL）</Label>
+                          <Label>写真（最大5枚・キャプション付き）</Label>
                           <div className="space-y-2">
-                            <div className="flex gap-2">
-                              <Input
-                                placeholder="https://drive.google.com/file/d/... またはファイルID"
-                                value={newPhotoUrl}
-                                onChange={(e) => setNewPhotoUrl(e.target.value)}
-                                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, false))}
-                              />
-                              <Button type="button" variant="outline" onClick={() => addPhotoUrl(newPhotoUrl, false)} disabled={!newPhotoUrl.trim()}>
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              disabled={formData.photos.length >= 5}
+                              onChange={async (e) => {
+                                const files = Array.from(e.target.files || []);
+                                const slots = 5 - formData.photos.length;
+                                const toUpload = files.slice(0, slots);
+                                const newUrls: string[] = [];
+                                for (const file of toUpload) {
+                                  const ext = file.name.split(".").pop() || "jpg";
+                                  const path = `casts/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+                                  const { error } = await supabase.storage.from("cast-photos").upload(path, file);
+                                  if (error) { toast({ variant: "destructive", title: "アップロード失敗", description: error.message }); continue; }
+                                  const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(path);
+                                  newUrls.push(publicUrl);
+                                }
+                                setFormData({
+                                  ...formData,
+                                  photos: [...formData.photos, ...newUrls],
+                                  photo_captions: [...formData.photo_captions, ...newUrls.map(() => "")],
+                                });
+                                e.target.value = "";
+                              }}
+                            />
                             {formData.photos.length > 0 && (
                               <div className="grid grid-cols-2 gap-2">
                                 {formData.photos.map((photo, index) => (
-                                  <div key={index} className="relative group">
-                                    <img
-                                      src={driveImgUrl(photo)}
-                                      alt={`プレビュー ${index + 1}`}
-                                      className="w-full h-[200px] object-cover rounded-md"
+                                  <div key={index} className="space-y-1">
+                                    <div className="relative group">
+                                      <img src={photo} alt={`プレビュー ${index + 1}`} className="w-full h-[160px] object-cover rounded-md" />
+                                      <Button type="button" variant="destructive" size="sm"
+                                        className="absolute top-1 right-1 h-6 w-6 p-0"
+                                        onClick={() => {
+                                          setFormData({
+                                            ...formData,
+                                            photos: formData.photos.filter((_, i) => i !== index),
+                                            photo_captions: formData.photo_captions.filter((_, i) => i !== index),
+                                          });
+                                        }}>
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                      <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
+                                    </div>
+                                    <Input
+                                      placeholder="キャプション"
+                                      value={formData.photo_captions[index] || ""}
+                                      onChange={(e) => {
+                                        const list = [...formData.photo_captions];
+                                        list[index] = e.target.value;
+                                        setFormData({ ...formData, photo_captions: list });
+                                      }}
                                     />
-                                    <Button
-                                      type="button"
-                                      variant="destructive"
-                                      size="sm"
-                                      className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      onClick={() => handleRemovePhoto(index, false)}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                    <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
                                   </div>
                                 ))}
                               </div>
@@ -746,116 +786,6 @@ export default function Staff() {
                           <Label htmlFor="repeat-scheduled">リピート予定</Label>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="therapist-years">セラピスト歴（年）</Label>
-                            <Input 
-                              id="therapist-years" 
-                              type="number"
-                              placeholder="3"
-                              value={formData.therapist_years || ""}
-                              onChange={(e) => setFormData({...formData, therapist_years: parseInt(e.target.value) || 0})}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="favorite-food">好きな食べ物</Label>
-                            <Input 
-                              id="favorite-food" 
-                              placeholder="じゃがりこ"
-                              value={formData.favorite_food}
-                              onChange={(e) => setFormData({...formData, favorite_food: e.target.value})}
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label htmlFor="favorite-techniques">得意な施術</Label>
-                          <Textarea 
-                            id="favorite-techniques" 
-                            rows={3}
-                            placeholder="極液を使った密着施術..."
-                            value={formData.favorite_techniques}
-                            onChange={(e) => setFormData({...formData, favorite_techniques: e.target.value})}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="ideal-partner">好きな男性のタイプ</Label>
-                          <Textarea 
-                            id="ideal-partner" 
-                            rows={2}
-                            placeholder="紳士な方"
-                            value={formData.ideal_partner}
-                            onChange={(e) => setFormData({...formData, ideal_partner: e.target.value})}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="follow-list">フォロー&リスト</Label>
-                          <Input 
-                            id="follow-list" 
-                            placeholder="追加中"
-                            value={formData.follow_list}
-                            onChange={(e) => setFormData({...formData, follow_list: e.target.value})}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="media-registration">媒体登録（カンマ区切り）</Label>
-                          <Input 
-                            id="media-registration" 
-                            placeholder="キャスカン, エスタマ"
-                            value={formData.media_registration.join(", ")}
-                            onChange={(e) => setFormData({
-                              ...formData, 
-                              media_registration: e.target.value.split(",").map(s => s.trim()).filter(s => s)
-                            })}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="marks">マーク一覧（カンマ区切り）</Label>
-                          <Input 
-                            id="marks" 
-                            placeholder="【エスたま】新人, 【エスたま】お気に入り"
-                            value={formData.marks.join(", ")}
-                            onChange={(e) => setFormData({
-                              ...formData, 
-                              marks: e.target.value.split(",").map(s => s.trim()).filter(s => s)
-                            })}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="registration-sheet">登録シート</Label>
-                          <Input 
-                            id="registration-sheet" 
-                            placeholder="登録シートURL"
-                            value={formData.registration_sheet}
-                            onChange={(e) => setFormData({...formData, registration_sheet: e.target.value})}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="format-type">フォーマット</Label>
-                          <Input 
-                            id="format-type" 
-                            placeholder="フォーマット種類"
-                            value={formData.format_type}
-                            onChange={(e) => setFormData({...formData, format_type: e.target.value})}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="recent-dispatch">直近派遣詳細</Label>
-                          <Textarea 
-                            id="recent-dispatch" 
-                            rows={3}
-                            placeholder="直近の派遣情報..."
-                            value={formData.recent_dispatch_details}
-                            onChange={(e) => setFormData({...formData, recent_dispatch_details: e.target.value})}
-                          />
-                        </div>
 
                         <div>
                           <Label htmlFor="memo">メモ欄</Label>
@@ -865,6 +795,27 @@ export default function Staff() {
                             placeholder="メモを入力..."
                             value={formData.memo}
                             onChange={(e) => setFormData({...formData, memo: e.target.value})}
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="o2-url">O2 URL</Label>
+                          <Input 
+                            id="o2-url" 
+                            placeholder="https://..."
+                            value={formData.o2_url}
+                            onChange={(e) => setFormData({...formData, o2_url: e.target.value})}
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="reviews">口コミURL</Label>
+                          <Input 
+                            id="reviews" 
+                            type="url"
+                            placeholder="https://..."
+                            value={formData.reviews}
+                            onChange={(e) => setFormData({...formData, reviews: e.target.value})}
                           />
                         </div>
                       </TabsContent>
@@ -886,13 +837,7 @@ export default function Staff() {
                   <DialogHeader>
                     <DialogTitle>キャスト編集</DialogTitle>
                   </DialogHeader>
-                  <Tabs defaultValue="basic" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="basic">基本情報</TabsTrigger>
-                      <TabsTrigger value="details">詳細情報</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="basic" className="space-y-4 mt-4">
+                  <div className="space-y-4 mt-2">
                       <div>
                         <Label htmlFor="edit-name">セラピスト名</Label>
                         <Input
@@ -903,40 +848,6 @@ export default function Staff() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="edit-type">タイプ</Label>
-                          <Select 
-                            value={editingCast.type}
-                            onValueChange={(value) => setEditingCast({...editingCast, type: value})}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="新人">新人</SelectItem>
-                              <SelectItem value="standard">スタンダード</SelectItem>
-                              <SelectItem value="premium">プレミアム</SelectItem>
-                              <SelectItem value="VIP">VIP</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="edit-room">ルーム</Label>
-                          <Select 
-                            value={editingCast.room || ""}
-                            onValueChange={(value) => setEditingCast({...editingCast, room: value})}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="ルームを選択" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="インルーム">インルーム</SelectItem>
-                              <SelectItem value="ラスルーム">ラスルーム</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
                       
                       <div className="flex items-center justify-between p-3 rounded-lg border">
                         <div className="flex items-center gap-2">
@@ -978,38 +889,63 @@ export default function Staff() {
                       </div>
                       
                       <div>
-                        <Label>写真（GoogleドライブURL）</Label>
+                        <Label>写真（最大5枚・キャプション付き）</Label>
                         <div className="space-y-2">
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="https://drive.google.com/file/d/... またはファイルID"
-                              value={newPhotoUrl}
-                              onChange={(e) => setNewPhotoUrl(e.target.value)}
-                              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, true))}
-                            />
-                            <Button type="button" variant="outline" onClick={() => addPhotoUrl(newPhotoUrl, true)} disabled={!newPhotoUrl.trim()}>
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            disabled={(editingCast.photos || []).length >= 5}
+                            onChange={async (e) => {
+                              const files = Array.from(e.target.files || []);
+                              const current = editingCast.photos || [];
+                              const captions = editingCast.photo_captions || [];
+                              const slots = 5 - current.length;
+                              const toUpload = files.slice(0, slots);
+                              const newUrls: string[] = [];
+                              for (const file of toUpload) {
+                                const ext = file.name.split(".").pop() || "jpg";
+                                const path = `casts/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+                                const { error } = await supabase.storage.from("cast-photos").upload(path, file);
+                                if (error) { toast({ variant: "destructive", title: "アップロード失敗", description: error.message }); continue; }
+                                const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(path);
+                                newUrls.push(publicUrl);
+                              }
+                              setEditingCast({
+                                ...editingCast,
+                                photos: [...current, ...newUrls],
+                                photo_captions: [...captions, ...newUrls.map(() => "")],
+                              });
+                              e.target.value = "";
+                            }}
+                          />
                           {(editingCast.photos || []).length > 0 && (
                             <div className="grid grid-cols-2 gap-2">
                               {(editingCast.photos || []).map((photo, index) => (
-                                <div key={index} className="relative group">
-                                  <img
-                                    src={driveImgUrl(photo)}
-                                    alt={`プレビュー ${index + 1}`}
-                                    className="w-full h-[200px] object-cover rounded-md"
+                                <div key={index} className="space-y-1">
+                                  <div className="relative group">
+                                    <img src={photo} alt={`プレビュー ${index + 1}`} className="w-full h-[160px] object-cover rounded-md" />
+                                    <Button type="button" variant="destructive" size="sm"
+                                      className="absolute top-1 right-1 h-6 w-6 p-0"
+                                      onClick={() => {
+                                        const photos = (editingCast.photos || []).filter((_, i) => i !== index);
+                                        const captions = (editingCast.photo_captions || []).filter((_, i) => i !== index);
+                                        setEditingCast({ ...editingCast, photos, photo_captions: captions });
+                                      }}>
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                    <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
+                                  </div>
+                                  <Input
+                                    placeholder="キャプション"
+                                    value={(editingCast.photo_captions || [])[index] || ""}
+                                    onChange={(e) => {
+                                      const list = [...(editingCast.photo_captions || [])];
+                                      while (list.length <= index) list.push("");
+                                      list[index] = e.target.value;
+                                      setEditingCast({ ...editingCast, photo_captions: list });
+                                    }}
                                   />
-                                  <Button
-                                    type="button"
-                                    variant="destructive"
-                                    size="sm"
-                                    className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={() => handleRemovePhoto(index, true)}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                  <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
                                 </div>
                               ))}
                             </div>
@@ -1027,240 +963,102 @@ export default function Staff() {
                         />
                       </div>
 
-                      <div className="space-y-3">
-                        <Label className="text-sm font-semibold text-muted-foreground">公開プロフィール</Label>
-                        <div>
-                          <Label htmlFor="edit-message">セラピストコメント（公開）</Label>
-                          <Textarea
-                            id="edit-message"
-                            rows={3}
-                            placeholder="セラピスト本人からのコメント..."
-                            value={editingCast.message || ""}
-                            onChange={(e) => setEditingCast({...editingCast, message: e.target.value})}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="edit-line-url">LINE URL</Label>
-                          <Input
-                            id="edit-line-url"
-                            placeholder="https://lin.ee/..."
-                            value={editingCast.line_url || ""}
-                            onChange={(e) => setEditingCast({...editingCast, line_url: e.target.value})}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="edit-litlink-url">リットリンク URL</Label>
-                          <Input
-                            id="edit-litlink-url"
-                            placeholder="https://lit.link/..."
-                            value={editingCast.litlink_url || ""}
-                            onChange={(e) => setEditingCast({...editingCast, litlink_url: e.target.value})}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="edit-o2-url">口コミ（O2）URL</Label>
-                          <Input
-                            id="edit-o2-url"
-                            placeholder="https://..."
-                            value={editingCast.o2_url || ""}
-                            onChange={(e) => setEditingCast({...editingCast, o2_url: e.target.value})}
-                          />
-                        </div>
-                      </div>
-
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <Label htmlFor="edit-hp-notice">HP告知</Label>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleGenerateContent('announcement')}
-                            disabled={generatingContent}
-                          >
-                            <Sparkles className="w-4 h-4 mr-1" />
-                            AI生成
-                          </Button>
-                        </div>
-                        <Textarea 
-                          id="edit-hp-notice" 
-                          rows={3} 
-                          placeholder="ホームページに表示するお知らせ..."
-                          value={editingCast.hp_notice || ""}
-                          onChange={(e) => setEditingCast({...editingCast, hp_notice: e.target.value})}
-                        />
-                      </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="details" className="space-y-4 mt-4">
-                      <div className="flex items-center justify-between p-3 rounded-lg border">
-                        <div className="flex items-center gap-2">
-                          {editingCast.is_visible ? <Eye className="h-4 w-4 text-green-600" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
-                          <Label>HP表示</Label>
-                        </div>
-                        <Button
-                          type="button"
-                          variant={editingCast.is_visible ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setEditingCast({...editingCast, is_visible: !editingCast.is_visible})}
-                        >
-                          {editingCast.is_visible ? "ON" : "OFF"}
-                        </Button>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="edit-dispatch-status">派遣ステータス</Label>
-                        <Select 
-                          value={editingCast.dispatch_status || "none"}
-                          onValueChange={(value) => setEditingCast({...editingCast, dispatch_status: value})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">未設定</SelectItem>
-                            <SelectItem value="scheduled">派遣予定</SelectItem>
-                            <SelectItem value="dispatched">派遣中</SelectItem>
-                            <SelectItem value="completed">完了</SelectItem>
-                            <SelectItem value="cancelled">キャンセル</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="edit-repeat-scheduled"
-                          checked={editingCast.repeat_scheduled || false}
-                          onChange={(e) => setEditingCast({...editingCast, repeat_scheduled: e.target.checked})}
-                          className="h-4 w-4"
-                        />
-                        <Label htmlFor="edit-repeat-scheduled">リピート予定</Label>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="edit-therapist-years">セラピスト歴（年）</Label>
-                          <Input 
-                            id="edit-therapist-years" 
-                            type="number"
-                            placeholder="3"
-                            value={editingCast.therapist_years || ""}
-                            onChange={(e) => setEditingCast({...editingCast, therapist_years: parseInt(e.target.value) || null})}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="edit-favorite-food">好きな食べ物</Label>
-                          <Input 
-                            id="edit-favorite-food" 
-                            placeholder="じゃがりこ"
-                            value={editingCast.favorite_food || ""}
-                            onChange={(e) => setEditingCast({...editingCast, favorite_food: e.target.value})}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="edit-favorite-techniques">得意な施術</Label>
-                        <Textarea 
-                          id="edit-favorite-techniques" 
-                          rows={3}
-                          placeholder="極液を使った密着施術..."
-                          value={editingCast.favorite_techniques || ""}
-                          onChange={(e) => setEditingCast({...editingCast, favorite_techniques: e.target.value})}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="edit-ideal-partner">好きな男性のタイプ</Label>
-                        <Textarea 
-                          id="edit-ideal-partner" 
-                          rows={2}
-                          placeholder="紳士な方"
-                          value={editingCast.ideal_partner || ""}
-                          onChange={(e) => setEditingCast({...editingCast, ideal_partner: e.target.value})}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="edit-follow-list">フォロー&リスト</Label>
+                        <Label htmlFor="edit-o2-url">O2 URL</Label>
                         <Input 
-                          id="edit-follow-list" 
-                          placeholder="追加中"
-                          value={editingCast.follow_list || ""}
-                          onChange={(e) => setEditingCast({...editingCast, follow_list: e.target.value})}
+                          id="edit-o2-url" 
+                          placeholder="https://..."
+                          value={editingCast.o2_url || ""}
+                          onChange={(e) => setEditingCast({...editingCast, o2_url: e.target.value})}
                         />
                       </div>
 
                       <div>
-                        <Label htmlFor="edit-media-registration">媒体登録（カンマ区切り）</Label>
+                        <Label htmlFor="edit-reviews">口コミURL</Label>
                         <Input 
-                          id="edit-media-registration" 
-                          placeholder="キャスカン, エスタマ"
-                          value={(editingCast.media_registration || []).join(", ")}
-                          onChange={(e) => setEditingCast({
-                            ...editingCast, 
-                            media_registration: e.target.value.split(",").map(s => s.trim()).filter(s => s)
+                          id="edit-reviews" 
+                          type="url"
+                          placeholder="https://..."
+                          value={editingCast.reviews || ""}
+                          onChange={(e) => setEditingCast({...editingCast, reviews: e.target.value})}
+                        />
+                      </div>
+
+                      {/* カスタムプロパティ（テキスト / リンク / 画像） */}
+                      <div className="border-t pt-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-semibold text-muted-foreground">カスタムプロパティ</Label>
+                          <div className="flex gap-1">
+                            <Button type="button" variant="outline" size="sm" onClick={() => {
+                              const list = Array.isArray(editingCast.custom_properties) ? editingCast.custom_properties : [];
+                              setEditingCast({ ...editingCast, custom_properties: [...list, { id: crypto.randomUUID(), label: "", type: "text", value: "" }] });
+                            }}>+ テキスト</Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => {
+                              const list = Array.isArray(editingCast.custom_properties) ? editingCast.custom_properties : [];
+                              setEditingCast({ ...editingCast, custom_properties: [...list, { id: crypto.randomUUID(), label: "", type: "link", value: "" }] });
+                            }}>+ リンク</Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => {
+                              const list = Array.isArray(editingCast.custom_properties) ? editingCast.custom_properties : [];
+                              setEditingCast({ ...editingCast, custom_properties: [...list, { id: crypto.randomUUID(), label: "", type: "image", value: "" }] });
+                            }}>+ 画像</Button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          {(Array.isArray(editingCast.custom_properties) ? editingCast.custom_properties : []).map((cp: any, idx: number) => {
+                            const updateCp = (patch: any) => {
+                              const list = [...editingCast.custom_properties];
+                              list[idx] = { ...list[idx], ...patch };
+                              setEditingCast({ ...editingCast, custom_properties: list });
+                            };
+                            const removeCp = () => {
+                              const list = editingCast.custom_properties.filter((_: any, i: number) => i !== idx);
+                              setEditingCast({ ...editingCast, custom_properties: list });
+                            };
+                            return (
+                              <div key={cp.id || idx} className="flex gap-2 items-start p-2 border rounded">
+                                <div className="flex-1 space-y-2">
+                                  <div className="flex gap-2 items-center">
+                                    <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                                      {cp.type === "image" ? "画像" : cp.type === "link" ? "リンク" : "テキスト"}
+                                    </span>
+                                    <Input placeholder="項目名" value={cp.label || ""} onChange={(e) => updateCp({ label: e.target.value })} />
+                                  </div>
+                                  {cp.type === "image" ? (
+                                    <div className="space-y-1">
+                                      {cp.value && <img src={cp.value} alt="" className="w-24 h-24 object-cover rounded border" />}
+                                      <Input type="file" accept="image/*" onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+                                        const ext = file.name.split(".").pop() || "jpg";
+                                        const path = `custom/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+                                        const { error } = await supabase.storage.from("cast-photos").upload(path, file);
+                                        if (error) { toast({ variant: "destructive", title: "アップロード失敗", description: error.message }); return; }
+                                        const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(path);
+                                        updateCp({ value: publicUrl });
+                                      }} />
+                                    </div>
+                                  ) : (
+                                    <Input
+                                      type={cp.type === "link" ? "url" : "text"}
+                                      placeholder={cp.type === "link" ? "https://..." : "値"}
+                                      value={cp.value || ""}
+                                      onChange={(e) => updateCp({ value: e.target.value })}
+                                    />
+                                  )}
+                                </div>
+                                <Button type="button" variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={removeCp}>
+                                  <Trash2 size={14} />
+                                </Button>
+                              </div>
+                            );
                           })}
-                        />
+                          {(!editingCast.custom_properties || editingCast.custom_properties.length === 0) && (
+                            <p className="text-xs text-muted-foreground text-center py-2">上の「+」ボタンで項目を追加できます</p>
+                          )}
+                        </div>
                       </div>
 
-                      <div>
-                        <Label htmlFor="edit-marks">マーク一覧（カンマ区切り）</Label>
-                        <Input 
-                          id="edit-marks" 
-                          placeholder="【エスたま】新人, 【エスたま】お気に入り"
-                          value={(editingCast.marks || []).join(", ")}
-                          onChange={(e) => setEditingCast({
-                            ...editingCast, 
-                            marks: e.target.value.split(",").map(s => s.trim()).filter(s => s)
-                          })}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="edit-registration-sheet">登録シート</Label>
-                        <Input 
-                          id="edit-registration-sheet" 
-                          placeholder="登録シートURL"
-                          value={editingCast.registration_sheet || ""}
-                          onChange={(e) => setEditingCast({...editingCast, registration_sheet: e.target.value})}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="edit-format-type">フォーマット</Label>
-                        <Input 
-                          id="edit-format-type" 
-                          placeholder="フォーマット種類"
-                          value={editingCast.format_type || ""}
-                          onChange={(e) => setEditingCast({...editingCast, format_type: e.target.value})}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="edit-recent-dispatch">直近派遣詳細</Label>
-                        <Textarea 
-                          id="edit-recent-dispatch" 
-                          rows={3}
-                          placeholder="直近の派遣情報..."
-                          value={editingCast.recent_dispatch_details || ""}
-                          onChange={(e) => setEditingCast({...editingCast, recent_dispatch_details: e.target.value})}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="edit-memo">メモ欄</Label>
-                        <Textarea 
-                          id="edit-memo" 
-                          rows={4}
-                          placeholder="メモを入力..."
-                          value={editingCast.memo || ""}
-                          onChange={(e) => setEditingCast({...editingCast, memo: e.target.value})}
-                        />
-                      </div>
-                    </TabsContent>
-                  </Tabs>
+                  </div>
                   
                   <Button onClick={handleUpdateCast} className="w-full mt-4">
                     更新

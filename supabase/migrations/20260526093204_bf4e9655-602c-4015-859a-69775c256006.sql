@@ -1,0 +1,1 @@
+ALTER TABLE public.casts ADD COLUMN IF NOT EXISTS photo_captions text[] DEFAULT '{}'::text[];
