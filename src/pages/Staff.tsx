@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Link as LinkIcon, Copy, Eye, EyeOff, CalendarPlus, GripVertical, FileUp, X } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
 import { ImportModal } from "@/components/ImportModal";
-import { DashboardHeader } from "@/components/DashboardHeader";
+
 import { Sidebar } from "@/components/Sidebar";
 import { WebsitePhotoSync } from "@/components/WebsitePhotoSync";
 import { Button } from "@/components/ui/button";
@@ -613,9 +613,7 @@ export default function Staff() {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
-      
-      <div className="flex pt-[60px]">
+      <div className="flex">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
         
         <main className="flex-1 p-4 md:p-6 md:ml-[240px] overflow-x-hidden">
