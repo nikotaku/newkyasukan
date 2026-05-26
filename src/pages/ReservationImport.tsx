@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,19 +8,19 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Upload, Loader2, CheckCircle, AlertCircle, FileText } from "lucide-react";
-import { useEffect } from "react";
 
 interface ParsedRow {
   reservation_date: string;
   start_time: string;
   customer_name: string;
+  customer_phone: string;
+  customer_email: string;
   cast_name: string;
   cast_id: string | null;
   course: string;
   duration: number;
-  room: string;
+  room: string | null;
   price: number;
-  therapist_back: number;
   payment_method: string | null;
   status: string;
   route: string;
@@ -28,7 +28,7 @@ interface ParsedRow {
 
 function parsePrice(s: string): number {
   if (!s) return 0;
-  return parseInt(s.replace(/[¥,\s]/g, "") || "0", 10);
+  return parseInt(s.replace(/[¥,\s円]/g, "") || "0", 10) || 0;
 }
 
 function parseDuration(course: string): number {
@@ -36,27 +36,38 @@ function parseDuration(course: string): number {
   return m ? parseInt(m[1], 10) : 60;
 }
 
+// Handles formats: "YYYY/MM/DD HH:MM:SS" or "YYYY/MM/DD HH:MM" or "MM/DD 曜日 HH:MM"
 function parseDate(s: string): { date: string; time: string } | null {
-  const m = s.trim().match(/^(\d+)\/(\d+)\s*[月火水木金土日]?\s*(\d+):(\d+)/);
-  if (!m) return null;
-  const month = parseInt(m[1], 10);
-  const day = parseInt(m[2], 10);
-  const hour = parseInt(m[3], 10);
-  const minute = parseInt(m[4], 10);
-  const year = month >= 10 ? 2025 : 2026;
-  return {
-    date: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
-    time: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
-  };
+  if (!s || !s.trim()) return null;
+  const str = s.trim();
+
+  // YYYY/MM/DD HH:MM(:SS)
+  const m1 = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+  if (m1) {
+    return {
+      date: `${m1[1]}-${m1[2].padStart(2, "0")}-${m1[3].padStart(2, "0")}`,
+      time: `${m1[4].padStart(2, "0")}:${m1[5]}`,
+    };
+  }
+
+  // MM/DD 曜日? HH:MM (legacy format — assume year from month)
+  const m2 = str.match(/^(\d{1,2})\/(\d{1,2})\s*[月火水木金土日]?\s*(\d{1,2}):(\d{2})/);
+  if (m2) {
+    const month = parseInt(m2[1], 10);
+    const year = month >= 10 ? 2025 : 2026;
+    return {
+      date: `${year}-${m2[1].padStart(2, "0")}-${m2[2].padStart(2, "0")}`,
+      time: `${m2[3].padStart(2, "0")}:${m2[4]}`,
+    };
+  }
+
+  return null;
 }
 
 function parseCastName(s: string): string {
   if (!s) return "";
-  const parts = s.trim().split(/\s+/);
-  const name = parts[0];
-  // skip if it's a nomination-only entry
-  if (["写真指名", "本指名", "講習"].includes(name)) return "";
-  // strip leading special chars
+  const name = s.trim().split(/\s+/)[0];
+  if (["写真指名", "本指名", "講習", ""].includes(name)) return "";
   return name.replace(/^[？🌊🚢]+/, "");
 }
 
@@ -71,12 +82,11 @@ function parseStatus(s: string): string {
 }
 
 function parsePayment(s: string): string | null {
-  switch (s) {
-    case "現金": return "cash";
-    case "カード": return "card";
-    case "PayPay": return "paypay";
-    default: return null;
-  }
+  if (!s) return null;
+  if (s.includes("カード") || s.includes("クレジット")) return "card";
+  if (s.includes("PayPay") || s.includes("paypay")) return "paypay";
+  if (s.includes("現金")) return "cash";
+  return s || null;
 }
 
 function parseCSV(text: string): string[][] {
@@ -102,6 +112,20 @@ function parseCSV(text: string): string[][] {
     rows.push(cols);
   }
   return rows;
+}
+
+async function readFileAsText(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  // Try Shift-JIS first (files from caskan are Shift-JIS encoded)
+  try {
+    const decoder = new TextDecoder("shift_jis");
+    const text = decoder.decode(buffer);
+    // Sanity check: if result has replacement chars, fall back to UTF-8
+    if (!text.includes("�")) return text;
+  } catch {
+    // ignore
+  }
+  return new TextDecoder("utf-8").decode(buffer);
 }
 
 export default function ReservationImport() {
@@ -131,59 +155,61 @@ export default function ReservationImport() {
     setCastMap(map);
   };
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      // Remove BOM
-      const cleaned = text.replace(/^﻿/, "");
-      const rows = parseCSV(cleaned);
-      if (rows.length < 2) return;
+    setParsed([]);
+    setImportedCount(0);
 
-      const headers = rows[0];
-      const getCol = (row: string[], name: string) =>
-        row[headers.indexOf(name)] || "";
+    const text = await readFileAsText(file);
+    const cleaned = text.replace(/^﻿/, ""); // strip BOM
+    const rows = parseCSV(cleaned);
+    if (rows.length < 2) {
+      toast.error("データが見つかりません");
+      return;
+    }
 
-      const result: ParsedRow[] = [];
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (row.every((c) => !c.trim())) continue;
+    const headers = rows[0].map((h) => h.trim());
+    const getCol = (row: string[], name: string) => (row[headers.indexOf(name)] || "").trim();
 
-        const dateStr = getCol(row, "予約日");
-        const parsed_date = parseDate(dateStr);
-        if (!parsed_date) continue;
+    const result: ParsedRow[] = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.every((c) => !c.trim())) continue;
 
-        const castRaw = getCol(row, "キャスト");
-        const castName = parseCastName(castRaw);
+      // 開始日時 contains both date and start time
+      const dateStr = getCol(row, "開始日時") || getCol(row, "予約日");
+      const parsedDate = parseDate(dateStr);
+      if (!parsedDate) continue;
 
-        result.push({
-          reservation_date: parsed_date.date,
-          start_time: parsed_date.time,
-          customer_name: getCol(row, "予約名"),
-          cast_name: castName,
-          cast_id: castName ? (castMap.get(castName) || null) : null,
-          course: getCol(row, "コース"),
-          duration: parseDuration(getCol(row, "コース")),
-          room: getCol(row, "ルーム"),
-          price: parsePrice(getCol(row, "売上")),
-          therapist_back: parsePrice(getCol(row, "報酬")),
-          payment_method: parsePayment(getCol(row, "決済")),
-          status: parseStatus(getCol(row, "ステータス")),
-          route: getCol(row, "経路"),
-        });
-      }
-      setParsed(result);
-    };
-    reader.readAsText(file, "utf-8");
+      const castRaw = getCol(row, "キャスト");
+      const castName = parseCastName(castRaw);
+
+      result.push({
+        reservation_date: parsedDate.date,
+        start_time: parsedDate.time,
+        customer_name: getCol(row, "氏名") || getCol(row, "予約名") || "不明",
+        customer_phone: getCol(row, "電話番号") || "",
+        customer_email: getCol(row, "メールアドレス") || "",
+        cast_name: castName,
+        cast_id: castName ? (castMap.get(castName) || null) : null,
+        course: getCol(row, "コース"),
+        duration: parseDuration(getCol(row, "コース")),
+        room: getCol(row, "ルーム") || null,
+        price: parsePrice(getCol(row, "料金") || getCol(row, "売上")),
+        payment_method: parsePayment(getCol(row, "支払方法") || getCol(row, "決済")),
+        status: parseStatus(getCol(row, "ステータス")),
+        route: getCol(row, "予約出路") || getCol(row, "経路") || "",
+      });
+    }
+    setParsed(result);
   };
 
   const unmatchedCasts = [...new Set(
     parsed.filter((r) => r.cast_name && !r.cast_id).map((r) => r.cast_name)
   )];
 
-  // cast_id必須のため、未紐付き行は除外
   const validRows = parsed.filter((r) => r.reservation_date && r.cast_id);
+  const skippedRows = parsed.filter((r) => !r.cast_id);
 
   const handleImport = async () => {
     setImporting(true);
@@ -196,7 +222,8 @@ export default function ReservationImport() {
           reservation_date: r.reservation_date,
           start_time: r.start_time,
           customer_name: r.customer_name,
-          customer_phone: "",   // CSVに電話番号なし
+          customer_phone: r.customer_phone,
+          customer_email: r.customer_email || null,
           cast_id: r.cast_id,
           course_name: r.course,
           duration: r.duration,
@@ -215,7 +242,7 @@ export default function ReservationImport() {
         count += batch.length;
         setImportedCount(count);
       }
-      toast.success(`${count}件をインポートしました`);
+      if (count > 0) toast.success(`${count}件をインポートしました`);
     } finally {
       setImporting(false);
     }
@@ -229,7 +256,7 @@ export default function ReservationImport() {
         <div className="max-w-3xl mx-auto">
           <h1 className="text-2xl font-bold mb-2">予約データインポート</h1>
           <p className="text-muted-foreground text-sm mb-6">
-            キャスカンのCSVエクスポートから予約データを一括インポートします
+            キャスカンのCSVエクスポート（Shift-JIS・UTF-8両対応）から予約データを一括インポートします
           </p>
 
           {/* Upload area */}
@@ -254,7 +281,7 @@ export default function ReservationImport() {
                 ) : (
                   <>
                     <p className="font-medium">CSVファイルをドロップ、またはクリックして選択</p>
-                    <p className="text-sm text-muted-foreground mt-1">reservations_all.csv</p>
+                    <p className="text-sm text-muted-foreground mt-1">キャスカン予約CSV（Shift-JIS可）</p>
                   </>
                 )}
                 <input
@@ -277,35 +304,31 @@ export default function ReservationImport() {
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <Card>
                   <CardContent className="pt-4 text-center">
-                    <p className="text-3xl font-bold">{validRows.length}</p>
-                    <p className="text-sm text-muted-foreground mt-1">取込対象件数</p>
+                    <p className="text-3xl font-bold">{parsed.length}</p>
+                    <p className="text-sm text-muted-foreground mt-1">読込件数</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4 text-center">
-                    <p className="text-3xl font-bold text-green-600">
-                      {validRows.filter((r) => r.cast_id).length}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">キャスト紐付け済</p>
+                    <p className="text-3xl font-bold text-green-600">{validRows.length}</p>
+                    <p className="text-sm text-muted-foreground mt-1">取込対象</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4 text-center">
-                    <p className="text-3xl font-bold text-orange-500">
-                      {validRows.filter((r) => r.cast_name && !r.cast_id).length}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">キャスト未紐付け</p>
+                    <p className="text-3xl font-bold text-orange-500">{skippedRows.length}</p>
+                    <p className="text-sm text-muted-foreground mt-1">スキップ（キャスト不明）</p>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Unmatched casts warning */}
+              {/* Unmatched casts */}
               {unmatchedCasts.length > 0 && (
                 <Card className="mb-6 border-orange-200 bg-orange-50">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <AlertCircle size={16} className="text-orange-600" />
-                      DBに存在しないキャスト名（cast_id=nullでインポートされます）
+                      キャスト名が一致しません（これらの行はスキップされます）
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -335,7 +358,7 @@ export default function ReservationImport() {
                           <th className="px-2 py-1 text-left">顧客名</th>
                           <th className="px-2 py-1 text-left">キャスト</th>
                           <th className="px-2 py-1 text-left">コース</th>
-                          <th className="px-2 py-1 text-right">売上</th>
+                          <th className="px-2 py-1 text-right">料金</th>
                           <th className="px-2 py-1 text-left">ステータス</th>
                         </tr>
                       </thead>
@@ -345,11 +368,7 @@ export default function ReservationImport() {
                             <td className="px-2 py-1">{r.reservation_date}</td>
                             <td className="px-2 py-1">{r.start_time}</td>
                             <td className="px-2 py-1">{r.customer_name}</td>
-                            <td className="px-2 py-1">
-                              <span className={r.cast_id ? "text-green-700" : "text-orange-600"}>
-                                {r.cast_name || "—"}
-                              </span>
-                            </td>
+                            <td className="px-2 py-1 text-green-700">{r.cast_name || "—"}</td>
                             <td className="px-2 py-1">{r.course}</td>
                             <td className="px-2 py-1 text-right">¥{r.price.toLocaleString()}</td>
                             <td className="px-2 py-1">{r.status}</td>
