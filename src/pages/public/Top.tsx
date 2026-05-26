@@ -307,6 +307,65 @@ const Top = () => {
                   <div key={item.key}>{Inner}</div>
                 );
               }
+              if (item.kind === "shift") {
+                const c = item.cast;
+                const slots = slotsToday(c.id);
+                return (
+                  <article key={`shift-${c.id}`} className="px-4 py-3 bg-[#c49480]/5">
+                    <div className="flex gap-3">
+                      <Link to={`/casts/${c.id}`} className="flex-shrink-0">
+                        <div className="w-11 h-11 rounded-full overflow-hidden bg-white/10">
+                          {c.photo ? (
+                            <img src={driveImgUrl(c.photo, 200)} alt={c.name} className="w-full h-full object-cover object-top" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#c49480] to-[#a87b65] text-base font-bold">
+                              {c.name.charAt(0)}
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 text-[15px]">
+                          <Link to={`/casts/${c.id}`} className="font-bold truncate hover:underline">{c.name}</Link>
+                          <BadgeCheck size={15} className="text-[#1d9bf0] flex-shrink-0" />
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#c49480]/30 text-[#f0d2c2] ml-1">本日出勤</span>
+                          <span className="text-white/50 whitespace-nowrap ml-auto text-[12px]">{item.startTime.slice(0,5)}〜</span>
+                        </div>
+                        {slots.length > 0 && (
+                          <div className="mt-2 -mx-1 overflow-x-auto scrollbar-thin">
+                            <table className="border-separate border-spacing-0 bg-white text-gray-700 rounded-md overflow-hidden">
+                              <thead>
+                                <tr>
+                                  {slots.map((s) => (
+                                    <th key={s.time} className="px-3 py-1.5 text-[12px] font-medium bg-gray-100 border-b border-gray-200 whitespace-nowrap">
+                                      {s.time}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  {slots.map((s) => (
+                                    <td key={s.time} className="px-3 py-2 text-center border-r border-gray-100 last:border-r-0">
+                                      <button
+                                        disabled={!s.available}
+                                        onClick={() => s.available && setSlotModal({ castId: c.id, castName: c.name, time: s.time })}
+                                        className={`text-[18px] leading-none ${s.available ? "text-gray-500 hover:text-[#2a8fc9]" : "text-gray-300 cursor-not-allowed"}`}
+                                      >
+                                        {s.available ? "○" : "×"}
+                                      </button>
+                                    </td>
+                                  ))}
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+              }
               const p = item.post;
               const c = p.casts!;
               return (
