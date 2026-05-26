@@ -427,6 +427,7 @@ export type Database = {
           name: string
           o2_url: string | null
           photo: string | null
+          photo_captions: string[] | null
           photos: string[] | null
           profile: string | null
           recent_dispatch_details: string | null
@@ -491,6 +492,7 @@ export type Database = {
           name: string
           o2_url?: string | null
           photo?: string | null
+          photo_captions?: string[] | null
           photos?: string[] | null
           profile?: string | null
           recent_dispatch_details?: string | null
@@ -555,6 +557,7 @@ export type Database = {
           name?: string
           o2_url?: string | null
           photo?: string | null
+          photo_captions?: string[] | null
           photos?: string[] | null
           profile?: string | null
           recent_dispatch_details?: string | null

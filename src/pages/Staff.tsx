@@ -26,6 +26,7 @@ interface Cast {
   status: string;
   photo: string | null;
   photos: string[] | null;
+  photo_captions?: string[] | null;
   profile: string | null;
   room: string | null;
   execution_date_start: string | null;
@@ -91,6 +92,7 @@ export default function Staff() {
     profile: "",
     photo: "",
     photos: [] as string[],
+    photo_captions: [] as string[],
     therapist_years: 0,
     favorite_techniques: "",
     favorite_food: "",
@@ -197,6 +199,7 @@ export default function Staff() {
           profile: formData.profile,
           photo: formData.photos[0] || formData.photo || null,
           photos: formData.photos.length > 0 ? formData.photos : null,
+          photo_captions: formData.photo_captions.length > 0 ? formData.photo_captions : null,
           therapist_years: formData.therapist_years || null,
           favorite_techniques: formData.favorite_techniques || null,
           favorite_food: formData.favorite_food || null,
@@ -229,6 +232,7 @@ export default function Staff() {
         profile: "",
         photo: "",
         photos: [],
+        photo_captions: [],
         therapist_years: 0,
         favorite_techniques: "",
         favorite_food: "",
@@ -301,6 +305,7 @@ export default function Staff() {
           profile: editingCast.profile,
           photo: photos.length > 0 ? photos[0] : null,
           photos: photos.length > 0 ? photos : null,
+          photo_captions: (editingCast.photo_captions && editingCast.photo_captions.length > 0) ? editingCast.photo_captions : null,
           x_account: editingCast.x_account || null,
           message: editingCast.message || null,
           line_url: editingCast.line_url || null,
@@ -650,39 +655,22 @@ export default function Staff() {
                           />
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="room">ルーム</Label>
-                            <Select 
-                              value={formData.room}
-                              onValueChange={(value) => setFormData({...formData, room: value})}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="ルームを選択" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="インルーム">インルーム</SelectItem>
-                                <SelectItem value="ラスルーム">ラスルーム</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label htmlFor="status">ステータス</Label>
-                            <Select 
-                              value={formData.status}
-                              onValueChange={(value) => setFormData({...formData, status: value})}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="ステータスを選択" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="派遣中">派遣中</SelectItem>
-                                <SelectItem value="リピート予定">リピート予定</SelectItem>
-                                <SelectItem value="残タスク">残タスク</SelectItem>
-                                <SelectItem value="未着手">未着手</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                        <div>
+                          <Label htmlFor="status">ステータス</Label>
+                          <Select 
+                            value={formData.status}
+                            onValueChange={(value) => setFormData({...formData, status: value})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="ステータスを選択" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="派遣中">派遣中</SelectItem>
+                              <SelectItem value="リピート予定">リピート予定</SelectItem>
+                              <SelectItem value="残タスク">残タスク</SelectItem>
+                              <SelectItem value="未着手">未着手</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         
                         <div>
@@ -697,38 +685,62 @@ export default function Staff() {
                         </div>
                         
                         <div>
-                          <Label>写真（GoogleドライブURL）</Label>
+                          <Label>写真（最大5枚・キャプション付き）</Label>
                           <div className="space-y-2">
-                            <div className="flex gap-2">
-                              <Input
-                                placeholder="https://drive.google.com/file/d/... またはファイルID"
-                                value={newPhotoUrl}
-                                onChange={(e) => setNewPhotoUrl(e.target.value)}
-                                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, false))}
-                              />
-                              <Button type="button" variant="outline" onClick={() => addPhotoUrl(newPhotoUrl, false)} disabled={!newPhotoUrl.trim()}>
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              disabled={formData.photos.length >= 5}
+                              onChange={async (e) => {
+                                const files = Array.from(e.target.files || []);
+                                const slots = 5 - formData.photos.length;
+                                const toUpload = files.slice(0, slots);
+                                const newUrls: string[] = [];
+                                for (const file of toUpload) {
+                                  const ext = file.name.split(".").pop() || "jpg";
+                                  const path = `casts/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+                                  const { error } = await supabase.storage.from("cast-photos").upload(path, file);
+                                  if (error) { toast({ variant: "destructive", title: "アップロード失敗", description: error.message }); continue; }
+                                  const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(path);
+                                  newUrls.push(publicUrl);
+                                }
+                                setFormData({
+                                  ...formData,
+                                  photos: [...formData.photos, ...newUrls],
+                                  photo_captions: [...formData.photo_captions, ...newUrls.map(() => "")],
+                                });
+                                e.target.value = "";
+                              }}
+                            />
                             {formData.photos.length > 0 && (
                               <div className="grid grid-cols-2 gap-2">
                                 {formData.photos.map((photo, index) => (
-                                  <div key={index} className="relative group">
-                                    <img
-                                      src={driveImgUrl(photo)}
-                                      alt={`プレビュー ${index + 1}`}
-                                      className="w-full h-[200px] object-cover rounded-md"
+                                  <div key={index} className="space-y-1">
+                                    <div className="relative group">
+                                      <img src={photo} alt={`プレビュー ${index + 1}`} className="w-full h-[160px] object-cover rounded-md" />
+                                      <Button type="button" variant="destructive" size="sm"
+                                        className="absolute top-1 right-1 h-6 w-6 p-0"
+                                        onClick={() => {
+                                          setFormData({
+                                            ...formData,
+                                            photos: formData.photos.filter((_, i) => i !== index),
+                                            photo_captions: formData.photo_captions.filter((_, i) => i !== index),
+                                          });
+                                        }}>
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                      <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
+                                    </div>
+                                    <Input
+                                      placeholder="キャプション"
+                                      value={formData.photo_captions[index] || ""}
+                                      onChange={(e) => {
+                                        const list = [...formData.photo_captions];
+                                        list[index] = e.target.value;
+                                        setFormData({ ...formData, photo_captions: list });
+                                      }}
                                     />
-                                    <Button
-                                      type="button"
-                                      variant="destructive"
-                                      size="sm"
-                                      className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      onClick={() => handleRemovePhoto(index, false)}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                    <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
                                   </div>
                                 ))}
                               </div>
@@ -809,40 +821,6 @@ export default function Staff() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="edit-type">タイプ</Label>
-                          <Select 
-                            value={editingCast.type}
-                            onValueChange={(value) => setEditingCast({...editingCast, type: value})}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="新人">新人</SelectItem>
-                              <SelectItem value="standard">スタンダード</SelectItem>
-                              <SelectItem value="premium">プレミアム</SelectItem>
-                              <SelectItem value="VIP">VIP</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="edit-room">ルーム</Label>
-                          <Select 
-                            value={editingCast.room || ""}
-                            onValueChange={(value) => setEditingCast({...editingCast, room: value})}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="ルームを選択" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="インルーム">インルーム</SelectItem>
-                              <SelectItem value="ラスルーム">ラスルーム</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
                       
                       <div className="flex items-center justify-between p-3 rounded-lg border">
                         <div className="flex items-center gap-2">
@@ -884,38 +862,63 @@ export default function Staff() {
                       </div>
                       
                       <div>
-                        <Label>写真（GoogleドライブURL）</Label>
+                        <Label>写真（最大5枚・キャプション付き）</Label>
                         <div className="space-y-2">
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="https://drive.google.com/file/d/... またはファイルID"
-                              value={newPhotoUrl}
-                              onChange={(e) => setNewPhotoUrl(e.target.value)}
-                              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, true))}
-                            />
-                            <Button type="button" variant="outline" onClick={() => addPhotoUrl(newPhotoUrl, true)} disabled={!newPhotoUrl.trim()}>
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            disabled={(editingCast.photos || []).length >= 5}
+                            onChange={async (e) => {
+                              const files = Array.from(e.target.files || []);
+                              const current = editingCast.photos || [];
+                              const captions = editingCast.photo_captions || [];
+                              const slots = 5 - current.length;
+                              const toUpload = files.slice(0, slots);
+                              const newUrls: string[] = [];
+                              for (const file of toUpload) {
+                                const ext = file.name.split(".").pop() || "jpg";
+                                const path = `casts/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+                                const { error } = await supabase.storage.from("cast-photos").upload(path, file);
+                                if (error) { toast({ variant: "destructive", title: "アップロード失敗", description: error.message }); continue; }
+                                const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(path);
+                                newUrls.push(publicUrl);
+                              }
+                              setEditingCast({
+                                ...editingCast,
+                                photos: [...current, ...newUrls],
+                                photo_captions: [...captions, ...newUrls.map(() => "")],
+                              });
+                              e.target.value = "";
+                            }}
+                          />
                           {(editingCast.photos || []).length > 0 && (
                             <div className="grid grid-cols-2 gap-2">
                               {(editingCast.photos || []).map((photo, index) => (
-                                <div key={index} className="relative group">
-                                  <img
-                                    src={driveImgUrl(photo)}
-                                    alt={`プレビュー ${index + 1}`}
-                                    className="w-full h-[200px] object-cover rounded-md"
+                                <div key={index} className="space-y-1">
+                                  <div className="relative group">
+                                    <img src={photo} alt={`プレビュー ${index + 1}`} className="w-full h-[160px] object-cover rounded-md" />
+                                    <Button type="button" variant="destructive" size="sm"
+                                      className="absolute top-1 right-1 h-6 w-6 p-0"
+                                      onClick={() => {
+                                        const photos = (editingCast.photos || []).filter((_, i) => i !== index);
+                                        const captions = (editingCast.photo_captions || []).filter((_, i) => i !== index);
+                                        setEditingCast({ ...editingCast, photos, photo_captions: captions });
+                                      }}>
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                    <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
+                                  </div>
+                                  <Input
+                                    placeholder="キャプション"
+                                    value={(editingCast.photo_captions || [])[index] || ""}
+                                    onChange={(e) => {
+                                      const list = [...(editingCast.photo_captions || [])];
+                                      while (list.length <= index) list.push("");
+                                      list[index] = e.target.value;
+                                      setEditingCast({ ...editingCast, photo_captions: list });
+                                    }}
                                   />
-                                  <Button
-                                    type="button"
-                                    variant="destructive"
-                                    size="sm"
-                                    className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={() => handleRemovePhoto(index, true)}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                  <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
                                 </div>
                               ))}
                             </div>
