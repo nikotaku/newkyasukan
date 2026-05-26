@@ -103,18 +103,49 @@ const Top = () => {
     setTodayRes(((resData as any[]) || []).map((x) => ({
       cast_id: x.cast_id, start_time: x.start_time, duration: x.duration,
     })));
+
+    // Fetch working-today casts (for shift entries at top)
+    const ids = Array.from(new Set(((shiftData as TodayShift[]) || []).map(s => s.cast_id)));
+    if (ids.length > 0) {
+      const { data: castData } = await supabase
+        .from("casts")
+        .select("id,name,photo,x_account,is_visible")
+        .in("id", ids);
+      const visible = ((castData as CastLite[]) || []).filter(c => c.is_visible !== false);
+      setWorkingCasts(visible);
+    } else {
+      setWorkingCasts([]);
+    }
     setLoading(false);
   };
 
-  // Interleave: for each active rec, insert after every interval_posts posts
+  const [workingCasts, setWorkingCasts] = useState<CastLite[]>([]);
+
+  // Interleave: shift entries (working casts) first by start_time, then posts (working casts' posts first), with rec inserts
   const timeline: TimelineItem[] = (() => {
-    const items: TimelineItem[] = posts.map((p) => ({ kind: "post" as const, post: p }));
+    const workingIds = new Set(todayShifts.map(s => s.cast_id));
+    const startMap = new Map(todayShifts.map(s => [s.cast_id, s.start_time]));
+
+    const shiftItems: TimelineItem[] = workingCasts
+      .map(c => ({ kind: "shift" as const, cast: c, startTime: startMap.get(c.id) || "99:99" }))
+      .sort((a, b) => (a as any).startTime.localeCompare((b as any).startTime));
+
+    const sortedPosts = [...posts].sort((a, b) => {
+      const aw = workingIds.has(a.cast_id) ? 0 : 1;
+      const bw = workingIds.has(b.cast_id) ? 0 : 1;
+      if (aw !== bw) return aw - bw;
+      return b.created_at.localeCompare(a.created_at);
+    });
+    const postItems: TimelineItem[] = sortedPosts.map((p) => ({ kind: "post" as const, post: p }));
+
+    const items: TimelineItem[] = [...shiftItems, ...postItems];
     if (recs.length === 0) return items;
     const out: TimelineItem[] = [];
     const counters = new Map<string, number>(recs.map((r) => [r.id, 0]));
     let postIdx = 0;
     items.forEach((it) => {
       out.push(it);
+      if (it.kind !== "post") return;
       postIdx += 1;
       recs.forEach((r) => {
         if (r.interval_posts > 0 && postIdx % r.interval_posts === 0) {
