@@ -33,8 +33,7 @@ const PUBLIC_PREFIXES = [
   "/casts",
   "/pricing",
   "/system",
-  "/access",
-  "/news",
+
   "/booking",
   "/page/",
   "/therapist/",

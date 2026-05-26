@@ -53,9 +53,6 @@ const NAV_LINKS = [
   { to: "/schedule", label: "SCHEDULE" },
   { to: "/casts", label: "THERAPIST" },
   { to: "/system", label: "SYSTEM" },
-  { to: "/access", label: "ACCESS" },
-  { to: "/news", label: "NEWS" },
-  { to: "/recruit", label: "RECRUIT" },
   { to: "/reserve", label: "RESERVE" },
 ];
 
@@ -501,6 +498,53 @@ const Top = () => {
           </div>
         )}
 
+        {/* 今日の予約横スクロール */}
+        {workingCasts.length > 0 && (
+          <div className="border-t border-white/10 px-4 py-4">
+            <div className="text-[11px] font-bold tracking-widest text-[#c49480] mb-3">📅 今日の予約空き状況</div>
+            <div className="overflow-x-auto -mx-1">
+              <div className="flex gap-3 px-1 pb-1" style={{ minWidth: "max-content" }}>
+                {workingCasts.map((cast) => {
+                  const slots = slotsToday(cast.id);
+                  return (
+                    <div key={cast.id} className="flex-shrink-0 w-32 bg-white/5 rounded-xl p-2 border border-white/10">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                          {cast.photo ? (
+                            <img src={driveImgUrl(cast.photo, 80)} alt={cast.name} className="w-full h-full object-cover object-top" />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-[#c49480] to-[#a87b65] flex items-center justify-center text-xs font-bold">
+                              {cast.name.charAt(0)}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[12px] font-bold truncate">{cast.name}</span>
+                      </div>
+                      {slots.length === 0 ? (
+                        <Link to={`/booking`} className="block text-center text-[11px] text-[#c49480] underline">予約する</Link>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          {slots.filter(s => s.available).slice(0, 3).map(s => (
+                            <button
+                              key={s.time}
+                              onClick={() => setSlotModal({ castId: cast.id, castName: cast.name, time: s.time })}
+                              className="text-[11px] bg-white/10 hover:bg-[#c49480]/30 rounded px-2 py-1 text-white/90 transition-colors"
+                            >
+                              {s.time}〜
+                            </button>
+                          ))}
+                          {slots.filter(s => s.available).length === 0 && (
+                            <span className="text-[11px] text-white/40 text-center">満席</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Slot booking popup (GO-style bottom sheet) */}

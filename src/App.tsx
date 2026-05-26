@@ -48,7 +48,7 @@ import PublicCasts from "./pages/public/Casts";
 import PublicCastDetail from "./pages/public/CastDetail";
 import PublicPricing from "./pages/public/Pricing";
 import PublicSystem from "./pages/public/System";
-import PublicAccess from "./pages/public/Access";
+
 import NotionPageView from "./pages/NotionPageView";
 import BookingReservation from "./pages/public/BookingReservation";
 import TextGeneration from "./pages/TextGeneration";
@@ -58,7 +58,7 @@ import SchedulePage from "./pages/Schedule";
 import Expenses from "./pages/Expenses";
 import Board from "./pages/Board";
 import Knowledge from "./pages/Knowledge";
-import News from "./pages/public/News";
+
 import MonthlyShift from "./pages/MonthlyShift";
 import ReservationsList from "./pages/ReservationsList";
 import AvailableSlots from "./pages/AvailableSlots";
@@ -126,8 +126,7 @@ const App = () => (
           <Route path="/casts/:id" element={<PublicCastDetail />} />
           <Route path="/pricing" element={<PublicPricing />} />
           <Route path="/system" element={<PublicSystem />} />
-          <Route path="/access" element={<PublicAccess />} />
-          <Route path="/news" element={<News />} />
+
           <Route path="/booking" element={<BookingReservation />} />
           <Route path="/page/:slug" element={<NotionPageView />} />
           
