@@ -117,6 +117,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <WidgetRails />
         <Routes>
           {/* Public Pages */}
           <Route path="/" element={<Top />} />
