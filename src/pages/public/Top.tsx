@@ -174,6 +174,36 @@ const Top = () => {
     navigate(`/booking?castId=${castId}&date=${dateStr}&time=${time}`);
   };
 
+  // 30-min granular slots for today; available means a 60m+30m buffer fits
+  const slotsToday = (castId: string): { time: string; available: boolean }[] => {
+    const shift = todayShifts.find((s) => s.cast_id === castId);
+    if (!shift) return [];
+    const now = new Date();
+    const [sh, sm] = shift.start_time.split(":").map(Number);
+    const [eh, em] = shift.end_time.split(":").map(Number);
+    const start = sh * 60 + sm;
+    const end = eh * 60 + em;
+    const cur = now.getHours() * 60 + now.getMinutes();
+    const reserved = todayRes
+      .filter((r) => r.cast_id === castId)
+      .map((r) => {
+        const [h, m] = r.start_time.split(":").map(Number);
+        const s = h * 60 + m;
+        return { start: s, end: s + r.duration + 30 };
+      });
+    const out: { time: string; available: boolean }[] = [];
+    for (let t = start; t + 60 <= end; t += 30) {
+      if (t < cur) continue;
+      const conflict = reserved.some((b) => t < b.end && t + 60 > b.start);
+      const hh = String(Math.floor(t / 60)).padStart(2, "0");
+      const mm = String(t % 60).padStart(2, "0");
+      out.push({ time: `${hh}:${mm}`, available: !conflict });
+    }
+    return out;
+  };
+
+  const [slotModal, setSlotModal] = useState<{ castId: string; castName: string; time: string } | null>(null);
+
   return (
     <div className="min-h-screen pb-20 bg-black text-white">
       <SEO
