@@ -55,7 +55,19 @@ interface Cast {
   repeat_scheduled: boolean | null;
   is_visible: boolean;
   display_order?: number;
+  height?: number | null;
+  cup_size?: string | null;
+  bust?: number | null;
+  waist?: number | null;
+  hip?: number | null;
+  target_customers?: string | null;
+  customer_age_range?: string | null;
+  mbti?: string | null;
+  account_info?: string | null;
+  custom_properties?: any;
 }
+
+type CustomProp = { id: string; label: string; type: "text" | "number" | "url"; value: string };
 
 export default function Staff() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -311,6 +323,16 @@ export default function Staff() {
           repeat_scheduled: editingCast.repeat_scheduled || false,
           is_visible: editingCast.is_visible,
           is_online: (editingCast as any).is_online ?? false,
+          height: editingCast.height ?? null,
+          cup_size: editingCast.cup_size ?? null,
+          bust: editingCast.bust ?? null,
+          waist: editingCast.waist ?? null,
+          hip: editingCast.hip ?? null,
+          target_customers: editingCast.target_customers ?? null,
+          customer_age_range: editingCast.customer_age_range ?? null,
+          mbti: editingCast.mbti ?? null,
+          account_info: editingCast.account_info ?? null,
+          custom_properties: editingCast.custom_properties ?? [],
         } as any)
         .eq('id', editingCast.id);
 
@@ -888,8 +910,8 @@ export default function Staff() {
                   </DialogHeader>
                   <Tabs defaultValue="basic" className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="basic">基本情報</TabsTrigger>
-                      <TabsTrigger value="details">詳細情報</TabsTrigger>
+                      <TabsTrigger value="basic">プロフィール</TabsTrigger>
+                      <TabsTrigger value="details">詳細</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="basic" className="space-y-4 mt-4">
@@ -1090,9 +1112,146 @@ export default function Staff() {
                           onChange={(e) => setEditingCast({...editingCast, hp_notice: e.target.value})}
                         />
                       </div>
+
+                      <div className="border-t pt-4 space-y-3">
+                        <Label className="text-sm font-semibold text-muted-foreground">プロフィール詳細</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <Label className="text-xs">身長 (cm)</Label>
+                            <Input type="number" value={editingCast.height ?? ""} onChange={(e) => setEditingCast({...editingCast, height: e.target.value ? parseInt(e.target.value) : null})} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">カップ数</Label>
+                            <Input value={editingCast.cup_size ?? ""} onChange={(e) => setEditingCast({...editingCast, cup_size: e.target.value})} placeholder="C" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">セラピスト歴(年)</Label>
+                            <Input type="number" value={editingCast.therapist_years ?? ""} onChange={(e) => setEditingCast({...editingCast, therapist_years: e.target.value ? parseInt(e.target.value) : null})} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <Label className="text-xs">バスト</Label>
+                            <Input type="number" value={editingCast.bust ?? ""} onChange={(e) => setEditingCast({...editingCast, bust: e.target.value ? parseInt(e.target.value) : null})} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">ウエスト</Label>
+                            <Input type="number" value={editingCast.waist ?? ""} onChange={(e) => setEditingCast({...editingCast, waist: e.target.value ? parseInt(e.target.value) : null})} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">ヒップ</Label>
+                            <Input type="number" value={editingCast.hip ?? ""} onChange={(e) => setEditingCast({...editingCast, hip: e.target.value ? parseInt(e.target.value) : null})} />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs">好きな食べ物</Label>
+                          <Input value={editingCast.favorite_food ?? ""} onChange={(e) => setEditingCast({...editingCast, favorite_food: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">得意な施術</Label>
+                          <Textarea rows={2} value={editingCast.favorite_techniques ?? ""} onChange={(e) => setEditingCast({...editingCast, favorite_techniques: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">好きな男性のタイプ</Label>
+                          <Textarea rows={2} value={editingCast.ideal_partner ?? ""} onChange={(e) => setEditingCast({...editingCast, ideal_partner: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">メッセージ</Label>
+                          <Textarea rows={3} value={editingCast.message ?? ""} onChange={(e) => setEditingCast({...editingCast, message: e.target.value})} />
+                        </div>
+                      </div>
                     </TabsContent>
                     
+                    
                     <TabsContent value="details" className="space-y-4 mt-4">
+                      <div className="space-y-3">
+                        <Label className="text-sm font-semibold text-muted-foreground">お客様・運用</Label>
+                        <div>
+                          <Label className="text-xs">得意な客層</Label>
+                          <Textarea rows={2} value={editingCast.target_customers ?? ""} onChange={(e) => setEditingCast({...editingCast, target_customers: e.target.value})} placeholder="例：30〜40代の落ち着いた紳士" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs">お客さんの年齢層</Label>
+                            <Input value={editingCast.customer_age_range ?? ""} onChange={(e) => setEditingCast({...editingCast, customer_age_range: e.target.value})} placeholder="30〜50代" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">MBTI</Label>
+                            <Input value={editingCast.mbti ?? ""} onChange={(e) => setEditingCast({...editingCast, mbti: e.target.value})} placeholder="ENFP" />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs">フォーマット</Label>
+                          <Input value={editingCast.format_type ?? ""} onChange={(e) => setEditingCast({...editingCast, format_type: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">面談シート</Label>
+                          <Input value={editingCast.registration_sheet ?? ""} onChange={(e) => setEditingCast({...editingCast, registration_sheet: e.target.value})} placeholder="URLまたはメモ" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">アカウント</Label>
+                          <Textarea rows={2} value={editingCast.account_info ?? ""} onChange={(e) => setEditingCast({...editingCast, account_info: e.target.value})} placeholder="各種アカウント情報" />
+                        </div>
+                      </div>
+
+                      {/* Notion風カスタムプロパティ */}
+                      <div className="border-t pt-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-semibold text-muted-foreground">カスタムプロパティ</Label>
+                          <Button type="button" variant="outline" size="sm" onClick={() => {
+                            const list = Array.isArray(editingCast.custom_properties) ? editingCast.custom_properties : [];
+                            setEditingCast({ ...editingCast, custom_properties: [...list, { id: crypto.randomUUID(), label: "", type: "text", value: "" }] });
+                          }}>
+                            <Plus size={14} className="mr-1" />追加
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          {(Array.isArray(editingCast.custom_properties) ? editingCast.custom_properties : []).map((cp: any, idx: number) => (
+                            <div key={cp.id || idx} className="flex gap-2 items-start p-2 border rounded">
+                              <div className="grid grid-cols-2 gap-2 flex-1">
+                                <Input placeholder="項目名" value={cp.label || ""} onChange={(e) => {
+                                  const list = [...editingCast.custom_properties];
+                                  list[idx] = { ...list[idx], label: e.target.value };
+                                  setEditingCast({ ...editingCast, custom_properties: list });
+                                }} />
+                                <Select value={cp.type || "text"} onValueChange={(v) => {
+                                  const list = [...editingCast.custom_properties];
+                                  list[idx] = { ...list[idx], type: v };
+                                  setEditingCast({ ...editingCast, custom_properties: list });
+                                }}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="text">テキスト</SelectItem>
+                                    <SelectItem value="number">数値</SelectItem>
+                                    <SelectItem value="url">URL</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Input
+                                  className="col-span-2"
+                                  type={cp.type === "number" ? "number" : "text"}
+                                  placeholder="値"
+                                  value={cp.value || ""}
+                                  onChange={(e) => {
+                                    const list = [...editingCast.custom_properties];
+                                    list[idx] = { ...list[idx], value: e.target.value };
+                                    setEditingCast({ ...editingCast, custom_properties: list });
+                                  }}
+                                />
+                              </div>
+                              <Button type="button" variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => {
+                                const list = editingCast.custom_properties.filter((_: any, i: number) => i !== idx);
+                                setEditingCast({ ...editingCast, custom_properties: list });
+                              }}>
+                                <Trash2 size={14} />
+                              </Button>
+                            </div>
+                          ))}
+                          {(!editingCast.custom_properties || editingCast.custom_properties.length === 0) && (
+                            <p className="text-xs text-muted-foreground text-center py-2">「追加」ボタンで自由に項目を追加できます</p>
+                          )}
+                        </div>
+                      </div>
+
                       <div className="flex items-center justify-between p-3 rounded-lg border">
                         <div className="flex items-center gap-2">
                           {editingCast.is_visible ? <Eye className="h-4 w-4 text-green-600" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
