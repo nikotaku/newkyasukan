@@ -862,38 +862,63 @@ export default function Staff() {
                       </div>
                       
                       <div>
-                        <Label>写真（GoogleドライブURL）</Label>
+                        <Label>写真（最大5枚・キャプション付き）</Label>
                         <div className="space-y-2">
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="https://drive.google.com/file/d/... またはファイルID"
-                              value={newPhotoUrl}
-                              onChange={(e) => setNewPhotoUrl(e.target.value)}
-                              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, true))}
-                            />
-                            <Button type="button" variant="outline" onClick={() => addPhotoUrl(newPhotoUrl, true)} disabled={!newPhotoUrl.trim()}>
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            disabled={(editingCast.photos || []).length >= 5}
+                            onChange={async (e) => {
+                              const files = Array.from(e.target.files || []);
+                              const current = editingCast.photos || [];
+                              const captions = editingCast.photo_captions || [];
+                              const slots = 5 - current.length;
+                              const toUpload = files.slice(0, slots);
+                              const newUrls: string[] = [];
+                              for (const file of toUpload) {
+                                const ext = file.name.split(".").pop() || "jpg";
+                                const path = `casts/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+                                const { error } = await supabase.storage.from("cast-photos").upload(path, file);
+                                if (error) { toast({ variant: "destructive", title: "アップロード失敗", description: error.message }); continue; }
+                                const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(path);
+                                newUrls.push(publicUrl);
+                              }
+                              setEditingCast({
+                                ...editingCast,
+                                photos: [...current, ...newUrls],
+                                photo_captions: [...captions, ...newUrls.map(() => "")],
+                              });
+                              e.target.value = "";
+                            }}
+                          />
                           {(editingCast.photos || []).length > 0 && (
                             <div className="grid grid-cols-2 gap-2">
                               {(editingCast.photos || []).map((photo, index) => (
-                                <div key={index} className="relative group">
-                                  <img
-                                    src={driveImgUrl(photo)}
-                                    alt={`プレビュー ${index + 1}`}
-                                    className="w-full h-[200px] object-cover rounded-md"
+                                <div key={index} className="space-y-1">
+                                  <div className="relative group">
+                                    <img src={photo} alt={`プレビュー ${index + 1}`} className="w-full h-[160px] object-cover rounded-md" />
+                                    <Button type="button" variant="destructive" size="sm"
+                                      className="absolute top-1 right-1 h-6 w-6 p-0"
+                                      onClick={() => {
+                                        const photos = (editingCast.photos || []).filter((_, i) => i !== index);
+                                        const captions = (editingCast.photo_captions || []).filter((_, i) => i !== index);
+                                        setEditingCast({ ...editingCast, photos, photo_captions: captions });
+                                      }}>
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                    <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
+                                  </div>
+                                  <Input
+                                    placeholder="キャプション"
+                                    value={(editingCast.photo_captions || [])[index] || ""}
+                                    onChange={(e) => {
+                                      const list = [...(editingCast.photo_captions || [])];
+                                      while (list.length <= index) list.push("");
+                                      list[index] = e.target.value;
+                                      setEditingCast({ ...editingCast, photo_captions: list });
+                                    }}
                                   />
-                                  <Button
-                                    type="button"
-                                    variant="destructive"
-                                    size="sm"
-                                    className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={() => handleRemovePhoto(index, true)}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                  <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
                                 </div>
                               ))}
                             </div>
