@@ -26,6 +26,7 @@ interface Cast {
   status: string;
   photo: string | null;
   photos: string[] | null;
+  photo_captions?: string[] | null;
   profile: string | null;
   room: string | null;
   execution_date_start: string | null;
@@ -91,6 +92,7 @@ export default function Staff() {
     profile: "",
     photo: "",
     photos: [] as string[],
+    photo_captions: [] as string[],
     therapist_years: 0,
     favorite_techniques: "",
     favorite_food: "",
@@ -197,6 +199,7 @@ export default function Staff() {
           profile: formData.profile,
           photo: formData.photos[0] || formData.photo || null,
           photos: formData.photos.length > 0 ? formData.photos : null,
+          photo_captions: formData.photo_captions.length > 0 ? formData.photo_captions : null,
           therapist_years: formData.therapist_years || null,
           favorite_techniques: formData.favorite_techniques || null,
           favorite_food: formData.favorite_food || null,
@@ -229,6 +232,7 @@ export default function Staff() {
         profile: "",
         photo: "",
         photos: [],
+        photo_captions: [],
         therapist_years: 0,
         favorite_techniques: "",
         favorite_food: "",
@@ -301,6 +305,7 @@ export default function Staff() {
           profile: editingCast.profile,
           photo: photos.length > 0 ? photos[0] : null,
           photos: photos.length > 0 ? photos : null,
+          photo_captions: (editingCast.photo_captions && editingCast.photo_captions.length > 0) ? editingCast.photo_captions : null,
           x_account: editingCast.x_account || null,
           message: editingCast.message || null,
           line_url: editingCast.line_url || null,
