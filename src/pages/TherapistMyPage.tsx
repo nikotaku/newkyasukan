@@ -37,19 +37,26 @@ export default function TherapistMyPage() {
 
   const fetchTherapists = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("casts")
-      .select("id, name, access_token")
-      .order("name");
-    if (error) {
-      toast.error(`読み込みに失敗しました: ${error.message}`);
-    } else {
-      const list = (data || []) as Therapist[];
-      setTherapists(list);
-      if (selected) {
-        const updated = list.find((t) => t.id === selected.id);
-        if (updated) setSelected(updated);
-      }
+    const [castsRes, tokensRes] = await Promise.all([
+      supabase.from("casts").select("id, name").order("name"),
+      supabase.from("cast_access_tokens").select("cast_id, access_token"),
+    ]);
+    if (castsRes.error) {
+      toast.error(`読み込みに失敗しました: ${castsRes.error.message}`);
+      setLoading(false);
+      return;
+    }
+    const tokenMap = new Map<string, string>();
+    ((tokensRes.data as any[]) || []).forEach((t) => tokenMap.set(t.cast_id, t.access_token));
+    const list: Therapist[] = (castsRes.data || []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      access_token: tokenMap.get(c.id) || null,
+    }));
+    setTherapists(list);
+    if (selected) {
+      const updated = list.find((t) => t.id === selected.id);
+      if (updated) setSelected(updated);
     }
     setLoading(false);
   };
@@ -59,9 +66,8 @@ export default function TherapistMyPage() {
     setGenerating(true);
     const token = crypto.randomUUID();
     const { error } = await supabase
-      .from("casts")
-      .update({ access_token: token })
-      .eq("id", selected.id);
+      .from("cast_access_tokens")
+      .upsert({ cast_id: selected.id, access_token: token }, { onConflict: "cast_id" });
     setGenerating(false);
     if (error) {
       toast.error(`リンクの発行に失敗しました: ${error.message}`);
@@ -70,6 +76,7 @@ export default function TherapistMyPage() {
     toast.success("リンクを発行しました");
     await fetchTherapists();
   };
+
 
   const portalLink = (token: string) => `${import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin}/therapist/${token}`;
 

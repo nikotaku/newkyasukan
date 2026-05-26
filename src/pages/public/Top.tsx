@@ -37,16 +37,18 @@ interface News {
   is_pinned: boolean;
 }
 
-const BANNER_SLIDES = [
-  "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750253573.png",
-  "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750762260.png",
+const FALLBACK_BANNERS = [
+  { image_url: "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750253573.png", link_url: null as string | null },
+  { image_url: "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750762260.png", link_url: null as string | null },
 ];
+
 
 const Top = () => {
   const [todayShifts, setTodayShifts] = useState<TodayShift[]>([]);
   const [news, setNews] = useState<News[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [banners, setBanners] = useState<{ image_url: string; link_url: string | null }[]>(FALLBACK_BANNERS);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -54,15 +56,17 @@ const Top = () => {
   }, []);
 
   useEffect(() => {
+    if (banners.length <= 1) return;
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % BANNER_SLIDES.length);
+      setCurrentSlide((prev) => (prev + 1) % banners.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [banners.length]);
+
 
   const fetchAll = async () => {
     const today = format(new Date(), "yyyy-MM-dd");
-    const [s, n] = await Promise.all([
+    const [s, n, b] = await Promise.all([
       supabase
         .from("shifts")
         .select("id,cast_id,start_time,end_time,casts(id,name,photo,age,height,cup_size,message,tags,x_account)")
@@ -74,6 +78,11 @@ const Top = () => {
         .order("is_pinned", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(4),
+      supabase
+        .from("banners")
+        .select("image_url,link_url,display_order,is_active")
+        .eq("is_active", true)
+        .order("display_order", { ascending: true }),
     ]);
 
     if (s.data) {
@@ -86,8 +95,13 @@ const Top = () => {
       setTodayShifts(unique as TodayShift[]);
     }
     if (n.data) setNews(n.data as News[]);
+    if (b.data && b.data.length > 0) {
+      setBanners((b.data as any[]).map((x) => ({ image_url: x.image_url, link_url: x.link_url })));
+      setCurrentSlide(0);
+    }
     setLoading(false);
   };
+
 
   const todayLabel = format(new Date(), "M月d日(E)", { locale: ja });
 
@@ -109,33 +123,48 @@ const Top = () => {
       {/* ===== Banner Slider ===== */}
       <div className="relative overflow-hidden">
         <AspectRatio ratio={16 / 9}>
-          <img
-            src={BANNER_SLIDES[currentSlide]}
-            alt="トップバナー | 全力エステ 仙台"
-            className="w-full h-full object-cover transition-opacity duration-500"
-          />
-        </AspectRatio>
-        <button
-          onClick={() => setCurrentSlide((prev) => (prev - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length)}
-          className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => setCurrentSlide((prev) => (prev + 1) % BANNER_SLIDES.length)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
-          {BANNER_SLIDES.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrentSlide(i)}
-              className={`w-2.5 h-2.5 rounded-full transition-all ${i === currentSlide ? "bg-white" : "bg-white/50"}`}
+          {banners[currentSlide]?.link_url ? (
+            <a href={banners[currentSlide].link_url!} target="_blank" rel="noopener noreferrer">
+              <img
+                src={banners[currentSlide].image_url}
+                alt="トップバナー | 全力エステ 仙台"
+                className="w-full h-full object-cover transition-opacity duration-500"
+              />
+            </a>
+          ) : (
+            <img
+              src={banners[currentSlide]?.image_url}
+              alt="トップバナー | 全力エステ 仙台"
+              className="w-full h-full object-cover transition-opacity duration-500"
             />
-          ))}
-        </div>
+          )}
+        </AspectRatio>
+        {banners.length > 1 && (
+          <>
+            <button
+              onClick={() => setCurrentSlide((prev) => (prev - 1 + banners.length) % banners.length)}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setCurrentSlide((prev) => (prev + 1) % banners.length)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+              {banners.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentSlide(i)}
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${i === currentSlide ? "bg-white" : "bg-white/50"}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
       </div>
 
       {/* ===== 本日の出勤 HERO ===== */}
