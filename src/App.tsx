@@ -105,6 +105,7 @@ import Analytics from "./pages/Analytics";
 import TextTemplates from "./pages/TextTemplates";
 import CastPostManagement from "./pages/CastPostManagement";
 import TherapistPostPage from "./pages/TherapistPostPage";
+import { WidgetRails } from "./components/widgets/WidgetRails";
 
 const queryClient = new QueryClient();
 
