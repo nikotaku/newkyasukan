@@ -471,34 +471,36 @@ const Top = () => {
         </div>
       )}
 
-      {/* Fixed bottom bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-black border-t border-white/10">
-        <div className="max-w-xl mx-auto grid grid-cols-3 h-16">
-          <button
-            onClick={() => setMenuOpen((v) => !v)}
-            className="flex flex-col items-center justify-center gap-0.5 text-white hover:bg-white/5 transition-colors"
-          >
-            <Menu size={22} />
-            <span className="text-[10px] tracking-wider">MENU</span>
-          </button>
-          <a
-            href={LINE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-col items-center justify-center gap-0.5 text-white bg-[#06C755] hover:opacity-90 transition-opacity"
-          >
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 2C6.48 2 2 5.78 2 10.43c0 4.17 3.55 7.66 8.36 8.32.32.07.76.21.87.49.1.25.07.65.03.91l-.14.84c-.04.25-.2.97.85.53 1.05-.44 5.66-3.33 7.72-5.71C21.06 14.27 22 12.46 22 10.43 22 5.78 17.52 2 12 2zM8.28 13.05H6.3a.42.42 0 0 1-.42-.42V8.7a.42.42 0 1 1 .84 0v3.51h1.56a.42.42 0 1 1 0 .84zm1.65-.42a.42.42 0 0 1-.84 0V8.7a.42.42 0 0 1 .84 0v3.93zm4.71 0a.42.42 0 0 1-.29.4.46.46 0 0 1-.13.02.42.42 0 0 1-.34-.17l-2.02-2.75v2.5a.42.42 0 0 1-.84 0V8.7a.42.42 0 0 1 .29-.4.4.4 0 0 1 .13-.02c.13 0 .25.06.33.16l2.03 2.75V8.7a.42.42 0 0 1 .84 0v3.93zm3.17-2.39a.42.42 0 1 1 0 .84h-1.56v1h1.56a.42.42 0 1 1 0 .84h-1.98a.42.42 0 0 1-.42-.42V8.7a.42.42 0 0 1 .42-.42h1.98a.42.42 0 1 1 0 .84h-1.56v1h1.56z"/></svg>
-            <span className="text-[10px] tracking-wider font-bold">LINE</span>
-          </a>
-          <a
-            href={`tel:${TEL}`}
-            className="flex flex-col items-center justify-center gap-0.5 text-white bg-[#c49480] hover:opacity-90 transition-opacity"
-          >
-            <Phone size={22} />
-            <span className="text-[10px] tracking-wider font-bold">TEL</span>
-          </a>
-        </div>
+      {/* Fixed right-side action stack */}
+      <nav className="fixed bottom-4 right-3 z-40 flex flex-col gap-2">
+        <button
+          onClick={() => setMenuOpen((v) => !v)}
+          className="w-12 h-12 rounded-full bg-black/80 backdrop-blur border border-white/15 text-white flex flex-col items-center justify-center shadow-lg hover:bg-black transition-colors"
+          aria-label="メニュー"
+        >
+          <Menu size={18} />
+          <span className="text-[8px] tracking-wider mt-0.5">MENU</span>
+        </button>
+        <a
+          href={LINE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-12 h-12 rounded-full bg-[#06C755] text-white flex flex-col items-center justify-center shadow-lg hover:opacity-90 transition-opacity"
+          aria-label="LINE"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2C6.48 2 2 5.78 2 10.43c0 4.17 3.55 7.66 8.36 8.32.32.07.76.21.87.49.1.25.07.65.03.91l-.14.84c-.04.25-.2.97.85.53 1.05-.44 5.66-3.33 7.72-5.71C21.06 14.27 22 12.46 22 10.43 22 5.78 17.52 2 12 2zM8.28 13.05H6.3a.42.42 0 0 1-.42-.42V8.7a.42.42 0 1 1 .84 0v3.51h1.56a.42.42 0 1 1 0 .84zm1.65-.42a.42.42 0 0 1-.84 0V8.7a.42.42 0 0 1 .84 0v3.93zm4.71 0a.42.42 0 0 1-.29.4.46.46 0 0 1-.13.02.42.42 0 0 1-.34-.17l-2.02-2.75v2.5a.42.42 0 0 1-.84 0V8.7a.42.42 0 0 1 .29-.4.4.4 0 0 1 .13-.02c.13 0 .25.06.33.16l2.03 2.75V8.7a.42.42 0 0 1 .84 0v3.93zm3.17-2.39a.42.42 0 1 1 0 .84h-1.56v1h1.56a.42.42 0 1 1 0 .84h-1.98a.42.42 0 0 1-.42-.42V8.7a.42.42 0 0 1 .42-.42h1.98a.42.42 0 1 1 0 .84h-1.56v1h1.56z"/></svg>
+          <span className="text-[8px] tracking-wider font-bold mt-0.5">LINE</span>
+        </a>
+        <a
+          href={`tel:${TEL}`}
+          className="w-12 h-12 rounded-full bg-[#c49480] text-white flex flex-col items-center justify-center shadow-lg hover:opacity-90 transition-opacity"
+          aria-label="TEL"
+        >
+          <Phone size={18} />
+          <span className="text-[8px] tracking-wider font-bold mt-0.5">TEL</span>
+        </a>
       </nav>
+
     </div>
   );
 };
