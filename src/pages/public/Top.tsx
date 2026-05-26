@@ -146,7 +146,46 @@ const Top = () => {
           </div>
         ) : (
           <div className="divide-y divide-white/10">
-            {posts.map((p) => {
+            {timeline.map((item) => {
+              if (item.kind === "rec") {
+                const r = item.rec;
+                const Inner = (
+                  <article className="px-4 py-3 hover:bg-white/[0.02] transition-colors bg-gradient-to-br from-[#c49480]/10 to-transparent">
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#c49480] to-[#a87b65] flex items-center justify-center text-base font-bold">
+                          PR
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 text-[15px]">
+                          <span className="font-bold truncate">おすすめコース</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/70 ml-1">PR</span>
+                        </div>
+                        <p className="mt-0.5 text-[15px] leading-relaxed whitespace-pre-wrap break-words font-semibold">{r.title}</p>
+                        {r.description && (
+                          <p className="mt-1 text-[14px] leading-relaxed whitespace-pre-wrap break-words text-white/80">{r.description}</p>
+                        )}
+                        {r.image_url && (
+                          <div className="mt-2 rounded-2xl overflow-hidden border border-white/10">
+                            <img src={r.image_url} alt={r.title} className="w-full object-cover" style={{ maxHeight: 520 }} loading="lazy" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+                return r.link_url ? (
+                  r.link_url.startsWith("http") ? (
+                    <a key={item.key} href={r.link_url} target="_blank" rel="noopener noreferrer" className="block">{Inner}</a>
+                  ) : (
+                    <Link key={item.key} to={r.link_url} className="block">{Inner}</Link>
+                  )
+                ) : (
+                  <div key={item.key}>{Inner}</div>
+                );
+              }
+              const p = item.post;
               const c = p.casts!;
               return (
                 <article key={p.id} className="px-4 py-3 hover:bg-white/[0.02] transition-colors">
