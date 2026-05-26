@@ -66,7 +66,7 @@ const Top = () => {
 
   const fetchAll = async () => {
     const today = format(new Date(), "yyyy-MM-dd");
-    const [s, n] = await Promise.all([
+    const [s, n, b] = await Promise.all([
       supabase
         .from("shifts")
         .select("id,cast_id,start_time,end_time,casts(id,name,photo,age,height,cup_size,message,tags,x_account)")
@@ -78,6 +78,11 @@ const Top = () => {
         .order("is_pinned", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(4),
+      supabase
+        .from("banners")
+        .select("image_url,link_url,display_order,is_active")
+        .eq("is_active", true)
+        .order("display_order", { ascending: true }),
     ]);
 
     if (s.data) {
@@ -90,8 +95,13 @@ const Top = () => {
       setTodayShifts(unique as TodayShift[]);
     }
     if (n.data) setNews(n.data as News[]);
+    if (b.data && b.data.length > 0) {
+      setBanners((b.data as any[]).map((x) => ({ image_url: x.image_url, link_url: x.link_url })));
+      setCurrentSlide(0);
+    }
     setLoading(false);
   };
+
 
   const todayLabel = format(new Date(), "M月d日(E)", { locale: ja });
 
