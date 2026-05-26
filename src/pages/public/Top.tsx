@@ -22,6 +22,20 @@ interface Post {
   casts: CastLite | null;
 }
 
+interface RecCourse {
+  id: string;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  link_url: string | null;
+  interval_posts: number;
+  display_order: number;
+}
+
+type TimelineItem =
+  | { kind: "post"; post: Post }
+  | { kind: "rec"; rec: RecCourse; key: string };
+
 const NAV_LINKS = [
   { to: "/", label: "TOP" },
   { to: "/schedule", label: "SCHEDULE" },
@@ -38,24 +52,55 @@ const TEL = "09081264042";
 
 const Top = () => {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [recs, setRecs] = useState<RecCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
-    const { data } = await supabase
-      .from("cast_posts")
-      .select("id,cast_id,body,image_urls,created_at,casts(id,name,photo,x_account,is_visible)")
-      .eq("post_type", "cast_message")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (data) {
-      const filtered = (data as any[]).filter(p => p.casts && p.casts.is_visible !== false) as Post[];
+    const [{ data: postData }, { data: recData }] = await Promise.all([
+      supabase
+        .from("cast_posts")
+        .select("id,cast_id,body,image_urls,created_at,casts(id,name,photo,x_account,is_visible)")
+        .eq("post_type", "cast_message")
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("recommended_courses")
+        .select("id,title,description,image_url,link_url,interval_posts,display_order")
+        .eq("is_active", true)
+        .order("display_order"),
+    ]);
+    if (postData) {
+      const filtered = (postData as any[]).filter(p => p.casts && p.casts.is_visible !== false) as Post[];
       setPosts(filtered);
     }
+    setRecs((recData as RecCourse[]) || []);
     setLoading(false);
   };
+
+  // Interleave: for each active rec, insert after every interval_posts posts
+  const timeline: TimelineItem[] = (() => {
+    const items: TimelineItem[] = posts.map((p) => ({ kind: "post" as const, post: p }));
+    if (recs.length === 0) return items;
+    const out: TimelineItem[] = [];
+    const counters = new Map<string, number>(recs.map((r) => [r.id, 0]));
+    let postIdx = 0;
+    items.forEach((it) => {
+      out.push(it);
+      postIdx += 1;
+      recs.forEach((r) => {
+        if (r.interval_posts > 0 && postIdx % r.interval_posts === 0) {
+          const n = (counters.get(r.id) ?? 0) + 1;
+          counters.set(r.id, n);
+          out.push({ kind: "rec", rec: r, key: `${r.id}-${n}` });
+        }
+      });
+    });
+    return out;
+  })();
+
 
   const fmtDate = (iso: string) => {
     const d = new Date(iso);
@@ -101,7 +146,46 @@ const Top = () => {
           </div>
         ) : (
           <div className="divide-y divide-white/10">
-            {posts.map((p) => {
+            {timeline.map((item) => {
+              if (item.kind === "rec") {
+                const r = item.rec;
+                const Inner = (
+                  <article className="px-4 py-3 hover:bg-white/[0.02] transition-colors bg-gradient-to-br from-[#c49480]/10 to-transparent">
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#c49480] to-[#a87b65] flex items-center justify-center text-base font-bold">
+                          PR
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 text-[15px]">
+                          <span className="font-bold truncate">おすすめコース</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/70 ml-1">PR</span>
+                        </div>
+                        <p className="mt-0.5 text-[15px] leading-relaxed whitespace-pre-wrap break-words font-semibold">{r.title}</p>
+                        {r.description && (
+                          <p className="mt-1 text-[14px] leading-relaxed whitespace-pre-wrap break-words text-white/80">{r.description}</p>
+                        )}
+                        {r.image_url && (
+                          <div className="mt-2 rounded-2xl overflow-hidden border border-white/10">
+                            <img src={r.image_url} alt={r.title} className="w-full object-cover" style={{ maxHeight: 520 }} loading="lazy" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+                return r.link_url ? (
+                  r.link_url.startsWith("http") ? (
+                    <a key={item.key} href={r.link_url} target="_blank" rel="noopener noreferrer" className="block">{Inner}</a>
+                  ) : (
+                    <Link key={item.key} to={r.link_url} className="block">{Inner}</Link>
+                  )
+                ) : (
+                  <div key={item.key}>{Inner}</div>
+                );
+              }
+              const p = item.post;
               const c = p.casts!;
               return (
                 <article key={p.id} className="px-4 py-3 hover:bg-white/[0.02] transition-colors">
