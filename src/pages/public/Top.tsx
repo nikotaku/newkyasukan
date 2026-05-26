@@ -139,6 +139,41 @@ const Top = () => {
   const handle = (c: CastLite) =>
     (c.x_account?.replace(/^@?/, "").replace(/^https?:\/\/.*\//, "")) || `zr_${c.id.slice(0, 8)}`;
 
+  // Earliest available 60m slot today for a cast (30m buffer after each reservation)
+  const earliestToday = (castId: string): string | null => {
+    const shift = todayShifts.find((s) => s.cast_id === castId);
+    if (!shift) return null;
+    const now = new Date();
+    const [sh, sm] = shift.start_time.split(":").map(Number);
+    const [eh, em] = shift.end_time.split(":").map(Number);
+    let cursor = sh * 60 + sm;
+    const end = eh * 60 + em;
+    const cur = now.getHours() * 60 + now.getMinutes();
+    if (cur > cursor) cursor = Math.ceil(cur / 30) * 30;
+    const reserved = todayRes
+      .filter((r) => r.cast_id === castId)
+      .map((r) => {
+        const [h, m] = r.start_time.split(":").map(Number);
+        const start = h * 60 + m;
+        return { start, end: start + r.duration + 30 };
+      });
+    while (cursor + 60 <= end) {
+      const c = reserved.find((b) => cursor < b.end && cursor + 60 > b.start);
+      if (!c) {
+        const hh = String(Math.floor(cursor / 60)).padStart(2, "0");
+        const mm = String(cursor % 60).padStart(2, "0");
+        return `${hh}:${mm}`;
+      }
+      cursor = c.end;
+    }
+    return null;
+  };
+
+  const quickBook = (castId: string, time: string) => {
+    const dateStr = format(new Date(), "yyyy-MM-dd");
+    navigate(`/booking?castId=${castId}&date=${dateStr}&time=${time}`);
+  };
+
   return (
     <div className="min-h-screen pb-20 bg-black text-white">
       <SEO
