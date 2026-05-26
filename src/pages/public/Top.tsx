@@ -22,9 +22,24 @@ interface Post {
   casts: CastLite | null;
 }
 
+const NAV_LINKS = [
+  { to: "/", label: "TOP" },
+  { to: "/schedule", label: "SCHEDULE" },
+  { to: "/casts", label: "THERAPIST" },
+  { to: "/system", label: "SYSTEM" },
+  { to: "/access", label: "ACCESS" },
+  { to: "/news", label: "NEWS" },
+  { to: "/recruit", label: "RECRUIT" },
+  { to: "/reserve", label: "RESERVE" },
+];
+
+const LINE_URL = "https://line.me/R/ti/p/@zenryoku";
+const TEL = "09081264042";
+
 const Top = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => { fetchAll(); }, []);
 
