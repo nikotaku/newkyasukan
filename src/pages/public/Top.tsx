@@ -192,7 +192,7 @@ const Top = () => {
         return { start: s, end: s + r.duration + 30 };
       });
     const out: { time: string; available: boolean }[] = [];
-    for (let t = start; t + 60 <= end; t += 30) {
+    for (let t = start; t + 60 <= end; t += 10) {
       if (t < cur) continue;
       const conflict = reserved.some((b) => t < b.end && t + 60 > b.start);
       const hh = String(Math.floor(t / 60)).padStart(2, "0");
