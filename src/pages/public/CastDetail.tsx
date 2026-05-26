@@ -362,6 +362,53 @@ const CastDetail = () => {
                         ))}
                       </div>
                     )}
+                    {(() => {
+                      const slots = slotsToday(cast.id);
+                      if (slots.length === 0) return null;
+                      return (
+                        <div className="mt-2 -mx-1 overflow-x-auto scrollbar-thin">
+                          <table className="border-separate border-spacing-0 bg-white text-gray-700 rounded-md overflow-hidden">
+                            <thead>
+                              <tr>
+                                {slots.map((s) => (
+                                  <th
+                                    key={s.time}
+                                    className="px-3 py-1.5 text-[12px] font-medium bg-gray-100 border-b border-gray-200 whitespace-nowrap"
+                                  >
+                                    {s.time}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                {slots.map((s) => (
+                                  <td
+                                    key={s.time}
+                                    className="px-3 py-2 text-center border-r border-gray-100 last:border-r-0"
+                                  >
+                                    <button
+                                      disabled={!s.available}
+                                      onClick={() =>
+                                        s.available &&
+                                        setSlotModal({ castId: cast.id, castName: cast.name, time: s.time })
+                                      }
+                                      className={`text-[18px] leading-none ${
+                                        s.available
+                                          ? "text-gray-500 hover:text-[#2a8fc9]"
+                                          : "text-gray-300 cursor-not-allowed"
+                                      }`}
+                                    >
+                                      {s.available ? "○" : "×"}
+                                    </button>
+                                  </td>
+                                ))}
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()}
                     <div className="mt-2 flex items-center justify-between max-w-xs text-white/50">
                       <button className="flex items-center gap-1.5 text-xs hover:text-[#1d9bf0] transition-colors"><Reply size={15} /></button>
                       <button className="flex items-center gap-1.5 text-xs hover:text-green-500 transition-colors"><Repeat2 size={15} /></button>
@@ -426,6 +473,66 @@ const CastDetail = () => {
 
       <PublicFooter />
       <FixedBottomBar />
+
+      {slotModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center"
+          onClick={() => setSlotModal(null)}
+        >
+          <div
+            className="w-full max-w-xl bg-white text-gray-900 rounded-t-3xl p-5 pb-8 shadow-2xl animate-in slide-in-from-bottom duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <div className="text-base font-bold">{slotModal.castName} を予約</div>
+              <button onClick={() => setSlotModal(null)} className="text-gray-400 hover:text-gray-700">
+                <X size={22} />
+              </button>
+            </div>
+
+            <div className="rounded-2xl bg-gray-100 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex flex-col items-center pt-1">
+                  <div className="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center">
+                    <Clock size={16} className="text-[#1d3557]" />
+                  </div>
+                  <div className="flex flex-col gap-0.5 my-1">
+                    <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#1d3557]/40" />
+                    <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#1d3557]/40" />
+                  </div>
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className="text-xs text-gray-500">予約時間</div>
+                  <div className="text-xl font-bold text-gray-900">{slotModal.time}</div>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-2xl bg-white p-4 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full border-2 border-[#1d3557] flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#1d3557]" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-xs text-gray-500">コース</div>
+                  <div className="text-base font-bold text-gray-900">60分コース</div>
+                </div>
+                <button
+                  onClick={() => quickBook(slotModal.castId, slotModal.time)}
+                  className="px-5 py-3 rounded-full bg-[#1d3557] hover:bg-[#15253f] text-white text-sm font-bold transition-colors whitespace-nowrap"
+                >
+                  次へすすむ
+                </button>
+              </div>
+            </div>
+
+            <a
+              href={`tel:${TEL}`}
+              className="mt-4 w-full py-3 rounded-full border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-bold text-center transition-colors flex items-center justify-center gap-2"
+            >
+              <Phone size={16} /> 電話で予約 ({TEL})
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* メッセージ送信ダイアログ */}
       {msgOpen && (
