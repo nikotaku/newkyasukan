@@ -51,16 +51,31 @@ const NAV_LINKS = [
 const LINE_URL = "https://line.me/R/ti/p/@zenryoku";
 const TEL = "09081264042";
 
+interface TodayShift {
+  cast_id: string;
+  start_time: string;
+  end_time: string;
+}
+interface TodayRes {
+  cast_id: string;
+  start_time: string;
+  duration: number;
+}
+
 const Top = () => {
+  const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [recs, setRecs] = useState<RecCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [todayShifts, setTodayShifts] = useState<TodayShift[]>([]);
+  const [todayRes, setTodayRes] = useState<TodayRes[]>([]);
 
   useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
-    const [{ data: postData }, { data: recData }] = await Promise.all([
+    const dateStr = format(new Date(), "yyyy-MM-dd");
+    const [{ data: postData }, { data: recData }, { data: shiftData }, { data: resData }] = await Promise.all([
       supabase
         .from("cast_posts")
         .select("id,cast_id,body,image_urls,created_at,casts(id,name,photo,x_account,is_visible)")
@@ -72,12 +87,21 @@ const Top = () => {
         .select("id,title,description,image_url,link_url,interval_posts,display_order")
         .eq("is_active", true)
         .order("display_order"),
+      supabase
+        .from("shifts")
+        .select("cast_id,start_time,end_time")
+        .eq("shift_date", dateStr),
+      supabase.rpc("get_reservation_slots", { p_date: dateStr, p_cast_id: null }),
     ]);
     if (postData) {
       const filtered = (postData as any[]).filter(p => p.casts && p.casts.is_visible !== false) as Post[];
       setPosts(filtered);
     }
     setRecs((recData as RecCourse[]) || []);
+    setTodayShifts((shiftData as TodayShift[]) || []);
+    setTodayRes(((resData as any[]) || []).map((x) => ({
+      cast_id: x.cast_id, start_time: x.start_time, duration: x.duration,
+    })));
     setLoading(false);
   };
 
