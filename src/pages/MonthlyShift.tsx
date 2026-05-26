@@ -168,7 +168,7 @@ export default function MonthlyShift() {
       <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="pt-[60px] md:ml-[240px] p-2 md:p-6 overflow-x-auto">
+      <main className="pt-[60px] md:ml-[240px] p-2 md:p-6">
         <div className="mb-4 space-y-2">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold">月別シフト</h1>
@@ -201,7 +201,8 @@ export default function MonthlyShift() {
           <div className="text-center text-muted-foreground py-12">読み込み中...</div>
         ) : viewMode === "calendar" ? (
           /* カレンダービュー */
-          <div className="rounded-lg border bg-card">
+          <div className="overflow-x-auto">
+          <div className="rounded-lg border bg-card min-w-[560px]">
             <div className="grid grid-cols-7 border-b bg-muted/40">
               {WEEKDAY.map((d, i) => (
                 <div
@@ -282,6 +283,7 @@ export default function MonthlyShift() {
                 );
               })}
             </div>
+          </div>
           </div>
         ) : activeCasts.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">この月のシフトはありません</div>
