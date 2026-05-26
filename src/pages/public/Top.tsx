@@ -177,12 +177,10 @@ const Top = () => {
   // 30-min granular slots for today; available means a 60m+30m buffer fits
   const slotsToday = (castId: string): { time: string; available: boolean }[] => {
     const shift = todayShifts.find((s) => s.cast_id === castId);
-    // Fallback: shop hours 12:00-26:00 if no shift registered
-    const startStr = shift?.start_time ?? "12:00";
-    const endStr = shift?.end_time ?? "26:00";
+    if (!shift) return [];
     const now = new Date();
-    const [sh, sm] = startStr.split(":").map(Number);
-    const [eh, em] = endStr.split(":").map(Number);
+    const [sh, sm] = shift.start_time.split(":").map(Number);
+    const [eh, em] = shift.end_time.split(":").map(Number);
     const start = sh * 60 + sm;
     const end = eh * 60 + em;
     const cur = now.getHours() * 60 + now.getMinutes();
@@ -194,7 +192,7 @@ const Top = () => {
         return { start: s, end: s + r.duration + 30 };
       });
     const out: { time: string; available: boolean }[] = [];
-    for (let t = start; t + 60 <= end; t += 30) {
+    for (let t = start; t + 60 <= end; t += 10) {
       if (t < cur) continue;
       const conflict = reserved.some((b) => t < b.end && t + 60 > b.start);
       const hh = String(Math.floor(t / 60)).padStart(2, "0");
@@ -203,7 +201,6 @@ const Top = () => {
     }
     return out;
   };
-
 
   const [slotModal, setSlotModal] = useState<{ castId: string; castName: string; time: string } | null>(null);
 
@@ -281,74 +278,8 @@ const Top = () => {
               const p = item.post;
               const c = p.casts!;
               return (
-                <article key={p.id} className="hover:bg-white/[0.02] transition-colors">
-                  {p.image_urls && p.image_urls.length > 0 && (
-                    <Link to={`/casts/${c.id}`} className="block">
-                      <div className={`overflow-hidden grid gap-0.5 ${p.image_urls.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-                        {p.image_urls.slice(0, 4).map((url, i) => (
-                          <img
-                            key={i}
-                            src={driveImgUrl(url, 800)}
-                            alt=""
-                            className="w-full object-cover"
-                            style={{
-                              maxHeight: p.image_urls!.length === 1 ? 520 : 240,
-                              aspectRatio: p.image_urls!.length === 1 ? "auto" : "1/1",
-                            }}
-                            loading="lazy"
-                          />
-                        ))}
-                      </div>
-                    </Link>
-                  )}
-                  {(() => {
-                    const slots = slotsToday(c.id);
-                    if (slots.length === 0) return null;
-                    return (
-                      <div className="overflow-x-auto scrollbar-thin bg-white">
-                        <table className="border-separate border-spacing-0 bg-white text-gray-700 w-full">
-                          <thead>
-                            <tr>
-                              {slots.map((s) => (
-                                <th
-                                  key={s.time}
-                                  className="px-3 py-1.5 text-[12px] font-medium bg-gray-100 border-b border-gray-200 whitespace-nowrap"
-                                >
-                                  {s.time}
-                                </th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              {slots.map((s) => (
-                                <td
-                                  key={s.time}
-                                  className="px-3 py-2 text-center border-r border-gray-100 last:border-r-0"
-                                >
-                                  <button
-                                    disabled={!s.available}
-                                    onClick={() =>
-                                      s.available &&
-                                      setSlotModal({ castId: c.id, castName: c.name, time: s.time })
-                                    }
-                                    className={`text-[18px] leading-none ${
-                                      s.available
-                                        ? "text-gray-500 hover:text-[#2a8fc9]"
-                                        : "text-gray-300 cursor-not-allowed"
-                                    }`}
-                                  >
-                                    {s.available ? "○" : "×"}
-                                  </button>
-                                </td>
-                              ))}
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    );
-                  })()}
-                  <div className="flex gap-3 px-4 py-3">
+                <article key={p.id} className="px-4 py-3 hover:bg-white/[0.02] transition-colors">
+                  <div className="flex gap-3">
                     <Link to={`/casts/${c.id}`} className="flex-shrink-0">
                       <div className="w-11 h-11 rounded-full overflow-hidden bg-white/10">
                         {c.photo ? (
@@ -371,10 +302,75 @@ const Top = () => {
                       {p.body && (
                         <p className="mt-0.5 text-[15px] leading-relaxed whitespace-pre-wrap break-words">{p.body}</p>
                       )}
+                      {p.image_urls && p.image_urls.length > 0 && (
+                        <Link to={`/casts/${c.id}`} className="block mt-2">
+                          <div className={`rounded-2xl overflow-hidden border border-white/10 grid gap-0.5 ${p.image_urls.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                            {p.image_urls.slice(0, 4).map((url, i) => (
+                              <img
+                                key={i}
+                                src={driveImgUrl(url, 800)}
+                                alt=""
+                                className="w-full object-cover"
+                                style={{
+                                  maxHeight: p.image_urls!.length === 1 ? 520 : 240,
+                                  aspectRatio: p.image_urls!.length === 1 ? "auto" : "1/1",
+                                }}
+                                loading="lazy"
+                              />
+                            ))}
+                          </div>
+                        </Link>
+                      )}
+                      {(() => {
+                        const slots = slotsToday(c.id);
+                        if (slots.length === 0) return null;
+                        return (
+                          <div className="mt-2 -mx-1 overflow-x-auto scrollbar-thin">
+                            <table className="border-separate border-spacing-0 bg-white text-gray-700 rounded-md overflow-hidden">
+                              <thead>
+                                <tr>
+                                  {slots.map((s) => (
+                                    <th
+                                      key={s.time}
+                                      className="px-3 py-1.5 text-[12px] font-medium bg-gray-100 border-b border-gray-200 whitespace-nowrap"
+                                    >
+                                      {s.time}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  {slots.map((s) => (
+                                    <td
+                                      key={s.time}
+                                      className="px-3 py-2 text-center border-r border-gray-100 last:border-r-0"
+                                    >
+                                      <button
+                                        disabled={!s.available}
+                                        onClick={() =>
+                                          s.available &&
+                                          setSlotModal({ castId: c.id, castName: c.name, time: s.time })
+                                        }
+                                        className={`text-[18px] leading-none ${
+                                          s.available
+                                            ? "text-gray-500 hover:text-[#2a8fc9]"
+                                            : "text-gray-300 cursor-not-allowed"
+                                        }`}
+                                      >
+                                        {s.available ? "○" : "×"}
+                                      </button>
+                                    </td>
+                                  ))}
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </article>
-
               );
             })}
           </div>
