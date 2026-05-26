@@ -12,6 +12,16 @@ interface CastLite {
   photo: string | null;
   x_account: string | null;
   is_visible?: boolean;
+  message?: string | null;
+  hobbies?: string | null;
+  favorite_food?: string | null;
+  favorite_techniques?: string | null;
+  ideal_partner?: string | null;
+  ideal_type?: string | null;
+  mbti?: string | null;
+  therapist_years?: number | null;
+  age?: number | null;
+  tags?: string[] | null;
 }
 
 interface Post {
