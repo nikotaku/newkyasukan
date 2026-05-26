@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
-import { PublicFooter } from "@/components/public/PublicFooter";
-import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { Heart, Repeat2, Share, MessageCircle as Reply, BadgeCheck } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
 import { SEO, LOCAL_BUSINESS_JSON_LD } from "@/components/SEO";
@@ -137,9 +135,6 @@ const Top = () => {
         )}
 
       </main>
-
-      <PublicFooter />
-      <FixedBottomBar />
     </div>
   );
 };
