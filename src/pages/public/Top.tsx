@@ -123,33 +123,48 @@ const Top = () => {
       {/* ===== Banner Slider ===== */}
       <div className="relative overflow-hidden">
         <AspectRatio ratio={16 / 9}>
-          <img
-            src={BANNER_SLIDES[currentSlide]}
-            alt="トップバナー | 全力エステ 仙台"
-            className="w-full h-full object-cover transition-opacity duration-500"
-          />
-        </AspectRatio>
-        <button
-          onClick={() => setCurrentSlide((prev) => (prev - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length)}
-          className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => setCurrentSlide((prev) => (prev + 1) % BANNER_SLIDES.length)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
-          {BANNER_SLIDES.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrentSlide(i)}
-              className={`w-2.5 h-2.5 rounded-full transition-all ${i === currentSlide ? "bg-white" : "bg-white/50"}`}
+          {banners[currentSlide]?.link_url ? (
+            <a href={banners[currentSlide].link_url!} target="_blank" rel="noopener noreferrer">
+              <img
+                src={banners[currentSlide].image_url}
+                alt="トップバナー | 全力エステ 仙台"
+                className="w-full h-full object-cover transition-opacity duration-500"
+              />
+            </a>
+          ) : (
+            <img
+              src={banners[currentSlide]?.image_url}
+              alt="トップバナー | 全力エステ 仙台"
+              className="w-full h-full object-cover transition-opacity duration-500"
             />
-          ))}
-        </div>
+          )}
+        </AspectRatio>
+        {banners.length > 1 && (
+          <>
+            <button
+              onClick={() => setCurrentSlide((prev) => (prev - 1 + banners.length) % banners.length)}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setCurrentSlide((prev) => (prev + 1) % banners.length)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+              {banners.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentSlide(i)}
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${i === currentSlide ? "bg-white" : "bg-white/50"}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
       </div>
 
       {/* ===== 本日の出勤 HERO ===== */}
