@@ -172,6 +172,18 @@ export function ReservationForm({
   }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.selectedDiscountIds, backRates, optionRates, nominationRates, discounts]);
 
   useEffect(() => {
+    if (!formData.start_time || !formData.duration) return;
+    const [h, m] = formData.start_time.split(":").map(Number);
+    const totalMinutes = h * 60 + m + formData.duration;
+    const endH = Math.floor(totalMinutes / 60) % 24;
+    const endM = totalMinutes % 60;
+    const newEnd = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+    if (newEnd !== formData.end_time) {
+      setFormData({ ...formData, end_time: newEnd });
+    }
+  }, [formData.start_time, formData.duration]);
+
+  useEffect(() => {
     const phone = formData.customer_phone.replace(/[-\s]/g, "");
     if (phone.length < 10) {
       setCustomerInfo(null);
