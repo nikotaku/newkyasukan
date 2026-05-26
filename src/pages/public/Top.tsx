@@ -378,49 +378,69 @@ const Top = () => {
 
       </main>
 
-      {/* Slot booking popup */}
+      {/* Slot booking popup (GO-style bottom sheet) */}
       {slotModal && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center"
           onClick={() => setSlotModal(null)}
         >
           <div
-            className="w-full max-w-sm bg-[#141414] border border-white/10 rounded-2xl p-5"
+            className="w-full max-w-xl bg-white text-gray-900 rounded-t-3xl p-5 pb-8 shadow-2xl animate-in slide-in-from-bottom duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <div className="text-[11px] text-white/50 tracking-widest">QUICK BOOKING</div>
-                <div className="mt-1 text-lg font-bold">{slotModal.castName}</div>
-              </div>
-              <button onClick={() => setSlotModal(null)} className="text-white/60 hover:text-white">
-                <CloseIcon size={20} />
+            <div className="flex justify-between items-center mb-4">
+              <div className="text-base font-bold">{slotModal.castName} を予約</div>
+              <button onClick={() => setSlotModal(null)} className="text-gray-400 hover:text-gray-700">
+                <CloseIcon size={22} />
               </button>
             </div>
-            <div className="rounded-xl bg-[#c49480]/10 border border-[#c49480]/30 px-4 py-3 mb-4">
-              <div className="text-[11px] text-white/60">本日の予約枠</div>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-white">{slotModal.time}</span>
-                <span className="text-sm text-white/70">〜 60分コース</span>
+
+            <div className="rounded-2xl bg-gray-100 p-4">
+              {/* 予約時間 */}
+              <div className="flex items-start gap-3">
+                <div className="flex flex-col items-center pt-1">
+                  <div className="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center">
+                    <Clock size={16} className="text-[#1d3557]" />
+                  </div>
+                  <div className="flex flex-col gap-0.5 my-1">
+                    <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#1d3557]/40" />
+                    <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#1d3557]/40" />
+                  </div>
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className="text-xs text-gray-500">予約時間</div>
+                  <div className="text-xl font-bold text-gray-900">{slotModal.time}</div>
+                </div>
+              </div>
+
+              {/* コース */}
+              <div className="mt-3 rounded-2xl bg-white p-4 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full border-2 border-[#1d3557] flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#1d3557]" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-xs text-gray-500">コース</div>
+                  <div className="text-base font-bold text-gray-900">60分コース</div>
+                </div>
+                <button
+                  onClick={() => quickBook(slotModal.castId, slotModal.time)}
+                  className="px-5 py-3 rounded-full bg-[#1d3557] hover:bg-[#15253f] text-white text-sm font-bold transition-colors whitespace-nowrap"
+                >
+                  次へすすむ
+                </button>
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-2">
-              <button
-                onClick={() => quickBook(slotModal.castId, slotModal.time)}
-                className="w-full py-3 rounded-full bg-[#c49480] hover:bg-[#a87b65] text-white text-sm font-bold transition-colors"
-              >
-                この時間で予約に進む
-              </button>
-              <a
-                href={`tel:${TEL}`}
-                className="w-full py-3 rounded-full border border-white/20 hover:bg-white/5 text-white text-sm font-bold text-center transition-colors flex items-center justify-center gap-2"
-              >
-                <Phone size={16} /> 電話で予約 ({TEL})
-              </a>
-            </div>
+
+            <a
+              href={`tel:${TEL}`}
+              className="mt-4 w-full py-3 rounded-full border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-bold text-center transition-colors flex items-center justify-center gap-2"
+            >
+              <Phone size={16} /> 電話で予約 ({TEL})
+            </a>
           </div>
         </div>
       )}
+
 
       {/* Slide-up menu */}
       {menuOpen && (
