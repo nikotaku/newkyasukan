@@ -35,7 +35,8 @@ interface RecCourse {
 
 type TimelineItem =
   | { kind: "post"; post: Post }
-  | { kind: "rec"; rec: RecCourse; key: string };
+  | { kind: "rec"; rec: RecCourse; key: string }
+  | { kind: "shift"; cast: CastLite; startTime: string };
 
 const NAV_LINKS = [
   { to: "/", label: "TOP" },
