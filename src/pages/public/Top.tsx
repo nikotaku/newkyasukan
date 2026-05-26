@@ -135,9 +135,6 @@ const Top = () => {
         )}
 
       </main>
-
-      <PublicFooter />
-      <FixedBottomBar />
     </div>
   );
 };
