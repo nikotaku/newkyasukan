@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Heart, Repeat2, Share, MessageCircle as Reply, BadgeCheck, Menu, Phone, X as CloseIcon, Clock } from "lucide-react";
+import { BadgeCheck, Menu, Phone, X as CloseIcon, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { driveImgUrl } from "@/lib/drive";
 import { SEO, LOCAL_BUSINESS_JSON_LD } from "@/components/SEO";
@@ -174,6 +174,36 @@ const Top = () => {
     navigate(`/booking?castId=${castId}&date=${dateStr}&time=${time}`);
   };
 
+  // 30-min granular slots for today; available means a 60m+30m buffer fits
+  const slotsToday = (castId: string): { time: string; available: boolean }[] => {
+    const shift = todayShifts.find((s) => s.cast_id === castId);
+    if (!shift) return [];
+    const now = new Date();
+    const [sh, sm] = shift.start_time.split(":").map(Number);
+    const [eh, em] = shift.end_time.split(":").map(Number);
+    const start = sh * 60 + sm;
+    const end = eh * 60 + em;
+    const cur = now.getHours() * 60 + now.getMinutes();
+    const reserved = todayRes
+      .filter((r) => r.cast_id === castId)
+      .map((r) => {
+        const [h, m] = r.start_time.split(":").map(Number);
+        const s = h * 60 + m;
+        return { start: s, end: s + r.duration + 30 };
+      });
+    const out: { time: string; available: boolean }[] = [];
+    for (let t = start; t + 60 <= end; t += 30) {
+      if (t < cur) continue;
+      const conflict = reserved.some((b) => t < b.end && t + 60 > b.start);
+      const hh = String(Math.floor(t / 60)).padStart(2, "0");
+      const mm = String(t % 60).padStart(2, "0");
+      out.push({ time: `${hh}:${mm}`, available: !conflict });
+    }
+    return out;
+  };
+
+  const [slotModal, setSlotModal] = useState<{ castId: string; castName: string; time: string } | null>(null);
+
   return (
     <div className="min-h-screen pb-20 bg-black text-white">
       <SEO
@@ -292,30 +322,39 @@ const Top = () => {
                         </Link>
                       )}
                       {(() => {
-                        const t = earliestToday(c.id);
-                        if (!t) return null;
+                        const slots = slotsToday(c.id);
+                        if (slots.length === 0) return null;
                         return (
-                          <div className="mt-2 flex items-center gap-2 rounded-xl border border-[#c49480]/40 bg-[#c49480]/5 px-3 py-2">
-                            <Clock size={14} className="text-[#c49480] flex-shrink-0" />
-                            <div className="flex-1 text-[13px]">
-                              <span className="text-white/60">本日最短</span>{" "}
-                              <span className="font-bold text-white">{t}〜</span>
+                          <div className="mt-2 -mx-1">
+                            <div className="flex items-center gap-1 px-1 mb-1 text-[11px] text-white/50">
+                              <Clock size={12} className="text-[#c49480]" />
+                              <span>本日の空き状況（タップで予約）</span>
                             </div>
-                            <button
-                              onClick={() => quickBook(c.id, t)}
-                              className="px-3 py-1 rounded-full bg-[#c49480] hover:bg-[#a87b65] text-white text-[12px] font-bold whitespace-nowrap transition-colors"
-                            >
-                              60分で予約
-                            </button>
+                            <div className="flex gap-1.5 overflow-x-auto pb-1 px-1 scrollbar-thin">
+                              {slots.map((s) => (
+                                <button
+                                  key={s.time}
+                                  disabled={!s.available}
+                                  onClick={() =>
+                                    s.available &&
+                                    setSlotModal({ castId: c.id, castName: c.name, time: s.time })
+                                  }
+                                  className={`flex-shrink-0 flex flex-col items-center justify-center w-12 py-1.5 rounded-lg border text-[11px] transition-colors ${
+                                    s.available
+                                      ? "border-[#c49480]/60 bg-[#c49480]/10 hover:bg-[#c49480]/25 text-white"
+                                      : "border-white/10 bg-white/[0.02] text-white/30 cursor-not-allowed"
+                                  }`}
+                                >
+                                  <span className="font-bold leading-tight">{s.time}</span>
+                                  <span className={`text-[13px] leading-tight ${s.available ? "text-[#c49480]" : ""}`}>
+                                    {s.available ? "○" : "×"}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         );
                       })()}
-                      <div className="mt-2 flex items-center justify-between max-w-xs text-white/50 text-xs">
-                        <button className="flex items-center gap-1.5 hover:text-[#1d9bf0] transition-colors"><Reply size={16} /></button>
-                        <button className="flex items-center gap-1.5 hover:text-green-500 transition-colors"><Repeat2 size={16} /></button>
-                        <button className="flex items-center gap-1.5 hover:text-pink-500 transition-colors"><Heart size={16} /></button>
-                        <button className="flex items-center gap-1.5 hover:text-[#1d9bf0] transition-colors"><Share size={16} /></button>
-                      </div>
                     </div>
                   </div>
                 </article>
@@ -325,6 +364,50 @@ const Top = () => {
         )}
 
       </main>
+
+      {/* Slot booking popup */}
+      {slotModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+          onClick={() => setSlotModal(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-[#141414] border border-white/10 rounded-2xl p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <div className="text-[11px] text-white/50 tracking-widest">QUICK BOOKING</div>
+                <div className="mt-1 text-lg font-bold">{slotModal.castName}</div>
+              </div>
+              <button onClick={() => setSlotModal(null)} className="text-white/60 hover:text-white">
+                <CloseIcon size={20} />
+              </button>
+            </div>
+            <div className="rounded-xl bg-[#c49480]/10 border border-[#c49480]/30 px-4 py-3 mb-4">
+              <div className="text-[11px] text-white/60">本日の予約枠</div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-white">{slotModal.time}</span>
+                <span className="text-sm text-white/70">〜 60分コース</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                onClick={() => quickBook(slotModal.castId, slotModal.time)}
+                className="w-full py-3 rounded-full bg-[#c49480] hover:bg-[#a87b65] text-white text-sm font-bold transition-colors"
+              >
+                この時間で予約に進む
+              </button>
+              <a
+                href={`tel:${TEL}`}
+                className="w-full py-3 rounded-full border border-white/20 hover:bg-white/5 text-white text-sm font-bold text-center transition-colors flex items-center justify-center gap-2"
+              >
+                <Phone size={16} /> 電話で予約 ({TEL})
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Slide-up menu */}
       {menuOpen && (
