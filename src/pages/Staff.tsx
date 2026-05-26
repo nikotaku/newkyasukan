@@ -1113,53 +1113,6 @@ export default function Staff() {
                         />
                       </div>
 
-                      <div className="border-t pt-4 space-y-3">
-                        <Label className="text-sm font-semibold text-muted-foreground">プロフィール詳細</Label>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <Label className="text-xs">身長 (cm)</Label>
-                            <Input type="number" value={editingCast.height ?? ""} onChange={(e) => setEditingCast({...editingCast, height: e.target.value ? parseInt(e.target.value) : null})} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">カップ数</Label>
-                            <Input value={editingCast.cup_size ?? ""} onChange={(e) => setEditingCast({...editingCast, cup_size: e.target.value})} placeholder="C" />
-                          </div>
-                          <div>
-                            <Label className="text-xs">セラピスト歴(年)</Label>
-                            <Input type="number" value={editingCast.therapist_years ?? ""} onChange={(e) => setEditingCast({...editingCast, therapist_years: e.target.value ? parseInt(e.target.value) : null})} />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <Label className="text-xs">バスト</Label>
-                            <Input type="number" value={editingCast.bust ?? ""} onChange={(e) => setEditingCast({...editingCast, bust: e.target.value ? parseInt(e.target.value) : null})} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">ウエスト</Label>
-                            <Input type="number" value={editingCast.waist ?? ""} onChange={(e) => setEditingCast({...editingCast, waist: e.target.value ? parseInt(e.target.value) : null})} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">ヒップ</Label>
-                            <Input type="number" value={editingCast.hip ?? ""} onChange={(e) => setEditingCast({...editingCast, hip: e.target.value ? parseInt(e.target.value) : null})} />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs">好きな食べ物</Label>
-                          <Input value={editingCast.favorite_food ?? ""} onChange={(e) => setEditingCast({...editingCast, favorite_food: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">得意な施術</Label>
-                          <Textarea rows={2} value={editingCast.favorite_techniques ?? ""} onChange={(e) => setEditingCast({...editingCast, favorite_techniques: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">好きな男性のタイプ</Label>
-                          <Textarea rows={2} value={editingCast.ideal_partner ?? ""} onChange={(e) => setEditingCast({...editingCast, ideal_partner: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">メッセージ</Label>
-                          <Textarea rows={3} value={editingCast.message ?? ""} onChange={(e) => setEditingCast({...editingCast, message: e.target.value})} />
-                        </div>
-                      </div>
                     </TabsContent>
                     
                     
