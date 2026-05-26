@@ -976,11 +976,11 @@ export default function Staff() {
                       </div>
 
                       <div>
-                        <Label htmlFor="edit-reviews">口コミ</Label>
-                        <Textarea 
+                        <Label htmlFor="edit-reviews">口コミURL</Label>
+                        <Input 
                           id="edit-reviews" 
-                          rows={3}
-                          placeholder="口コミ内容を入力..."
+                          type="url"
+                          placeholder="https://..."
                           value={editingCast.reviews || ""}
                           onChange={(e) => setEditingCast({...editingCast, reviews: e.target.value})}
                         />
