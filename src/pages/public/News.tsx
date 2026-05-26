@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
+import { SEO } from "@/components/SEO";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { Button } from "@/components/ui/button";
@@ -23,8 +24,9 @@ const News = () => {
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
-    document.title = "お知らせ｜全力エステ 仙台店";
+    // title managed by SEO component
   }, []);
+
 
   useEffect(() => {
     (async () => {
@@ -52,6 +54,11 @@ const News = () => {
 
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: "#f8f6f3" }}>
+      <SEO
+        title="お知らせ・最新情報"
+        description="全力エステ 仙台店からのお知らせ・最新情報。新人セラピスト情報・イベント・キャンペーン情報などを随時更新中。"
+        path="/news"
+      />
       <PublicNavigation />
       <main className="max-w-3xl mx-auto px-4 py-8 md:py-10">
         <header className="mb-8 text-center">
@@ -106,6 +113,22 @@ const News = () => {
             </Button>
           </div>
         )}
+
+        {/* m-sns.net Timeline Widget */}
+        <div className="mt-10 mb-8">
+          <div className="text-center mb-4">
+            <h3 className="text-xl font-bold" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>NEWS</h3>
+            <p className="text-xs mt-1" style={{ color: "#a89586" }}>最新情報</p>
+          </div>
+          <div className="flex justify-center">
+            <iframe
+              src="https://m-sns.net/s/@zr_sendai2"
+              style={{ width: "100%", maxWidth: "550px", height: "600px", border: "none", borderRadius: "8px" }}
+              title="ニュースラン タイムライン"
+              loading="lazy"
+            />
+          </div>
+        </div>
 
         {/* SHOP Section */}
         <div className="mt-8">

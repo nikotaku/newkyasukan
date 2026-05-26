@@ -9,6 +9,7 @@ import { driveImgUrl } from "@/lib/drive";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { SEO, LOCAL_BUSINESS_JSON_LD } from "@/components/SEO";
 
 interface TodayShift {
   id: string;
@@ -49,7 +50,6 @@ const Top = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.title = "全力エステ 仙台店｜仙台のメンズエステ";
     fetchAll();
   }, []);
 
@@ -98,6 +98,12 @@ const Top = () => {
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+      <SEO
+        title="仙台のメンズエステ"
+        description="全力エステ 仙台店｜仙台のメンズエステサロン。厳選セラピストによる本格リラクゼーション。出張・インルーム対応。お得なコース多数。Tel: 090-8126-4042"
+        path="/"
+        jsonLd={LOCAL_BUSINESS_JSON_LD}
+      />
       <PublicNavigation />
 
       {/* ===== Banner Slider ===== */}

@@ -41,6 +41,13 @@ interface NominationRate {
   therapist_back: number | null;
 }
 
+interface Discount {
+  id: string;
+  name: string;
+  discount_type: "fixed" | "percentage";
+  discount_value: number;
+}
+
 interface FormData {
   cast_id: string;
   customer_name: string;
@@ -55,6 +62,7 @@ interface FormData {
   course_type: string;
   course_name: string;
   selectedOptions: string[];
+  selectedDiscountIds: string[];
   price: number;
   payment_method: string;
   reservation_method: string;
@@ -69,6 +77,7 @@ interface ReservationFormProps {
   backRates: BackRate[];
   optionRates: OptionRate[];
   nominationRates: NominationRate[];
+  discounts: Discount[];
   onSubmit: () => void;
 }
 
@@ -103,6 +112,7 @@ export function ReservationForm({
   backRates,
   optionRates,
   nominationRates,
+  discounts,
   onSubmit,
 }: ReservationFormProps) {
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
@@ -146,10 +156,20 @@ export function ReservationForm({
       }
     }
 
+    // Apply discounts
+    let basePrice = totalPrice;
+    formData.selectedDiscountIds.forEach(id => {
+      const d = discounts.find(x => x.id === id);
+      if (!d) return;
+      if (d.discount_type === "fixed") totalPrice -= d.discount_value;
+      else totalPrice -= Math.round(basePrice * d.discount_value / 100);
+    });
+    totalPrice = Math.max(0, totalPrice);
+
     if (totalPrice !== formData.price) {
       setFormData({ ...formData, price: totalPrice });
     }
-  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, backRates, optionRates, nominationRates]);
+  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.selectedDiscountIds, backRates, optionRates, nominationRates, discounts]);
 
   useEffect(() => {
     const phone = formData.customer_phone.replace(/[-\s]/g, "");
@@ -664,6 +684,34 @@ export function ReservationForm({
           })}
         </div>
       </div>
+
+      {discounts.length > 0 && (
+        <div>
+          <Label>割引</Label>
+          <div className="mt-1 space-y-1">
+            {discounts.map(d => {
+              const checked = formData.selectedDiscountIds.includes(d.id);
+              return (
+                <div key={d.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`discount-${d.id}`}
+                    checked={checked}
+                    onCheckedChange={() => {
+                      const next = checked
+                        ? formData.selectedDiscountIds.filter(x => x !== d.id)
+                        : [...formData.selectedDiscountIds, d.id];
+                      setFormData({ ...formData, selectedDiscountIds: next });
+                    }}
+                  />
+                  <label htmlFor={`discount-${d.id}`} className="text-sm cursor-pointer">
+                    {d.name}（{d.discount_type === "fixed" ? `-¥${d.discount_value.toLocaleString()}` : `-${d.discount_value}%`}）
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div>
         <Label htmlFor="notes">備考</Label>

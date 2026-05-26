@@ -8,11 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Save, X, Plus, ExternalLink, Copy } from "lucide-react";
+import { Search, Save, X, ExternalLink, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { driveImgUrl } from "@/lib/drive";
 
@@ -40,6 +39,7 @@ interface Cast {
   line_url: string | null;
   litlink_url: string | null;
   o2_url: string | null;
+  format_type: string | null;
 }
 
 interface InternalProfile {
@@ -52,9 +52,12 @@ interface InternalProfile {
   special_skills: string;
   preferred_type: string;
   mbti: string;
+  love_type: string;
   career_history: string;
   massage_skills: string;
   training_count: number | null;
+  sns_operation_notes: string;
+  customer_age_range: string;
 }
 
 const emptyInternal = (cast_id: string): InternalProfile => ({
@@ -66,9 +69,12 @@ const emptyInternal = (cast_id: string): InternalProfile => ({
   special_skills: "",
   preferred_type: "",
   mbti: "",
+  love_type: "",
   career_history: "",
   massage_skills: "",
   training_count: null,
+  sns_operation_notes: "",
+  customer_age_range: "",
 });
 
 export default function TherapistDatabase() {
@@ -83,7 +89,6 @@ export default function TherapistDatabase() {
   const [castEdit, setCastEdit] = useState<Cast | null>(null);
   const [internal, setInternal] = useState<InternalProfile | null>(null);
   const [filterTags, setFilterTags] = useState<string[]>([]);
-  const [newTag, setNewTag] = useState("");
   const [tokenMap, setTokenMap] = useState<Record<string, string>>({});
 
   const { user, loading: authLoading } = useAuth();
@@ -102,7 +107,7 @@ export default function TherapistDatabase() {
     try {
       const [castsRes, profilesRes, tokensRes] = await Promise.all([
         supabase.from("casts").select(
-          "id,name,photo,age,height,bust,cup_size,waist,hip,blood_type,therapist_years,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,message,profile,x_account,line_url,litlink_url,o2_url"
+          "id,name,photo,age,height,bust,cup_size,waist,hip,blood_type,therapist_years,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,message,profile,x_account,line_url,litlink_url,o2_url,format_type"
         ).order("name"),
         supabase.from("therapist_profiles" as any).select("*"),
         supabase.rpc("get_cast_access_tokens").catch(() => ({ data: null })),
@@ -152,6 +157,7 @@ export default function TherapistDatabase() {
       line_url: castEdit.line_url || null,
       litlink_url: castEdit.litlink_url || null,
       o2_url: castEdit.o2_url || null,
+      format_type: castEdit.format_type || null,
     }).eq("id", castEdit.id);
     setSavingEstama(false);
     if (error) { toast.error("保存に失敗しました"); return; }
@@ -160,14 +166,17 @@ export default function TherapistDatabase() {
   };
 
   const handleSaveInternal = async () => {
-    if (!internal || !selectedCast) return;
+    if (!internal || !selectedCast || !castEdit) return;
     setSavingInternal(true);
     const payload = { ...internal, cast_id: selectedCast.id };
-    const { error } = internal.id
-      ? await supabase.from("therapist_profiles" as any).update(payload).eq("id", internal.id)
-      : await supabase.from("therapist_profiles" as any).insert([payload]);
+    const [profileResult] = await Promise.all([
+      internal.id
+        ? supabase.from("therapist_profiles" as any).update(payload).eq("id", internal.id)
+        : supabase.from("therapist_profiles" as any).insert([payload]),
+      supabase.from("casts").update({ format_type: castEdit.format_type || null }).eq("id", castEdit.id),
+    ]);
     setSavingInternal(false);
-    if (error) { toast.error("保存に失敗しました"); return; }
+    if ((profileResult as any).error) { toast.error("保存に失敗しました"); return; }
     toast.success("内部情報を保存しました");
     await fetchAll();
     if (selectedCast) selectCast(casts.find(c => c.id === selectedCast.id) || selectedCast);
@@ -178,13 +187,6 @@ export default function TherapistDatabase() {
 
   const setInt = (field: keyof InternalProfile, value: any) =>
     setInternal(p => p ? { ...p, [field]: value } : p);
-
-  const addTag = () => {
-    const tag = newTag.trim();
-    if (!tag || !internal) return;
-    if (!internal.tags.includes(tag)) setInternal({ ...internal, tags: [...internal.tags, tag] });
-    setNewTag("");
-  };
 
   const allTags = Array.from(new Set(
     Object.values(internalMap).flatMap((p: any) => p.tags || [])
@@ -331,6 +333,32 @@ export default function TherapistDatabase() {
 
                       {/* ── 公開プロフィールタブ ── */}
                       <TabsContent value="public" className="space-y-5">
+
+                        {/* プロフィールフォーマット */}
+                        <div className="space-y-1">
+                          <Label className="text-sm font-semibold">プロフィールフォーマット</Label>
+                          <p className="text-xs text-muted-foreground">HP掲載用のプロフィール文（自由記述）</p>
+                          <Textarea
+                            value={castEdit.profile ?? ""}
+                            onChange={(e) => setCast("profile", e.target.value)}
+                            rows={4}
+                            placeholder="プロフィールテキストを入力..."
+                          />
+                        </div>
+
+                        {/* お店コメント */}
+                        <div className="space-y-1">
+                          <Label className="text-sm font-semibold">お店コメント</Label>
+                          <p className="text-xs text-muted-foreground">お店からのおすすめコメント（HP公開）</p>
+                          <Textarea
+                            value={internal.comment ?? ""}
+                            onChange={(e) => setInt("comment", e.target.value)}
+                            rows={4}
+                            placeholder="お店からのおすすめポイントを入力..."
+                          />
+                        </div>
+
+                        {/* セラピストコメント */}
                         <div className="space-y-1">
                           <Label className="text-sm font-semibold">セラピストコメント</Label>
                           <p className="text-xs text-muted-foreground">セラピスト本人からのメッセージ（HP公開）</p>
@@ -342,56 +370,56 @@ export default function TherapistDatabase() {
                           />
                         </div>
 
-                        <div className="space-y-1">
-                          <Label className="text-sm font-semibold">ショップコメント</Label>
-                          <p className="text-xs text-muted-foreground">お店からのおすすめコメント（HP公開）</p>
-                          <Textarea
-                            value={internal.comment ?? ""}
-                            onChange={(e) => setInt("comment", e.target.value)}
-                            rows={4}
-                            placeholder="お店からのおすすめポイントを入力..."
-                          />
-                        </div>
-
-                        <div className="border-t pt-4 space-y-3">
-                          <Label className="text-sm font-semibold text-muted-foreground tracking-wider">インタビュー項目（HP公開）</Label>
-                          <div className="space-y-1">
-                            <Label>自己紹介</Label>
-                            <Textarea value={internal.self_introduction ?? ""} onChange={(e) => setInt("self_introduction", e.target.value)} rows={4} placeholder="セラピスト自身の言葉で..." />
+                        {/* セラピストインタビュー */}
+                        <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
+                          <Label className="text-sm font-semibold">セラピストインタビュー</Label>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <Label className="text-xs text-muted-foreground">身長</Label>
+                              <Input type="number" value={castEdit.height ?? ""} onChange={(e) => setCast("height", e.target.value ? Number(e.target.value) : null)} placeholder="cm" />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">カップ数</Label>
+                              <Input value={castEdit.cup_size ?? ""} onChange={(e) => setCast("cup_size", e.target.value)} placeholder="例：D" />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">年齢</Label>
+                              <Input type="number" value={castEdit.age ?? ""} onChange={(e) => setCast("age", e.target.value ? Number(e.target.value) : null)} placeholder="歳" />
+                            </div>
                           </div>
-                          <div className="space-y-1">
-                            <Label>得意な施術</Label>
-                            <Textarea value={internal.massage_skills ?? ""} onChange={(e) => setInt("massage_skills", e.target.value)} rows={2} placeholder="例：リンパドレナージュ、アロマオイル" />
-                          </div>
-                          <div className="space-y-1">
-                            <Label>エステ経歴</Label>
-                            <Textarea value={internal.career_history ?? ""} onChange={(e) => setInt("career_history", e.target.value)} rows={2} placeholder="例：エステサロン勤務3年" />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                              <Label>趣味・特技</Label>
-                              <Input value={castEdit.hobbies ?? ""} onChange={(e) => setCast("hobbies", e.target.value)} placeholder="例：料理、ヨガ" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label>好みのタイプ</Label>
-                              <Input value={internal.preferred_type ?? ""} onChange={(e) => setInt("preferred_type", e.target.value)} placeholder="例：優しい人" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label>好きな食べ物</Label>
-                              <Input value={castEdit.favorite_food ?? ""} onChange={(e) => setCast("favorite_food", e.target.value)} placeholder="例：パスタ" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label>休日の過ごし方</Label>
-                              <Input value={castEdit.day_off_activities ?? ""} onChange={(e) => setCast("day_off_activities", e.target.value)} placeholder="例：カフェ巡り" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label>MBTI</Label>
-                              <Input value={internal.mbti ?? ""} onChange={(e) => setInt("mbti", e.target.value)} placeholder="例: INFP" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label>講習回数</Label>
-                              <Input type="number" inputMode="numeric" value={internal.training_count ?? ""} onChange={(e) => setInt("training_count", e.target.value ? Number(e.target.value) : null)} placeholder="0" />
-                            </div>
+                          <div className="space-y-3 pt-1">
+                            {[
+                              { label: "【セラピスト歴】", field: "therapist_years" as keyof Cast, type: "number", placeholder: "年" },
+                            ].map(({ label, field, type, placeholder }) => (
+                              <div key={field} className="flex items-center gap-3">
+                                <Label className="text-xs text-muted-foreground shrink-0 w-36">{label}</Label>
+                                <Input
+                                  type={type}
+                                  value={(castEdit as any)[field] ?? ""}
+                                  onChange={(e) => setCast(field, type === "number" ? (e.target.value ? Number(e.target.value) : null) : e.target.value)}
+                                  placeholder={placeholder}
+                                  className="text-sm"
+                                />
+                              </div>
+                            ))}
+                            {[
+                              { label: "【得意な施術】", field: "favorite_techniques" as keyof Cast, placeholder: "例：アロマ、リンパ" },
+                              { label: "【好きな食べ物】", field: "favorite_food" as keyof Cast, placeholder: "例：パスタ、スイーツ" },
+                              { label: "【好きな男性のタイプ】", field: "ideal_type" as keyof Cast, placeholder: "例：優しい人" },
+                              { label: "【似ている芸能人】", field: "celebrity_lookalike" as keyof Cast, placeholder: "例：〇〇さん" },
+                              { label: "【休みの日は何してる？】", field: "day_off_activities" as keyof Cast, placeholder: "例：カフェ巡り" },
+                              { label: "【趣味・特技】", field: "hobbies" as keyof Cast, placeholder: "例：料理、ヨガ" },
+                            ].map(({ label, field, placeholder }) => (
+                              <div key={field} className="flex items-center gap-3">
+                                <Label className="text-xs text-muted-foreground shrink-0 w-36">{label}</Label>
+                                <Input
+                                  value={(castEdit as any)[field] ?? ""}
+                                  onChange={(e) => setCast(field, e.target.value)}
+                                  placeholder={placeholder}
+                                  className="text-sm"
+                                />
+                              </div>
+                            ))}
                           </div>
                         </div>
 
@@ -402,7 +430,7 @@ export default function TherapistDatabase() {
                           </Button>
                           <Button onClick={handleSaveInternal} disabled={savingInternal}>
                             <Save size={14} className="mr-1.5" />
-                            {savingInternal ? "保存中..." : "インタビューを保存"}
+                            {savingInternal ? "保存中..." : "コメントを保存"}
                           </Button>
                         </div>
                       </TabsContent>
@@ -466,60 +494,47 @@ export default function TherapistDatabase() {
                       {/* ── 内部管理タブ ── */}
                       <TabsContent value="internal" className="space-y-4">
                         <div>
-                          <Label>タグ</Label>
-                          <div className="flex flex-wrap gap-1 mb-2 mt-1">
-                            {internal.tags.map((tag) => (
-                              <Badge key={tag} variant="secondary" className="gap-1">
-                                {tag}
-                                <button onClick={() => setInternal({ ...internal, tags: internal.tags.filter(t => t !== tag) })} className="hover:text-destructive"><X size={10} /></button>
-                              </Badge>
-                            ))}
-                          </div>
-                          <div className="flex gap-2">
-                            <Input value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())} placeholder="タグを入力してEnter" className="text-sm" />
-                            <Button size="sm" variant="outline" onClick={addTag}><Plus size={14} /></Button>
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label>自己紹介（インタビュー表示）</Label>
-                          <Textarea value={internal.self_introduction ?? ""} onChange={(e) => setInt("self_introduction", e.target.value)} rows={4} placeholder="セラピストの自己紹介文" />
-                        </div>
-                        <div>
-                          <Label>お店コメント（HP表示）</Label>
-                          <Textarea value={internal.comment ?? ""} onChange={(e) => setInt("comment", e.target.value)} rows={4} placeholder="お店からのおすすめコメント" />
+                          <Label className="text-sm font-semibold">SNS運用シート</Label>
+                          <Textarea
+                            value={internal.sns_operation_notes ?? ""}
+                            onChange={(e) => setInt("sns_operation_notes", e.target.value)}
+                            rows={5}
+                            placeholder="投稿ジャンル、頻度、NG内容など運用メモ..."
+                          />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label>体重 (kg)</Label>
-                            <Input type="number" value={internal.weight ?? ""} onChange={(e) => setInt("weight", e.target.value ? Number(e.target.value) : null)} />
+                            <Label className="text-sm font-semibold">MBTI</Label>
+                            <Input
+                              value={internal.mbti ?? ""}
+                              onChange={(e) => setInt("mbti", e.target.value)}
+                              placeholder="例: INFP"
+                            />
                           </div>
                           <div>
-                            <Label>MBTI</Label>
-                            <Input value={internal.mbti ?? ""} onChange={(e) => setInt("mbti", e.target.value)} placeholder="例: INFP" />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label>特技</Label>
-                            <Input value={internal.special_skills ?? ""} onChange={(e) => setInt("special_skills", e.target.value)} placeholder="例: ピアノ、料理" />
-                          </div>
-                          <div>
-                            <Label>好みのタイプ</Label>
-                            <Input value={internal.preferred_type ?? ""} onChange={(e) => setInt("preferred_type", e.target.value)} placeholder="例: 優しい人" />
+                            <Label className="text-sm font-semibold">ラブタイプ</Label>
+                            <Input
+                              value={internal.love_type ?? ""}
+                              onChange={(e) => setInt("love_type", e.target.value)}
+                              placeholder="例: 献身的な愛情タイプ"
+                            />
                           </div>
                         </div>
                         <div>
-                          <Label>過去の経歴</Label>
-                          <Textarea value={internal.career_history ?? ""} onChange={(e) => setInt("career_history", e.target.value)} rows={3} />
+                          <Label className="text-sm font-semibold">よく利用する客層の年齢</Label>
+                          <Input
+                            value={internal.customer_age_range ?? ""}
+                            onChange={(e) => setInt("customer_age_range", e.target.value)}
+                            placeholder="例: 30〜50代"
+                          />
                         </div>
                         <div>
-                          <Label>得意なマッサージ・施術</Label>
-                          <Textarea value={internal.massage_skills ?? ""} onChange={(e) => setInt("massage_skills", e.target.value)} rows={3} />
-                        </div>
-                        <div>
-                          <Label>講習回数</Label>
-                          <Input type="number" value={internal.training_count ?? ""} onChange={(e) => setInt("training_count", e.target.value ? Number(e.target.value) : null)} />
+                          <Label className="text-sm font-semibold">フォーマット</Label>
+                          <Input
+                            value={castEdit?.format_type ?? ""}
+                            onChange={(e) => setCast("format_type", e.target.value)}
+                            placeholder="フォーマット種類"
+                          />
                         </div>
 
                         <Button onClick={handleSaveInternal} disabled={savingInternal}>

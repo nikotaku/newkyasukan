@@ -6,6 +6,7 @@ import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { driveImgUrl } from "@/lib/drive";
+import { SEO } from "@/components/SEO";
 
 interface Cast {
   id: string;
@@ -17,7 +18,7 @@ interface Cast {
   waist: number | null;
   hip: number | null;
   type: string;
-  status: string;
+  is_online: boolean;
   photo: string | null;
   photos: string[] | null;
   tags: string[] | null;
@@ -31,9 +32,7 @@ const Casts = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'today' | 'newface'>('all');
 
-  useEffect(() => {
-    document.title = "全力エステ - セラピスト";
-  }, []);
+  useEffect(() => {}, []);
 
   useEffect(() => {
     fetchCasts();
@@ -66,10 +65,8 @@ const Casts = () => {
     return Math.ceil(Math.abs(now.getTime() - join.getTime()) / (1000 * 60 * 60 * 24)) <= 30;
   };
 
-  const isWorkingToday = (status: string) => status === 'waiting' || status === 'busy';
-
   const filteredCasts = casts.filter((cast) => {
-    if (filter === 'today') return isWorkingToday(cast.status);
+    if (filter === 'today') return cast.is_online;
     if (filter === 'newface') return isNewFace(cast.join_date);
     return true;
   });
@@ -102,6 +99,11 @@ const Casts = () => {
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+      <SEO
+        title="セラピスト一覧"
+        description="全力エステ 仙台店のセラピスト一覧。個性豊かな厳選セラピストが揃っています。プロフィール・出勤情報を毎日更新中。"
+        path="/casts"
+      />
       <PublicNavigation />
 
       <main className="container py-4 md:py-8 px-3 md:px-4">
@@ -144,6 +146,11 @@ const Casts = () => {
                           <span className="bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded shadow-md">新人</span>
                         )}
                       </div>
+                      {cast.is_online && (
+                        <div className="absolute top-2 right-2 z-10">
+                          <span className="bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">オンライン</span>
+                        </div>
+                      )}
                       {cast.photo ? (
                         <img src={driveImgUrl(cast.photo)} alt={cast.name} className="w-full aspect-[3/4] object-cover" />
                       ) : (

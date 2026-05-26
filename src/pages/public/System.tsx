@@ -4,6 +4,7 @@ import { Phone, Calendar } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
+import { SEO } from "@/components/SEO";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 
@@ -32,7 +33,7 @@ const System = () => {
   const [nominationRates, setNominationRates] = useState<NominationRate[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { document.title = "全力エステ - システム"; }, []);
+  useEffect(() => {}, []);
 
   useEffect(() => { fetchPricing(); }, []);
 
@@ -68,6 +69,11 @@ const System = () => {
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+      <SEO
+        title="ご利用システム・初めての方へ"
+        description="全力エステ 仙台店の利用方法・システムをご説明。ご予約からセッション終了までの流れ、よくある質問をわかりやすくご案内します。"
+        path="/system"
+      />
       <PublicNavigation />
 
       <main className="container mx-auto px-3 md:px-4 py-5 md:py-12 max-w-3xl">

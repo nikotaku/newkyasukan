@@ -37,15 +37,20 @@ interface Shift {
 interface Reservation {
   id: string;
   cast_id: string;
+  casts: { name: string } | null;
   reservation_date: string;
   start_time: string;
   duration: number;
   customer_name: string;
   customer_phone: string;
+  customer_email: string | null;
   course_name: string;
   course_type: string | null;
   nomination_type: string | null;
+  options: string[] | null;
+  discount_ids: string[] | null;
   price: number;
+  payment_method: string | null;
   status: string;
   payment_status: string;
   room: string | null;
@@ -117,6 +122,7 @@ export default function Schedule() {
     course_type: "aroma",
     course_name: "80分 アロマオイルコース",
     selectedOptions: [] as string[],
+    selectedDiscountIds: [] as string[],
     price: 12000,
     payment_method: "cash",
     reservation_method: "",
@@ -128,6 +134,7 @@ export default function Schedule() {
   const [backRates, setBackRates] = useState<any[]>([]);
   const [optionRates, setOptionRates] = useState<any[]>([]);
   const [nominationRates, setNominationRates] = useState<any[]>([]);
+  const [discounts, setDiscounts] = useState<any[]>([]);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -141,18 +148,20 @@ export default function Schedule() {
   }, [user, selectedDate]);
 
   const fetchFormData = async () => {
-    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }] = await Promise.all([
+    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }] = await Promise.all([
       supabase.from("casts").select("id, name").order("name"),
       supabase.from("rooms").select("id, name, address").eq("is_active", true).order("name"),
       supabase.from("back_rates").select("*"),
       supabase.from("option_rates").select("*"),
       supabase.from("nomination_rates").select("*"),
+      supabase.from("discounts").select("id, name, discount_type, discount_value").eq("is_active", true).order("name"),
     ]);
     if (c) setCasts(c);
     if (r) setRooms(r);
     if (b) setBackRates(b);
     if (o) setOptionRates(o);
     if (n) setNominationRates(n);
+    if (d) setDiscounts(d);
   };
 
   const fetchData = async () => {
@@ -163,7 +172,7 @@ export default function Schedule() {
 
     const [{ data: shiftsData }, { data: reservationsData }, { data: monthData }] = await Promise.all([
       supabase.from("shifts").select("*, cast:casts(id, name, photo)").eq("shift_date", dateStr),
-      supabase.from("reservations").select("*").eq("reservation_date", dateStr).neq("status", "cancelled"),
+      supabase.from("reservations").select("*, casts(name)").eq("reservation_date", dateStr).neq("status", "cancelled"),
       supabase.from("reservations").select("price").gte("reservation_date", monthStart).lte("reservation_date", monthEnd).neq("status", "cancelled"),
     ]);
 
@@ -219,8 +228,10 @@ export default function Schedule() {
         course_type: formData.course_type,
         course_name: formData.course_name,
         options: formData.selectedOptions,
+        discount_ids: formData.selectedDiscountIds,
         nomination_type: formData.nomination_type === "none" ? null : formData.nomination_type,
         price: formData.price,
+        payment_method: formData.payment_method || null,
         notes: formData.notes || null,
         room: formData.room || null,
         created_by: user.id,
@@ -239,10 +250,14 @@ export default function Schedule() {
     setEditFields({
       customer_name: res.customer_name,
       customer_phone: res.customer_phone,
+      customer_email: res.customer_email ?? "",
       course_name: res.course_name,
+      nomination_type: res.nomination_type ?? "",
       start_time: res.start_time.slice(0, 5),
       duration: res.duration,
       price: res.price,
+      payment_method: res.payment_method ?? "",
+      room: res.room ?? "",
       status: res.status,
       notes: res.notes ?? "",
     });
@@ -255,10 +270,14 @@ export default function Schedule() {
       const { error } = await supabase.from("reservations").update({
         customer_name: editFields.customer_name,
         customer_phone: editFields.customer_phone,
+        customer_email: (editFields as any).customer_email || null,
         course_name: editFields.course_name,
+        nomination_type: (editFields as any).nomination_type || null,
         start_time: editFields.start_time,
         duration: Number(editFields.duration),
         price: Number(editFields.price),
+        payment_method: (editFields as any).payment_method || null,
+        room: (editFields as any).room || null,
         status: editFields.status,
         notes: editFields.notes || null,
       }).eq("id", detailRes.id);
@@ -330,6 +349,7 @@ export default function Schedule() {
                       backRates={backRates}
                       optionRates={optionRates}
                       nominationRates={nominationRates}
+                      discounts={discounts}
                       onSubmit={handleAddReservation}
                     />
                   </div>
@@ -556,8 +576,8 @@ export default function Schedule() {
                 <>
                   <div className="space-y-3">
                     <div>
-                      <Label>ステータス</Label>
-                      <Select value={editFields.status} onValueChange={(v) => setEditFields((f) => ({ ...f, status: v }))}>
+                      <Label>予約ステータス</Label>
+                      <Select value={(editFields as any).status} onValueChange={(v) => setEditFields((f) => ({ ...f, status: v }))}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {Object.entries(STATUS_LABELS).map(([k, v]) => (
@@ -568,33 +588,49 @@ export default function Schedule() {
                     </div>
                     <div>
                       <Label>顧客名</Label>
-                      <Input value={editFields.customer_name ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, customer_name: e.target.value }))} />
+                      <Input value={(editFields as any).customer_name ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, customer_name: e.target.value }))} />
                     </div>
                     <div>
-                      <Label>電話番号</Label>
-                      <Input value={editFields.customer_phone ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, customer_phone: e.target.value }))} />
+                      <Label>TEL</Label>
+                      <Input value={(editFields as any).customer_phone ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, customer_phone: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label>メアド</Label>
+                      <Input value={(editFields as any).customer_email ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, customer_email: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label>指名</Label>
+                      <Input value={(editFields as any).nomination_type ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, nomination_type: e.target.value }))} />
                     </div>
                     <div>
                       <Label>コース名</Label>
-                      <Input value={editFields.course_name ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, course_name: e.target.value }))} />
+                      <Input value={(editFields as any).course_name ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, course_name: e.target.value }))} />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <Label>開始時間</Label>
-                        <Input value={editFields.start_time ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, start_time: e.target.value }))} placeholder="HH:MM" />
+                        <Input value={(editFields as any).start_time ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, start_time: e.target.value }))} placeholder="HH:MM" />
                       </div>
                       <div>
                         <Label>時間（分）</Label>
-                        <Input type="number" value={editFields.duration ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, duration: Number(e.target.value) }))} />
+                        <Input type="number" value={(editFields as any).duration ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, duration: Number(e.target.value) }))} />
                       </div>
                     </div>
                     <div>
+                      <Label>ルーム</Label>
+                      <Input value={(editFields as any).room ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, room: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label>決済方法</Label>
+                      <Input value={(editFields as any).payment_method ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, payment_method: e.target.value }))} />
+                    </div>
+                    <div>
                       <Label>料金</Label>
-                      <Input type="number" value={editFields.price ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, price: Number(e.target.value) }))} />
+                      <Input type="number" value={(editFields as any).price ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, price: Number(e.target.value) }))} />
                     </div>
                     <div>
                       <Label>備考</Label>
-                      <Input value={editFields.notes ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, notes: e.target.value }))} />
+                      <Input value={(editFields as any).notes ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, notes: e.target.value }))} />
                     </div>
                   </div>
                   <div className="flex gap-2 pt-2">
@@ -611,30 +647,63 @@ export default function Schedule() {
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-y-2 text-sm">
-                      <span className="text-muted-foreground">日時</span>
-                      <span className="font-medium">
-                        {format(new Date(detailRes.reservation_date), "M月d日", { locale: ja })} {detailRes.start_time.slice(0, 5)} ({detailRes.duration}分)
-                      </span>
                       <span className="text-muted-foreground">顧客名</span>
                       <span className="font-medium">{detailRes.customer_name}</span>
-                      <span className="text-muted-foreground">電話番号</span>
+                      <span className="text-muted-foreground">TEL</span>
                       <span className="font-medium">{detailRes.customer_phone}</span>
-                      <span className="text-muted-foreground">コース</span>
-                      <span className="font-medium">{detailRes.course_name}</span>
-                      <span className="text-muted-foreground">料金</span>
-                      <span className="font-medium">¥{detailRes.price.toLocaleString()}</span>
+                      {detailRes.customer_email && (
+                        <>
+                          <span className="text-muted-foreground">メアド</span>
+                          <span className="font-medium">{detailRes.customer_email}</span>
+                        </>
+                      )}
+                      <span className="text-muted-foreground">担当セラピスト</span>
+                      <span className="font-medium">{detailRes.casts?.name ?? "-"}</span>
                       {detailRes.nomination_type && (
                         <>
                           <span className="text-muted-foreground">指名</span>
                           <span className="font-medium">{detailRes.nomination_type}</span>
                         </>
                       )}
+                      <span className="text-muted-foreground">コース</span>
+                      <span className="font-medium">{detailRes.course_name}</span>
+                      {detailRes.options && detailRes.options.length > 0 && (
+                        <>
+                          <span className="text-muted-foreground">オプション</span>
+                          <span className="font-medium">{detailRes.options.join("、")}</span>
+                        </>
+                      )}
+                      {detailRes.discount_ids && detailRes.discount_ids.length > 0 && (
+                        <>
+                          <span className="text-muted-foreground">割引</span>
+                          <span className="font-medium">
+                            {detailRes.discount_ids.map(id => {
+                              const d = discounts.find(x => x.id === id);
+                              return d ? `${d.name}（${d.discount_type === "fixed" ? `-¥${d.discount_value.toLocaleString()}` : `-${d.discount_value}%`}）` : id;
+                            }).join("、")}
+                          </span>
+                        </>
+                      )}
+                      <span className="text-muted-foreground">開始時間</span>
+                      <span className="font-medium">{detailRes.start_time.slice(0, 5)}</span>
+                      <span className="text-muted-foreground">終了時間</span>
+                      <span className="font-medium">
+                        {(() => {
+                          const [h, m] = detailRes.start_time.split(":").map(Number);
+                          const endMin = h * 60 + m + detailRes.duration;
+                          return `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+                        })()}
+                      </span>
                       {detailRes.room && (
                         <>
                           <span className="text-muted-foreground">ルーム</span>
                           <span className="font-medium">{detailRes.room}</span>
                         </>
                       )}
+                      <span className="text-muted-foreground">決済方法</span>
+                      <span className="font-medium">{detailRes.payment_method ?? "-"}</span>
+                      <span className="text-muted-foreground">料金</span>
+                      <span className="font-medium">¥{detailRes.price.toLocaleString()}</span>
                       {detailRes.notes && (
                         <>
                           <span className="text-muted-foreground">備考</span>
@@ -654,25 +723,34 @@ export default function Schedule() {
                         const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
                         const dayOfWeek = dayNames[date.getDay()];
                         const dateStr = `${format(date, "M月d日", { locale: ja })}(${dayOfWeek})`;
-                        const therapist = d.nomination_type && d.nomination_type !== "none"
-                          ? d.nomination_type
-                          : "フリー（フリー）";
+                        const [h, m] = d.start_time.split(":").map(Number);
+                        const endMin = h * 60 + m + d.duration;
+                        const endTime = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+                        const castName = d.casts?.name ?? "";
+                        const nomination = d.nomination_type && d.nomination_type !== "none" ? d.nomination_type : "フリー";
+                        const therapistStr = castName ? `${castName}（${nomination}）` : nomination;
+                        const optionStr = d.options && d.options.length > 0 ? d.options.join("・") : "なし";
+                        const discountStr = d.discount_ids && d.discount_ids.length > 0
+                          ? d.discount_ids.map(id => {
+                              const disc = discounts.find(x => x.id === id);
+                              return disc ? disc.name : "";
+                            }).filter(Boolean).join("・")
+                          : "なし";
                         const text = [
                           `${d.customer_name} 様`,
                           `ご予約ありがとうございます。`,
                           ``,
                           `[予約情報]`,
-                          `予約日時：${dateStr} ${d.start_time.slice(0, 5)}`,
+                          `予約日時：${dateStr} ${d.start_time.slice(0, 5)}〜${endTime}`,
                           `コース：${d.course_name}`,
-                          `セラピスト：${therapist}`,
+                          `セラピスト：${therapistStr}`,
+                          `オプション：${optionStr}`,
+                          `割引：${discountStr}`,
                           d.room ? `ルーム：${d.room}` : null,
                           `予約名：${d.customer_name}`,
-                          `ご要望など：${d.notes ?? ""}`,
+                          d.notes ? `ご要望など：${d.notes}` : null,
                           ``,
                           `[料金]`,
-                          `コース料金：${d.price.toLocaleString()}円`,
-                          `指名料：0円`,
-                          `決済手数料：0円`,
                           `総額：${d.price.toLocaleString()}円`,
                           ``,
                           `【住所】`,

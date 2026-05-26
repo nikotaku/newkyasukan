@@ -5,6 +5,7 @@ import { format, addDays, startOfDay } from "date-fns";
 import { ja } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
+import { SEO } from "@/components/SEO";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 
@@ -48,7 +49,7 @@ const Schedule = () => {
   const [stripStart, setStripStart] = useState<Date>(startOfDay(new Date()));
 
   useEffect(() => {
-    document.title = "出勤情報｜全力エステ 仙台店";
+    // title managed by SEO component
   }, []);
 
   useEffect(() => {
@@ -147,6 +148,11 @@ const Schedule = () => {
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+      <SEO
+        title="出勤スケジュール"
+        description="全力エステ 仙台店のセラピスト出勤スケジュール。本日・今週の出勤情報を毎日更新。お気に入りのセラピストの出勤日を確認できます。"
+        path="/schedule"
+      />
       <PublicNavigation />
 
       {/* Section Heading */}

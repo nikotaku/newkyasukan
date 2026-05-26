@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FaXTwitter, FaLine } from "react-icons/fa6";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
+import { SEO } from "@/components/SEO";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,7 +34,7 @@ const Access = () => {
   const [store, setStore] = useState<StoreInfo>(DEFAULTS);
 
   useEffect(() => {
-    document.title = "全力エステ - アクセス";
+    // title managed by SEO component
   }, []);
 
   useEffect(() => {
@@ -63,6 +64,11 @@ const Access = () => {
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+      <SEO
+        title="アクセス・店舗情報"
+        description="全力エステ 仙台店のアクセス・店舗情報。仙台市内出張対応。営業時間：12:00〜26:00（最終受付24:40）。お電話: 090-8126-4042"
+        path="/access"
+      />
       <PublicNavigation />
 
       <div className="container mx-auto px-3 md:px-4 py-5 md:py-10">
