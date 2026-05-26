@@ -6,6 +6,7 @@ import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { driveImgUrl } from "@/lib/drive";
+import { SEO } from "@/components/SEO";
 
 interface Cast {
   id: string;
@@ -31,9 +32,7 @@ const Casts = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'today' | 'newface'>('all');
 
-  useEffect(() => {
-    document.title = "全力エステ - セラピスト";
-  }, []);
+  useEffect(() => {}, []);
 
   useEffect(() => {
     fetchCasts();
@@ -100,6 +99,11 @@ const Casts = () => {
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+      <SEO
+        title="セラピスト一覧"
+        description="全力エステ 仙台店のセラピスト一覧。個性豊かな厳選セラピストが揃っています。プロフィール・出勤情報を毎日更新中。"
+        path="/casts"
+      />
       <PublicNavigation />
 
       <main className="container py-4 md:py-8 px-3 md:px-4">

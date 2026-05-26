@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Phone, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import caskanLogo from "@/assets/caskan-logo.png";
+import { SEO } from "@/components/SEO";
 
 interface BackRate {
   id: string;
@@ -69,6 +70,11 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "#f8f6f3" }}>
+      <SEO
+        title="料金・コース案内"
+        description="全力エステ 仙台店の料金・コース一覧。60分・90分・120分など豊富なコース。オプション・指名料金も掲載。まずはお気軽にお問い合わせください。"
+        path="/pricing"
+      />
       {/* Top Contact Bar */}
       <div className="bg-[#d4b5a8] text-white py-2 px-4 flex justify-between items-center text-sm">
         <div className="container mx-auto flex justify-center items-center">

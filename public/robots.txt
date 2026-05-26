@@ -1,14 +1,12 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /staff
+Disallow: /shift
+Disallow: /reservations
+Disallow: /customers
+Disallow: /auth
+Disallow: /login
+Disallow: /therapist/
+
+Sitemap: https://zenryokuesthe.com/sitemap.xml

@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HelmetProvider } from "react-helmet-async";
 import { Component, ReactNode } from "react";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -106,6 +107,7 @@ import TherapistPostPage from "./pages/TherapistPostPage";
 const queryClient = new QueryClient();
 
 const App = () => (
+  <HelmetProvider>
   <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -201,6 +203,7 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
   </ErrorBoundary>
+  </HelmetProvider>
 );
 
 export default App;

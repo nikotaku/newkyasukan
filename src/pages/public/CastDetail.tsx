@@ -5,6 +5,7 @@ import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { ArrowLeft, Phone, Calendar, Star, MessageCircle, X } from "lucide-react";
+import { SEO } from "@/components/SEO";
 import useEmblaCarousel from "embla-carousel-react";
 import { driveImgUrl } from "@/lib/drive";
 
@@ -166,8 +167,27 @@ const CastDetail = () => {
   const therapistComment = cast.message ?? null;
   const shopComment = profile?.comment ?? null;
 
+  const castDescription = cast.message
+    ? `${cast.name}のプロフィール。${cast.message.slice(0, 80)}…`
+    : `${cast.name}のプロフィール・口コミ・出勤情報。全力エステ 仙台店のセラピスト。`;
+
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+      <SEO
+        title={cast.name}
+        description={castDescription}
+        path={`/casts/${cast.id}`}
+        image={cast.photo ?? undefined}
+        type="profile"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Person",
+          "name": cast.name,
+          "description": castDescription,
+          "url": `https://zenryokuesthe.com/casts/${cast.id}`,
+          "worksFor": { "@type": "Organization", "name": "全力エステ 仙台店" },
+        }}
+      />
       <PublicNavigation />
 
       <main className="container py-3 md:py-6 px-2 md:px-4">

@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
+import { SEO } from "@/components/SEO";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 
@@ -593,6 +594,12 @@ const BookingReservation = () => {
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+      <SEO
+        title="Web予約"
+        description="全力エステ 仙台店のオンライン予約フォーム。希望日時・コース・セラピストを選んで簡単予約。24時間受付中。"
+        path="/booking"
+        noindex={true}
+      />
       <PublicNavigation />
 
       <main className="container py-8 px-4">
