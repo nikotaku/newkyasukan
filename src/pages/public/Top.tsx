@@ -48,6 +48,7 @@ const Top = () => {
   const [news, setNews] = useState<News[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [banners, setBanners] = useState<{ image_url: string; link_url: string | null }[]>(FALLBACK_BANNERS);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -55,11 +56,13 @@ const Top = () => {
   }, []);
 
   useEffect(() => {
+    if (banners.length <= 1) return;
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % BANNER_SLIDES.length);
+      setCurrentSlide((prev) => (prev + 1) % banners.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [banners.length]);
+
 
   const fetchAll = async () => {
     const today = format(new Date(), "yyyy-MM-dd");
