@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { PublicNavigation } from "@/components/public/PublicNavigation";
-import { Heart, Repeat2, Share, MessageCircle as Reply, BadgeCheck } from "lucide-react";
+import { Heart, Repeat2, Share, MessageCircle as Reply, BadgeCheck, Menu, Phone, X as CloseIcon } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
 import { SEO, LOCAL_BUSINESS_JSON_LD } from "@/components/SEO";
 
@@ -23,9 +22,24 @@ interface Post {
   casts: CastLite | null;
 }
 
+const NAV_LINKS = [
+  { to: "/", label: "TOP" },
+  { to: "/schedule", label: "SCHEDULE" },
+  { to: "/casts", label: "THERAPIST" },
+  { to: "/system", label: "SYSTEM" },
+  { to: "/access", label: "ACCESS" },
+  { to: "/news", label: "NEWS" },
+  { to: "/recruit", label: "RECRUIT" },
+  { to: "/reserve", label: "RESERVE" },
+];
+
+const LINE_URL = "https://line.me/R/ti/p/@zenryoku";
+const TEL = "09081264042";
+
 const Top = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -55,14 +69,13 @@ const Top = () => {
     (c.x_account?.replace(/^@?/, "").replace(/^https?:\/\/.*\//, "")) || `zr_${c.id.slice(0, 8)}`;
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0 bg-black text-white">
+    <div className="min-h-screen pb-20 bg-black text-white">
       <SEO
         title="仙台のメンズエステ"
         description="全力エステ 仙台店｜セラピストの最新つぶやきタイムライン。仙台のメンズエステサロン。Tel: 090-8126-4042"
         path="/"
         jsonLd={LOCAL_BUSINESS_JSON_LD}
       />
-      <PublicNavigation />
 
       <main className="max-w-xl mx-auto border-x border-white/10 min-h-screen">
         {/* Timeline */}
@@ -135,6 +148,64 @@ const Top = () => {
         )}
 
       </main>
+
+      {/* Slide-up menu */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm" onClick={() => setMenuOpen(false)}>
+          <div
+            className="absolute bottom-16 left-0 right-0 max-w-xl mx-auto bg-black border-t border-white/10 rounded-t-2xl p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-sm text-white/60">メニュー</span>
+              <button onClick={() => setMenuOpen(false)} className="text-white/60 hover:text-white">
+                <CloseIcon size={20} />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {NAV_LINKS.map((l) => (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  onClick={() => setMenuOpen(false)}
+                  className="px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 text-center text-sm font-semibold tracking-wider"
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fixed bottom bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-black border-t border-white/10">
+        <div className="max-w-xl mx-auto grid grid-cols-3 h-16">
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            className="flex flex-col items-center justify-center gap-0.5 text-white hover:bg-white/5 transition-colors"
+          >
+            <Menu size={22} />
+            <span className="text-[10px] tracking-wider">MENU</span>
+          </button>
+          <a
+            href={LINE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center justify-center gap-0.5 text-white bg-[#06C755] hover:opacity-90 transition-opacity"
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 2C6.48 2 2 5.78 2 10.43c0 4.17 3.55 7.66 8.36 8.32.32.07.76.21.87.49.1.25.07.65.03.91l-.14.84c-.04.25-.2.97.85.53 1.05-.44 5.66-3.33 7.72-5.71C21.06 14.27 22 12.46 22 10.43 22 5.78 17.52 2 12 2zM8.28 13.05H6.3a.42.42 0 0 1-.42-.42V8.7a.42.42 0 1 1 .84 0v3.51h1.56a.42.42 0 1 1 0 .84zm1.65-.42a.42.42 0 0 1-.84 0V8.7a.42.42 0 0 1 .84 0v3.93zm4.71 0a.42.42 0 0 1-.29.4.46.46 0 0 1-.13.02.42.42 0 0 1-.34-.17l-2.02-2.75v2.5a.42.42 0 0 1-.84 0V8.7a.42.42 0 0 1 .29-.4.4.4 0 0 1 .13-.02c.13 0 .25.06.33.16l2.03 2.75V8.7a.42.42 0 0 1 .84 0v3.93zm3.17-2.39a.42.42 0 1 1 0 .84h-1.56v1h1.56a.42.42 0 1 1 0 .84h-1.98a.42.42 0 0 1-.42-.42V8.7a.42.42 0 0 1 .42-.42h1.98a.42.42 0 1 1 0 .84h-1.56v1h1.56z"/></svg>
+            <span className="text-[10px] tracking-wider font-bold">LINE</span>
+          </a>
+          <a
+            href={`tel:${TEL}`}
+            className="flex flex-col items-center justify-center gap-0.5 text-white bg-[#c49480] hover:opacity-90 transition-opacity"
+          >
+            <Phone size={22} />
+            <span className="text-[10px] tracking-wider font-bold">TEL</span>
+          </a>
+        </div>
+      </nav>
     </div>
   );
 };
