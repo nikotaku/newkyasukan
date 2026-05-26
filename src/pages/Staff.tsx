@@ -55,7 +55,19 @@ interface Cast {
   repeat_scheduled: boolean | null;
   is_visible: boolean;
   display_order?: number;
+  height?: number | null;
+  cup_size?: string | null;
+  bust?: number | null;
+  waist?: number | null;
+  hip?: number | null;
+  target_customers?: string | null;
+  customer_age_range?: string | null;
+  mbti?: string | null;
+  account_info?: string | null;
+  custom_properties?: Array<{ id: string; label: string; type: "text" | "number" | "url"; value: string }> | null;
 }
+
+type CustomProp = { id: string; label: string; type: "text" | "number" | "url"; value: string };
 
 export default function Staff() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
