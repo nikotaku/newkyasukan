@@ -378,6 +378,7 @@ export type Database = {
           ideal_type: string | null
           instagram_url: string | null
           is_active: boolean
+          is_online: boolean | null
           is_visible: boolean
           join_date: string
           line_url: string | null
@@ -436,6 +437,7 @@ export type Database = {
           ideal_type?: string | null
           instagram_url?: string | null
           is_active?: boolean
+          is_online?: boolean | null
           is_visible?: boolean
           join_date?: string
           line_url?: string | null
@@ -494,6 +496,7 @@ export type Database = {
           ideal_type?: string | null
           instagram_url?: string | null
           is_active?: boolean
+          is_online?: boolean | null
           is_visible?: boolean
           join_date?: string
           line_url?: string | null
@@ -2207,6 +2210,7 @@ export type Database = {
           comment: string | null
           created_at: string
           customer_age_range: string | null
+          hobbies: string | null
           id: string
           love_type: string | null
           massage_skills: string | null
@@ -2226,6 +2230,7 @@ export type Database = {
           comment?: string | null
           created_at?: string
           customer_age_range?: string | null
+          hobbies?: string | null
           id?: string
           love_type?: string | null
           massage_skills?: string | null
@@ -2245,6 +2250,7 @@ export type Database = {
           comment?: string | null
           created_at?: string
           customer_age_range?: string | null
+          hobbies?: string | null
           id?: string
           love_type?: string | null
           massage_skills?: string | null
