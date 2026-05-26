@@ -117,6 +117,7 @@ const menuItems: MenuItem[] = [
         items: [
           { href: "/system/deductions", label: "控除" },
           { href: "/system/allowances", label: "手当" },
+          { href: "/system/advertising", label: "広告費" },
         ],
       },
       {
