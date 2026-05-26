@@ -119,7 +119,7 @@ const Top = () => {
     if (ids.length > 0) {
       const { data: castData } = await supabase
         .from("casts")
-        .select("id,name,photo,x_account,is_visible")
+        .select("id,name,photo,x_account,is_visible,message,hobbies,favorite_food,favorite_techniques,ideal_partner,ideal_type,mbti,therapist_years,age,tags")
         .in("id", ids);
       const visible = ((castData as CastLite[]) || []).filter(c => c.is_visible !== false);
       setWorkingCasts(visible);
