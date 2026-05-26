@@ -130,6 +130,10 @@ export default function SystemDeductions() {
                       <Input type="number" min="0" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })} />
                     </div>
                   </div>
+                  <div>
+                    <Label>ルール</Label>
+                    <textarea className="w-full min-h-[80px] rounded-md border border-input bg-background p-2 text-sm" value={formData.rule} onChange={(e) => setFormData({ ...formData, rule: e.target.value })} placeholder="例: 毎月発生 / 売上の◯%など" />
+                  </div>
                   <div className="flex gap-2">
                     <Button type="submit">保存</Button>
                     <Button type="button" variant="outline" onClick={() => setShowForm(false)}>キャンセル</Button>
