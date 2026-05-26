@@ -28,7 +28,6 @@ interface Post {
 const Top = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"foryou" | "following">("foryou");
 
   useEffect(() => { fetchAll(); }, []);
 
