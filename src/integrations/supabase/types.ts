@@ -351,6 +351,7 @@ export type Database = {
       casts: {
         Row: {
           access_token: string | null
+          account_info: string | null
           age: number | null
           blood_type: string | null
           body_type: string | null
@@ -358,6 +359,8 @@ export type Database = {
           celebrity_lookalike: string | null
           created_at: string
           cup_size: string | null
+          custom_properties: Json
+          customer_age_range: string | null
           day_off_activities: string | null
           dispatch_status: string | null
           display_order: number
@@ -384,6 +387,7 @@ export type Database = {
           line_url: string | null
           litlink_url: string | null
           marks: string[] | null
+          mbti: string | null
           media_registration: string[] | null
           memo: string | null
           message: string | null
@@ -399,6 +403,7 @@ export type Database = {
           specialties: string | null
           status: string
           tags: string[] | null
+          target_customers: string | null
           therapist_years: number | null
           tiktok_url: string | null
           type: string
@@ -410,6 +415,7 @@ export type Database = {
         }
         Insert: {
           access_token?: string | null
+          account_info?: string | null
           age?: number | null
           blood_type?: string | null
           body_type?: string | null
@@ -417,6 +423,8 @@ export type Database = {
           celebrity_lookalike?: string | null
           created_at?: string
           cup_size?: string | null
+          custom_properties?: Json
+          customer_age_range?: string | null
           day_off_activities?: string | null
           dispatch_status?: string | null
           display_order?: number
@@ -443,6 +451,7 @@ export type Database = {
           line_url?: string | null
           litlink_url?: string | null
           marks?: string[] | null
+          mbti?: string | null
           media_registration?: string[] | null
           memo?: string | null
           message?: string | null
@@ -458,6 +467,7 @@ export type Database = {
           specialties?: string | null
           status?: string
           tags?: string[] | null
+          target_customers?: string | null
           therapist_years?: number | null
           tiktok_url?: string | null
           type: string
@@ -469,6 +479,7 @@ export type Database = {
         }
         Update: {
           access_token?: string | null
+          account_info?: string | null
           age?: number | null
           blood_type?: string | null
           body_type?: string | null
@@ -476,6 +487,8 @@ export type Database = {
           celebrity_lookalike?: string | null
           created_at?: string
           cup_size?: string | null
+          custom_properties?: Json
+          customer_age_range?: string | null
           day_off_activities?: string | null
           dispatch_status?: string | null
           display_order?: number
@@ -502,6 +515,7 @@ export type Database = {
           line_url?: string | null
           litlink_url?: string | null
           marks?: string[] | null
+          mbti?: string | null
           media_registration?: string[] | null
           memo?: string | null
           message?: string | null
@@ -517,6 +531,7 @@ export type Database = {
           specialties?: string | null
           status?: string
           tags?: string[] | null
+          target_customers?: string | null
           therapist_years?: number | null
           tiktok_url?: string | null
           type?: string
