@@ -47,6 +47,7 @@ const Top = () => {
     const { data } = await supabase
       .from("cast_posts")
       .select("id,cast_id,body,image_urls,created_at,casts(id,name,photo,x_account,is_visible)")
+      .eq("post_type", "cast_message")
       .order("created_at", { ascending: false })
       .limit(50);
     if (data) {

@@ -273,6 +273,7 @@ export type Database = {
           image_urls: string[] | null
           o2_error: string | null
           o2_status: string
+          post_type: string | null
           posted_at: string | null
           status: string
           title: string | null
@@ -288,6 +289,7 @@ export type Database = {
           image_urls?: string[] | null
           o2_error?: string | null
           o2_status?: string
+          post_type?: string | null
           posted_at?: string | null
           status?: string
           title?: string | null
@@ -303,6 +305,7 @@ export type Database = {
           image_urls?: string[] | null
           o2_error?: string | null
           o2_status?: string
+          post_type?: string | null
           posted_at?: string | null
           status?: string
           title?: string | null
