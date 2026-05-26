@@ -291,6 +291,25 @@ const Top = () => {
                           </div>
                         </Link>
                       )}
+                      {(() => {
+                        const t = earliestToday(c.id);
+                        if (!t) return null;
+                        return (
+                          <div className="mt-2 flex items-center gap-2 rounded-xl border border-[#c49480]/40 bg-[#c49480]/5 px-3 py-2">
+                            <Clock size={14} className="text-[#c49480] flex-shrink-0" />
+                            <div className="flex-1 text-[13px]">
+                              <span className="text-white/60">本日最短</span>{" "}
+                              <span className="font-bold text-white">{t}〜</span>
+                            </div>
+                            <button
+                              onClick={() => quickBook(c.id, t)}
+                              className="px-3 py-1 rounded-full bg-[#c49480] hover:bg-[#a87b65] text-white text-[12px] font-bold whitespace-nowrap transition-colors"
+                            >
+                              60分で予約
+                            </button>
+                          </div>
+                        );
+                      })()}
                       <div className="mt-2 flex items-center justify-between max-w-xs text-white/50 text-xs">
                         <button className="flex items-center gap-1.5 hover:text-[#1d9bf0] transition-colors"><Reply size={16} /></button>
                         <button className="flex items-center gap-1.5 hover:text-green-500 transition-colors"><Repeat2 size={16} /></button>
