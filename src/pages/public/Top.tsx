@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Heart, Repeat2, Share, MessageCircle as Reply, BadgeCheck, Menu, Phone, X as CloseIcon } from "lucide-react";
+import { Heart, Repeat2, Share, MessageCircle as Reply, BadgeCheck, Menu, Phone, X as CloseIcon, Clock } from "lucide-react";
+import { format } from "date-fns";
 import { driveImgUrl } from "@/lib/drive";
 import { SEO, LOCAL_BUSINESS_JSON_LD } from "@/components/SEO";
 
@@ -50,16 +51,31 @@ const NAV_LINKS = [
 const LINE_URL = "https://line.me/R/ti/p/@zenryoku";
 const TEL = "09081264042";
 
+interface TodayShift {
+  cast_id: string;
+  start_time: string;
+  end_time: string;
+}
+interface TodayRes {
+  cast_id: string;
+  start_time: string;
+  duration: number;
+}
+
 const Top = () => {
+  const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [recs, setRecs] = useState<RecCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [todayShifts, setTodayShifts] = useState<TodayShift[]>([]);
+  const [todayRes, setTodayRes] = useState<TodayRes[]>([]);
 
   useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
-    const [{ data: postData }, { data: recData }] = await Promise.all([
+    const dateStr = format(new Date(), "yyyy-MM-dd");
+    const [{ data: postData }, { data: recData }, { data: shiftData }, { data: resData }] = await Promise.all([
       supabase
         .from("cast_posts")
         .select("id,cast_id,body,image_urls,created_at,casts(id,name,photo,x_account,is_visible)")
@@ -71,12 +87,21 @@ const Top = () => {
         .select("id,title,description,image_url,link_url,interval_posts,display_order")
         .eq("is_active", true)
         .order("display_order"),
+      supabase
+        .from("shifts")
+        .select("cast_id,start_time,end_time")
+        .eq("shift_date", dateStr),
+      supabase.rpc("get_reservation_slots", { p_date: dateStr, p_cast_id: null }),
     ]);
     if (postData) {
       const filtered = (postData as any[]).filter(p => p.casts && p.casts.is_visible !== false) as Post[];
       setPosts(filtered);
     }
     setRecs((recData as RecCourse[]) || []);
+    setTodayShifts((shiftData as TodayShift[]) || []);
+    setTodayRes(((resData as any[]) || []).map((x) => ({
+      cast_id: x.cast_id, start_time: x.start_time, duration: x.duration,
+    })));
     setLoading(false);
   };
 
@@ -113,6 +138,41 @@ const Top = () => {
 
   const handle = (c: CastLite) =>
     (c.x_account?.replace(/^@?/, "").replace(/^https?:\/\/.*\//, "")) || `zr_${c.id.slice(0, 8)}`;
+
+  // Earliest available 60m slot today for a cast (30m buffer after each reservation)
+  const earliestToday = (castId: string): string | null => {
+    const shift = todayShifts.find((s) => s.cast_id === castId);
+    if (!shift) return null;
+    const now = new Date();
+    const [sh, sm] = shift.start_time.split(":").map(Number);
+    const [eh, em] = shift.end_time.split(":").map(Number);
+    let cursor = sh * 60 + sm;
+    const end = eh * 60 + em;
+    const cur = now.getHours() * 60 + now.getMinutes();
+    if (cur > cursor) cursor = Math.ceil(cur / 30) * 30;
+    const reserved = todayRes
+      .filter((r) => r.cast_id === castId)
+      .map((r) => {
+        const [h, m] = r.start_time.split(":").map(Number);
+        const start = h * 60 + m;
+        return { start, end: start + r.duration + 30 };
+      });
+    while (cursor + 60 <= end) {
+      const c = reserved.find((b) => cursor < b.end && cursor + 60 > b.start);
+      if (!c) {
+        const hh = String(Math.floor(cursor / 60)).padStart(2, "0");
+        const mm = String(cursor % 60).padStart(2, "0");
+        return `${hh}:${mm}`;
+      }
+      cursor = c.end;
+    }
+    return null;
+  };
+
+  const quickBook = (castId: string, time: string) => {
+    const dateStr = format(new Date(), "yyyy-MM-dd");
+    navigate(`/booking?castId=${castId}&date=${dateStr}&time=${time}`);
+  };
 
   return (
     <div className="min-h-screen pb-20 bg-black text-white">
@@ -231,6 +291,25 @@ const Top = () => {
                           </div>
                         </Link>
                       )}
+                      {(() => {
+                        const t = earliestToday(c.id);
+                        if (!t) return null;
+                        return (
+                          <div className="mt-2 flex items-center gap-2 rounded-xl border border-[#c49480]/40 bg-[#c49480]/5 px-3 py-2">
+                            <Clock size={14} className="text-[#c49480] flex-shrink-0" />
+                            <div className="flex-1 text-[13px]">
+                              <span className="text-white/60">本日最短</span>{" "}
+                              <span className="font-bold text-white">{t}〜</span>
+                            </div>
+                            <button
+                              onClick={() => quickBook(c.id, t)}
+                              className="px-3 py-1 rounded-full bg-[#c49480] hover:bg-[#a87b65] text-white text-[12px] font-bold whitespace-nowrap transition-colors"
+                            >
+                              60分で予約
+                            </button>
+                          </div>
+                        );
+                      })()}
                       <div className="mt-2 flex items-center justify-between max-w-xs text-white/50 text-xs">
                         <button className="flex items-center gap-1.5 hover:text-[#1d9bf0] transition-colors"><Reply size={16} /></button>
                         <button className="flex items-center gap-1.5 hover:text-green-500 transition-colors"><Repeat2 size={16} /></button>
