@@ -37,10 +37,11 @@ interface News {
   is_pinned: boolean;
 }
 
-const BANNER_SLIDES = [
-  "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750253573.png",
-  "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750762260.png",
+const FALLBACK_BANNERS = [
+  { image_url: "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750253573.png", link_url: null as string | null },
+  { image_url: "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750762260.png", link_url: null as string | null },
 ];
+
 
 const Top = () => {
   const [todayShifts, setTodayShifts] = useState<TodayShift[]>([]);
