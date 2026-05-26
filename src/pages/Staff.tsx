@@ -1117,35 +1117,6 @@ export default function Staff() {
                     
                     
                     <TabsContent value="details" className="space-y-4 mt-4">
-                      <div className="space-y-3">
-                        <Label className="text-sm font-semibold text-muted-foreground">お客様・運用</Label>
-                        <div>
-                          <Label className="text-xs">得意な客層</Label>
-                          <Textarea rows={2} value={editingCast.target_customers ?? ""} onChange={(e) => setEditingCast({...editingCast, target_customers: e.target.value})} placeholder="例：30〜40代の落ち着いた紳士" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label className="text-xs">お客さんの年齢層</Label>
-                            <Input value={editingCast.customer_age_range ?? ""} onChange={(e) => setEditingCast({...editingCast, customer_age_range: e.target.value})} placeholder="30〜50代" />
-                          </div>
-                          <div>
-                            <Label className="text-xs">MBTI</Label>
-                            <Input value={editingCast.mbti ?? ""} onChange={(e) => setEditingCast({...editingCast, mbti: e.target.value})} placeholder="ENFP" />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs">フォーマット</Label>
-                          <Input value={editingCast.format_type ?? ""} onChange={(e) => setEditingCast({...editingCast, format_type: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label className="text-xs">面談シート</Label>
-                          <Input value={editingCast.registration_sheet ?? ""} onChange={(e) => setEditingCast({...editingCast, registration_sheet: e.target.value})} placeholder="URLまたはメモ" />
-                        </div>
-                        <div>
-                          <Label className="text-xs">アカウント</Label>
-                          <Textarea rows={2} value={editingCast.account_info ?? ""} onChange={(e) => setEditingCast({...editingCast, account_info: e.target.value})} placeholder="各種アカウント情報" />
-                        </div>
-                      </div>
 
                       {/* Notion風カスタムプロパティ */}
                       <div className="border-t pt-4 space-y-2">
