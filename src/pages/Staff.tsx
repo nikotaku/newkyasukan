@@ -38,6 +38,7 @@ interface Cast {
   line_url: string | null;
   litlink_url: string | null;
   o2_url: string | null;
+  reviews: string | null;
   join_date: string;
   access_token?: string | null;
   therapist_years: number | null;
@@ -107,6 +108,8 @@ export default function Staff() {
     memo: "",
     dispatch_status: "none",
     repeat_scheduled: false,
+    o2_url: "",
+    reviews: "",
   });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
@@ -214,6 +217,8 @@ export default function Staff() {
           memo: formData.memo || null,
           dispatch_status: formData.dispatch_status || 'none',
           repeat_scheduled: formData.repeat_scheduled || false,
+          o2_url: formData.o2_url || null,
+          reviews: formData.reviews || null,
         }]);
 
       if (error) throw error;
@@ -247,6 +252,8 @@ export default function Staff() {
         memo: "",
         dispatch_status: "none",
         repeat_scheduled: false,
+        o2_url: "",
+        reviews: "",
       });
     } catch (error) {
       console.error('Error adding cast:', error);
@@ -311,6 +318,7 @@ export default function Staff() {
           line_url: editingCast.line_url || null,
           litlink_url: editingCast.litlink_url || null,
           o2_url: editingCast.o2_url || null,
+          reviews: editingCast.reviews || null,
           hp_notice: editingCast.hp_notice || null,
           therapist_years: editingCast.therapist_years || null,
           favorite_techniques: editingCast.favorite_techniques || null,
@@ -791,6 +799,27 @@ export default function Staff() {
                             onChange={(e) => setFormData({...formData, memo: e.target.value})}
                           />
                         </div>
+
+                        <div>
+                          <Label htmlFor="o2-url">O2 URL</Label>
+                          <Input 
+                            id="o2-url" 
+                            placeholder="https://..."
+                            value={formData.o2_url}
+                            onChange={(e) => setFormData({...formData, o2_url: e.target.value})}
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="reviews">口コミ</Label>
+                          <Textarea 
+                            id="reviews" 
+                            rows={3}
+                            placeholder="口コミ内容を入力..."
+                            value={formData.reviews}
+                            onChange={(e) => setFormData({...formData, reviews: e.target.value})}
+                          />
+                        </div>
                       </TabsContent>
                     </Tabs>
                     
@@ -933,6 +962,27 @@ export default function Staff() {
                           placeholder="@username"
                           value={editingCast.x_account || ""}
                           onChange={(e) => setEditingCast({...editingCast, x_account: e.target.value})}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="edit-o2-url">O2 URL</Label>
+                        <Input 
+                          id="edit-o2-url" 
+                          placeholder="https://..."
+                          value={editingCast.o2_url || ""}
+                          onChange={(e) => setEditingCast({...editingCast, o2_url: e.target.value})}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="edit-reviews">口コミ</Label>
+                        <Textarea 
+                          id="edit-reviews" 
+                          rows={3}
+                          placeholder="口コミ内容を入力..."
+                          value={editingCast.reviews || ""}
+                          onChange={(e) => setEditingCast({...editingCast, reviews: e.target.value})}
                         />
                       </div>
 
