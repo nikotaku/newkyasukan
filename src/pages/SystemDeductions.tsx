@@ -23,6 +23,7 @@ interface Deduction {
   name: string;
   deduction_type: "fixed" | "percentage";
   amount: number;
+  rule?: string | null;
   is_active: boolean;
 }
 
@@ -35,6 +36,7 @@ export default function SystemDeductions() {
     name: "",
     deduction_type: "fixed" as "fixed" | "percentage",
     amount: 0,
+    rule: "",
     is_active: true,
   });
 
@@ -68,7 +70,7 @@ export default function SystemDeductions() {
     try {
       const { error } = await supabase.from("deductions").insert([formData]);
       if (error) throw error;
-      setFormData({ name: "", deduction_type: "fixed", amount: 0, is_active: true });
+      setFormData({ name: "", deduction_type: "fixed", amount: 0, rule: "", is_active: true });
       setShowForm(false);
       fetchDeductions();
     } catch (error) {
@@ -128,6 +130,10 @@ export default function SystemDeductions() {
                       <Input type="number" min="0" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })} />
                     </div>
                   </div>
+                  <div>
+                    <Label>ルール</Label>
+                    <textarea className="w-full min-h-[80px] rounded-md border border-input bg-background p-2 text-sm" value={formData.rule} onChange={(e) => setFormData({ ...formData, rule: e.target.value })} placeholder="例: 毎月発生 / 売上の◯%など" />
+                  </div>
                   <div className="flex gap-2">
                     <Button type="submit">保存</Button>
                     <Button type="button" variant="outline" onClick={() => setShowForm(false)}>キャンセル</Button>
@@ -146,14 +152,15 @@ export default function SystemDeductions() {
               {deductions.map((deduction) => (
                 <Card key={deduction.id}>
                   <CardContent className="pt-4">
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
                         <div className="font-semibold">{deduction.name}</div>
                         <p className="text-sm text-muted-foreground">
                           {deduction.deduction_type === "fixed"
                             ? `¥${(deduction.amount || 0).toLocaleString()}`
                             : `${deduction.amount || 0}%`}
                         </p>
+                        {deduction.rule && <div className="text-sm mt-1 whitespace-pre-wrap">{deduction.rule}</div>}
                       </div>
                       <Button size="sm" variant="ghost" onClick={() => handleDelete(deduction.id)}>
                         <Trash2 size={14} />
