@@ -433,6 +433,7 @@ export type Database = {
           recent_dispatch_details: string | null
           registration_sheet: string | null
           repeat_scheduled: boolean | null
+          reviews: string | null
           room: string | null
           specialties: string | null
           status: string
@@ -498,6 +499,7 @@ export type Database = {
           recent_dispatch_details?: string | null
           registration_sheet?: string | null
           repeat_scheduled?: boolean | null
+          reviews?: string | null
           room?: string | null
           specialties?: string | null
           status?: string
@@ -563,6 +565,7 @@ export type Database = {
           recent_dispatch_details?: string | null
           registration_sheet?: string | null
           repeat_scheduled?: boolean | null
+          reviews?: string | null
           room?: string | null
           specialties?: string | null
           status?: string
