@@ -811,11 +811,11 @@ export default function Staff() {
                         </div>
 
                         <div>
-                          <Label htmlFor="reviews">口コミ</Label>
-                          <Textarea 
+                          <Label htmlFor="reviews">口コミURL</Label>
+                          <Input 
                             id="reviews" 
-                            rows={3}
-                            placeholder="口コミ内容を入力..."
+                            type="url"
+                            placeholder="https://..."
                             value={formData.reviews}
                             onChange={(e) => setFormData({...formData, reviews: e.target.value})}
                           />
@@ -976,11 +976,11 @@ export default function Staff() {
                       </div>
 
                       <div>
-                        <Label htmlFor="edit-reviews">口コミ</Label>
-                        <Textarea 
+                        <Label htmlFor="edit-reviews">口コミURL</Label>
+                        <Input 
                           id="edit-reviews" 
-                          rows={3}
-                          placeholder="口コミ内容を入力..."
+                          type="url"
+                          placeholder="https://..."
                           value={editingCast.reviews || ""}
                           onChange={(e) => setEditingCast({...editingCast, reviews: e.target.value})}
                         />
