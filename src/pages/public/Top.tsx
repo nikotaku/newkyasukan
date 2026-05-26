@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
-import { Heart, Repeat2, Share, MessageCircle as Reply, Sparkles, BadgeCheck } from "lucide-react";
+import { Heart, Repeat2, Share, MessageCircle as Reply, BadgeCheck } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
 import { SEO, LOCAL_BUSINESS_JSON_LD } from "@/components/SEO";
 
@@ -28,7 +28,6 @@ interface Post {
 const Top = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"foryou" | "following">("foryou");
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -68,58 +67,9 @@ const Top = () => {
       <PublicNavigation />
 
       <main className="max-w-xl mx-auto border-x border-white/10 min-h-screen">
-        {/* Tabs header */}
-        <div className="sticky top-0 z-20 backdrop-blur bg-black/70 border-b border-white/10">
-          <div className="grid grid-cols-2">
-            {([
-              { k: "foryou", label: "おすすめ" },
-              { k: "following", label: "出勤中" },
-            ] as const).map(t => (
-              <button
-                key={t.k}
-                onClick={() => setTab(t.k)}
-                className="relative py-4 text-sm font-semibold hover:bg-white/5 transition-colors"
-              >
-                <span className={tab === t.k ? "text-white" : "text-white/50"}>{t.label}</span>
-                {tab === t.k && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full bg-[#1d9bf0]" />}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Composer-like CTA */}
-        <div className="px-4 py-3 border-b border-white/10 flex gap-3 items-center">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#c49480] to-[#a87b65] flex items-center justify-center flex-shrink-0">
-            <Sparkles size={18} className="text-white" />
-          </div>
-          <Link
-            to="/booking"
-            className="flex-1 text-left text-white/40 text-base hover:text-white/60 transition-colors"
-          >
-            今すぐWeb予約する…
-          </Link>
-          <Link
-            to="/booking"
-            className="px-4 py-1.5 rounded-full bg-[#1d9bf0] hover:bg-[#1a8cd8] text-white font-bold text-sm transition-colors"
-          >
-            予約
-          </Link>
-        </div>
-
         {/* Timeline */}
         {loading ? (
-          <div className="divide-y divide-white/10">
-            {[1,2,3,4].map(i => (
-              <div key={i} className="px-4 py-4 flex gap-3 animate-pulse">
-                <div className="w-10 h-10 rounded-full bg-white/10" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 w-1/3 bg-white/10 rounded" />
-                  <div className="h-3 w-full bg-white/10 rounded" />
-                  <div className="h-40 w-full bg-white/10 rounded-2xl" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <div className="py-20 text-center text-white/40 text-sm">読み込み中…</div>
         ) : posts.length === 0 ? (
           <div className="py-20 text-center text-white/40 text-sm">
             まだ投稿がありません
@@ -186,9 +136,6 @@ const Top = () => {
           </div>
         )}
 
-        <div className="text-center py-6">
-          <Link to="/casts" className="text-sm text-white/40 hover:underline">セラピスト一覧を見る →</Link>
-        </div>
       </main>
 
       <PublicFooter />
