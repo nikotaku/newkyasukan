@@ -69,18 +69,7 @@ const Top = () => {
       <main className="max-w-xl mx-auto border-x border-white/10 min-h-screen">
         {/* Timeline */}
         {loading ? (
-          <div className="divide-y divide-white/10">
-            {[1,2,3,4].map(i => (
-              <div key={i} className="px-4 py-4 flex gap-3 animate-pulse">
-                <div className="w-10 h-10 rounded-full bg-white/10" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 w-1/3 bg-white/10 rounded" />
-                  <div className="h-3 w-full bg-white/10 rounded" />
-                  <div className="h-40 w-full bg-white/10 rounded-2xl" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <div className="py-20 text-center text-white/40 text-sm">読み込み中…</div>
         ) : posts.length === 0 ? (
           <div className="py-20 text-center text-white/40 text-sm">
             まだ投稿がありません
