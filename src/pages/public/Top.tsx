@@ -136,9 +136,6 @@ const Top = () => {
           </div>
         )}
 
-        <div className="text-center py-6">
-          <Link to="/casts" className="text-sm text-white/40 hover:underline">セラピスト一覧を見る →</Link>
-        </div>
       </main>
 
       <PublicFooter />
