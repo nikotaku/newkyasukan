@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Heart, Repeat2, Share, MessageCircle as Reply, BadgeCheck, Menu, Phone, X as CloseIcon } from "lucide-react";
+import { Heart, Repeat2, Share, MessageCircle as Reply, BadgeCheck, Menu, Phone, X as CloseIcon, Clock } from "lucide-react";
+import { format } from "date-fns";
 import { driveImgUrl } from "@/lib/drive";
 import { SEO, LOCAL_BUSINESS_JSON_LD } from "@/components/SEO";
 
