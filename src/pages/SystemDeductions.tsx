@@ -23,6 +23,7 @@ interface Deduction {
   name: string;
   deduction_type: "fixed" | "percentage";
   amount: number;
+  rule?: string | null;
   is_active: boolean;
 }
 
@@ -35,6 +36,7 @@ export default function SystemDeductions() {
     name: "",
     deduction_type: "fixed" as "fixed" | "percentage",
     amount: 0,
+    rule: "",
     is_active: true,
   });
 
