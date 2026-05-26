@@ -97,6 +97,7 @@ export default function Reservations() {
     course_type: "アロマオイル",
     course_name: "アロマオイル 80分",
     selectedOptions: [] as string[],
+    selectedDiscountIds: [] as string[],
     price: 12000,
     payment_method: "cash",
     reservation_method: "",
