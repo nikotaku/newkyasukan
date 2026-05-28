@@ -105,7 +105,7 @@ export default function Staff() {
     name_en: "",
     type: "インルーム",
     room: "インルーム",
-    status: "未着手",
+    status: "offline",
     profile: "",
     photo: "",
     photos: [] as string[],
