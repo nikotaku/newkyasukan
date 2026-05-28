@@ -30,18 +30,22 @@ const System = () => {
   const [backRates, setBackRates] = useState<BackRate[]>([]);
   const [optionRates, setOptionRates] = useState<OptionRate[]>([]);
   const [nominationRates, setNominationRates] = useState<NominationRate[]>([]);
+  const [content, setContent] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { document.title = "全力エステ - システム"; }, []);
 
   useEffect(() => { fetchPricing(); }, []);
 
+  const c = (key: string, fallback = "") => content[key] ?? fallback;
+
   const fetchPricing = async () => {
     try {
-      const [backRes, optionRes, nominationRes] = await Promise.all([
+      const [backRes, optionRes, nominationRes, contentRes] = await Promise.all([
         supabase.rpc('get_public_back_rates'),
         supabase.from('option_rates').select('*').order('created_at', { ascending: true }),
         supabase.from('nomination_rates').select('*').order('created_at', { ascending: true }),
+        supabase.from('site_content').select('key, value'),
       ]);
       if (backRes.error) throw backRes.error;
       if (optionRes.error) throw optionRes.error;
@@ -49,6 +53,9 @@ const System = () => {
       setBackRates((backRes.data || []) as any);
       setOptionRates(optionRes.data || []);
       setNominationRates(nominationRes.data || []);
+      const map: Record<string, string> = {};
+      (contentRes.data || []).forEach((r: { key: string; value: string }) => { map[r.key] = r.value; });
+      setContent(map);
     } catch (error) {
       console.error('Error fetching pricing:', error);
     } finally {
@@ -74,8 +81,14 @@ const System = () => {
         <div className="bg-white rounded-lg shadow-lg p-4 md:p-8 mb-5 md:mb-8">
           <div className="text-center mb-5 md:mb-8">
             <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>SYSTEM</h1>
-            <p className="text-sm" style={{ color: "#a89586", letterSpacing: "0.1em" }}>料金システム</p>
+            <p className="text-sm" style={{ color: "#a89586", letterSpacing: "0.1em" }}>{c("system_title", "料金システム")}</p>
           </div>
+
+          {c("system_intro") && (
+            <div className="mb-8 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap text-center">
+              {c("system_intro")}
+            </div>
+          )}
 
           <div className="text-center mb-12">
             <h2 className="text-5xl font-bold mb-2" style={{ color: "#c49480", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.1em" }}>全力エステ</h2>
@@ -166,45 +179,30 @@ const System = () => {
           </div>
 
           {/* Flow */}
-          <div className="mb-10">
-            <div className="text-center mb-4">
-              <h3 className="text-xl md:text-2xl font-bold" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>FLOW</h3>
-              <p className="text-xs mt-1" style={{ color: "#a89586" }}>ご利用方法</p>
-            </div>
-            <div className="space-y-4 text-sm text-gray-700">
-              <div className="border-l-4 border-[#c49480] pl-4">
-                <p className="font-bold mb-1">「当店ご利用方法」</p>
-                <p>「ご予約方法」</p>
-                <p>お電話/WEBにてご予約をお取りになります。</p>
+          {c("system_flow_text") && (
+            <div className="mb-10">
+              <div className="text-center mb-4">
+                <h3 className="text-xl md:text-2xl font-bold" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>FLOW</h3>
+                <p className="text-xs mt-1" style={{ color: "#a89586" }}>{c("system_flow_title", "ご利用方法")}</p>
               </div>
-              <div className="border-l-4 border-[#c49480] pl-4">
-                <p className="font-bold mb-1">「お部屋」</p>
-                <p>近郊ホテル/出張専門</p>
-                <p>お部屋のご用意/ご移動がない場合はご自宅にも出張が可能です。</p>
+              <div className="border-l-4 border-[#c49480] pl-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                {c("system_flow_text")}
               </div>
             </div>
-          </div>
+          )}
 
           {/* Notice */}
-          <div className="mb-10">
-            <div className="text-center mb-4">
-              <h3 className="text-xl md:text-2xl font-bold" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>NOTICE</h3>
-              <p className="text-xs mt-1" style={{ color: "#a89586" }}>注意事項</p>
+          {c("system_notice_text") && (
+            <div className="mb-10">
+              <div className="text-center mb-4">
+                <h3 className="text-xl md:text-2xl font-bold" style={{ color: "#7a706c", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}>NOTICE</h3>
+                <p className="text-xs mt-1" style={{ color: "#a89586" }}>{c("system_notice_title", "注意事項")}</p>
+              </div>
+              <div className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">
+                {c("system_notice_text")}
+              </div>
             </div>
-            <div className="text-xs text-gray-600 leading-relaxed space-y-2">
-              <p className="font-bold">【ご利用規則】</p>
-              <p>仙台リラクゼーションサロン【全力エステ】（以下「当店」といいます。）を、ご利用いただく際には、本利用規約に同意されたものとみなします。</p>
-              <p>※コース内にシャワーのお時間は含まれますのでご了承ください。</p>
-              <p>※18歳未満の方、スカウト目的の方、同業者、暴力団関係者、泥酔者、薬物使用者、その他当店が相応しくないと判断した方の、お問い合わせ及びご利用は固くお断り致します。</p>
-              <p>※当店は、番号非通知及び公衆電話からの受付は致しかねます。</p>
-              <p>※当店は、リラクゼーションを目的とした施術を提供するプライベートサロンであり、医療行為、治療行為、風俗的なサービス等は一切行なっておりません。</p>
-              <p>※セラピストの引き抜き行為やスカウト行為が発覚した場合は、例外なく損害賠償請求、法的措置等も視野にいれた然るべき対応をとらせていただきます。</p>
-              <p>※セラピストとの個人的な連絡先交換や店外へのお誘いは堅くお断り致します。</p>
-              <p>※盗撮や盗聴等の行為があった際は、所轄警察署に被害届を提出し、法的手続きをとらせていただきます。</p>
-              <p className="font-bold mt-3">【対応言語について】</p>
-              <p>日本語のみ対応しております。</p>
-            </div>
-          </div>
+          )}
 
           {/* Shop Info */}
           <div className="mb-8">

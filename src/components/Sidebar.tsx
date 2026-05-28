@@ -123,6 +123,7 @@ const menuItems: MenuItem[] = [
         groupLabel: "店舗情報",
         items: [
           { href: "/hp/store-info", label: "店舗情報" },
+          { href: "/system/page-content", label: "料金ページ文言" },
           { href: "/shop", label: "設定" },
         ],
       },
