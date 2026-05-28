@@ -28,6 +28,12 @@ interface TodayShift {
   };
 }
 
+const STORE_SNS = [
+  { label: "店舗公式 X (旧Twitter)", short: "X", color: "#000000", url: "https://twitter.com/zenryoku_esthe" },
+  { label: "店舗公式 LINE", short: "L", color: "#06c755", url: "https://lin.ee/RdRhmXw" },
+  { label: "店舗公式 Bluesky", short: "B", color: "#1185fe", url: "https://bsky.app/profile/zenryoku-esthe.bsky.social" },
+];
+
 const FALLBACK_BANNERS = [
   "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750253573.png",
   "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750762260.png",
@@ -223,59 +229,35 @@ const Top = () => {
         </div>
       </section>
 
-      {/* ===== CONCEPT ===== */}
+      {/* ===== 店舗公式SNS ===== */}
       <section
-        className="py-10 md:py-20"
+        className="py-10 md:py-16"
         style={{ background: "linear-gradient(135deg, #efd0c2 0%, #f5e1d8 50%, #efd0c2 100%)" }}
       >
         <div className="container mx-auto max-w-3xl px-3 md:px-6 text-center">
-          <SectionTitle en="CONCEPT" jp="コンセプト" />
-          <div className="space-y-3 mt-6 md:mt-10 leading-loose tracking-wider text-sm md:text-base" style={{ color: "#5c4a3a" }}>
-            <p>素直で愛嬌があり不器用でも全力心でサービス</p>
-            <p>選び抜かれたビジュアル</p>
-            <p>洗練された施術</p>
-            <p>妥協のない接客</p>
-            <p className="pt-3 text-base md:text-xl font-bold tracking-widest">"全力エステ"は</p>
-            <p>仙台のメンズエステ界における</p>
-            <p className="text-base md:text-lg">「<span className="font-bold text-[#7a706c]">頂点</span>」を本気で狙う</p>
-            <p>ハイレベルサロンです。</p>
-            <p className="pt-3">ただ癒すだけじゃない。</p>
-            <p>あなたの五感すべてを圧倒する</p>
-            <p className="text-xl md:text-3xl font-bold tracking-widest pt-2 text-[#7a706c]">「全力の一撃」</p>
-            <p>をご堪能ください。</p>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== SNS / 外部リンク ===== */}
-      <section className="py-8 md:py-12 bg-white/60">
-        <div className="container mx-auto max-w-3xl px-3 md:px-6 text-center">
-          <SectionTitle en="LINKS" jp="公式リンク" />
-          <div className="flex flex-wrap justify-center gap-3 mt-5 md:mt-8">
-            <a
-              href="https://r.caskan.jp/zenryoku1209"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#c49480] hover:bg-[#b08370] text-white text-sm font-semibold rounded shadow transition"
-            >
-              Web予約 <ExternalLink size={14} />
-            </a>
-            <a
-              href="https://twitter.com/zenryoku_esthe"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 border-2 border-[#c49480] text-[#7a706c] hover:bg-[#f8f6f3] text-sm font-semibold rounded transition"
-            >
-              X (Twitter) <ExternalLink size={14} />
-            </a>
-            <a
-              href="https://bsky.app/profile/zenryoku-esthe.bsky.social"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 border-2 border-[#c49480] text-[#7a706c] hover:bg-[#f8f6f3] text-sm font-semibold rounded transition"
-            >
-              Bluesky <ExternalLink size={14} />
-            </a>
+          <SectionTitle en="OFFICIAL SNS" jp="店舗公式SNS" />
+          <p className="text-sm mt-2" style={{ color: "#7a706c" }}>
+            最短のご案内情報はこちらからご確認いただけます。
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 mt-6 md:mt-8">
+            {STORE_SNS.map((s) => (
+              <a
+                key={s.label}
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-4 bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition border border-[#e5d5cc]"
+              >
+                <span className="flex items-center justify-center w-11 h-11 rounded-full shrink-0 text-white font-bold" style={{ backgroundColor: s.color }}>
+                  {s.short}
+                </span>
+                <span className="flex-1 text-left">
+                  <span className="block font-bold text-sm" style={{ color: "#7a706c" }}>{s.label}</span>
+                  <span className="text-xs text-[#a89586]">最新情報はこちら</span>
+                </span>
+                <ExternalLink size={16} className="text-[#c49480] shrink-0" />
+              </a>
+            ))}
           </div>
         </div>
       </section>
