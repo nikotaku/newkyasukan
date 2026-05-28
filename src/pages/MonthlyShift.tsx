@@ -177,11 +177,12 @@ export default function MonthlyShift() {
 
         {loading ? (
           <div className="text-center text-muted-foreground py-12">読み込み中...</div>
-        ) : viewMode === "calendar" ? (
-          /* ===== カレンダービュー ===== */
-          <div className="rounded-lg border overflow-hidden">
-            {/* 曜日ヘッダー */}
-            <div className="grid grid-cols-7 border-b">
+        ) : (
+          <>
+            {/* ===== カレンダービュー ===== */}
+            <div className={viewMode === "calendar" ? "" : "hidden"}>
+              <div className="rounded-lg border overflow-hidden">
+                <div className="grid grid-cols-7 border-b">
               {["日", "月", "火", "水", "木", "金", "土"].map((d, i) => (
                 <div
                   key={d}
@@ -255,14 +256,17 @@ export default function MonthlyShift() {
                   </div>
                 );
               })}
+              </div>
             </div>
           </div>
-        ) : (
-          /* ===== セラピスト×日付マトリクス ===== */
-          activeCasts.length === 0 ? (
-            <div className="text-center text-muted-foreground py-12">この月のシフトはありません</div>
-          ) :
-          <div className="overflow-x-auto rounded-lg border">
+          </div>
+
+            {/* ===== マトリクスビュー ===== */}
+            <div className={viewMode === "matrix" ? "" : "hidden"}>
+              {activeCasts.length === 0 ? (
+                <div className="text-center text-muted-foreground py-12">この月のシフトはありません</div>
+              ) : (
+              <div className="overflow-x-auto rounded-lg border">
             <table className="text-xs border-collapse min-w-max">
               <thead>
                 <tr className="bg-muted/50">
@@ -335,6 +339,9 @@ export default function MonthlyShift() {
               </tbody>
             </table>
           </div>
+              )}
+            </div>
+          </>
         )}
       </main>
 
