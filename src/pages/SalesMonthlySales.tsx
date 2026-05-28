@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
+import { toast } from "sonner";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -21,7 +22,10 @@ interface MonthlyReport {
   therapist_pay: number | null;
   discount: number | null;
   gross_profit: number | null;
+  transportation_fee: number | null;
 }
+
+type EditableField = "discount" | "transportation_fee";
 
 const yen = (v: number | null) =>
   v == null || v === 0 ? "¥0" : `¥${v.toLocaleString()}`;
@@ -41,6 +45,8 @@ export default function SalesMonthlySales() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [reports, setReports] = useState<MonthlyReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingCell, setEditingCell] = useState<{ month: string; field: EditableField } | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -69,6 +75,39 @@ export default function SalesMonthlySales() {
     }
   };
 
+  const startEdit = (month: string, field: EditableField, current: number | null) => {
+    setEditingCell({ month, field });
+    setEditValue(String(Math.abs(current ?? 0)));
+  };
+
+  const saveEdit = async () => {
+    if (!editingCell) return;
+    const value = parseInt(editValue) || 0;
+    const prev = editingCell;
+    setEditingCell(null);
+    try {
+      const { error } = await supabase
+        .from("monthly_reports")
+        .update({ [prev.field]: value })
+        .eq("month_date", prev.month);
+      if (error) throw error;
+      setReports((rs) =>
+        rs.map((r) =>
+          r.month_date === prev.month ? { ...r, [prev.field]: value } : r
+        )
+      );
+    } catch (e: any) {
+      console.error(e);
+      toast.error(`保存に失敗しました：${e?.message ?? "不明なエラー"}`);
+      fetchReports();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") saveEdit();
+    if (e.key === "Escape") setEditingCell(null);
+  };
+
   // Chart data: oldest first
   const chartData = [...reports]
     .reverse()
@@ -76,6 +115,8 @@ export default function SalesMonthlySales() {
       label: format(parseISO(r.month_date), "M/1", { locale: ja }),
       売上: r.revenue ?? 0,
     }));
+
+  const headers = ["月", "売上", "出勤", "予約", "新規", "リピート", "報酬", "控除", "交通費", "利益"];
 
   return (
     <div className="min-h-screen bg-background">
@@ -143,29 +184,84 @@ export default function SalesMonthlySales() {
                   <table className="w-full text-sm">
                     <thead className="border-b bg-muted/30">
                       <tr>
-                        {["月", "売上", "出勤", "予約", "新規", "リピート", "報酬", "経費", "利益"].map((h) => (
-                          <th key={h} className="py-3 px-4 font-semibold whitespace-nowrap text-left first:text-left [&:not(:first-child)]:text-right">
+                        {headers.map((h) => (
+                          <th
+                            key={h}
+                            className="py-3 px-4 font-semibold whitespace-nowrap text-left first:text-left [&:not(:first-child)]:text-right"
+                          >
                             {h}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {reports.map((row) => (
-                        <tr key={row.month_date} className="border-b hover:bg-muted/30 transition-colors">
-                          <td className="py-3 px-4 font-semibold whitespace-nowrap">
-                            {format(parseISO(row.month_date), "yyyy年M月", { locale: ja })}
-                          </td>
-                          <td className="py-3 px-4 text-right tabular-nums">{yen(row.revenue)}</td>
-                          <td className="py-3 px-4 text-right tabular-nums">{num(row.customer_count)}</td>
-                          <td className="py-3 px-4 text-right tabular-nums text-blue-500">{num(row.session_count)}</td>
-                          <td className="py-3 px-4 text-right tabular-nums">{num(row.new_customers)}</td>
-                          <td className="py-3 px-4 text-right tabular-nums">{num(row.repeat_customers)}</td>
-                          <td className="py-3 px-4 text-right tabular-nums text-red-500">{yen(row.therapist_pay)}</td>
-                          <td className="py-3 px-4 text-right tabular-nums text-red-500">{yen(row.discount)}</td>
-                          <td className="py-3 px-4 text-right tabular-nums text-red-500">{yen(row.gross_profit)}</td>
-                        </tr>
-                      ))}
+                      {reports.map((row) => {
+                        const isEditingDiscount =
+                          editingCell?.month === row.month_date && editingCell?.field === "discount";
+                        const isEditingTransport =
+                          editingCell?.month === row.month_date && editingCell?.field === "transportation_fee";
+                        return (
+                          <tr key={row.month_date} className="border-b hover:bg-muted/30 transition-colors">
+                            <td className="py-3 px-4 font-semibold whitespace-nowrap">
+                              {format(parseISO(row.month_date), "yyyy年M月", { locale: ja })}
+                            </td>
+                            <td className="py-3 px-4 text-right tabular-nums">{yen(row.revenue)}</td>
+                            <td className="py-3 px-4 text-right tabular-nums">{num(row.customer_count)}</td>
+                            <td className="py-3 px-4 text-right tabular-nums text-blue-500">{num(row.session_count)}</td>
+                            <td className="py-3 px-4 text-right tabular-nums">{num(row.new_customers)}</td>
+                            <td className="py-3 px-4 text-right tabular-nums">{num(row.repeat_customers)}</td>
+                            <td className="py-3 px-4 text-right tabular-nums text-red-500">{yen(row.therapist_pay)}</td>
+
+                            {/* 控除（編集可） */}
+                            {isEditingDiscount ? (
+                              <td className="py-1 px-4 text-right">
+                                <input
+                                  type="number"
+                                  autoFocus
+                                  min="0"
+                                  className="w-24 text-right border rounded px-1 py-0.5 text-sm bg-background"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onBlur={saveEdit}
+                                  onKeyDown={handleKeyDown}
+                                />
+                              </td>
+                            ) : (
+                              <td
+                                className="py-3 px-4 text-right tabular-nums cursor-pointer hover:bg-muted/50"
+                                onClick={() => startEdit(row.month_date, "discount", row.discount)}
+                              >
+                                {yen(Math.abs(num(row.discount)))}
+                              </td>
+                            )}
+
+                            {/* 交通費（編集可） */}
+                            {isEditingTransport ? (
+                              <td className="py-1 px-4 text-right">
+                                <input
+                                  type="number"
+                                  autoFocus
+                                  min="0"
+                                  className="w-24 text-right border rounded px-1 py-0.5 text-sm bg-background"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onBlur={saveEdit}
+                                  onKeyDown={handleKeyDown}
+                                />
+                              </td>
+                            ) : (
+                              <td
+                                className="py-3 px-4 text-right tabular-nums cursor-pointer hover:bg-muted/50"
+                                onClick={() => startEdit(row.month_date, "transportation_fee", row.transportation_fee)}
+                              >
+                                {yen(row.transportation_fee)}
+                              </td>
+                            )}
+
+                            <td className="py-3 px-4 text-right tabular-nums text-red-500">{yen(row.gross_profit)}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
