@@ -54,7 +54,7 @@ const Top = () => {
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % bannerSlides.length);
-    }, 5000);
+    }, 9000);
     return () => clearInterval(timer);
   }, []);
 
@@ -100,7 +100,7 @@ const Top = () => {
           <img
             src={bannerSlides[currentSlide]}
             alt="トップバナー | 全力エステ 仙台"
-            className="w-full h-full object-cover transition-opacity duration-500"
+            className="w-full h-full object-cover transition-opacity duration-1000"
           />
         </AspectRatio>
         <button
