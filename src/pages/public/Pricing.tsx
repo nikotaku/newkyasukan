@@ -41,7 +41,7 @@ export default function Pricing() {
     try {
       const [backRes, optionRes, nomRes] = await Promise.all([
         supabase.rpc('get_public_back_rates'),
-        supabase.from('option_rates').select('*').order('created_at', { ascending: true }),
+        supabase.from('option_rates').select('*').order('display_order', { ascending: true }),
         supabase.from('nomination_rates').select('*').order('created_at', { ascending: true }),
       ]);
       if (backRes.error) throw backRes.error;

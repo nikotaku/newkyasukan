@@ -140,8 +140,8 @@ export default function TherapistCheckout() {
   // マスターデータ取得
   useEffect(() => {
     Promise.all([
-      supabase.from("back_rates").select("id, course_type, duration, customer_price").order("course_type").order("duration"),
-      supabase.from("option_rates").select("id, option_name, customer_price"),
+      supabase.from("back_rates").select("id, course_type, duration, customer_price, display_order").order("display_order"),
+      supabase.from("option_rates").select("id, option_name, customer_price, display_order").order("display_order"),
       supabase.from("discounts").select("id, name, discount_type, discount_value, is_active").eq("is_active", true).order("name"),
       supabase.from("payment_settings").select("id, payment_method, payment_link, fee_percentage"),
     ]).then(([br, or, dc, ps]) => {

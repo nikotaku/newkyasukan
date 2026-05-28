@@ -315,7 +315,8 @@ const BookingReservation = () => {
       
       const { data: optionData } = await supabase
         .from('option_rates')
-        .select('*');
+        .select('*')
+        .order('display_order', { ascending: true });
       
       const { data: nominationData } = await supabase
         .from('nomination_rates')

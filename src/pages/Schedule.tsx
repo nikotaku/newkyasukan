@@ -215,8 +215,8 @@ export default function Schedule() {
     const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }, { data: p }] = await Promise.all([
       supabase.from("casts").select("id, name").order("name"),
       supabase.from("rooms").select("id, name, address").eq("is_active", true).order("name"),
-      supabase.from("back_rates").select("*"),
-      supabase.from("option_rates").select("*"),
+      supabase.from("back_rates").select("*").order("display_order"),
+      supabase.from("option_rates").select("*").order("display_order"),
       supabase.from("nomination_rates").select("*"),
       supabase.from("discounts").select("id, name, discount_type, discount_value, is_active").eq("is_active", true).order("name"),
       supabase.from("payment_settings").select("id, payment_method, payment_link, fee_percentage"),
