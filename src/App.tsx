@@ -65,6 +65,9 @@ import SalesCustomerInfo from "./pages/SalesCustomerInfo";
 import SalesTherapistBreakdown from "./pages/SalesTherapistBreakdown";
 import SalesPriceAnalysis from "./pages/SalesPriceAnalysis";
 import SalesMonthlySales from "./pages/SalesMonthlySales";
+import SalesDailySales from "./pages/SalesDailySales";
+import SalesPendingReports from "./pages/SalesPendingReports";
+import SalesDeductionSummary from "./pages/SalesDeductionSummary";
 import SalesCardSales from "./pages/SalesCardSales";
 import SalesPayPaySales from "./pages/SalesPayPaySales";
 import SalesAdvertisingCost from "./pages/SalesAdvertisingCost";
@@ -152,6 +155,9 @@ const App = () => (
           <Route path="/sales/therapist-breakdown" element={<SalesTherapistBreakdown />} />
           <Route path="/sales/price-analysis" element={<SalesPriceAnalysis />} />
           <Route path="/sales/monthly-sales" element={<SalesMonthlySales />} />
+          <Route path="/sales/daily-sales" element={<SalesDailySales />} />
+          <Route path="/sales/pending-reports" element={<SalesPendingReports />} />
+          <Route path="/sales/deduction-summary" element={<SalesDeductionSummary />} />
           <Route path="/sales/card-sales" element={<SalesCardSales />} />
           <Route path="/sales/paypay-sales" element={<SalesPayPaySales />} />
           <Route path="/sales/advertising-cost" element={<SalesAdvertisingCost />} />
