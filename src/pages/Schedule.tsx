@@ -47,6 +47,7 @@ interface Reservation {
   course_type: string | null;
   nomination_type: string | null;
   price: number;
+  discount: number | null;
   payment_method: string | null;
   payment_fee: number | null;
   status: string;
@@ -101,6 +102,9 @@ export default function Schedule() {
   const [detailRes, setDetailRes] = useState<Reservation | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editFields, setEditFields] = useState<Partial<Reservation>>({});
+  const [editDiscountId, setEditDiscountId] = useState<string>("none");
+  // 割引適用前の小計（編集開始時に price + discount で算出）
+  const [editSubtotal, setEditSubtotal] = useState<number>(0);
 
   const { user, loading: authLoading, isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -258,10 +262,29 @@ export default function Schedule() {
       start_time: res.start_time.slice(0, 5),
       duration: res.duration,
       price: res.price,
+      discount: res.discount ?? 0,
       status: res.status,
       notes: res.notes ?? "",
     });
+    setEditSubtotal(res.price + (res.discount ?? 0));
+    setEditDiscountId("none");
     setEditMode(false);
+  };
+
+  // 編集画面で割引を選択 → 割引額と料金を再計算
+  const applyEditDiscount = (discountId: string) => {
+    setEditDiscountId(discountId);
+    let discountAmount = 0;
+    if (discountId !== "none") {
+      const d = discounts.find((x) => x.id === discountId);
+      if (d) {
+        discountAmount = d.discount_type === "percentage"
+          ? Math.round((editSubtotal * d.discount_value) / 100)
+          : d.discount_value;
+      }
+    }
+    discountAmount = Math.min(discountAmount, editSubtotal);
+    setEditFields((f) => ({ ...f, discount: discountAmount, price: editSubtotal - discountAmount }));
   };
 
   const handleSaveEdit = async () => {
@@ -274,6 +297,7 @@ export default function Schedule() {
         start_time: editFields.start_time,
         duration: Number(editFields.duration),
         price: Number(editFields.price),
+        discount: Number(editFields.discount ?? 0),
         status: editFields.status,
         notes: editFields.notes || null,
       }).eq("id", detailRes.id);
@@ -605,8 +629,31 @@ export default function Schedule() {
                       </div>
                     </div>
                     <div>
+                      <Label>割引</Label>
+                      <Select value={editDiscountId} onValueChange={applyEditDiscount}>
+                        <SelectTrigger><SelectValue placeholder="割引なし" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">割引なし</SelectItem>
+                          {discounts.map((d) => (
+                            <SelectItem key={d.id} value={d.id}>
+                              {d.name}（{d.discount_type === "percentage" ? `-${d.discount_value}%` : `-¥${d.discount_value.toLocaleString()}`}）
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {(editFields.discount ?? 0) > 0 && (
+                        <p className="text-xs text-rose-600 mt-1">割引額：-¥{(editFields.discount ?? 0).toLocaleString()}</p>
+                      )}
+                    </div>
+                    <div>
                       <Label>料金</Label>
-                      <Input type="number" value={editFields.price ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, price: Number(e.target.value) }))} />
+                      <Input type="number" value={editFields.price ?? ""} onChange={(e) => {
+                        const v = Number(e.target.value);
+                        // 手動で料金を変更した場合は小計を更新し割引をリセット
+                        setEditSubtotal(v);
+                        setEditDiscountId("none");
+                        setEditFields((f) => ({ ...f, price: v, discount: 0 }));
+                      }} />
                     </div>
                     <div>
                       <Label>備考</Label>
@@ -637,6 +684,12 @@ export default function Schedule() {
                       <span className="font-medium">{detailRes.customer_phone}</span>
                       <span className="text-muted-foreground">コース</span>
                       <span className="font-medium">{detailRes.course_name}</span>
+                      {(detailRes.discount ?? 0) > 0 && (
+                        <>
+                          <span className="text-muted-foreground">割引</span>
+                          <span className="font-medium text-rose-600">-¥{(detailRes.discount ?? 0).toLocaleString()}</span>
+                        </>
+                      )}
                       <span className="text-muted-foreground">料金</span>
                       <span className="font-medium">¥{detailRes.price.toLocaleString()}</span>
                       {(detailRes.payment_fee ?? 0) > 0 && (
