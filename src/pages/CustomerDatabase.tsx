@@ -8,8 +8,10 @@ import { NotionDatabaseView } from "@/components/database/NotionDatabaseView";
 import { Property, DatabaseRecord } from "@/components/database/types";
 import { toast } from "sonner";
 import { ImportModal } from "@/components/ImportModal";
-import { FileUp } from "lucide-react";
+import { FileUp, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GoogleSheetPanel } from "@/components/GoogleSheetPanel";
 
 const DEFAULT_PROPERTIES: Property[] = [
   { id: "name", name: "名前", type: "text", width: 140 },
@@ -135,18 +137,29 @@ export default function CustomerDatabase() {
             <FileUp size={16} className="mr-2" />CSVインポート
           </Button>
         </div>
-        <div className="flex-1 overflow-hidden">
-          <NotionDatabaseView
-            title="顧客"
-            storageKey="customers"
-            defaultProperties={DEFAULT_PROPERTIES}
-            records={records}
-            loading={loading}
-            onAddRecord={handleAdd}
-            onUpdateRecord={handleUpdate}
-            onDeleteRecord={handleDelete}
-          />
-        </div>
+        <Tabs defaultValue="db" className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="mb-3 shrink-0">
+            <TabsTrigger value="db">データベース</TabsTrigger>
+            <TabsTrigger value="sheet" className="gap-1.5">
+              <Table2 size={13} />Googleスプレッドシート
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="sheet" className="mt-0">
+            <GoogleSheetPanel source="customers" />
+          </TabsContent>
+          <TabsContent value="db" className="flex-1 overflow-hidden mt-0">
+            <NotionDatabaseView
+              title="顧客"
+              storageKey="customers"
+              defaultProperties={DEFAULT_PROPERTIES}
+              records={records}
+              loading={loading}
+              onAddRecord={handleAdd}
+              onUpdateRecord={handleUpdate}
+              onDeleteRecord={handleDelete}
+            />
+          </TabsContent>
+        </Tabs>
       </main>
       <ImportModal
         open={isImportOpen}

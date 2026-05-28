@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, Users, DollarSign, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { TrendingUp, Users, DollarSign, Calendar, ChevronLeft, ChevronRight, Table2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GoogleSheetPanel } from "@/components/GoogleSheetPanel";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { SalesReport } from "@/components/SalesReport";
@@ -240,6 +242,20 @@ export default function Report() {
                 </div>
               </CardContent>
             </Card>
+            <div className="mt-6">
+              <Tabs defaultValue="db">
+                <TabsList>
+                  <TabsTrigger value="db">DBレポート</TabsTrigger>
+                  <TabsTrigger value="sheet" className="gap-1.5">
+                    <Table2 size={13} />Googleスプレッドシート
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="sheet" className="mt-4">
+                  <GoogleSheetPanel source="reports" />
+                </TabsContent>
+                <TabsContent value="db" />
+              </Tabs>
+            </div>
           </div>
         </main>
       </div>

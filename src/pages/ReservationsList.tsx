@@ -16,8 +16,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Search, FileUp } from "lucide-react";
+import { Search, FileUp, Table2 } from "lucide-react";
 import { ImportModal } from "@/components/ImportModal";
+import { GoogleSheetPanel } from "@/components/GoogleSheetPanel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Reservation {
   id: string;
@@ -190,6 +192,18 @@ export default function ReservationsList() {
             </Button>
           </div>
 
+          <Tabs defaultValue="db" className="mb-6">
+            <TabsList>
+              <TabsTrigger value="db">データベース</TabsTrigger>
+              <TabsTrigger value="sheet" className="gap-1.5">
+                <Table2 size={13} />Googleスプレッドシート
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="sheet" className="mt-4">
+              <GoogleSheetPanel source="reservations" />
+            </TabsContent>
+            <TabsContent value="db">
+
           {/* ステータスBOX */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-3">
@@ -306,6 +320,8 @@ export default function ReservationsList() {
               </div>
             </Card>
           )}
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
       <ImportModal
