@@ -13,6 +13,7 @@ import { FileUp, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GoogleSheetPanel } from "@/components/GoogleSheetPanel";
+import { mapCustomerRows, batchInsert } from "@/lib/importMappers";
 
 const DEFAULT_PROPERTIES: Property[] = [
   { id: "name", name: "名前", type: "text", width: 140 },
@@ -154,7 +155,15 @@ export default function CustomerDatabase() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="sheet" className="mt-0">
-            <GoogleSheetPanel source="customers" />
+            <GoogleSheetPanel
+              source="customers"
+              onImport={async (headers, rows) => {
+                const mapped = mapCustomerRows(headers, rows);
+                const count = await batchInsert("customers", mapped);
+                await fetchCustomers();
+                return count;
+              }}
+            />
           </TabsContent>
           <TabsContent value="db" className="flex-1 overflow-hidden mt-0">
             <NotionDatabaseView
