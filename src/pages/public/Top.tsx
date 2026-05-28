@@ -31,6 +31,7 @@ interface TodayShift {
 const STORE_SNS = [
   { label: "店舗公式 X (旧Twitter)", short: "X", color: "#000000", url: "https://twitter.com/zenryoku_esthe" },
   { label: "店舗公式 LINE", short: "L", color: "#06c755", url: "https://lin.ee/RdRhmXw" },
+  { label: "店舗公式 O2 (ゼロツー)", short: "O2", color: "#e85298", url: "https://m-sns.net/s/@zr_sendai2" },
   { label: "店舗公式 Bluesky", short: "B", color: "#1185fe", url: "https://bsky.app/profile/zenryoku-esthe.bsky.social" },
 ];
 
