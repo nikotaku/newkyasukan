@@ -41,6 +41,13 @@ interface NominationRate {
   therapist_back: number | null;
 }
 
+interface DiscountItem {
+  id: string;
+  name: string;
+  discount_type: "fixed" | "percentage";
+  discount_value: number;
+}
+
 interface FormData {
   cast_id: string;
   customer_name: string;
@@ -55,6 +62,8 @@ interface FormData {
   course_type: string;
   course_name: string;
   selectedOptions: string[];
+  discount_id: string;
+  discount: number;
   price: number;
   payment_method: string;
   reservation_method: string;
@@ -69,6 +78,7 @@ interface ReservationFormProps {
   backRates: BackRate[];
   optionRates: OptionRate[];
   nominationRates: NominationRate[];
+  discounts: DiscountItem[];
   onSubmit: () => void;
 }
 
@@ -103,6 +113,7 @@ export function ReservationForm({
   backRates,
   optionRates,
   nominationRates,
+  discounts,
   onSubmit,
 }: ReservationFormProps) {
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
@@ -118,7 +129,7 @@ export function ReservationForm({
   }, [backRates]);
 
   useEffect(() => {
-    let totalPrice = 0;
+    let subtotal = 0;
 
     const backRate = backRates.find(
       (rate) =>
@@ -127,13 +138,13 @@ export function ReservationForm({
     );
 
     if (backRate) {
-      totalPrice += backRate.customer_price;
+      subtotal += backRate.customer_price;
     }
 
     formData.selectedOptions.forEach((optionName) => {
       const optionRate = optionRates.find((rate) => rate.option_name === optionName);
       if (optionRate) {
-        totalPrice += optionRate.customer_price;
+        subtotal += optionRate.customer_price;
       }
     });
 
@@ -142,14 +153,27 @@ export function ReservationForm({
         (rate) => rate.nomination_type === formData.nomination_type
       );
       if (nominationRate) {
-        totalPrice += nominationRate.customer_price;
+        subtotal += nominationRate.customer_price;
       }
     }
 
-    if (totalPrice !== formData.price) {
-      setFormData({ ...formData, price: totalPrice });
+    let discountAmount = 0;
+    if (formData.discount_id && formData.discount_id !== "none") {
+      const d = discounts.find((x) => x.id === formData.discount_id);
+      if (d) {
+        discountAmount =
+          d.discount_type === "percentage"
+            ? Math.round((subtotal * d.discount_value) / 100)
+            : d.discount_value;
+      }
     }
-  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, backRates, optionRates, nominationRates]);
+    discountAmount = Math.min(discountAmount, subtotal);
+    const totalPrice = subtotal - discountAmount;
+
+    if (totalPrice !== formData.price || discountAmount !== formData.discount) {
+      setFormData({ ...formData, price: totalPrice, discount: discountAmount });
+    }
+  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.discount_id, backRates, optionRates, nominationRates, discounts]);
 
   useEffect(() => {
     const phone = formData.customer_phone.replace(/[-\s]/g, "");
@@ -666,6 +690,30 @@ export function ReservationForm({
       </div>
 
       <div>
+        <Label>割引</Label>
+        <Select
+          value={formData.discount_id || "none"}
+          onValueChange={(value) => setFormData({ ...formData, discount_id: value })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="割引なし" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">割引なし</SelectItem>
+            {discounts.map((d) => (
+              <SelectItem key={d.id} value={d.id}>
+                {d.name}（
+                {d.discount_type === "percentage"
+                  ? `-${d.discount_value}%`
+                  : `-¥${d.discount_value.toLocaleString()}`}
+                ）
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
         <Label htmlFor="notes">備考</Label>
         <Textarea
           id="notes"
@@ -675,7 +723,13 @@ export function ReservationForm({
         />
       </div>
 
-      <div className="pt-4 border-t">
+      <div className="pt-4 border-t space-y-1">
+        {formData.discount > 0 && (
+          <div className="flex justify-between text-sm text-muted-foreground">
+            <span>割引</span>
+            <span className="text-rose-600">-¥{formData.discount.toLocaleString()}</span>
+          </div>
+        )}
         <div className="text-right">
           <p className="text-sm text-muted-foreground mb-1">合計金額</p>
           <p className="text-2xl font-bold text-primary">¥{formData.price.toLocaleString()}</p>

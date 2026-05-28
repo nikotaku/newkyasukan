@@ -70,6 +70,14 @@ interface NominationRate {
   therapist_back: number | null;
 }
 
+interface Discount {
+  id: string;
+  name: string;
+  discount_type: "fixed" | "percentage";
+  discount_value: number;
+  is_active: boolean;
+}
+
 export default function Reservations() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -78,6 +86,7 @@ export default function Reservations() {
   const [backRates, setBackRates] = useState<BackRate[]>([]);
   const [optionRates, setOptionRates] = useState<OptionRate[]>([]);
   const [nominationRates, setNominationRates] = useState<NominationRate[]>([]);
+  const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -97,6 +106,8 @@ export default function Reservations() {
     course_type: "アロマオイル",
     course_name: "アロマオイル 80分",
     selectedOptions: [] as string[],
+    discount_id: "none",
+    discount: 0,
     price: 12000,
     payment_method: "cash",
     reservation_method: "",
@@ -156,9 +167,16 @@ export default function Reservations() {
         .from('nomination_rates')
         .select('*');
 
+      const { data: discountData } = await supabase
+        .from('discounts')
+        .select('id, name, discount_type, discount_value, is_active')
+        .eq('is_active', true)
+        .order('name');
+
       if (backData) setBackRates(backData);
       if (optionData) setOptionRates(optionData);
       if (nominationData) setNominationRates(nominationData);
+      if (discountData) setDiscounts(discountData as Discount[]);
     } catch (error) {
       console.error('Error fetching rates:', error);
     }
@@ -262,6 +280,7 @@ export default function Reservations() {
           options: formData.selectedOptions,
           nomination_type: formData.nomination_type === 'none' ? null : formData.nomination_type,
           price: formData.price,
+          discount: formData.discount,
           notes: formData.notes || null,
           room: formData.room || null,
           created_by: user!.id,
@@ -289,6 +308,8 @@ export default function Reservations() {
         course_type: "アロマオイル",
         course_name: "アロマオイル 80分",
         selectedOptions: [],
+        discount_id: "none",
+        discount: 0,
         price: 12000,
         payment_method: "cash",
         reservation_method: "",
@@ -441,6 +462,7 @@ export default function Reservations() {
                 backRates={backRates}
                 optionRates={optionRates}
                 nominationRates={nominationRates}
+                discounts={discounts}
                 onSubmit={handleAddReservation}
               />
                         </div>
