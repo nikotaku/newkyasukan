@@ -39,6 +39,15 @@ interface SupplyItem {
   notes: string | null;
 }
 
+interface CostumeItem {
+  id: string;
+  room_id: string;
+  name: string;
+  size: string | null;
+  quantity: number;
+  notes: string | null;
+}
+
 export default function FacilitiesRooms() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -49,8 +58,10 @@ export default function FacilitiesRooms() {
 
   const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
   const [supplies, setSupplies] = useState<SupplyItem[]>([]);
+  const [costumes, setCostumes] = useState<CostumeItem[]>([]);
   const [newEquip, setNewEquip] = useState({ name: "", quantity: "1", notes: "" });
   const [newSupply, setNewSupply] = useState({ name: "", quantity: "0", unit: "", notes: "" });
+  const [newCostume, setNewCostume] = useState({ name: "", size: "", quantity: "1", notes: "" });
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -69,10 +80,12 @@ export default function FacilitiesRooms() {
       setDraft(room ? { ...room } : null);
       fetchEquipment(selectedId);
       fetchSupplies(selectedId);
+      fetchCostumes(selectedId);
     } else {
       setDraft(null);
       setEquipment([]);
       setSupplies([]);
+      setCostumes([]);
     }
   }, [selectedId, rooms]);
 
@@ -111,6 +124,15 @@ export default function FacilitiesRooms() {
       .eq("room_id", roomId)
       .order("created_at");
     setSupplies((data || []) as unknown as SupplyItem[]);
+  };
+
+  const fetchCostumes = async (roomId: string) => {
+    const { data } = await supabase
+      .from("room_costumes" as any)
+      .select("id,room_id,name,size,quantity,notes")
+      .eq("room_id", roomId)
+      .order("created_at");
+    setCostumes((data || []) as unknown as CostumeItem[]);
   };
 
   const handleSaveRoom = async () => {
@@ -192,6 +214,35 @@ export default function FacilitiesRooms() {
       return;
     }
     setSupplies((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const addCostume = async () => {
+    if (!selectedId || !newCostume.name.trim()) {
+      toast.error("衣装名を入力してください");
+      return;
+    }
+    const { error } = await supabase.from("room_costumes" as any).insert({
+      room_id: selectedId,
+      name: newCostume.name.trim(),
+      size: newCostume.size.trim() || null,
+      quantity: parseInt(newCostume.quantity, 10) || 1,
+      notes: newCostume.notes.trim() || null,
+    });
+    if (error) {
+      toast.error("追加に失敗しました");
+      return;
+    }
+    setNewCostume({ name: "", size: "", quantity: "1", notes: "" });
+    fetchCostumes(selectedId);
+  };
+
+  const deleteCostume = async (id: string) => {
+    const { error } = await supabase.from("room_costumes" as any).delete().eq("id", id);
+    if (error) {
+      toast.error("削除に失敗しました");
+      return;
+    }
+    setCostumes((prev) => prev.filter((c) => c.id !== id));
   };
 
   return (
@@ -361,6 +412,51 @@ export default function FacilitiesRooms() {
                       <Input className="mt-1 h-8" value={newSupply.notes} onChange={(e) => setNewSupply({ ...newSupply, notes: e.target.value })} placeholder="任意" />
                     </div>
                     <Button size="sm" className="h-8 gap-1" onClick={addSupply}><Plus size={14} />追加</Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 衣装DB */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">衣装DB</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 mb-4">
+                    {costumes.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">登録された衣装はありません</p>
+                    ) : (
+                      costumes.map((c) => (
+                        <div key={c.id} className="flex items-center gap-2 text-sm border rounded-md px-3 py-2">
+                          <span className="font-medium flex-1">{c.name}</span>
+                          {c.size && <span className="text-muted-foreground text-xs">サイズ：{c.size}</span>}
+                          <span className="text-muted-foreground">×{c.quantity}</span>
+                          {c.notes && <span className="text-muted-foreground text-xs">{c.notes}</span>}
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-rose-600" onClick={() => deleteCostume(c.id)}>
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-end gap-2 border-t pt-3">
+                    <div className="flex-1 min-w-[120px]">
+                      <Label className="text-xs">衣装名</Label>
+                      <Input className="mt-1 h-8" value={newCostume.name} onChange={(e) => setNewCostume({ ...newCostume, name: e.target.value })} placeholder="例：ナース服" />
+                    </div>
+                    <div className="w-20">
+                      <Label className="text-xs">サイズ</Label>
+                      <Input className="mt-1 h-8" value={newCostume.size} onChange={(e) => setNewCostume({ ...newCostume, size: e.target.value })} placeholder="M" />
+                    </div>
+                    <div className="w-20">
+                      <Label className="text-xs">数量</Label>
+                      <Input className="mt-1 h-8" type="number" value={newCostume.quantity} onChange={(e) => setNewCostume({ ...newCostume, quantity: e.target.value })} />
+                    </div>
+                    <div className="flex-1 min-w-[120px]">
+                      <Label className="text-xs">メモ</Label>
+                      <Input className="mt-1 h-8" value={newCostume.notes} onChange={(e) => setNewCostume({ ...newCostume, notes: e.target.value })} placeholder="任意" />
+                    </div>
+                    <Button size="sm" className="h-8 gap-1" onClick={addCostume}><Plus size={14} />追加</Button>
                   </div>
                 </CardContent>
               </Card>
