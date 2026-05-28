@@ -83,7 +83,6 @@ const menuItems: MenuItem[] = [
         groupLabel: "売上管理",
         items: [
           { href: "/sales/closing", label: "締め作業" },
-          { href: "/sales/clearance", label: "精算管理" },
           { href: "/sales/monthly-sales", label: "月別売上" },
           { href: "/sales/card-sales", label: "カード売上" },
           { href: "/sales/paypay-sales", label: "PayPay売上" },

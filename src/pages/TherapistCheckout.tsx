@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -14,10 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, ArrowLeft, CheckCircle, RefreshCw } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle, RefreshCw, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { calcPaymentFee, findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
 
 interface Cast {
   id: string;
@@ -30,9 +32,41 @@ interface Reservation {
   customer_name: string;
   start_time: string;
   course_name: string;
+  course_type: string | null;
+  duration: number | null;
+  options: string[] | null;
+  discount: number | null;
   price: number;
   payment_method: string;
   status: string;
+}
+
+interface BackRate {
+  id: string;
+  course_type: string;
+  duration: number;
+  customer_price: number;
+}
+
+interface OptionRate {
+  id: string;
+  option_name: string;
+  customer_price: number;
+}
+
+interface DiscountItem {
+  id: string;
+  name: string;
+  discount_type: "fixed" | "percentage";
+  discount_value: number;
+}
+
+interface EditState {
+  course_type: string;
+  duration: number;
+  selectedOptions: string[];
+  discount_id: string;
+  payment_method: string;
 }
 
 const PAYMENT_METHODS = [
@@ -54,6 +88,17 @@ export default function TherapistCheckout() {
   const [paymentEdits, setPaymentEdits] = useState<Record<string, string>>({});
   const [reservationsLoading, setReservationsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+
+  // マスターデータ
+  const [backRates, setBackRates] = useState<BackRate[]>([]);
+  const [optionRates, setOptionRates] = useState<OptionRate[]>([]);
+  const [discounts, setDiscounts] = useState<DiscountItem[]>([]);
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSetting[]>([]);
+
+  // インライン編集
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editStates, setEditStates] = useState<Record<string, EditState>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   // 売上メモ・手動調整
   const [salesNotes, setSalesNotes] = useState("");
@@ -92,20 +137,42 @@ export default function TherapistCheckout() {
     fetchCast();
   }, [token, navigate]);
 
+  // マスターデータ取得
+  useEffect(() => {
+    Promise.all([
+      supabase.from("back_rates").select("id, course_type, duration, customer_price").order("course_type").order("duration"),
+      supabase.from("option_rates").select("id, option_name, customer_price"),
+      supabase.from("discounts").select("id, name, discount_type, discount_value, is_active").eq("is_active", true).order("name"),
+      supabase.from("payment_settings").select("id, payment_method, payment_link, fee_percentage"),
+    ]).then(([br, or, dc, ps]) => {
+      if (br.data) setBackRates(br.data as BackRate[]);
+      if (or.data) setOptionRates(or.data as OptionRate[]);
+      if (dc.data) setDiscounts(dc.data as DiscountItem[]);
+      if (ps.data) setPaymentSettings(ps.data as PaymentSetting[]);
+    });
+  }, []);
+
+  const courseTypes = useMemo(() => [...new Set(backRates.map(r => r.course_type))], [backRates]);
+
+  const drOptions = useMemo(() => optionRates.filter(r => r.option_name.startsWith("DR")), [optionRates]);
+  const regularOptions = useMemo(() => optionRates.filter(r => !r.option_name.startsWith("DR")), [optionRates]);
+
+  const cardFeePct = useMemo(() => findPaymentSetting(paymentSettings, "card")?.fee_percentage ?? 0, [paymentSettings]);
+  const paypayFeePct = useMemo(() => findPaymentSetting(paymentSettings, "paypay")?.fee_percentage ?? 0, [paymentSettings]);
+
   const fetchReservations = useCallback(async () => {
     if (!cast) return;
     setReservationsLoading(true);
     try {
       const { data, error } = await supabase
         .from("reservations")
-        .select("id, customer_name, start_time, course_name, price, payment_method, status")
+        .select("id, customer_name, start_time, course_name, course_type, duration, options, discount, price, payment_method, status")
         .eq("cast_id", cast.id)
         .eq("reservation_date", selectedDate)
         .order("start_time");
       if (error) throw error;
-      const list = data || [];
+      const list = (data || []) as Reservation[];
       setReservations(list);
-      // payment_method の初期値をセット
       const edits: Record<string, string> = {};
       list.forEach((r) => { edits[r.id] = r.payment_method || "cash"; });
       setPaymentEdits(edits);
@@ -120,7 +187,101 @@ export default function TherapistCheckout() {
     if (cast) fetchReservations();
   }, [cast, fetchReservations]);
 
-  // 支払い方法別合計を計算
+  // 編集展開時に初期EditStateをセット
+  const toggleExpand = (r: Reservation) => {
+    if (expandedId === r.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(r.id);
+    if (!editStates[r.id]) {
+      const courseType = r.course_type ?? (courseTypes[0] || "");
+      const duration = r.duration ?? (backRates.find(b => b.course_type === courseType)?.duration ?? 60);
+      setEditStates(prev => ({
+        ...prev,
+        [r.id]: {
+          course_type: courseType,
+          duration,
+          selectedOptions: r.options ?? [],
+          discount_id: "none",
+          payment_method: r.payment_method || "cash",
+        },
+      }));
+    }
+  };
+
+  const updateEdit = (id: string, patch: Partial<EditState>) => {
+    setEditStates(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  };
+
+  // 価格計算
+  const calcPrice = useCallback((state: EditState): { subtotal: number; discount: number; fee: number; total: number } => {
+    const backRate = backRates.find(r => r.course_type === state.course_type && r.duration === state.duration);
+    let subtotal = backRate?.customer_price ?? 0;
+    state.selectedOptions.forEach(opt => {
+      const or = optionRates.find(r => r.option_name === opt);
+      if (or) subtotal += or.customer_price;
+    });
+    let discountAmt = 0;
+    if (state.discount_id !== "none") {
+      const d = discounts.find(x => x.id === state.discount_id);
+      if (d) {
+        discountAmt = d.discount_type === "percentage"
+          ? Math.round((subtotal * d.discount_value) / 100)
+          : d.discount_value;
+      }
+    }
+    discountAmt = Math.min(discountAmt, subtotal);
+    const price = subtotal - discountAmt;
+    const fee = calcPaymentFee(price, paymentSettings, state.payment_method);
+    return { subtotal, discount: discountAmt, fee, total: price + fee };
+  }, [backRates, optionRates, discounts, paymentSettings]);
+
+  const handleSaveEdit = async (r: Reservation) => {
+    const state = editStates[r.id];
+    if (!state) return;
+    setSavingId(r.id);
+    const { subtotal: _, discount, fee, total } = calcPrice(state);
+    const backRate = backRates.find(b => b.course_type === state.course_type && b.duration === state.duration);
+    const courseName = backRate ? `${state.course_type} ${state.duration}分` : r.course_name;
+    try {
+      const { error } = await supabase.from("reservations").update({
+        course_type: state.course_type,
+        duration: state.duration,
+        course_name: courseName,
+        options: state.selectedOptions,
+        discount,
+        price: total - fee,
+        payment_fee: fee,
+        payment_method: state.payment_method,
+      }).eq("id", r.id);
+      if (error) throw error;
+      setReservations(prev => prev.map(res => res.id === r.id ? {
+        ...res,
+        course_type: state.course_type,
+        duration: state.duration,
+        course_name: courseName,
+        options: state.selectedOptions,
+        discount,
+        price: total - fee,
+        payment_method: state.payment_method,
+      } : res));
+      setPaymentEdits(prev => ({ ...prev, [r.id]: state.payment_method }));
+      setExpandedId(null);
+      toast.success("予約を更新しました");
+    } catch {
+      toast.error("更新に失敗しました");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handlePaymentChange = async (reservationId: string, method: string) => {
+    setPaymentEdits((prev) => ({ ...prev, [reservationId]: method }));
+    await supabase.from("reservations").update({ payment_method: method }).eq("id", reservationId);
+  };
+
+  // 支払い方法別合計
   const totals = reservations.reduce(
     (acc, r) => {
       if (r.status === "cancelled") return acc;
@@ -131,20 +292,11 @@ export default function TherapistCheckout() {
     {} as Record<string, number>
   );
 
-  const cashTotal = (totals["cash"] || 0);
-  const cardTotal = (totals["card"] || 0);
-  const paypayTotal = (totals["paypay"] || 0);
+  const cashTotal = totals["cash"] || 0;
+  const cardTotal = totals["card"] || 0;
+  const paypayTotal = totals["paypay"] || 0;
   const grandTotal = cashTotal + cardTotal + paypayTotal + manualAdjustment;
   const completedCount = reservations.filter((r) => r.status !== "cancelled").length;
-
-  const handlePaymentChange = async (reservationId: string, method: string) => {
-    setPaymentEdits((prev) => ({ ...prev, [reservationId]: method }));
-    // DB にも即時反映
-    await supabase
-      .from("reservations")
-      .update({ payment_method: method })
-      .eq("id", reservationId);
-  };
 
   const handleSalesSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,45 +455,251 @@ export default function TherapistCheckout() {
                       <div className="text-center py-4 text-muted-foreground text-sm">予約がありません</div>
                     ) : (
                       <div className="space-y-2">
-                        {reservations.map((r) => (
-                          <div
-                            key={r.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg border ${
-                              r.status === "cancelled" ? "opacity-40 bg-muted/30" : "bg-background"
-                            }`}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground w-10 shrink-0">{r.start_time?.slice(0, 5)}</span>
-                                <span className="font-semibold text-sm truncate">{r.customer_name}</span>
+                        {reservations.map((r) => {
+                          const isExpanded = expandedId === r.id;
+                          const state = editStates[r.id];
+                          const calc = state ? calcPrice(state) : null;
+                          const selectedDR = state?.selectedOptions.find(o => o.startsWith("DR")) ?? "none";
+
+                          return (
+                            <div
+                              key={r.id}
+                              className={`rounded-lg border ${
+                                r.status === "cancelled" ? "opacity-40 bg-muted/30" : "bg-background"
+                              }`}
+                            >
+                              {/* 概要行 */}
+                              <div className="flex items-center gap-3 p-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground w-10 shrink-0">{r.start_time?.slice(0, 5)}</span>
+                                    <span className="font-semibold text-sm truncate">{r.customer_name}</span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-0.5 ml-12 truncate">{r.course_name}</p>
+                                  {(r.options ?? []).length > 0 && (
+                                    <p className="text-xs text-muted-foreground ml-12 truncate">
+                                      {(r.options ?? []).join(" / ")}
+                                    </p>
+                                  )}
+                                  {(r.discount ?? 0) > 0 && (
+                                    <p className="text-xs text-rose-600 ml-12">割引 -¥{(r.discount ?? 0).toLocaleString()}</p>
+                                  )}
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="font-bold text-sm">¥{(r.price || 0).toLocaleString()}</div>
+                                  {r.status !== "cancelled" && (
+                                    <Select
+                                      value={paymentEdits[r.id] || "cash"}
+                                      onValueChange={(v) => handlePaymentChange(r.id, v)}
+                                    >
+                                      <SelectTrigger className="h-6 text-xs mt-1 w-20 border-0 bg-muted/50 px-2">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {PAYMENT_METHODS.map((m) => (
+                                          <SelectItem key={m.value} value={m.value} className="text-xs">
+                                            {m.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                  {r.status === "cancelled" && (
+                                    <span className="text-xs text-muted-foreground">キャンセル</span>
+                                  )}
+                                </div>
+                                {r.status !== "cancelled" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleExpand(r)}
+                                    className="ml-1 p-1 rounded hover:bg-muted/60 text-muted-foreground shrink-0"
+                                  >
+                                    {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                  </button>
+                                )}
                               </div>
-                              <p className="text-xs text-muted-foreground mt-0.5 ml-12 truncate">{r.course_name}</p>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <div className="font-bold text-sm">¥{(r.price || 0).toLocaleString()}</div>
-                              {r.status !== "cancelled" && (
-                                <Select
-                                  value={paymentEdits[r.id] || "cash"}
-                                  onValueChange={(v) => handlePaymentChange(r.id, v)}
-                                >
-                                  <SelectTrigger className="h-6 text-xs mt-1 w-20 border-0 bg-muted/50 px-2">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {PAYMENT_METHODS.map((m) => (
-                                      <SelectItem key={m.value} value={m.value} className="text-xs">
-                                        {m.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+
+                              {/* インライン編集パネル */}
+                              {isExpanded && state && (
+                                <div className="border-t px-3 pb-3 pt-3 space-y-3 bg-muted/20">
+                                  {/* コース */}
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <Label className="text-xs">コースタイプ</Label>
+                                      <Select
+                                        value={state.course_type}
+                                        onValueChange={(v) => {
+                                          const firstDur = backRates.find(b => b.course_type === v)?.duration ?? 60;
+                                          updateEdit(r.id, { course_type: v, duration: firstDur });
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs mt-1">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {courseTypes.map(ct => (
+                                            <SelectItem key={ct} value={ct} className="text-xs">{ct}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs">時間</Label>
+                                      <Select
+                                        value={state.duration.toString()}
+                                        onValueChange={(v) => updateEdit(r.id, { duration: parseInt(v) })}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs mt-1">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {backRates
+                                            .filter(b => b.course_type === state.course_type)
+                                            .map(b => (
+                                              <SelectItem key={b.id} value={b.duration.toString()} className="text-xs">
+                                                {b.duration}分（¥{b.customer_price.toLocaleString()}）
+                                              </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+
+                                  {/* DR オプション */}
+                                  {drOptions.length > 0 && (
+                                    <div>
+                                      <Label className="text-xs">DR（ディープリンパ）</Label>
+                                      <Select
+                                        value={selectedDR}
+                                        onValueChange={(v) => {
+                                          const withoutDR = state.selectedOptions.filter(o => !o.startsWith("DR"));
+                                          updateEdit(r.id, { selectedOptions: v === "none" ? withoutDR : [...withoutDR, v] });
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs mt-1">
+                                          <SelectValue placeholder="なし" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="none" className="text-xs">なし</SelectItem>
+                                          {drOptions
+                                            .sort((a, b) => (parseInt(a.option_name.replace(/\D/g, "")) || 0) - (parseInt(b.option_name.replace(/\D/g, "")) || 0))
+                                            .map(opt => (
+                                              <SelectItem key={opt.id} value={opt.option_name} className="text-xs">
+                                                {opt.option_name}（+¥{opt.customer_price.toLocaleString()}）
+                                              </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  )}
+
+                                  {/* その他オプション */}
+                                  {regularOptions.length > 0 && (
+                                    <div>
+                                      <Label className="text-xs">オプション</Label>
+                                      <div className="grid grid-cols-2 gap-1.5 mt-1">
+                                        {regularOptions.map(opt => (
+                                          <label key={opt.id} className="flex items-center gap-1.5 cursor-pointer">
+                                            <Checkbox
+                                              checked={state.selectedOptions.includes(opt.option_name)}
+                                              onCheckedChange={() => {
+                                                const has = state.selectedOptions.includes(opt.option_name);
+                                                updateEdit(r.id, {
+                                                  selectedOptions: has
+                                                    ? state.selectedOptions.filter(o => o !== opt.option_name)
+                                                    : [...state.selectedOptions, opt.option_name],
+                                                });
+                                              }}
+                                            />
+                                            <span className="text-xs leading-none">
+                                              {opt.option_name}（+¥{opt.customer_price.toLocaleString()}）
+                                            </span>
+                                          </label>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* 割引 */}
+                                  <div>
+                                    <Label className="text-xs">割引</Label>
+                                    <Select
+                                      value={state.discount_id}
+                                      onValueChange={(v) => updateEdit(r.id, { discount_id: v })}
+                                    >
+                                      <SelectTrigger className="h-8 text-xs mt-1">
+                                        <SelectValue placeholder="割引なし" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none" className="text-xs">割引なし</SelectItem>
+                                        {discounts.map(d => (
+                                          <SelectItem key={d.id} value={d.id} className="text-xs">
+                                            {d.name}（{d.discount_type === "percentage" ? `-${d.discount_value}%` : `-¥${d.discount_value.toLocaleString()}`}）
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  {/* 支払い方法 */}
+                                  <div>
+                                    <Label className="text-xs">お支払い方法</Label>
+                                    <Select
+                                      value={state.payment_method}
+                                      onValueChange={(v) => updateEdit(r.id, { payment_method: v })}
+                                    >
+                                      <SelectTrigger className="h-8 text-xs mt-1">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="cash" className="text-xs">現金</SelectItem>
+                                        <SelectItem value="card" className="text-xs">カード{cardFeePct > 0 ? `（手数料${cardFeePct}%）` : ""}</SelectItem>
+                                        <SelectItem value="paypay" className="text-xs">PayPay{paypayFeePct > 0 ? `（手数料${paypayFeePct}%）` : ""}</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  {/* 金額プレビュー */}
+                                  {calc && (
+                                    <div className="rounded bg-muted/50 p-2 text-xs space-y-0.5">
+                                      {calc.discount > 0 && (
+                                        <div className="flex justify-between text-rose-600">
+                                          <span>割引</span>
+                                          <span>-¥{calc.discount.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {calc.fee > 0 && (
+                                        <div className="flex justify-between text-muted-foreground">
+                                          <span>決済手数料</span>
+                                          <span>+¥{calc.fee.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      <div className="flex justify-between font-bold pt-0.5 border-t">
+                                        <span>合計</span>
+                                        <span>¥{calc.total.toLocaleString()}</span>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    className="w-full h-8 text-xs"
+                                    onClick={() => handleSaveEdit(r)}
+                                    disabled={savingId === r.id}
+                                  >
+                                    {savingId === r.id ? (
+                                      <Loader2 size={12} className="animate-spin mr-1" />
+                                    ) : (
+                                      <Check size={12} className="mr-1" />
+                                    )}
+                                    変更を保存
+                                  </Button>
+                                </div>
                               )}
-                              {r.status === "cancelled" && (
-                                <span className="text-xs text-muted-foreground">キャンセル</span>
-                              )}
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </CardContent>
