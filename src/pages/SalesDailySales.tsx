@@ -25,6 +25,7 @@ interface Reservation {
   course_type: string | null;
   duration: number | null;
   cast_id: string | null;
+  options: string[] | null;
   casts: { id: string; name: string } | null;
 }
 
@@ -81,14 +82,15 @@ export default function SalesDailySales() {
     setLoading(true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
     try {
-      const [resResult, backRatesResult, clearResult] = await Promise.all([
+      const [resResult, backRatesResult, optionRatesResult, clearResult] = await Promise.all([
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, casts(id, name)")
+          .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, casts(id, name)")
           .eq("reservation_date", dateStr)
           .in("status", ["confirmed", "completed"])
           .order("start_time"),
         supabase.from("back_rates").select("course_type, duration, therapist_back"),
+        supabase.from("option_rates").select("option_name, therapist_back"),
         supabase
           .from("daily_clearances" as any)
           .select("*")
@@ -98,6 +100,10 @@ export default function SalesDailySales() {
       const brMap: Record<string, number> = {};
       for (const br of backRatesResult.data || []) {
         brMap[`${br.course_type}_${br.duration}`] = br.therapist_back ?? 0;
+      }
+      const optMap: Record<string, number> = {};
+      for (const or of optionRatesResult.data || []) {
+        optMap[or.option_name] = or.therapist_back ?? 0;
       }
 
       const groups: Record<string, CastGroup> = {};
@@ -111,6 +117,9 @@ export default function SalesDailySales() {
         groups[castId].reservations.push(r);
         groups[castId].totalSales += r.price ?? 0;
         groups[castId].autoBack += brMap[`${r.course_type}_${r.duration}`] ?? 0;
+        for (const opt of r.options ?? []) {
+          groups[castId].autoBack += optMap[opt] ?? 0;
+        }
       }
 
       const groupList = Object.values(groups).sort((a, b) => a.castName.localeCompare(b.castName));
