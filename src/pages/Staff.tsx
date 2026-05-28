@@ -97,6 +97,9 @@ interface Cast {
   instagram_url: string | null;
   custom_fields: Record<string, string> | null;
   tags: string[] | null;
+  customer_base_memo: string | null;
+  referral_route: string | null;
+  interview_sheet_url: string | null;
 }
 
 export default function Staff() {
@@ -171,6 +174,7 @@ export default function Staff() {
   const dragCastId = useRef<string | null>(null);
   const addPhotoInputRef = useRef<HTMLInputElement>(null);
   const editPhotoInputRef = useRef<HTMLInputElement>(null);
+  const interviewSheetInputRef = useRef<HTMLInputElement>(null);
   
   const { toast } = useToast();
   const { user, loading: authLoading, isAdmin } = useAuth();
@@ -406,6 +410,9 @@ export default function Staff() {
         memo: editingCast.memo || null,
         dispatch_status: editingCast.dispatch_status || 'none',
         repeat_scheduled: editingCast.repeat_scheduled || false,
+        customer_base_memo: editingCast.customer_base_memo || null,
+        referral_route: editingCast.referral_route || null,
+        interview_sheet_url: editingCast.interview_sheet_url || null,
         is_visible: editingCast.is_visible,
         custom_fields: Object.fromEntries(
           mgmtProps.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])
@@ -701,6 +708,27 @@ export default function Staff() {
       } else {
         if (addPhotoInputRef.current) addPhotoInputRef.current.value = "";
       }
+    }
+  };
+
+  const handleInterviewSheetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingCast) return;
+    setUploadingPhoto(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `interview-sheets/${crypto.randomUUID()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from("cast-photos").upload(fileName, file);
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(fileName);
+      setEditingCast({ ...editingCast, interview_sheet_url: publicUrl });
+      toast({ title: "アップロード完了", description: "面談シートをアップロードしました" });
+    } catch (error: any) {
+      console.error("Error uploading interview sheet:", error);
+      toast({ title: "エラー", description: "面談シートのアップロードに失敗しました", variant: "destructive" });
+    } finally {
+      setUploadingPhoto(false);
+      if (interviewSheetInputRef.current) interviewSheetInputRef.current.value = "";
     }
   };
 
@@ -1200,6 +1228,40 @@ export default function Staff() {
                       <div>
                         <Label>口コミ（O2）URL</Label>
                         <Input placeholder="https://..." value={editingCast.o2_url || ""} onChange={(e) => setEditingCast({...editingCast, o2_url: e.target.value})} />
+                      </div>
+
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">管理情報</Label>
+                        <div>
+                          <Label htmlFor="e-customer-base">客層メモ</Label>
+                          <Textarea id="e-customer-base" rows={2} className="mt-1" value={editingCast.customer_base_memo || ""} onChange={(e) => setEditingCast({...editingCast, customer_base_memo: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-referral-route">紹介経由</Label>
+                          <Input id="e-referral-route" className="mt-1" value={editingCast.referral_route || ""} onChange={(e) => setEditingCast({...editingCast, referral_route: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-recent-dispatch">直近確定詳細</Label>
+                          <Textarea id="e-recent-dispatch" rows={2} className="mt-1" value={editingCast.recent_dispatch_details || ""} onChange={(e) => setEditingCast({...editingCast, recent_dispatch_details: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label>面談シート（画像）</Label>
+                          <input ref={interviewSheetInputRef} type="file" accept="image/*" className="hidden" onChange={handleInterviewSheetUpload} />
+                          <div className="mt-1 space-y-2">
+                            {editingCast.interview_sheet_url && (
+                              <div className="relative inline-block">
+                                <img src={editingCast.interview_sheet_url} alt="面談シート" className="max-h-48 rounded border" />
+                                <Button type="button" variant="destructive" size="sm" className="absolute top-1 right-1 h-6 w-6 p-0" onClick={() => setEditingCast({...editingCast, interview_sheet_url: null})}>
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                            <Button type="button" variant="outline" size="sm" onClick={() => interviewSheetInputRef.current?.click()} disabled={uploadingPhoto}>
+                              <Camera className="h-4 w-4 mr-1.5" />
+                              {uploadingPhoto ? "アップロード中..." : editingCast.interview_sheet_url ? "画像を変更" : "画像をアップロード"}
+                            </Button>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="border rounded-lg p-4 space-y-3">
