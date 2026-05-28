@@ -141,7 +141,7 @@ export default function MonthlyShift() {
       <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="pt-[60px] md:ml-[240px] p-2 md:p-6 overflow-x-auto">
+      <main className="pt-[60px] md:ml-[240px] px-2 md:px-6 pb-2 md:pb-6 overflow-x-auto">
         {/* ヘッダー */}
         <div className="mb-4">
           {/* 1行目: タイトル + 月ナビ + シフト追加 */}
