@@ -80,6 +80,8 @@ $$;
 GRANT EXECUTE ON FUNCTION public.submit_therapist_shifts(text, jsonb) TO anon, authenticated;
 
 -- 3) セラピスト向け取得RPCに approval_status を追加
+-- 既存関数の戻り型が変わるためDROP必須
+DROP FUNCTION IF EXISTS public.get_therapist_shifts(text, int, int);
 CREATE OR REPLACE FUNCTION public.get_therapist_shifts(
   p_token text,
   p_year  int,
