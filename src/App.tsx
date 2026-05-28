@@ -60,6 +60,7 @@ import ReservationsList from "./pages/ReservationsList";
 import AvailableSlots from "./pages/AvailableSlots";
 import ArticleCreation from "./pages/ArticleCreation";
 import StoreInfo from "./pages/StoreInfo";
+import HpSnsLinks from "./pages/HpSnsLinks";
 import SalesCustomerInfo from "./pages/SalesCustomerInfo";
 import SalesTherapistBreakdown from "./pages/SalesTherapistBreakdown";
 import SalesPriceAnalysis from "./pages/SalesPriceAnalysis";
@@ -134,6 +135,7 @@ const App = () => (
           <Route path="/design" element={<Design />} />
           <Route path="/hp/article-creation" element={<ArticleCreation />} />
           <Route path="/hp/store-info" element={<StoreInfo />} />
+          <Route path="/hp/sns-links" element={<HpSnsLinks />} />
           <Route path="/report" element={<Report />} />
           <Route path="/salary" element={<Salary />} />
           <Route path="/pricing-management" element={<Pricing />} />
