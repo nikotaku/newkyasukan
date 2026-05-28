@@ -47,7 +47,13 @@ export async function fetchSheetRows(
 
   const text = await res.text();
   // gviz response is wrapped: /*O_o*/\ngoogle.visualization.Query.setResponse({...});
-  const jsonStr = text.replace(/^.*?setResponse\(/, "").replace(/\);\s*$/, "");
+  // 改行を跨ぐので s フラグ必須
+  const start = text.indexOf("(");
+  const end = text.lastIndexOf(")");
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error("シートを読み込めませんでした。共有設定を確認してください。");
+  }
+  const jsonStr = text.slice(start + 1, end);
   const json = JSON.parse(jsonStr);
 
   if (json.status !== "ok") {
