@@ -35,14 +35,14 @@ DROP POLICY IF EXISTS "room_equipment_select" ON public.room_equipment;
 CREATE POLICY "room_equipment_select" ON public.room_equipment FOR SELECT USING (true);
 DROP POLICY IF EXISTS "room_equipment_admin" ON public.room_equipment;
 CREATE POLICY "room_equipment_admin" ON public.room_equipment FOR ALL
-  USING (has_role(auth.uid(), 'admin'::app_role))
-  WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
+  USING (has_role(auth.uid(), 'admin'))
+  WITH CHECK (has_role(auth.uid(), 'admin'));
 
 DROP POLICY IF EXISTS "room_supplies_select" ON public.room_supplies;
 CREATE POLICY "room_supplies_select" ON public.room_supplies FOR SELECT USING (true);
 DROP POLICY IF EXISTS "room_supplies_admin" ON public.room_supplies;
 CREATE POLICY "room_supplies_admin" ON public.room_supplies FOR ALL
-  USING (has_role(auth.uid(), 'admin'::app_role))
-  WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
+  USING (has_role(auth.uid(), 'admin'))
+  WITH CHECK (has_role(auth.uid(), 'admin'));
 
 NOTIFY pgrst, 'reload schema';
