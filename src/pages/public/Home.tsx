@@ -166,29 +166,6 @@ const Home = () => {
         </section>
       )}
 
-      {/* NEWS Section */}
-      <section className="py-12 px-4 bg-white">
-        <div className="container mx-auto max-w-3xl">
-          <SectionHeading english="NEWS" japanese="お知らせ" />
-          <div className="text-center text-[#a89586] text-sm">
-            <p>最新のお知らせは X (Twitter) にてご確認ください</p>
-            <a
-              href="https://twitter.com/zr_sendai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 mt-4 px-6 py-2 bg-black text-white rounded-full text-sm hover:bg-gray-800 transition-colors"
-            >
-              <img
-                src="https://cdn2-caskan.com/caskan/asset/sns/x.png"
-                alt="X"
-                className="w-4 h-4 invert"
-              />
-              @zr_sendai をフォロー
-            </a>
-          </div>
-        </div>
-      </section>
-
       {/* CONCEPT Section */}
       <section className="py-12 px-4">
         <div className="container mx-auto max-w-3xl">

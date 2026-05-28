@@ -56,17 +56,11 @@ import SchedulePage from "./pages/Schedule";
 import Expenses from "./pages/Expenses";
 import Board from "./pages/Board";
 import Knowledge from "./pages/Knowledge";
-import News from "./pages/public/News";
 import MonthlyShift from "./pages/MonthlyShift";
 import ReservationsList from "./pages/ReservationsList";
 import AvailableSlots from "./pages/AvailableSlots";
-import HPBulletinBoard from "./pages/HPBulletinBoard";
 import ArticleCreation from "./pages/ArticleCreation";
 import StoreInfo from "./pages/StoreInfo";
-import AnalyticsDailyAccess from "./pages/AnalyticsDailyAccess";
-import AnalyticsHourlyAccess from "./pages/AnalyticsHourlyAccess";
-import AnalyticsAverageStay from "./pages/AnalyticsAverageStay";
-import AnalyticsTracking from "./pages/AnalyticsTracking";
 import SalesCustomerInfo from "./pages/SalesCustomerInfo";
 import SalesTherapistBreakdown from "./pages/SalesTherapistBreakdown";
 import SalesPriceAnalysis from "./pages/SalesPriceAnalysis";
@@ -98,7 +92,6 @@ import CastImport from "./pages/CastImport";
 import ReservationImport from "./pages/ReservationImport";
 import CustomerImport from "./pages/CustomerImport";
 import SalesClosing from "./pages/SalesClosing";
-import Analytics from "./pages/Analytics";
 import TextTemplates from "./pages/TextTemplates";
 import CastPostManagement from "./pages/CastPostManagement";
 import TherapistPostPage from "./pages/TherapistPostPage";
@@ -121,7 +114,6 @@ const App = () => (
           <Route path="/pricing" element={<PublicPricing />} />
           <Route path="/system" element={<PublicSystem />} />
           <Route path="/access" element={<PublicAccess />} />
-          <Route path="/news" element={<News />} />
           <Route path="/booking" element={<BookingReservation />} />
           <Route path="/page/:slug" element={<NotionPageView />} />
           
@@ -140,14 +132,8 @@ const App = () => (
           <Route path="/agreement" element={<Agreement />} />
           <Route path="/rooms" element={<RoomSettings />} />
           <Route path="/design" element={<Design />} />
-          <Route path="/hp/bulletin-board" element={<HPBulletinBoard />} />
           <Route path="/hp/article-creation" element={<ArticleCreation />} />
           <Route path="/hp/store-info" element={<StoreInfo />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/hp/analytics/daily-access" element={<AnalyticsDailyAccess />} />
-          <Route path="/hp/analytics/hourly-access" element={<AnalyticsHourlyAccess />} />
-          <Route path="/hp/analytics/average-stay" element={<AnalyticsAverageStay />} />
-          <Route path="/hp/analytics/tracking" element={<AnalyticsTracking />} />
           <Route path="/report" element={<Report />} />
           <Route path="/salary" element={<Salary />} />
           <Route path="/pricing-management" element={<Pricing />} />

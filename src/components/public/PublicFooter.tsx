@@ -6,7 +6,6 @@ const footerNavItems = [
   { to: "/casts", label: "セラピスト", external: false },
   { to: "/system", label: "料金システム", external: false },
   { to: "/access", label: "アクセス", external: false },
-  { to: "/news", label: "お知らせ", external: false },
   { to: "https://esjob.jp/shop/43923/", label: "求人情報", external: true },
   { to: "/booking", label: "Web予約", external: false },
 ];

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -139,6 +138,8 @@ export default function PasswordDatabase() {
 
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
+  const categoryOptions = Array.from(new Set([...CATEGORIES, ...entries.map((e) => e.category)])).filter(Boolean);
+
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
@@ -167,12 +168,15 @@ export default function PasswordDatabase() {
                   </div>
                   <div>
                     <Label className="text-xs">カテゴリー</Label>
-                    <Select value={form.category} onValueChange={(v) => set("category", v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      list="pw-category-options"
+                      value={form.category}
+                      onChange={(e) => set("category", e.target.value)}
+                      placeholder="自由に入力（例: 業務システム）"
+                    />
+                    <datalist id="pw-category-options">
+                      {categoryOptions.map((c) => <option key={c} value={c} />)}
+                    </datalist>
                   </div>
                   <div>
                     <Label className="text-xs">URL</Label>

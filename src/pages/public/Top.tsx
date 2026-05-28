@@ -28,14 +28,6 @@ interface TodayShift {
   };
 }
 
-interface News {
-  id: string;
-  title: string;
-  content: string;
-  created_at: string;
-  is_pinned: boolean;
-}
-
 const FALLBACK_BANNERS = [
   "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750253573.png",
   "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750762260.png",
@@ -43,7 +35,6 @@ const FALLBACK_BANNERS = [
 
 const Top = () => {
   const [todayShifts, setTodayShifts] = useState<TodayShift[]>([]);
-  const [news, setNews] = useState<News[]>([]);
   const [bannerSlides, setBannerSlides] = useState<string[]>(FALLBACK_BANNERS);
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -63,18 +54,12 @@ const Top = () => {
 
   const fetchAll = async () => {
     const today = format(new Date(), "yyyy-MM-dd");
-    const [s, n, b] = await Promise.all([
+    const [s, b] = await Promise.all([
       supabase
         .from("shifts")
         .select("id,cast_id,start_time,end_time,casts(id,name,photo,age,height,cup_size,message,tags,x_account)")
         .eq("shift_date", today)
         .order("start_time", { ascending: true }),
-      supabase
-        .from("board_posts")
-        .select("id,title,content,created_at,is_pinned")
-        .order("is_pinned", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(4),
       supabase
         .from("banners")
         .select("image_url")
@@ -91,7 +76,6 @@ const Top = () => {
       });
       setTodayShifts(unique as TodayShift[]);
     }
-    if (n.data) setNews(n.data as News[]);
     if (b.data && b.data.length > 0) {
       setBannerSlides(b.data.map((r: any) => r.image_url));
     }
@@ -99,11 +83,6 @@ const Top = () => {
   };
 
   const todayLabel = format(new Date(), "M月d日(E)", { locale: ja });
-
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
-  };
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
@@ -239,36 +218,6 @@ const Top = () => {
               className="inline-block border border-[#c49480] text-[#c49480] hover:bg-[#c49480]/10 font-semibold text-sm px-6 py-2.5 rounded transition"
             >
               出勤カレンダー
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== NEWS ===== */}
-      <section className="py-8 md:py-12 bg-white/40">
-        <div className="container mx-auto max-w-4xl px-3 md:px-6">
-          <SectionTitle en="NEWS" jp="お知らせ" />
-          {news.length === 0 ? (
-            <p className="text-center text-[#a89586] text-sm mt-4">お知らせはまだありません</p>
-          ) : (
-            <ul className="mt-5 md:mt-8 space-y-2 md:space-y-4">
-              {news.map((n) => (
-                <li
-                  key={n.id}
-                  className="bg-white rounded-lg p-3 md:p-5 shadow-sm hover:shadow-md transition-shadow border border-[#e5d5cc]"
-                >
-                  <p className="text-[10px] md:text-xs text-[#a89586] mb-0.5">{formatDate(n.created_at)}</p>
-                  <h3 className="text-sm md:text-base font-bold mb-1" style={{ color: "#7a706c" }}>
-                    {n.title}
-                  </h3>
-                  <p className="text-xs text-[#5c4a3a] whitespace-pre-wrap line-clamp-2">{n.content}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="text-center mt-5 md:mt-8">
-            <Link to="/news" className="text-sm text-[#7a706c] hover:text-[#c49480] transition-colors font-semibold tracking-wider">
-              その他のお知らせ →
             </Link>
           </div>
         </div>
