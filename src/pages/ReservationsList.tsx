@@ -360,6 +360,11 @@ export default function ReservationsList() {
                   const castMap = new Map<string, string>();
                   (castData || []).forEach((c: { id: string; name: string }) => castMap.set(c.name, c.id));
                   const mapped = mapReservationRows(headers, rows, castMap);
+                  if (mapped.length === 0 && rows.length > 0) {
+                    throw new Error(
+                      `日付を認識できる行がありませんでした。「予約日」列の日付形式をご確認ください（検出した列: ${headers.filter(Boolean).join(" / ")}）`
+                    );
+                  }
                   const count = await batchInsert("reservations", mapped);
                   await fetchReservations();
                   return count;

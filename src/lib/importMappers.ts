@@ -21,6 +21,17 @@ function getCol(row: string[], headers: string[], name: string) {
   return (row[headers.indexOf(name)] || "").trim();
 }
 
+function getColAny(row: string[], headers: string[], names: string[]) {
+  for (const name of names) {
+    const idx = headers.findIndex((h) => h.trim() === name);
+    if (idx >= 0) {
+      const v = (row[idx] || "").trim();
+      if (v) return v;
+    }
+  }
+  return "";
+}
+
 export function mapCustomerRows(headers: string[], dataRows: string[][]) {
   return dataRows
     .filter((r) => r.some((c) => c.trim()))
@@ -33,8 +44,9 @@ export function mapCustomerRows(headers: string[], dataRows: string[][]) {
       const visitRaw = getCol(r, headers, "利用回数");
       return {
         name: getCol(r, headers, "名前") || phone,
+        kana: getColAny(r, headers, ["かな", "カナ", "フリガナ", "ふりがな"]) || null,
         phone,
-        email: getCol(r, headers, "Email") || null,
+        email: getColAny(r, headers, ["Email", "email", "メールアドレス", "メール"]) || null,
         visit_count: visitRaw ? parseInt(visitRaw, 10) : null,
         status: statusRaw === "出禁" ? "banned" : statusRaw === "要注意" ? "caution" : "active",
         notes: [memo, ng ? `NG: ${ng}` : ""].filter(Boolean).join(" / ") || null,
@@ -47,10 +59,29 @@ export function mapReservationRows(headers: string[], dataRows: string[][], cast
   const parsePrice = (s: string) => parseInt(s.replace(/[¥,\s]/g, "") || "0", 10) || 0;
   const parseDur = (c: string) => { const m = c.match(/(\d+)分/); return m ? parseInt(m[1]) : 60; };
   const parseDate = (s: string) => {
-    const m = s.match(/^(\d+)\/(\d+)\s*[月火水木金土日]?\s*(\d+):(\d+)/);
-    if (!m) return null;
-    const mo = parseInt(m[1]), d = parseInt(m[2]), h = parseInt(m[3]), mi = parseInt(m[4]);
-    const yr = mo >= 10 ? 2025 : 2026;
+    if (!s) return null;
+    const str = s.trim();
+    let yr: number | null = null, mo: number, d: number;
+    // YYYY/M/D, YYYY-M-D, YYYY年M月D日
+    let m = str.match(/(\d{4})[\/\-年.](\d{1,2})[\/\-月.](\d{1,2})/);
+    if (m) {
+      yr = parseInt(m[1]); mo = parseInt(m[2]); d = parseInt(m[3]);
+    } else {
+      // M/D, M-D, M月D日
+      m = str.match(/(\d{1,2})[\/\-月.](\d{1,2})/);
+      if (!m) return null;
+      mo = parseInt(m[1]); d = parseInt(m[2]);
+    }
+    if (!mo || !d || mo > 12 || d > 31) return null;
+    // 時刻（任意）
+    const tm = str.match(/(\d{1,2}):(\d{2})/);
+    const h = tm ? parseInt(tm[1]) : 0;
+    const mi = tm ? parseInt(tm[2]) : 0;
+    if (yr === null) {
+      // 年指定がない場合：10〜12月は前年、1〜9月は当年とみなす
+      const curYear = new Date().getFullYear();
+      yr = mo >= 10 ? curYear - 1 : curYear;
+    }
     const dt = new Date(yr, mo - 1, d, h, mi);
     const dd = dt.getDate(), dm = dt.getMonth() + 1, dy = dt.getFullYear();
     return {
@@ -69,24 +100,28 @@ export function mapReservationRows(headers: string[], dataRows: string[][], cast
   return dataRows
     .filter((r) => r.some((c) => c.trim()))
     .map((r) => {
-      const d = parseDate(getCol(r, headers, "予約日"));
+      const d = parseDate(getColAny(r, headers, ["開始日時", "予約日時", "予約日", "日時", "日付", "来店日", "予約日付"]));
       if (!d) return null;
-      const castName = parseCast(getCol(r, headers, "キャスト"));
-      const route = getCol(r, headers, "経路");
-      const notesBase = getCol(r, headers, "メモ") || getCol(r, headers, "備考");
+      const castName = parseCast(getColAny(r, headers, ["キャスト", "セラピスト", "担当", "担当者"]));
+      const route = getColAny(r, headers, ["予約経路", "経路", "流入経路", "媒体"]);
+      const notesBase = getColAny(r, headers, ["メモ", "備考", "コメント"]);
       const noteParts = [notesBase, route ? `経路: ${route}` : ""].filter(Boolean);
+      const course = getColAny(r, headers, ["コース", "メニュー", "コース名"]);
       return {
         reservation_date: d.date,
         start_time: d.time,
-        customer_name: getCol(r, headers, "予約名") || "不明",
-        customer_phone: getCol(r, headers, "電話番号")?.replace(/^'/, "").replace(/[^\d]/g, "") || "",
+        customer_name: getColAny(r, headers, ["予約名", "顧客名", "お名前", "名前", "予約者"]) || "不明",
+        customer_phone: getColAny(r, headers, ["電話番号", "電話", "TEL", "tel"]).replace(/^'/, "").replace(/[^\d]/g, "") || "",
+        customer_email: getColAny(r, headers, ["メールアドレス", "Email", "email", "メール"]) || null,
         cast_id: castName ? (castMap.get(castName) || null) : null,
-        course_name: getCol(r, headers, "コース") || "不明",
-        duration: parseDur(getCol(r, headers, "コース")),
-        room: getCol(r, headers, "ルーム") || null,
-        price: parsePrice(getCol(r, headers, "売上")),
-        payment_method: parsePay(getCol(r, headers, "決済")),
-        status: parseStatus(getCol(r, headers, "ステータス")),
+        nomination_type: getColAny(r, headers, ["指名", "指名種別"]) || null,
+        course_name: course || "不明",
+        duration: parseDur(course),
+        room: getColAny(r, headers, ["ルーム", "部屋", "店舗"]) || null,
+        price: parsePrice(getColAny(r, headers, ["売上", "料金", "金額", "価格"])),
+        payment_method: parsePay(getColAny(r, headers, ["決済方法", "決済", "支払", "支払方法"])),
+        referral_source: route || null,
+        status: parseStatus(getColAny(r, headers, ["ステータス", "状態", "予約状況"])),
         notes: noteParts.join(" / ") || null,
       };
     })

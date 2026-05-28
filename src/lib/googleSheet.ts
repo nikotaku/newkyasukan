@@ -67,13 +67,18 @@ export async function fetchSheetRows(
   const rows: string[][] = (json.table.rows || []).map((r: any) =>
     (r.c || []).map((cell: any) => {
       if (cell == null || cell.v == null) return "";
-      // Date values come as "Date(2024,0,1)" → convert
+      // Date/DateTime values come as "Date(2024,0,1)" or "Date(2024,0,1,14,30,0)" → convert
       if (typeof cell.v === "string" && cell.v.startsWith("Date(")) {
-        const parts = cell.v.match(/Date\((\d+),(\d+),(\d+)/);
+        const parts = cell.v.match(/Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+)(?:,(\d+))?)?\)/);
         if (parts) {
           const y = parts[1];
           const m = String(parseInt(parts[2]) + 1).padStart(2, "0");
           const d = String(parts[3]).padStart(2, "0");
+          if (parts[4] != null) {
+            const hh = String(parts[4]).padStart(2, "0");
+            const mm = String(parts[5] ?? "0").padStart(2, "0");
+            return `${y}/${m}/${d} ${hh}:${mm}`;
+          }
           return `${y}/${m}/${d}`;
         }
       }
