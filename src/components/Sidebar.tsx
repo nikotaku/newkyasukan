@@ -169,7 +169,6 @@ const menuItems: MenuItem[] = [
           { href: "/facilities/rooms", label: "ルーム管理" },
           { href: "/facilities/rooms?tab=inroom", label: "インルーム" },
           { href: "/facilities/rooms?tab=lazy", label: "ラズルーム" },
-          { href: "/facilities/rooms?tab=equipment", label: "設備管理" },
           { href: "/facilities/rooms?tab=supplies", label: "備品登録" },
         ],
       },
