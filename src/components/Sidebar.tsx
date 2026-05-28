@@ -6,7 +6,6 @@ import {
   BarChart3,
   LogOut,
   ExternalLink,
-  Sparkles,
   MessageSquare,
   ChevronDown,
   Cpu,
@@ -194,7 +193,6 @@ const menuItems: MenuItem[] = [
       },
     ],
   },
-  { href: "/text-generation", label: "文章生成", icon: Sparkles },
 ];
 
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
