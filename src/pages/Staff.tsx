@@ -924,35 +924,6 @@ export default function Staff() {
                         </div>
                       </div>
 
-                      {/* セラピストの情報 */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">セラピストの情報</Label>
-                        <div>
-                          <Label htmlFor="add-enrollment">在籍期間</Label>
-                          <Input id="add-enrollment" placeholder="2024年4月〜" value={formData.enrollment_period} onChange={(e) => setFormData({...formData, enrollment_period: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="add-ideal-partner">担当な相手 / 好きな流派のタイプ</Label>
-                          <Input id="add-ideal-partner" placeholder="紳士な方" value={formData.ideal_partner} onChange={(e) => setFormData({...formData, ideal_partner: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="add-food">好きな食べ物</Label>
-                          <Input id="add-food" placeholder="じゃがりこ" value={formData.favorite_food} onChange={(e) => setFormData({...formData, favorite_food: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="add-celebrity">好きな著名人</Label>
-                          <Input id="add-celebrity" placeholder="" value={formData.celebrity_like} onChange={(e) => setFormData({...formData, celebrity_like: e.target.value})} />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input type="checkbox" id="add-uses-sns" checked={formData.uses_sns} onChange={(e) => setFormData({...formData, uses_sns: e.target.checked})} className="h-4 w-4" />
-                          <Label htmlFor="add-uses-sns">SNS利用している？</Label>
-                        </div>
-                        <div>
-                          <Label htmlFor="add-hobby">趣味・特徴</Label>
-                          <Textarea id="add-hobby" rows={2} value={formData.hobby} onChange={(e) => setFormData({...formData, hobby: e.target.value})} />
-                        </div>
-                      </div>
-
                       {/* ブログ・SNS */}
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">ブログ・SNS</Label>
@@ -971,39 +942,6 @@ export default function Staff() {
                         <div>
                           <Label htmlFor="add-instagram">Instagram</Label>
                           <Input id="add-instagram" placeholder="https://..." value={formData.instagram_url} onChange={(e) => setFormData({...formData, instagram_url: e.target.value})} />
-                        </div>
-                      </div>
-
-                      {/* 管理情報 */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">管理情報</Label>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label>ルーム</Label>
-                            <Select value={formData.room} onValueChange={(v) => setFormData({...formData, room: v})}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="インルーム">インルーム</SelectItem>
-                                <SelectItem value="ラスルーム">ラスルーム</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label>ステータス</Label>
-                            <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v})}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="派遣中">派遣中</SelectItem>
-                                <SelectItem value="リピート予定">リピート予定</SelectItem>
-                                <SelectItem value="残タスク">残タスク</SelectItem>
-                                <SelectItem value="未着手">未着手</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <div>
-                          <Label htmlFor="add-memo">メモ</Label>
-                          <Textarea id="add-memo" rows={3} value={formData.memo} onChange={(e) => setFormData({...formData, memo: e.target.value})} />
                         </div>
                       </div>
 
@@ -1196,35 +1134,6 @@ export default function Staff() {
                         </div>
                       </div>
 
-                      {/* セラピストの情報 */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">セラピストの情報</Label>
-                        <div>
-                          <Label htmlFor="e-enrollment">在籍期間</Label>
-                          <Input id="e-enrollment" value={editingCast.enrollment_period || ""} onChange={(e) => setEditingCast({...editingCast, enrollment_period: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="e-ideal">担当な相手 / 好きな流派のタイプ</Label>
-                          <Input id="e-ideal" value={editingCast.ideal_partner || ""} onChange={(e) => setEditingCast({...editingCast, ideal_partner: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="e-food">好きな食べ物</Label>
-                          <Input id="e-food" value={editingCast.favorite_food || ""} onChange={(e) => setEditingCast({...editingCast, favorite_food: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="e-celebrity">好きな著名人</Label>
-                          <Input id="e-celebrity" value={editingCast.celebrity_like || ""} onChange={(e) => setEditingCast({...editingCast, celebrity_like: e.target.value})} />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input type="checkbox" id="e-uses-sns" checked={editingCast.uses_sns || false} onChange={(e) => setEditingCast({...editingCast, uses_sns: e.target.checked})} className="h-4 w-4" />
-                          <Label htmlFor="e-uses-sns">SNS利用している？</Label>
-                        </div>
-                        <div>
-                          <Label htmlFor="e-hobby">趣味・特徴</Label>
-                          <Textarea id="e-hobby" rows={2} value={editingCast.hobby || ""} onChange={(e) => setEditingCast({...editingCast, hobby: e.target.value})} />
-                        </div>
-                      </div>
-
                       {/* ブログ・SNS */}
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">ブログ・SNS</Label>
@@ -1264,31 +1173,6 @@ export default function Staff() {
                         <Button type="button" variant={editingCast.is_visible ? "default" : "outline"} size="sm" onClick={() => setEditingCast({...editingCast, is_visible: !editingCast.is_visible})}>
                           {editingCast.is_visible ? "ON" : "OFF"}
                         </Button>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label>ルーム</Label>
-                          <Select value={editingCast.room || ""} onValueChange={(v) => setEditingCast({...editingCast, room: v})}>
-                            <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="インルーム">インルーム</SelectItem>
-                              <SelectItem value="ラスルーム">ラスルーム</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>ステータス</Label>
-                          <Select value={editingCast.status} onValueChange={(v) => setEditingCast({...editingCast, status: v})}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="派遣中">派遣中</SelectItem>
-                              <SelectItem value="リピート予定">リピート予定</SelectItem>
-                              <SelectItem value="残タスク">残タスク</SelectItem>
-                              <SelectItem value="未着手">未着手</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
                       </div>
 
                       <div>
@@ -1338,11 +1222,6 @@ export default function Staff() {
                       <div>
                         <Label>直近派遣詳細</Label>
                         <Textarea rows={3} value={editingCast.recent_dispatch_details || ""} onChange={(e) => setEditingCast({...editingCast, recent_dispatch_details: e.target.value})} />
-                      </div>
-
-                      <div>
-                        <Label>メモ</Label>
-                        <Textarea rows={4} value={editingCast.memo || ""} onChange={(e) => setEditingCast({...editingCast, memo: e.target.value})} />
                       </div>
                     </TabsContent>
                   </Tabs>
