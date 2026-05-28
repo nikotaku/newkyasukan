@@ -342,7 +342,6 @@ export default function TherapistCheckout() {
           .from("daily_clearances" as any)
           .update({ status: "completed" })
           .eq("cast_id", cast.id)
-          .eq("date", selectedDate)
           .eq("status", "pending");
         // Fetch next shift for greeting
         const today = format(new Date(), "yyyy-MM-dd");
