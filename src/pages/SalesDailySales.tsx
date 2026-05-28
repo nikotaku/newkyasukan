@@ -175,10 +175,11 @@ export default function SalesDailySales() {
         brMap[`${br.course_type}_${br.duration}`] = br.therapist_back ?? 0;
       }
 
-      // group by cast
+      // group by cast (skip reservations without cast_id)
       const groups: Record<string, CastGroup> = {};
       for (const r of (resResult.data as Reservation[]) || []) {
-        const castId = r.cast_id ?? "unknown";
+        if (!r.cast_id) continue;
+        const castId = r.cast_id;
         const castName = r.casts?.name ?? "未設定";
         if (!groups[castId]) {
           groups[castId] = { castId, castName, reservations: [], totalSales: 0, autoBack: 0 };
