@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { User, Copy, Check } from "lucide-react";
+import { User, Copy, Check, Zap, Users, LayoutGrid } from "lucide-react";
+import { driveImgUrl } from "@/lib/drive";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,8 +15,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
-import { PublicFooter } from "@/components/public/PublicFooter";
-import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 
 interface Cast {
   id: string;
@@ -75,7 +74,17 @@ const reservationSchema = z.object({
   notes: z.string().max(1000, "備考は1000文字以内で入力してください").refine(val => !val || !/<[^>]*>/g.test(val), "HTMLタグは使用できません").optional(),
 });
 
+interface Banner {
+  id: string;
+  image_url: string;
+  link_url: string | null;
+}
+
+type BottomTab = "now" | "select" | "menu";
+
 const BookingReservation = () => {
+  const [bottomTab, setBottomTab] = useState<BottomTab>("select");
+  const [banners, setBanners] = useState<Banner[]>([]);
   const [casts, setCasts] = useState<Cast[]>([]);
   const [backRates, setBackRates] = useState<BackRate[]>([]);
   const [optionRates, setOptionRates] = useState<OptionRate[]>([]);
@@ -119,7 +128,35 @@ const BookingReservation = () => {
 
   useEffect(() => {
     fetchRates();
+    fetchBanners();
   }, []);
+
+  const fetchBanners = async () => {
+    const { data } = await supabase
+      .from("banners")
+      .select("id, image_url, link_url")
+      .eq("is_active", true)
+      .order("display_order", { ascending: true });
+    setBanners((data || []) as Banner[]);
+  };
+
+  // 今すぐ案内できるセラピスト（本日出勤・待機中）
+  const nowCasts = casts.filter((c) => c.status === "waiting");
+
+  const goBookCast = (castId: string) => {
+    setSelectedCastId(castId);
+    setBottomTab("select");
+    setCurrentStep(2);
+  };
+
+  const switchTab = (tab: BottomTab) => {
+    if (tab === "now") {
+      // 「今すぐ」は本日を対象にする
+      const today = new Date();
+      setSelectedDate(today);
+    }
+    setBottomTab(tab);
+  };
 
   // Fetch available casts when date changes
   useEffect(() => {
@@ -553,7 +590,7 @@ const BookingReservation = () => {
 
   if (bookingComplete) {
     return (
-      <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+      <div className="min-h-screen pb-20" style={{ backgroundColor: "#f8f6f3" }}>
         <PublicNavigation />
         <div className="container mx-auto px-4 py-8 max-w-lg">
           <Card className="border-0 shadow-lg">
@@ -585,14 +622,12 @@ const BookingReservation = () => {
             </CardContent>
           </Card>
         </div>
-        <PublicFooter />
-        <FixedBottomBar />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+    <div className="min-h-screen pb-20" style={{ backgroundColor: "#f8f6f3" }}>
       <PublicNavigation />
 
       <main className="container py-8 px-4">
@@ -611,7 +646,64 @@ const BookingReservation = () => {
             下記のフォームよりご予約ください
           </p>
 
+          {/* 今すぐ案内できるセラピスト */}
+          {bottomTab === "now" && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold" style={{ color: "#7a706c" }}>今すぐご案内できるセラピスト</h2>
+              {loading ? (
+                <div className="text-center p-12 text-muted-foreground">読み込み中...</div>
+              ) : nowCasts.length === 0 ? (
+                <div className="text-center p-12 text-muted-foreground">現在すぐにご案内できるセラピストはいません</div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {nowCasts.map((cast) => (
+                    <Card key={cast.id} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => goBookCast(cast.id)}>
+                      <CardContent className="p-0">
+                        <div className="aspect-[3/4] overflow-hidden rounded-t-md bg-muted">
+                          {cast.photo ? (
+                            <img src={driveImgUrl(cast.photo)} alt={cast.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-muted-foreground"><User className="h-12 w-12" /></div>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
+                            <h3 className="font-bold" style={{ color: "#7a706c" }}>{cast.name}</h3>
+                          </div>
+                          <Button className="w-full mt-1" size="sm">このセラピストで予約</Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* おすすめメニュー（バナー） */}
+          {bottomTab === "menu" && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold" style={{ color: "#7a706c" }}>おすすめメニュー</h2>
+              {banners.length === 0 ? (
+                <div className="text-center p-12 text-muted-foreground">おすすめメニューはありません</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {banners.map((b) => {
+                    const img = <img src={driveImgUrl(b.image_url)} alt="おすすめメニュー" className="w-full rounded-lg shadow" />;
+                    return b.link_url ? (
+                      <a key={b.id} href={b.link_url} target="_blank" rel="noopener noreferrer" className="block hover:opacity-90 transition-opacity">{img}</a>
+                    ) : (
+                      <div key={b.id}>{img}</div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ステップインジケーター */}
+          {bottomTab === "select" && (<>
           <div className="flex justify-center mb-8">
             <div className="flex items-center gap-2">
               {[1, 2, 3, 4].map((step) => (
@@ -1158,11 +1250,36 @@ const BookingReservation = () => {
               )}
             </CardContent>
           </Card>
+          </>)}
         </div>
       </main>
 
-      <PublicFooter />
-      <FixedBottomBar />
+      {/* 予約ページ専用フッタータブ */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.08)]">
+        <div className="grid grid-cols-3 max-w-5xl mx-auto">
+          {([
+            { key: "now", label: "今すぐ", icon: Zap },
+            { key: "select", label: "セラピストから選ぶ", icon: Users },
+            { key: "menu", label: "おすすめメニュー", icon: LayoutGrid },
+          ] as const).map((t) => {
+            const Icon = t.icon;
+            const active = bottomTab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => switchTab(t.key)}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
+                  active ? "text-white bg-[#c49480]" : "text-[#7a706c] hover:bg-[#f2e4de]"
+                )}
+              >
+                <Icon size={18} />
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };
