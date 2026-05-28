@@ -4,7 +4,6 @@ import { driveImgUrl } from "@/lib/drive";
 import { ImportModal } from "@/components/ImportModal";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
-import { WebsitePhotoSync } from "@/components/WebsitePhotoSync";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -1183,13 +1182,6 @@ export default function Staff() {
                   </Button>
                 </DialogContent>
               </Dialog>
-            )}
-
-            {/* Website Photo Sync */}
-            {isAdmin && (
-              <div className="mb-6">
-                <WebsitePhotoSync />
-              </div>
             )}
 
             <TabsContent value="management" className="space-y-6">
