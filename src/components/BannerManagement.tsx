@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { driveImgUrl } from "@/lib/drive";
-import { Image as ImageIcon, Trash2, GripVertical, Plus } from "lucide-react";
+import { Image as ImageIcon, Trash2, GripVertical, Plus, Upload } from "lucide-react";
 
 interface Banner {
   id: string;
@@ -22,8 +22,35 @@ export function BannerManagement() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);
   const [newBanner, setNewBanner] = useState({ title: "", image_url: "", link_url: "" });
+  const [uploading, setUploading] = useState(false);
   const dragId = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from("banner-images")
+        .upload(fileName, file);
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage
+        .from("banner-images")
+        .getPublicUrl(fileName);
+      setNewBanner((b) => ({ ...b, image_url: publicUrl }));
+      toast({ title: "画像をアップロードしました" });
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "アップロードに失敗しました", description: err?.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   useEffect(() => {
     fetchBanners();
@@ -128,11 +155,29 @@ export function BannerManagement() {
             </div>
           </div>
           <div>
-            <Label className="text-xs">画像（GoogleドライブURL）</Label>
+            <Label className="text-xs">画像</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full mb-2"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              <Upload className="h-4 w-4 mr-1.5" />
+              {uploading ? "アップロード中..." : "画像ファイルをアップロード"}
+            </Button>
             <Input
               value={newBanner.image_url}
               onChange={(e) => setNewBanner({ ...newBanner, image_url: e.target.value })}
-              placeholder="https://drive.google.com/file/d/... またはファイルID"
+              placeholder="またはGoogleドライブURL / ファイルID"
             />
             {newBanner.image_url && (
               <img
