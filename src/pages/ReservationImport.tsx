@@ -41,6 +41,15 @@ function parseDate(s: string): { date: string; time: string } | null {
   if (!s || !s.trim()) return null;
   const str = s.trim();
 
+  // YYYY-MM-DD HH:MM(:SS)
+  const m0 = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+  if (m0) {
+    return {
+      date: `${m0[1]}-${m0[2].padStart(2, "0")}-${m0[3].padStart(2, "0")}`,
+      time: `${m0[4].padStart(2, "0")}:${m0[5]}`,
+    };
+  }
+
   // YYYY/MM/DD HH:MM(:SS)
   const m1 = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
   if (m1) {
@@ -177,7 +186,7 @@ export default function ReservationImport() {
     const headers = rows[0].map((h) => h.trim());
     setDetectedHeaders(headers);
 
-    const REQUIRED = ["開始日時", "氏名", "キャスト", "コース"];
+    const REQUIRED = ["開始日時", "予約名", "キャスト", "コース"];
     const missing = REQUIRED.filter((h) => !headers.includes(h));
     if (missing.length > 0) {
       setParseError(`列が見つかりません: ${missing.join(", ")}\n検出された列: ${headers.slice(0, 8).join(", ")}...`);
@@ -202,18 +211,18 @@ export default function ReservationImport() {
       result.push({
         reservation_date: parsedDate.date,
         start_time: parsedDate.time,
-        customer_name: getCol(row, "氏名") || getCol(row, "予約名") || "不明",
-        customer_phone: getCol(row, "電話番号") || "",
+        customer_name: getCol(row, "予約名") || getCol(row, "氏名") || "不明",
+        customer_phone: getCol(row, "電話番号").replace(/^'/, "") || "",
         customer_email: getCol(row, "メールアドレス") || "",
         cast_name: castName,
         cast_id: castName ? (castMap.get(castName) || null) : null,
         course: getCol(row, "コース"),
         duration: parseDuration(getCol(row, "コース")),
         room: getCol(row, "ルーム") || null,
-        price: parsePrice(getCol(row, "料金") || getCol(row, "売上")),
-        payment_method: parsePayment(getCol(row, "支払方法") || getCol(row, "決済")),
+        price: parsePrice(getCol(row, "売上") || getCol(row, "料金")),
+        payment_method: parsePayment(getCol(row, "決済方法") || getCol(row, "支払方法") || getCol(row, "決済")),
         status: parseStatus(getCol(row, "ステータス")),
-        route: getCol(row, "予約出路") || getCol(row, "経路") || "",
+        route: getCol(row, "予約経路") || getCol(row, "予約出路") || getCol(row, "経路") || "",
       });
     }
     setParsed(result);
