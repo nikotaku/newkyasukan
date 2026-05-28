@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit } from "lucide-react";
+import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import backRatesImage from "@/assets/back-rates-table.jpg";
@@ -216,6 +216,7 @@ export default function TherapistPortal() {
     { title: "バック表", description: "コース別・オプション別のバック率を確認", icon: Receipt, action: () => setShowBackRates(true) },
     { title: "交通費申請", description: "交通費の申請・申請履歴を確認", icon: Plane, action: () => setView("transport") },
     { title: "退勤フォーム", description: "売上入力・清掃チェック・フィードバック", icon: LogOut, action: () => navigate(`/therapist/${token}/checkout`) },
+    { title: "精算報告", description: "当日のオーダー・備品使用を報告", icon: ClipboardList, action: () => navigate(`/therapist/${token}/clearance`) },
   ];
 
   return (
