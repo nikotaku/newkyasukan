@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  Plus, Search, Pin, Pencil, Trash2, BookOpen, X, ChevronRight, FolderOpen, FileText, Save, Image
+  Plus, Search, Pin, Pencil, Trash2, BookOpen, X, ChevronRight, FolderOpen, FileText, Save, Image, Paperclip
 } from "lucide-react";
 
 interface Article {
@@ -56,8 +56,9 @@ export default function Knowledge() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [imageUploading, setImageUploading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { fetchArticles(); }, []);
@@ -137,6 +138,8 @@ export default function Knowledge() {
   const catCount = (key: string) =>
     key === "すべて" ? articles.length : articles.filter(a => a.category === key).length;
 
+  const sanitizeName = (name: string) => name.replace(/[[\]|\r\n]/g, " ").trim() || "ファイル";
+
   const insertAtCursor = (text: string) => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -151,36 +154,40 @@ export default function Knowledge() {
     }, 0);
   };
 
-  const handleImageUpload = async (file: File) => {
-    if (!file.type.startsWith("image/")) return;
-    setImageUploading(true);
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "png";
+      const ext = file.name.split(".").pop() || "bin";
       const randomId = Math.random().toString(36).slice(2, 9);
       const path = `${Date.now()}-${randomId}.${ext}`;
       const { error: uploadError } = await supabase.storage
-        .from("knowledge-images")
-        .upload(path, file, { contentType: file.type });
+        .from("knowledge-files")
+        .upload(path, file, { contentType: file.type || "application/octet-stream" });
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage
-        .from("knowledge-images")
+        .from("knowledge-files")
         .getPublicUrl(path);
-      insertAtCursor(`\n![画像](${publicUrl})\n`);
+      if (file.type.startsWith("image/")) {
+        insertAtCursor(`\n![${sanitizeName(file.name)}](${publicUrl})\n`);
+      } else {
+        insertAtCursor(`\n[[file:${sanitizeName(file.name)}|${publicUrl}]]\n`);
+      }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      toast.error("画像のアップロードに失敗しました: " + msg);
+      toast.error("アップロードに失敗しました: " + msg);
     } finally {
-      setImageUploading(false);
+      setUploading(false);
     }
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = Array.from(e.clipboardData.items);
-    const imageItem = items.find(item => item.type.startsWith("image/"));
-    if (imageItem) {
-      e.preventDefault();
-      const file = imageItem.getAsFile();
-      if (file) handleImageUpload(file);
+    const fileItem = Array.from(e.clipboardData.items).find(item => item.kind === "file");
+    if (fileItem) {
+      const file = fileItem.getAsFile();
+      if (file) {
+        e.preventDefault();
+        handleFileUpload(file);
+      }
     }
   };
 
@@ -190,28 +197,51 @@ export default function Knowledge() {
 
   const handleDrop = (e: React.DragEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
-    const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith("image/"));
-    if (file) handleImageUpload(file);
+    const file = Array.from(e.dataTransfer.files)[0];
+    if (file) handleFileUpload(file);
   };
 
   const renderContent = (content: string) => {
     if (!content) return <span className="text-muted-foreground italic">内容がありません</span>;
-    const parts = content.split(/(!\[([^\]]*)\]\(([^)]+)\))/g);
     const elements: React.ReactNode[] = [];
-    let i = 0;
-    while (i < parts.length) {
-      const part = parts[i];
-      if (/^!\[/.test(part)) {
-        const alt = parts[i + 1] ?? "";
-        const url = parts[i + 2] ?? "";
-        elements.push(
-          <img key={i} src={url} alt={alt} className="max-w-full rounded-lg my-3 block" />
-        );
-        i += 3;
-      } else {
-        if (part) elements.push(<span key={i} className="whitespace-pre-wrap">{part}</span>);
-        i += 1;
+    const regex = /!\[([^\]]*)\]\(([^)]+)\)|\[\[file:([^|\]]+)\|([^\]]+)\]\]/g;
+    let lastIndex = 0;
+    let key = 0;
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(content)) !== null) {
+      if (m.index > lastIndex) {
+        const text = content.slice(lastIndex, m.index);
+        if (text) elements.push(<span key={key++} className="whitespace-pre-wrap">{text}</span>);
       }
+      if (m[2] !== undefined) {
+        elements.push(
+          <img key={key++} src={m[2]} alt={m[1]} className="max-w-full rounded-lg my-3 block" />
+        );
+      } else {
+        const fname = m[3];
+        const url = m[4];
+        const isPdf = /\.pdf(\?|$)/i.test(url) || /\.pdf$/i.test(fname);
+        elements.push(
+          <div key={key++} className="my-3">
+            {isPdf && (
+              <iframe src={url} title={fname} className="w-full h-[480px] rounded-lg border mb-1" />
+            )}
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline"
+            >
+              <FileText size={14} /> {fname}
+            </a>
+          </div>
+        );
+      }
+      lastIndex = regex.lastIndex;
+    }
+    if (lastIndex < content.length) {
+      const text = content.slice(lastIndex);
+      if (text) elements.push(<span key={key++} className="whitespace-pre-wrap">{text}</span>);
     }
     return <>{elements}</>;
   };
@@ -333,13 +363,23 @@ export default function Knowledge() {
                 <span className="text-sm font-semibold">{selected ? "編集" : "新規作成"}</span>
                 <div className="flex gap-2">
                   <input
-                    ref={fileInputRef}
+                    ref={imageInputRef}
                     type="file"
                     accept="image/*"
                     className="hidden"
                     onChange={e => {
                       const file = e.target.files?.[0];
-                      if (file) handleImageUpload(file);
+                      if (file) handleFileUpload(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileUpload(file);
                       e.target.value = "";
                     }}
                   />
@@ -347,11 +387,20 @@ export default function Knowledge() {
                     variant="outline"
                     size="sm"
                     className="h-8 text-xs"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={imageUploading}
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={uploading}
                   >
-                    <Image size={12} className="mr-1" />
-                    {imageUploading ? "アップロード中..." : "画像"}
+                    <Image size={12} className="mr-1" />画像
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    <Paperclip size={12} className="mr-1" />
+                    {uploading ? "アップロード中..." : "ファイル"}
                   </Button>
                   <Button variant="outline" size="sm" className="h-8 text-xs" onClick={cancelEdit}>キャンセル</Button>
                   <Button size="sm" className="h-8 text-xs" onClick={handleSave} disabled={saving}>
