@@ -130,8 +130,8 @@ export default function ReservationsList() {
 
   const fetchRates = async () => {
     const [{ data: backData }, { data: optionData }, { data: nominationData }, { data: discountData }] = await Promise.all([
-      supabase.from("back_rates").select("*"),
-      supabase.from("option_rates").select("*"),
+      supabase.from("back_rates").select("*").order("display_order"),
+      supabase.from("option_rates").select("*").order("display_order"),
       supabase.from("nomination_rates").select("*"),
       supabase.from("discounts").select("id, name, discount_type, discount_value, is_active").eq("is_active", true).order("name"),
     ]);

@@ -70,8 +70,8 @@ export default function Pricing() {
   const fetchData = async () => {
     try {
       const [backRes, optionRes, nomRes] = await Promise.all([
-        supabase.from('back_rates').select('*').order('course_type').order('duration', { ascending: true }),
-        supabase.from('option_rates').select('*').order('created_at', { ascending: true }),
+        supabase.from('back_rates').select('*').order('display_order', { ascending: true }),
+        supabase.from('option_rates').select('*').order('display_order', { ascending: true }),
         supabase.from('nomination_rates').select('*').order('created_at', { ascending: true }),
       ]);
       if (backRes.error) throw backRes.error;

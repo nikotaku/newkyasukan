@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface BackRate {
@@ -17,6 +17,8 @@ interface BackRate {
   duration: number;
   customer_price: number;
   therapist_back?: number;
+  shop_back?: number;
+  display_order?: number;
 }
 
 export default function SystemCourses() {
@@ -25,6 +27,10 @@ export default function SystemCourses() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [expandedTypes, setExpandedTypes] = useState<string[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editData, setEditData] = useState({ duration: 0, customer_price: 0, therapist_back: 0, shop_back: 0 });
+  const [renamingType, setRenamingType] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const [formData, setFormData] = useState({
     course_type: "",
     duration: 60,
@@ -50,12 +56,13 @@ export default function SystemCourses() {
       const { data, error } = await supabase
         .from("back_rates")
         .select("*")
+        .order("display_order", { ascending: true })
         .order("course_type")
         .order("duration");
       if (error && error.code !== "PGRST116") throw error;
       setRates(data || []);
       const types = [...new Set((data || []).map((r: BackRate) => r.course_type))];
-      setExpandedTypes(types);
+      setExpandedTypes((prev) => (prev.length === 0 ? types : prev));
     } catch (error) {
       console.error("Error fetching rates:", error);
     } finally {
@@ -70,7 +77,8 @@ export default function SystemCourses() {
       return;
     }
     try {
-      const { error } = await supabase.from("back_rates").insert([formData]);
+      const nextOrder = rates.length > 0 ? Math.max(...rates.map((r) => r.display_order ?? 0)) + 1 : 0;
+      const { error } = await supabase.from("back_rates").insert([{ ...formData, display_order: nextOrder }]);
       if (error) throw error;
       toast.success("追加しました");
       setFormData({ course_type: "", duration: 60, customer_price: 0, therapist_back: 0, shop_back: 0 });
@@ -79,6 +87,37 @@ export default function SystemCourses() {
     } catch (error) {
       console.error("Error adding rate:", error);
       toast.error("追加に失敗しました");
+    }
+  };
+
+  const startEdit = (rate: BackRate) => {
+    setEditingId(rate.id);
+    setEditData({
+      duration: rate.duration,
+      customer_price: rate.customer_price,
+      therapist_back: rate.therapist_back ?? 0,
+      shop_back: rate.shop_back ?? 0,
+    });
+  };
+
+  const handleUpdate = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("back_rates")
+        .update({
+          duration: editData.duration,
+          customer_price: editData.customer_price,
+          therapist_back: editData.therapist_back,
+          shop_back: editData.shop_back,
+        })
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("更新しました");
+      setEditingId(null);
+      fetchRates();
+    } catch (error) {
+      console.error("Error updating rate:", error);
+      toast.error("更新に失敗しました");
     }
   };
 
@@ -95,13 +134,88 @@ export default function SystemCourses() {
     }
   };
 
+  // コース名（course_type）のリネーム：同一タイプの全行を更新
+  const handleRenameType = async (oldType: string) => {
+    const newType = renameValue.trim();
+    if (!newType) {
+      toast.error("コース名を入力してください");
+      return;
+    }
+    if (newType === oldType) {
+      setRenamingType(null);
+      return;
+    }
+    try {
+      const { error } = await supabase.from("back_rates").update({ course_type: newType }).eq("course_type", oldType);
+      if (error) throw error;
+      toast.success("コース名を変更しました");
+      setRenamingType(null);
+      setExpandedTypes((prev) => prev.map((t) => (t === oldType ? newType : t)));
+      fetchRates();
+    } catch (error) {
+      console.error("Error renaming course type:", error);
+      toast.error("変更に失敗しました");
+    }
+  };
+
   const toggleType = (type: string) => {
     setExpandedTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     );
   };
 
+  // display_order 順でグループ（コースタイプ）の並びを決定
   const courseTypes = [...new Set(rates.map((r) => r.course_type))];
+
+  // 指定IDリストの順序で display_order を一括保存
+  const persistOrder = async (orderedIds: string[]) => {
+    await Promise.all(
+      orderedIds.map((id, i) =>
+        supabase.from("back_rates").update({ display_order: i }).eq("id", id)
+      )
+    );
+  };
+
+  // グループ内のプラン並べ替え
+  const handleMovePlan = async (type: string, index: number, dir: -1 | 1) => {
+    const typeRates = rates.filter((r) => r.course_type === type);
+    const target = index + dir;
+    if (target < 0 || target >= typeRates.length) return;
+    const reordered = [...typeRates];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    // 全体のIDリストを、このグループだけ並べ替えて再構築
+    const newRates: BackRate[] = [];
+    courseTypes.forEach((t) => {
+      if (t === type) newRates.push(...reordered);
+      else newRates.push(...rates.filter((r) => r.course_type === t));
+    });
+    setRates(newRates);
+    try {
+      await persistOrder(newRates.map((r) => r.id));
+    } catch (error) {
+      console.error("Error reordering plans:", error);
+      toast.error("並べ替えに失敗しました");
+      fetchRates();
+    }
+  };
+
+  // コースタイプ（グループ）の並べ替え
+  const handleMoveGroup = async (groupIndex: number, dir: -1 | 1) => {
+    const target = groupIndex + dir;
+    if (target < 0 || target >= courseTypes.length) return;
+    const newOrder = [...courseTypes];
+    [newOrder[groupIndex], newOrder[target]] = [newOrder[target], newOrder[groupIndex]];
+    const newRates: BackRate[] = [];
+    newOrder.forEach((t) => newRates.push(...rates.filter((r) => r.course_type === t)));
+    setRates(newRates);
+    try {
+      await persistOrder(newRates.map((r) => r.id));
+    } catch (error) {
+      console.error("Error reordering groups:", error);
+      toast.error("並べ替えに失敗しました");
+      fetchRates();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -197,20 +311,65 @@ export default function SystemCourses() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {courseTypes.map((type) => {
-                const typeRates = rates
-                  .filter((r) => r.course_type === type)
-                  .sort((a, b) => a.duration - b.duration);
+              {courseTypes.map((type, groupIndex) => {
+                const typeRates = rates.filter((r) => r.course_type === type);
                 const isExpanded = expandedTypes.includes(type);
                 return (
                   <Card key={type}>
-                    <CardHeader
-                      className="cursor-pointer select-none"
-                      onClick={() => toggleType(type)}
-                    >
+                    <CardHeader className="select-none">
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">{type}コース</CardTitle>
                         <div className="flex items-center gap-2">
+                          {/* グループ並べ替え */}
+                          <div className="flex flex-col">
+                            <button
+                              onClick={() => handleMoveGroup(groupIndex, -1)}
+                              disabled={groupIndex === 0}
+                              className="text-muted-foreground hover:text-foreground disabled:opacity-20"
+                            >
+                              <ChevronUp size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleMoveGroup(groupIndex, 1)}
+                              disabled={groupIndex === courseTypes.length - 1}
+                              className="text-muted-foreground hover:text-foreground disabled:opacity-20"
+                            >
+                              <ChevronDown size={14} />
+                            </button>
+                          </div>
+                          {renamingType === type ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                className="h-8 w-40"
+                                autoFocus
+                              />
+                              <Button size="sm" variant="ghost" onClick={() => handleRenameType(type)}>
+                                <Check size={14} />
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setRenamingType(null)}>
+                                <X size={14} />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <CardTitle
+                                className="text-base cursor-pointer"
+                                onClick={() => toggleType(type)}
+                              >
+                                {type}コース
+                              </CardTitle>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => { setRenamingType(type); setRenameValue(type); }}
+                              >
+                                <Pencil size={12} />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleType(type)}>
                           <span className="text-sm text-muted-foreground">
                             {typeRates.length}プラン
                           </span>
@@ -221,27 +380,100 @@ export default function SystemCourses() {
                     {isExpanded && (
                       <CardContent>
                         <div className="space-y-2">
-                          {typeRates.map((rate) => (
+                          {typeRates.map((rate, index) => (
                             <div
                               key={rate.id}
-                              className="flex items-center justify-between py-2 border-b border-border last:border-0"
+                              className="py-2 border-b border-border last:border-0"
                             >
-                              <div className="flex gap-6 text-sm">
-                                <span className="font-medium">{rate.duration}分</span>
-                                <span>¥{rate.customer_price.toLocaleString()}</span>
-                                {rate.therapist_back !== undefined && rate.therapist_back > 0 && (
-                                  <span className="text-muted-foreground">
-                                    バック ¥{rate.therapist_back.toLocaleString()}
-                                  </span>
-                                )}
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleDelete(rate.id)}
-                              >
-                                <Trash2 size={14} />
-                              </Button>
+                              {editingId === rate.id ? (
+                                <div className="space-y-3">
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                    <div>
+                                      <Label className="text-xs">時間（分）</Label>
+                                      <Input
+                                        type="number"
+                                        min="10"
+                                        value={editData.duration}
+                                        onChange={(e) => setEditData({ ...editData, duration: Number(e.target.value) || 0 })}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs">お客様料金</Label>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        value={editData.customer_price}
+                                        onChange={(e) => setEditData({ ...editData, customer_price: Number(e.target.value) || 0 })}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs">セラピスト報酬</Label>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        value={editData.therapist_back}
+                                        onChange={(e) => setEditData({ ...editData, therapist_back: Number(e.target.value) || 0 })}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs">店舗取り分</Label>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        value={editData.shop_back}
+                                        onChange={(e) => setEditData({ ...editData, shop_back: Number(e.target.value) || 0 })}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button size="sm" onClick={() => handleUpdate(rate.id)}>
+                                      <Check size={14} className="mr-1" />保存
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                                      <X size={14} className="mr-1" />キャンセル
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    {/* プラン並べ替え */}
+                                    <div className="flex flex-col">
+                                      <button
+                                        onClick={() => handleMovePlan(type, index, -1)}
+                                        disabled={index === 0}
+                                        className="text-muted-foreground hover:text-foreground disabled:opacity-20"
+                                      >
+                                        <ChevronUp size={14} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleMovePlan(type, index, 1)}
+                                        disabled={index === typeRates.length - 1}
+                                        className="text-muted-foreground hover:text-foreground disabled:opacity-20"
+                                      >
+                                        <ChevronDown size={14} />
+                                      </button>
+                                    </div>
+                                    <div className="flex gap-6 text-sm">
+                                      <span className="font-medium">{rate.duration}分</span>
+                                      <span>¥{rate.customer_price.toLocaleString()}</span>
+                                      {rate.therapist_back !== undefined && rate.therapist_back > 0 && (
+                                        <span className="text-muted-foreground">
+                                          バック ¥{rate.therapist_back.toLocaleString()}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <Button size="sm" variant="ghost" onClick={() => startEdit(rate)}>
+                                      <Pencil size={14} />
+                                    </Button>
+                                    <Button size="sm" variant="ghost" onClick={() => handleDelete(rate.id)}>
+                                      <Trash2 size={14} />
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
