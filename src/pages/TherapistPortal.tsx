@@ -5,12 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit } from "lucide-react";
+import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit, Banknote, ClipboardCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import backRatesImage from "@/assets/back-rates-table.jpg";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+
+interface PendingClearance {
+  id: string;
+  date: string;
+  payout_amount: number;
+  payout_method: string | null;
+  status: string;
+}
 
 interface Cast {
   id: string;
@@ -70,6 +78,9 @@ export default function TherapistPortal() {
   const [shiftRows, setShiftRows] = useState<ShiftRow[]>([]);
   const [shiftsLoading, setShiftsLoading] = useState(false);
 
+  // Clearance notification
+  const [pendingClearance, setPendingClearance] = useState<PendingClearance | null>(null);
+
   // Transport
   const [expenses, setExpenses] = useState<TransportExpense[]>([]);
   const [expensesLoading, setExpensesLoading] = useState(false);
@@ -91,8 +102,19 @@ export default function TherapistPortal() {
       }
       const row = Array.isArray(data) ? data[0] : data;
       if (!row) { toast.error("無効なアクセスリンクです"); navigate("/"); return; }
-      setCast(row as Cast);
+      const castRow = row as Cast;
+      setCast(castRow);
       setLoading(false);
+      // Check for pending clearance
+      supabase
+        .from("daily_clearances" as any)
+        .select("id, date, payout_amount, payout_method, status")
+        .eq("cast_id", castRow.id)
+        .eq("status", "pending")
+        .order("date", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => setPendingClearance(data as PendingClearance | null));
     });
   }, [token, navigate]);
 
@@ -244,6 +266,37 @@ export default function TherapistPortal() {
 
         {/* ── MENU ── */}
         {view === "menu" && (
+          <div className="space-y-4">
+          {/* Clearance notification */}
+          {pendingClearance && (
+            <div className="rounded-xl border-2 border-primary/40 bg-primary/5 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Banknote className="text-primary shrink-0" size={20} />
+                <p className="font-bold text-base">清算のご連絡</p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">投函金額</span>
+                  <span className="text-2xl font-bold text-primary">
+                    ¥{pendingClearance.payout_amount.toLocaleString()}
+                  </span>
+                </div>
+                {pendingClearance.payout_method && (
+                  <p className="text-sm bg-muted/50 rounded-lg p-2 mt-2">
+                    {pendingClearance.payout_method}
+                  </p>
+                )}
+              </div>
+              <Button
+                className="w-full"
+                onClick={() => navigate(`/therapist/${token}/checkout?step=cleaning`)}
+              >
+                <ClipboardCheck size={15} className="mr-2" />
+                投函したので清掃フォームを入力する
+              </Button>
+            </div>
+          )}
+
           <div className="grid gap-3 sm:grid-cols-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -263,6 +316,7 @@ export default function TherapistPortal() {
                 </button>
               );
             })}
+          </div>
           </div>
         )}
 
