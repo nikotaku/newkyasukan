@@ -19,6 +19,7 @@ import { ja } from "date-fns/locale";
 import { Search, FileUp, Table2 } from "lucide-react";
 import { ImportModal } from "@/components/ImportModal";
 import { GoogleSheetPanel } from "@/components/GoogleSheetPanel";
+import { mapReservationRows, batchInsert } from "@/lib/importMappers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Reservation {
@@ -200,7 +201,18 @@ export default function ReservationsList() {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="sheet" className="mt-4">
-              <GoogleSheetPanel source="reservations" />
+              <GoogleSheetPanel
+                source="reservations"
+                onImport={async (headers, rows) => {
+                  const { data: castData } = await supabase.from("casts").select("id, name");
+                  const castMap = new Map<string, string>();
+                  (castData || []).forEach((c: { id: string; name: string }) => castMap.set(c.name, c.id));
+                  const mapped = mapReservationRows(headers, rows, castMap);
+                  const count = await batchInsert("reservations", mapped);
+                  await fetchReservations();
+                  return count;
+                }}
+              />
             </TabsContent>
             <TabsContent value="db">
 
