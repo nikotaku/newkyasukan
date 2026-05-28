@@ -151,7 +151,10 @@ export default function Staff() {
   const [formData, setFormData] = useState({ ...emptyForm });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const dragCastId = useRef<string | null>(null);
+  const addPhotoInputRef = useRef<HTMLInputElement>(null);
+  const editPhotoInputRef = useRef<HTMLInputElement>(null);
   
   const { toast } = useToast();
   const { user, loading: authLoading, isAdmin } = useAuth();
@@ -628,6 +631,66 @@ export default function Staff() {
     setNewPhotoUrl("");
   };
 
+  const handlePhotoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingPhoto(true);
+    try {
+      const uploadedUrls: string[] = [];
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split(".").pop();
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from("cast-photos")
+          .upload(fileName, file);
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          toast({
+            title: "エラー",
+            description: `${file.name}のアップロードに失敗しました`,
+            variant: "destructive",
+          });
+          continue;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from("cast-photos")
+          .getPublicUrl(fileName);
+        uploadedUrls.push(publicUrl);
+      }
+
+      if (uploadedUrls.length > 0) {
+        if (isEdit && editingCast) {
+          const updated = [...(editingCast.photos || []), ...uploadedUrls];
+          setEditingCast({ ...editingCast, photos: updated, photo: updated[0] });
+        } else {
+          const updated = [...formData.photos, ...uploadedUrls];
+          setFormData({ ...formData, photos: updated, photo: updated[0] });
+        }
+        toast({
+          title: "アップロード完了",
+          description: `${uploadedUrls.length}枚の写真をアップロードしました`,
+        });
+      }
+    } catch (error) {
+      console.error("Error uploading photos:", error);
+      toast({
+        title: "エラー",
+        description: "写真のアップロードに失敗しました",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingPhoto(false);
+      if (isEdit) {
+        if (editPhotoInputRef.current) editPhotoInputRef.current.value = "";
+      } else {
+        if (addPhotoInputRef.current) addPhotoInputRef.current.value = "";
+      }
+    }
+  };
+
   const handleRemovePhoto = (index: number, isEdit: boolean = false) => {
     if (isEdit && editingCast) {
       const updatedPhotos = (editingCast.photos || []).filter((_, i) => i !== index);
@@ -703,9 +766,21 @@ export default function Staff() {
                       <div>
                         <Label className="font-semibold">セラピスト写真</Label>
                         <div className="mt-2 space-y-2">
+                          <input
+                            ref={addPhotoInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => handlePhotoFileUpload(e, false)}
+                          />
+                          <Button type="button" variant="outline" className="w-full" onClick={() => addPhotoInputRef.current?.click()} disabled={uploadingPhoto}>
+                            <Camera className="h-4 w-4 mr-1.5" />
+                            {uploadingPhoto ? "アップロード中..." : "写真をアップロード"}
+                          </Button>
                           <div className="flex gap-2">
                             <Input
-                              placeholder="GoogleドライブURL またはファイルID"
+                              placeholder="またはGoogleドライブURL / ファイルID"
                               value={newPhotoUrl}
                               onChange={(e) => setNewPhotoUrl(e.target.value)}
                               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, false))}
@@ -960,9 +1035,21 @@ export default function Staff() {
                       <div>
                         <Label className="font-semibold">セラピスト写真</Label>
                         <div className="mt-2 space-y-2">
+                          <input
+                            ref={editPhotoInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => handlePhotoFileUpload(e, true)}
+                          />
+                          <Button type="button" variant="outline" className="w-full" onClick={() => editPhotoInputRef.current?.click()} disabled={uploadingPhoto}>
+                            <Camera className="h-4 w-4 mr-1.5" />
+                            {uploadingPhoto ? "アップロード中..." : "写真をアップロード"}
+                          </Button>
                           <div className="flex gap-2">
                             <Input
-                              placeholder="GoogleドライブURL またはファイルID"
+                              placeholder="またはGoogleドライブURL / ファイルID"
                               value={newPhotoUrl}
                               onChange={(e) => setNewPhotoUrl(e.target.value)}
                               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, true))}
