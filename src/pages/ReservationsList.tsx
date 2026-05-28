@@ -11,12 +11,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { ReservationForm } from "@/components/ReservationForm";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { postToSheet } from "@/lib/sheetWebhook";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Search, FileUp, Table2 } from "lucide-react";
+import { Search, FileUp, Table2, Plus } from "lucide-react";
 import { ImportModal } from "@/components/ImportModal";
 import { GoogleSheetPanel } from "@/components/GoogleSheetPanel";
 import { mapReservationRows, batchInsert } from "@/lib/importMappers";
@@ -34,6 +38,13 @@ interface Reservation {
   status: string;
   casts: { name: string } | null;
 }
+
+interface Cast { id: string; name: string; }
+interface Room { id: string; name: string; address: string | null; }
+interface BackRate { id: string; course_type: string; duration: number; customer_price: number; therapist_back: number; }
+interface OptionRate { id: string; option_name: string; customer_price: number; therapist_back: number; }
+interface NominationRate { id: string; nomination_type: string; customer_price: number; therapist_back: number | null; }
+interface Discount { id: string; name: string; discount_type: "fixed" | "percentage"; discount_value: number; is_active: boolean; }
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-900",
@@ -113,8 +124,37 @@ export default function ReservationsList() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [boxDate, setBoxDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  const [casts, setCasts] = useState<Cast[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [backRates, setBackRates] = useState<BackRate[]>([]);
+  const [optionRates, setOptionRates] = useState<OptionRate[]>([]);
+  const [nominationRates, setNominationRates] = useState<NominationRate[]>([]);
+  const [discounts, setDiscounts] = useState<Discount[]>([]);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    cast_id: "",
+    customer_name: "",
+    customer_phone: "",
+    customer_email: "",
+    nomination_type: "none",
+    reservation_date: new Date(),
+    start_time: "14:00",
+    end_time: "15:00",
+    duration: 80,
+    room: "",
+    course_type: "アロマオイル",
+    course_name: "アロマオイル 80分",
+    selectedOptions: [] as string[],
+    discount_id: "none",
+    discount: 0,
+    price: 12000,
+    payment_method: "cash",
+    reservation_method: "",
+    notes: "",
+  });
 
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAdmin } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -126,8 +166,93 @@ export default function ReservationsList() {
   useEffect(() => {
     if (user) {
       fetchReservations();
+      fetchCasts();
+      fetchRooms();
+      fetchRates();
     }
   }, [user]);
+
+  const fetchCasts = async () => {
+    const { data } = await supabase.from("casts").select("id, name").order("name");
+    setCasts(data || []);
+  };
+
+  const fetchRooms = async () => {
+    const { data } = await supabase.from("rooms").select("id, name, address").eq("is_active", true).order("name");
+    setRooms(data || []);
+  };
+
+  const fetchRates = async () => {
+    const [{ data: backData }, { data: optionData }, { data: nominationData }, { data: discountData }] = await Promise.all([
+      supabase.from("back_rates").select("*"),
+      supabase.from("option_rates").select("*"),
+      supabase.from("nomination_rates").select("*"),
+      supabase.from("discounts").select("id, name, discount_type, discount_value, is_active").eq("is_active", true).order("name"),
+    ]);
+    if (backData) setBackRates(backData);
+    if (optionData) setOptionRates(optionData);
+    if (nominationData) setNominationRates(nominationData);
+    if (discountData) setDiscounts(discountData as Discount[]);
+  };
+
+  const handleAddReservation = async () => {
+    if (!isAdmin) {
+      toast({ title: "権限エラー", description: "管理者のみ予約を追加できます", variant: "destructive" });
+      return;
+    }
+    if (!formData.cast_id || !formData.customer_name || !formData.customer_phone) {
+      toast({ title: "入力エラー", description: "必須項目を入力してください", variant: "destructive" });
+      return;
+    }
+    try {
+      const { error } = await supabase.from("reservations").insert([{
+        cast_id: formData.cast_id,
+        customer_name: formData.customer_name,
+        customer_phone: formData.customer_phone,
+        customer_email: formData.customer_email || null,
+        reservation_date: format(formData.reservation_date, "yyyy-MM-dd"),
+        start_time: formData.start_time,
+        duration: formData.duration,
+        course_type: formData.course_type,
+        course_name: formData.course_name,
+        options: formData.selectedOptions,
+        nomination_type: formData.nomination_type === "none" ? null : formData.nomination_type,
+        price: formData.price,
+        discount: formData.discount,
+        notes: formData.notes || null,
+        room: formData.room || null,
+        created_by: user!.id,
+      }]);
+      if (error) throw error;
+      postToSheet("reservation", {
+        reservation_date: format(formData.reservation_date, "yyyy-MM-dd"),
+        start_time: formData.start_time,
+        customer_name: formData.customer_name,
+        customer_phone: formData.customer_phone,
+        customer_email: formData.customer_email || "",
+        cast_name: casts.find((c) => c.id === formData.cast_id)?.name || "",
+        course_name: formData.course_name,
+        nomination_type: formData.nomination_type === "none" ? "" : formData.nomination_type,
+        room: formData.room || "",
+        discount: formData.discount,
+        price: formData.price,
+        created_at: new Date().toISOString(),
+      });
+      toast({ title: "予約追加", description: "新しい予約が追加されました" });
+      setIsAddDialogOpen(false);
+      setFormData({
+        cast_id: "", customer_name: "", customer_phone: "", customer_email: "",
+        nomination_type: "none", reservation_date: new Date(), start_time: "14:00", end_time: "15:00",
+        duration: 80, room: "", course_type: "アロマオイル", course_name: "アロマオイル 80分",
+        selectedOptions: [], discount_id: "none", discount: 0, price: 12000,
+        payment_method: "cash", reservation_method: "", notes: "",
+      });
+      fetchReservations();
+    } catch (error) {
+      console.error("Error adding reservation:", error);
+      toast({ title: "エラー", description: "予約の追加に失敗しました", variant: "destructive" });
+    }
+  };
 
   const fetchReservations = async () => {
     setLoading(true);
@@ -188,9 +313,36 @@ export default function ReservationsList() {
               <h1 className="text-2xl font-bold">予約一覧</h1>
               <p className="text-muted-foreground">全ての予約を確認・管理</p>
             </div>
-            <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-              <FileUp size={16} className="mr-2" />CSVインポート
-            </Button>
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <Sheet open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                  <SheetTrigger asChild>
+                    <Button><Plus size={16} className="mr-2" />新規予約</Button>
+                  </SheetTrigger>
+                  <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+                    <SheetHeader>
+                      <SheetTitle>新しい予約を追加</SheetTitle>
+                    </SheetHeader>
+                    <div className="mt-6">
+                      <ReservationForm
+                        formData={formData}
+                        setFormData={setFormData}
+                        casts={casts}
+                        rooms={rooms}
+                        backRates={backRates}
+                        optionRates={optionRates}
+                        nominationRates={nominationRates}
+                        discounts={discounts}
+                        onSubmit={handleAddReservation}
+                      />
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              )}
+              <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+                <FileUp size={16} className="mr-2" />CSVインポート
+              </Button>
+            </div>
           </div>
 
           <Tabs defaultValue="db" className="mb-6">
