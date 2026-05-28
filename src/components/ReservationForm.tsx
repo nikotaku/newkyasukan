@@ -187,6 +187,20 @@ export function ReservationForm({
     }
   }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.discount_id, formData.payment_method, backRates, optionRates, nominationRates, discounts, paymentSettings]);
 
+  // 開始時間とコース時間（分）から終了時間を自動計算
+  useEffect(() => {
+    if (!formData.start_time || !formData.duration) return;
+    const [h, m] = formData.start_time.split(":").map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return;
+    const total = h * 60 + m + formData.duration;
+    const eh = Math.floor((total % 1440) / 60); // 日跨ぎはラップ
+    const em = total % 60;
+    const newEnd = `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+    if (newEnd !== formData.end_time) {
+      setFormData({ ...formData, end_time: newEnd });
+    }
+  }, [formData.start_time, formData.duration]);
+
   useEffect(() => {
     const phone = formData.customer_phone.replace(/[-\s]/g, "");
     if (phone.length < 10) {
