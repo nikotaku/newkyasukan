@@ -4,7 +4,6 @@ import { driveImgUrl } from "@/lib/drive";
 import { ImportModal } from "@/components/ImportModal";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
-import { WebsitePhotoSync } from "@/components/WebsitePhotoSync";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -93,8 +92,6 @@ export default function Staff() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [casts, setCasts] = useState<Cast[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState<string>("all");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -151,7 +148,10 @@ export default function Staff() {
   const [formData, setFormData] = useState({ ...emptyForm });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const dragCastId = useRef<string | null>(null);
+  const addPhotoInputRef = useRef<HTMLInputElement>(null);
+  const editPhotoInputRef = useRef<HTMLInputElement>(null);
   
   const { toast } = useToast();
   const { user, loading: authLoading, isAdmin } = useAuth();
@@ -212,12 +212,9 @@ export default function Staff() {
     }
   };
 
-  const filteredCasts = casts.filter(cast => {
-    const matchesSearch = cast.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === "all" || cast.type === filterType;
-    const matchesStatus = filterStatus === "all" || cast.status === filterStatus;
-    return matchesSearch && matchesType && matchesStatus;
-  });
+  const filteredCasts = casts.filter(cast =>
+    cast.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleAddCast = async () => {
     if (!isAdmin) {
@@ -497,49 +494,6 @@ export default function Staff() {
     }
   };
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
-    if (!isAdmin) {
-      toast({
-        title: "権限エラー",
-        description: "管理者のみステータスを変更できます",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('casts')
-        .update({ status: newStatus })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      const statusText = newStatus;
-      toast({
-        title: "ステータス変更",
-        description: `ステータスを「${statusText}」に変更しました`,
-      });
-    } catch (error) {
-      console.error('Error updating status:', error);
-      toast({
-        title: "エラー",
-        description: "ステータスの変更に失敗しました",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "派遣中": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
-      case "リピート予定": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
-      case "残タスク": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-      case "未着手": return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
-      default: return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
-    }
-  };
-
   const handleDropCast = async (targetId: string) => {
     if (!isAdmin || !dragCastId.current || dragCastId.current === targetId) return;
     const fromIdx = casts.findIndex(c => c.id === dragCastId.current);
@@ -628,6 +582,66 @@ export default function Staff() {
     setNewPhotoUrl("");
   };
 
+  const handlePhotoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingPhoto(true);
+    try {
+      const uploadedUrls: string[] = [];
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split(".").pop();
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from("cast-photos")
+          .upload(fileName, file);
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          toast({
+            title: "エラー",
+            description: `${file.name}のアップロードに失敗しました`,
+            variant: "destructive",
+          });
+          continue;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from("cast-photos")
+          .getPublicUrl(fileName);
+        uploadedUrls.push(publicUrl);
+      }
+
+      if (uploadedUrls.length > 0) {
+        if (isEdit && editingCast) {
+          const updated = [...(editingCast.photos || []), ...uploadedUrls];
+          setEditingCast({ ...editingCast, photos: updated, photo: updated[0] });
+        } else {
+          const updated = [...formData.photos, ...uploadedUrls];
+          setFormData({ ...formData, photos: updated, photo: updated[0] });
+        }
+        toast({
+          title: "アップロード完了",
+          description: `${uploadedUrls.length}枚の写真をアップロードしました`,
+        });
+      }
+    } catch (error) {
+      console.error("Error uploading photos:", error);
+      toast({
+        title: "エラー",
+        description: "写真のアップロードに失敗しました",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingPhoto(false);
+      if (isEdit) {
+        if (editPhotoInputRef.current) editPhotoInputRef.current.value = "";
+      } else {
+        if (addPhotoInputRef.current) addPhotoInputRef.current.value = "";
+      }
+    }
+  };
+
   const handleRemovePhoto = (index: number, isEdit: boolean = false) => {
     if (isEdit && editingCast) {
       const updatedPhotos = (editingCast.photos || []).filter((_, i) => i !== index);
@@ -703,9 +717,21 @@ export default function Staff() {
                       <div>
                         <Label className="font-semibold">セラピスト写真</Label>
                         <div className="mt-2 space-y-2">
+                          <input
+                            ref={addPhotoInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => handlePhotoFileUpload(e, false)}
+                          />
+                          <Button type="button" variant="outline" className="w-full" onClick={() => addPhotoInputRef.current?.click()} disabled={uploadingPhoto}>
+                            <Camera className="h-4 w-4 mr-1.5" />
+                            {uploadingPhoto ? "アップロード中..." : "写真をアップロード"}
+                          </Button>
                           <div className="flex gap-2">
                             <Input
-                              placeholder="GoogleドライブURL またはファイルID"
+                              placeholder="またはGoogleドライブURL / ファイルID"
                               value={newPhotoUrl}
                               onChange={(e) => setNewPhotoUrl(e.target.value)}
                               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, false))}
@@ -849,35 +875,6 @@ export default function Staff() {
                         </div>
                       </div>
 
-                      {/* セラピストの情報 */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">セラピストの情報</Label>
-                        <div>
-                          <Label htmlFor="add-enrollment">在籍期間</Label>
-                          <Input id="add-enrollment" placeholder="2024年4月〜" value={formData.enrollment_period} onChange={(e) => setFormData({...formData, enrollment_period: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="add-ideal-partner">担当な相手 / 好きな流派のタイプ</Label>
-                          <Input id="add-ideal-partner" placeholder="紳士な方" value={formData.ideal_partner} onChange={(e) => setFormData({...formData, ideal_partner: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="add-food">好きな食べ物</Label>
-                          <Input id="add-food" placeholder="じゃがりこ" value={formData.favorite_food} onChange={(e) => setFormData({...formData, favorite_food: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="add-celebrity">好きな著名人</Label>
-                          <Input id="add-celebrity" placeholder="" value={formData.celebrity_like} onChange={(e) => setFormData({...formData, celebrity_like: e.target.value})} />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input type="checkbox" id="add-uses-sns" checked={formData.uses_sns} onChange={(e) => setFormData({...formData, uses_sns: e.target.checked})} className="h-4 w-4" />
-                          <Label htmlFor="add-uses-sns">SNS利用している？</Label>
-                        </div>
-                        <div>
-                          <Label htmlFor="add-hobby">趣味・特徴</Label>
-                          <Textarea id="add-hobby" rows={2} value={formData.hobby} onChange={(e) => setFormData({...formData, hobby: e.target.value})} />
-                        </div>
-                      </div>
-
                       {/* ブログ・SNS */}
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">ブログ・SNS</Label>
@@ -896,39 +893,6 @@ export default function Staff() {
                         <div>
                           <Label htmlFor="add-instagram">Instagram</Label>
                           <Input id="add-instagram" placeholder="https://..." value={formData.instagram_url} onChange={(e) => setFormData({...formData, instagram_url: e.target.value})} />
-                        </div>
-                      </div>
-
-                      {/* 管理情報 */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">管理情報</Label>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label>ルーム</Label>
-                            <Select value={formData.room} onValueChange={(v) => setFormData({...formData, room: v})}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="インルーム">インルーム</SelectItem>
-                                <SelectItem value="ラスルーム">ラスルーム</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label>ステータス</Label>
-                            <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v})}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="派遣中">派遣中</SelectItem>
-                                <SelectItem value="リピート予定">リピート予定</SelectItem>
-                                <SelectItem value="残タスク">残タスク</SelectItem>
-                                <SelectItem value="未着手">未着手</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <div>
-                          <Label htmlFor="add-memo">メモ</Label>
-                          <Textarea id="add-memo" rows={3} value={formData.memo} onChange={(e) => setFormData({...formData, memo: e.target.value})} />
                         </div>
                       </div>
 
@@ -960,9 +924,21 @@ export default function Staff() {
                       <div>
                         <Label className="font-semibold">セラピスト写真</Label>
                         <div className="mt-2 space-y-2">
+                          <input
+                            ref={editPhotoInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => handlePhotoFileUpload(e, true)}
+                          />
+                          <Button type="button" variant="outline" className="w-full" onClick={() => editPhotoInputRef.current?.click()} disabled={uploadingPhoto}>
+                            <Camera className="h-4 w-4 mr-1.5" />
+                            {uploadingPhoto ? "アップロード中..." : "写真をアップロード"}
+                          </Button>
                           <div className="flex gap-2">
                             <Input
-                              placeholder="GoogleドライブURL またはファイルID"
+                              placeholder="またはGoogleドライブURL / ファイルID"
                               value={newPhotoUrl}
                               onChange={(e) => setNewPhotoUrl(e.target.value)}
                               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, true))}
@@ -1109,35 +1085,6 @@ export default function Staff() {
                         </div>
                       </div>
 
-                      {/* セラピストの情報 */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">セラピストの情報</Label>
-                        <div>
-                          <Label htmlFor="e-enrollment">在籍期間</Label>
-                          <Input id="e-enrollment" value={editingCast.enrollment_period || ""} onChange={(e) => setEditingCast({...editingCast, enrollment_period: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="e-ideal">担当な相手 / 好きな流派のタイプ</Label>
-                          <Input id="e-ideal" value={editingCast.ideal_partner || ""} onChange={(e) => setEditingCast({...editingCast, ideal_partner: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="e-food">好きな食べ物</Label>
-                          <Input id="e-food" value={editingCast.favorite_food || ""} onChange={(e) => setEditingCast({...editingCast, favorite_food: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="e-celebrity">好きな著名人</Label>
-                          <Input id="e-celebrity" value={editingCast.celebrity_like || ""} onChange={(e) => setEditingCast({...editingCast, celebrity_like: e.target.value})} />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input type="checkbox" id="e-uses-sns" checked={editingCast.uses_sns || false} onChange={(e) => setEditingCast({...editingCast, uses_sns: e.target.checked})} className="h-4 w-4" />
-                          <Label htmlFor="e-uses-sns">SNS利用している？</Label>
-                        </div>
-                        <div>
-                          <Label htmlFor="e-hobby">趣味・特徴</Label>
-                          <Textarea id="e-hobby" rows={2} value={editingCast.hobby || ""} onChange={(e) => setEditingCast({...editingCast, hobby: e.target.value})} />
-                        </div>
-                      </div>
-
                       {/* ブログ・SNS */}
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">ブログ・SNS</Label>
@@ -1177,31 +1124,6 @@ export default function Staff() {
                         <Button type="button" variant={editingCast.is_visible ? "default" : "outline"} size="sm" onClick={() => setEditingCast({...editingCast, is_visible: !editingCast.is_visible})}>
                           {editingCast.is_visible ? "ON" : "OFF"}
                         </Button>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label>ルーム</Label>
-                          <Select value={editingCast.room || ""} onValueChange={(v) => setEditingCast({...editingCast, room: v})}>
-                            <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="インルーム">インルーム</SelectItem>
-                              <SelectItem value="ラスルーム">ラスルーム</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>ステータス</Label>
-                          <Select value={editingCast.status} onValueChange={(v) => setEditingCast({...editingCast, status: v})}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="派遣中">派遣中</SelectItem>
-                              <SelectItem value="リピート予定">リピート予定</SelectItem>
-                              <SelectItem value="残タスク">残タスク</SelectItem>
-                              <SelectItem value="未着手">未着手</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
                       </div>
 
                       <div>
@@ -1252,11 +1174,6 @@ export default function Staff() {
                         <Label>直近派遣詳細</Label>
                         <Textarea rows={3} value={editingCast.recent_dispatch_details || ""} onChange={(e) => setEditingCast({...editingCast, recent_dispatch_details: e.target.value})} />
                       </div>
-
-                      <div>
-                        <Label>メモ</Label>
-                        <Textarea rows={4} value={editingCast.memo || ""} onChange={(e) => setEditingCast({...editingCast, memo: e.target.value})} />
-                      </div>
                     </TabsContent>
                   </Tabs>
 
@@ -1265,13 +1182,6 @@ export default function Staff() {
                   </Button>
                 </DialogContent>
               </Dialog>
-            )}
-
-            {/* Website Photo Sync */}
-            {isAdmin && (
-              <div className="mb-6">
-                <WebsitePhotoSync />
-              </div>
             )}
 
             <TabsContent value="management" className="space-y-6">
@@ -1288,28 +1198,6 @@ export default function Staff() {
                       className="pl-10"
                     />
                   </div>
-                  <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger className="w-[130px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全タイプ</SelectItem>
-                      <SelectItem value="インルーム">インルーム</SelectItem>
-                      <SelectItem value="ラスルーム">ラスルーム</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全ステータス</SelectItem>
-                      <SelectItem value="派遣中">派遣中</SelectItem>
-                      <SelectItem value="リピート予定">リピート予定</SelectItem>
-                      <SelectItem value="残タスク">残タスク</SelectItem>
-                      <SelectItem value="未着手">未着手</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </CardContent>
             </Card>
@@ -1346,7 +1234,7 @@ export default function Staff() {
                     )}
                   </div>
 
-                  {/* Name & Room */}
+                  {/* Name */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm truncate">{cast.name}</span>
@@ -1356,26 +1244,7 @@ export default function Staff() {
                         </Badge>
                       )}
                     </div>
-                    {cast.room && <p className="text-xs text-muted-foreground truncate">{cast.room}</p>}
                   </div>
-
-                  {/* Status buttons - hidden on mobile */}
-                  {isAdmin && (
-                    <div className="hidden md:flex items-center gap-1 flex-shrink-0">
-                      {['waiting', 'busy', 'offline'].map((s) => (
-                        <Button
-                          key={s}
-                          variant={cast.status === s ? "default" : "outline"}
-                          size="sm"
-                          className="text-[11px] h-7 px-2"
-                          disabled={cast.status === s}
-                          onClick={(e) => { e.stopPropagation(); handleStatusChange(cast.id, s); }}
-                        >
-                          {s === 'waiting' ? '待機' : s === 'busy' ? '接客' : '退勤'}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
 
                   {/* Actions */}
                   {isAdmin && (
