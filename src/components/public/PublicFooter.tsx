@@ -1,15 +1,3 @@
-import { Link } from "react-router-dom";
-
-const footerNavItems = [
-  { to: "/", label: "トップ", external: false },
-  { to: "/schedule", label: "出勤情報", external: false },
-  { to: "/casts", label: "セラピスト", external: false },
-  { to: "/system", label: "料金システム", external: false },
-  { to: "/access", label: "アクセス", external: false },
-  { to: "https://esjob.jp/shop/43923/", label: "求人情報", external: true },
-  { to: "/booking", label: "Web予約", external: false },
-];
-
 export const PublicFooter = () => {
   return (
     <footer className="text-white" style={{ backgroundColor: "#242220" }}>
@@ -60,36 +48,6 @@ export const PublicFooter = () => {
               className="w-10 h-10"
             />
           </a>
-        </div>
-
-        {/* Navigation */}
-        <div className="mb-8">
-          <h4 className="text-sm font-bold mb-4 text-center text-white/60 tracking-wider">
-            MENU
-          </h4>
-          <div className="grid grid-cols-3 md:grid-cols-4 gap-2 text-sm text-center">
-            {footerNavItems.map((item) =>
-              item.external ? (
-                <a
-                  key={item.to}
-                  href={item.to}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-white/70 hover:text-white transition-colors py-1"
-                >
-                  {item.label}
-                </a>
-              ) : (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className="text-white/70 hover:text-white transition-colors py-1"
-                >
-                  {item.label}
-                </Link>
-              )
-            )}
-          </div>
         </div>
       </div>
 

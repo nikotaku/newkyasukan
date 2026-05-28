@@ -86,6 +86,7 @@ interface Cast {
   blog_url: string | null;
   skebiy_url: string | null;
   instagram_url: string | null;
+  custom_fields: Record<string, string> | null;
 }
 
 export default function Staff() {
@@ -96,6 +97,7 @@ export default function Staff() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingCast, setEditingCast] = useState<Cast | null>(null);
+  const [mgmtProps, setMgmtProps] = useState<{ key: string; value: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [generatingContent, setGeneratingContent] = useState(false);
   
@@ -311,17 +313,24 @@ export default function Staff() {
         .single();
       
       if (error) throw error;
-      
+
       setEditingCast(data as Cast);
+      setMgmtProps(Object.entries((data as Cast).custom_fields || {}).map(([key, value]) => ({ key, value: String(value) })));
       setIsEditDialogOpen(true);
       console.log('Dialog opened with latest data:', data);
     } catch (error) {
       console.error('Error fetching latest cast data:', error);
       // エラーの場合は渡されたcastデータを使用
       setEditingCast(cast);
+      setMgmtProps(Object.entries(cast.custom_fields || {}).map(([key, value]) => ({ key, value: String(value) })));
       setIsEditDialogOpen(true);
     }
   };
+
+  const addMgmtProp = () => setMgmtProps((p) => [...p, { key: "", value: "" }]);
+  const updateMgmtProp = (i: number, field: "key" | "value", val: string) =>
+    setMgmtProps((p) => p.map((x, idx) => (idx === i ? { ...x, [field]: val } : x)));
+  const removeMgmtProp = (i: number) => setMgmtProps((p) => p.filter((_, idx) => idx !== i));
 
   const handleUpdateCast = async () => {
     if (!isAdmin || !editingCast) {
@@ -366,6 +375,9 @@ export default function Staff() {
         dispatch_status: editingCast.dispatch_status || 'none',
         repeat_scheduled: editingCast.repeat_scheduled || false,
         is_visible: editingCast.is_visible,
+        custom_fields: Object.fromEntries(
+          mgmtProps.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])
+        ),
       };
       const { error: baseError } = await supabase.from('casts').update(basePayload).eq('id', editingCast.id);
       if (baseError) throw baseError;
@@ -1127,52 +1139,28 @@ export default function Staff() {
                       </div>
 
                       <div>
-                        <Label>派遣ステータス</Label>
-                        <Select value={editingCast.dispatch_status || "none"} onValueChange={(v) => setEditingCast({...editingCast, dispatch_status: v})}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">未設定</SelectItem>
-                            <SelectItem value="scheduled">派遣予定</SelectItem>
-                            <SelectItem value="dispatched">派遣中</SelectItem>
-                            <SelectItem value="completed">完了</SelectItem>
-                            <SelectItem value="cancelled">キャンセル</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label>HP告知</Label>
-                        <div className="flex justify-end mb-1">
-                          <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateContent('announcement')} disabled={generatingContent}>
-                            <Sparkles className="w-4 h-4 mr-1" />AI生成
-                          </Button>
-                        </div>
-                        <Textarea rows={3} value={editingCast.hp_notice || ""} onChange={(e) => setEditingCast({...editingCast, hp_notice: e.target.value})} />
-                      </div>
-
-                      <div>
-                        <Label>媒体登録（カンマ区切り）</Label>
-                        <Input placeholder="キャスカン, エスタマ" value={(editingCast.media_registration || []).join(", ")} onChange={(e) => setEditingCast({...editingCast, media_registration: e.target.value.split(",").map(s => s.trim()).filter(s => s)})} />
-                      </div>
-
-                      <div>
-                        <Label>マーク一覧（カンマ区切り）</Label>
-                        <Input placeholder="【エスたま】新人" value={(editingCast.marks || []).join(", ")} onChange={(e) => setEditingCast({...editingCast, marks: e.target.value.split(",").map(s => s.trim()).filter(s => s)})} />
-                      </div>
-
-                      <div>
-                        <Label>登録シート URL</Label>
-                        <Input value={editingCast.registration_sheet || ""} onChange={(e) => setEditingCast({...editingCast, registration_sheet: e.target.value})} />
-                      </div>
-
-                      <div>
                         <Label>口コミ（O2）URL</Label>
                         <Input placeholder="https://..." value={editingCast.o2_url || ""} onChange={(e) => setEditingCast({...editingCast, o2_url: e.target.value})} />
                       </div>
 
-                      <div>
-                        <Label>直近派遣詳細</Label>
-                        <Textarea rows={3} value={editingCast.recent_dispatch_details || ""} onChange={(e) => setEditingCast({...editingCast, recent_dispatch_details: e.target.value})} />
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="font-semibold">管理プロパティ</Label>
+                          <Button type="button" size="sm" variant="outline" onClick={addMgmtProp}>
+                            <Plus className="h-3.5 w-3.5 mr-1" />プロパティを追加
+                          </Button>
+                        </div>
+                        {mgmtProps.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">「プロパティを追加」で項目名と値を自由に登録できます（例: 媒体登録 / 派遣ステータス / 登録シートURL など）</p>
+                        ) : (
+                          mgmtProps.map((p, i) => (
+                            <div key={i} className="flex gap-2 items-center">
+                              <Input placeholder="項目名（例: 媒体登録）" value={p.key} onChange={(e) => updateMgmtProp(i, "key", e.target.value)} className="flex-1" />
+                              <Input placeholder="値" value={p.value} onChange={(e) => updateMgmtProp(i, "value", e.target.value)} className="flex-1" />
+                              <Button type="button" size="sm" variant="ghost" onClick={() => removeMgmtProp(i)}><X className="h-4 w-4" /></Button>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </TabsContent>
                   </Tabs>
