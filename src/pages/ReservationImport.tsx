@@ -236,9 +236,24 @@ export default function ReservationImport() {
   const skippedRows = parsed.filter((r) => !r.cast_id);
 
   const handleImport = async () => {
+    if (!window.confirm(`既存の予約データをすべて削除してから、${validRows.length}件を取り込みます。よろしいですか？`)) {
+      return;
+    }
     setImporting(true);
     setImportedCount(0);
     try {
+      // 重複防止: 既存の予約をすべて削除してから入れ替える
+      const { error: delError } = await supabase
+        .from("reservations")
+        .delete()
+        .not("id", "is", null);
+      if (delError) {
+        console.error("Delete error:", delError);
+        toast.error(`既存データの削除に失敗しました: ${delError.message}`);
+        setImporting(false);
+        return;
+      }
+
       const BATCH = 100;
       let count = 0;
       for (let i = 0; i < validRows.length; i += BATCH) {
@@ -435,7 +450,7 @@ export default function ReservationImport() {
                   {importing ? (
                     <><Loader2 size={16} className="mr-2 animate-spin" />インポート中... ({importedCount}/{validRows.length})</>
                   ) : (
-                    `${validRows.length}件をインポートする`
+                    `既存データを削除して${validRows.length}件を取り込む`
                   )}
                 </Button>
               )}
