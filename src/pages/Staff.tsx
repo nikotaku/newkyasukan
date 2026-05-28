@@ -231,7 +231,7 @@ export default function Staff() {
       const { data: inserted, error } = await supabase
         .from('casts')
         .insert([{
-          name: formData.name,
+          name: formData.name.trim() || "名称未設定",
           type: formData.type,
           room: formData.room,
           status: formData.status,
@@ -338,7 +338,7 @@ export default function Staff() {
 
       // Step 1: update base fields (always exist in DB)
       const basePayload: Record<string, any> = {
-        name: editingCast.name,
+        name: editingCast.name?.trim() || "名称未設定",
         type: editingCast.type,
         room: editingCast.room,
         status: editingCast.status,
@@ -896,7 +896,7 @@ export default function Staff() {
                         </div>
                       </div>
 
-                      <Button onClick={handleAddCast} className="w-full" disabled={!formData.name.trim()}>
+                      <Button onClick={handleAddCast} className="w-full">
                         追加する
                       </Button>
                     </div>
