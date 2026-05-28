@@ -62,60 +62,6 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "キャンセル",
 };
 
-function StatusBox({
-  title,
-  color,
-  borderColor,
-  reservations,
-  onStatusChange,
-}: {
-  title: string;
-  color: string;
-  borderColor: string;
-  reservations: Reservation[];
-  onStatusChange: (id: string, status: string) => void;
-}) {
-  return (
-    <div className={`rounded-lg border-2 ${borderColor} bg-white flex flex-col`}>
-      <div className={`px-4 py-3 rounded-t-lg ${color} font-bold flex items-center justify-between`}>
-        <span>{title}</span>
-        <span className="text-sm font-normal opacity-80">{reservations.length}件</span>
-      </div>
-      <div className="flex-1 p-3 space-y-2 min-h-[120px] max-h-[400px] overflow-y-auto">
-        {reservations.length === 0 ? (
-          <p className="text-center text-muted-foreground text-sm py-6">なし</p>
-        ) : (
-          reservations.map((res) => (
-            <div key={res.id} className="bg-gray-50 rounded-md p-3 text-sm border border-gray-100">
-              <div className="font-semibold mb-1">{res.customer_name}</div>
-              <div className="text-muted-foreground text-xs space-y-0.5">
-                <div>{format(new Date(res.reservation_date), "M/d", { locale: ja })} {res.start_time.slice(0, 5)} ({res.duration}分)</div>
-                <div>{res.casts?.name ?? "未設定"} / {res.course_name}</div>
-                <div>{res.customer_phone}</div>
-              </div>
-              <div className="mt-2 flex gap-1 flex-wrap">
-                {["sms_waiting", "confirmed", "completed"].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => onStatusChange(res.id, s)}
-                    className={`text-xs px-2 py-0.5 rounded border transition-colors ${
-                      res.status === s
-                        ? `${STATUS_COLORS[s]} border-transparent`
-                        : "bg-white border-gray-200 text-gray-500 hover:bg-gray-100"
-                    }`}
-                  >
-                    {STATUS_LABELS[s]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function ReservationsList() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -123,7 +69,6 @@ export default function ReservationsList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isImportOpen, setIsImportOpen] = useState(false);
-  const [boxDate, setBoxDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
   const [casts, setCasts] = useState<Cast[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [backRates, setBackRates] = useState<BackRate[]>([]);
@@ -275,26 +220,6 @@ export default function ReservationsList() {
     }
   };
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from("reservations")
-        .update({ status: newStatus })
-        .eq("id", id);
-      if (error) throw error;
-      setReservations((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r))
-      );
-    } catch (err) {
-      console.error("Status update failed:", err);
-    }
-  };
-
-  const todayReservations = reservations.filter((r) => r.reservation_date === boxDate);
-  const smsWaiting = todayReservations.filter((r) => r.status === "sms_waiting");
-  const visitWaiting = todayReservations.filter((r) => r.status === "confirmed");
-  const completed = todayReservations.filter((r) => r.status === "completed");
-
   const filteredReservations = reservations.filter((res) => {
     const matchesSearch =
       res.customer_name.includes(searchQuery) ||
@@ -375,42 +300,6 @@ export default function ReservationsList() {
               />
             </TabsContent>
             <TabsContent value="db">
-
-          {/* ステータスBOX */}
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-3">
-              <h2 className="font-semibold text-sm text-muted-foreground">当日ステータス</h2>
-              <input
-                type="date"
-                value={boxDate}
-                onChange={(e) => setBoxDate(e.target.value)}
-                className="text-sm border rounded px-2 py-1 text-muted-foreground"
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <StatusBox
-                title="📩 SMS送信待ち"
-                color="bg-purple-100 text-purple-800"
-                borderColor="border-purple-300"
-                reservations={smsWaiting}
-                onStatusChange={handleStatusChange}
-              />
-              <StatusBox
-                title="🏃 来店待ち"
-                color="bg-blue-100 text-blue-800"
-                borderColor="border-blue-300"
-                reservations={visitWaiting}
-                onStatusChange={handleStatusChange}
-              />
-              <StatusBox
-                title="✅ 接客完了"
-                color="bg-emerald-100 text-emerald-800"
-                borderColor="border-emerald-300"
-                reservations={completed}
-                onStatusChange={handleStatusChange}
-              />
-            </div>
-          </div>
 
           {/* 検索・フィルター */}
           <Card className="mb-6">

@@ -88,6 +88,65 @@ function minutesToPx(minutes: number) {
   return ((minutes - TIME_START * 60) / 60) * HOUR_HEIGHT;
 }
 
+// 当日ステータスボード：予約詳細と同じステータス種別に統一（キャンセルは日別表示から除外）
+const BOARD_STATUSES = ["pending", "sms_waiting", "confirmed", "completed"] as const;
+
+const BOARD_STATUS_STYLE: Record<string, { header: string; border: string }> = {
+  pending: { header: "bg-amber-100 text-amber-800", border: "border-amber-300" },
+  sms_waiting: { header: "bg-purple-100 text-purple-800", border: "border-purple-300" },
+  confirmed: { header: "bg-blue-100 text-blue-800", border: "border-blue-300" },
+  completed: { header: "bg-emerald-100 text-emerald-800", border: "border-emerald-300" },
+};
+
+function StatusBox({
+  status,
+  reservations,
+  castNameMap,
+  onStatusChange,
+}: {
+  status: string;
+  reservations: Reservation[];
+  castNameMap: Map<string, string>;
+  onStatusChange: (id: string, status: string) => void;
+}) {
+  const style = BOARD_STATUS_STYLE[status];
+  return (
+    <div className={`rounded-lg border-2 ${style.border} bg-white flex flex-col`}>
+      <div className={`px-3 py-2 rounded-t-lg ${style.header} font-bold text-sm flex items-center justify-between`}>
+        <span>{STATUS_LABELS[status]}</span>
+        <span className="text-xs font-normal opacity-80">{reservations.length}件</span>
+      </div>
+      <div className="flex-1 p-2 space-y-2 min-h-[80px] max-h-[360px] overflow-y-auto">
+        {reservations.length === 0 ? (
+          <p className="text-center text-muted-foreground text-xs py-4">なし</p>
+        ) : (
+          reservations.map((res) => (
+            <div key={res.id} className="bg-gray-50 rounded-md p-2 text-xs border border-gray-100">
+              <div className="font-semibold mb-0.5">{res.customer_name}</div>
+              <div className="text-muted-foreground space-y-0.5">
+                <div>{res.start_time.slice(0, 5)}（{res.duration}分）</div>
+                <div>{castNameMap.get(res.cast_id) ?? "未設定"} / {res.course_name}</div>
+                <div>{res.customer_phone}</div>
+              </div>
+              <div className="mt-1.5 flex gap-1 flex-wrap">
+                {BOARD_STATUSES.filter((s) => s !== status).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => onStatusChange(res.id, s)}
+                    className="text-[10px] px-1.5 py-0.5 rounded border bg-white border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors"
+                  >
+                    {STATUS_LABELS[s]}へ
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Schedule() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -190,6 +249,12 @@ export default function Schedule() {
   };
 
   const dailyTotal = useMemo(() => reservations.reduce((sum, r) => sum + (r.price || 0), 0), [reservations]);
+
+  const castNameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    casts.forEach((c) => m.set(c.id, c.name));
+    return m;
+  }, [casts]);
 
   const castRows = useMemo(() => {
     const map = new Map<string, { cast: Cast; shift: Shift & { cast: Cast }; reservations: Reservation[] }>();
@@ -311,6 +376,16 @@ export default function Schedule() {
     }
   };
 
+  const handleQuickStatusChange = async (id: string, newStatus: string) => {
+    // 楽観的更新
+    setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r)));
+    const { error } = await supabase.from("reservations").update({ status: newStatus }).eq("id", id);
+    if (error) {
+      toast({ title: "エラー", description: "ステータスの更新に失敗しました", variant: "destructive" });
+      fetchData();
+    }
+  };
+
   const handleDeleteReservation = async () => {
     if (!detailRes || !confirm("この予約をキャンセルしますか？")) return;
     try {
@@ -412,6 +487,22 @@ export default function Schedule() {
                     <div className="text-[10px] text-muted-foreground">月次累計</div>
                   </div>
                 </Card>
+              </div>
+
+              {/* 当日ステータス */}
+              <div className="mb-3">
+                <h2 className="font-semibold text-xs text-muted-foreground mb-2">当日ステータス</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                  {BOARD_STATUSES.map((s) => (
+                    <StatusBox
+                      key={s}
+                      status={s}
+                      reservations={reservations.filter((r) => r.status === s)}
+                      castNameMap={castNameMap}
+                      onStatusChange={handleQuickStatusChange}
+                    />
+                  ))}
+                </div>
               </div>
 
               {/* Vertical timeline */}
