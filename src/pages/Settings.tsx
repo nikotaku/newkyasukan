@@ -13,6 +13,41 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BannerManagement } from "@/components/BannerManagement";
+import { getWebhookUrl, saveWebhookUrl } from "@/lib/sheetWebhook";
+
+function SheetWebhookSettings() {
+  const { toast } = useToast();
+  const [url, setUrl] = useState(getWebhookUrl());
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Save size={18} />スプレッドシート連携（書き込み）</CardTitle>
+        <CardDescription>
+          Google Apps Script の Webアプリ URL を設定すると、新規予約・新規顧客の保存時に自動でスプレッドシートへ追記されます。
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div>
+          <Label htmlFor="webhook_url">GAS WebアプリURL</Label>
+          <Input
+            id="webhook_url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://script.google.com/macros/s/XXXX/exec"
+          />
+        </div>
+        <Button
+          onClick={() => {
+            saveWebhookUrl(url);
+            toast({ title: "保存しました", description: "書き込み先URLを更新しました" });
+          }}
+        >
+          保存
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 interface ShopSettings {
   id: string;
@@ -244,6 +279,8 @@ export default function Settings() {
                 設定情報が見つかりません
               </div>
             )}
+
+            {isAdmin && <SheetWebhookSettings />}
 
             {isAdmin && <BannerManagement />}
           </div>

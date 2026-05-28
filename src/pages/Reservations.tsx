@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { postToSheet } from "@/lib/sheetWebhook";
 
 interface Cast {
   id: string;
@@ -287,6 +288,21 @@ export default function Reservations() {
         }]);
 
       if (error) throw error;
+
+      postToSheet("reservation", {
+        reservation_date: format(formData.reservation_date, 'yyyy-MM-dd'),
+        start_time: formData.start_time,
+        customer_name: formData.customer_name,
+        customer_phone: formData.customer_phone,
+        customer_email: formData.customer_email || "",
+        cast_name: casts.find((c) => c.id === formData.cast_id)?.name || "",
+        course_name: formData.course_name,
+        nomination_type: formData.nomination_type === 'none' ? "" : formData.nomination_type,
+        room: formData.room || "",
+        discount: formData.discount,
+        price: formData.price,
+        created_at: new Date().toISOString(),
+      });
 
       toast({
         title: "予約追加",

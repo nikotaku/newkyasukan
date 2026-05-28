@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { NotionDatabaseView } from "@/components/database/NotionDatabaseView";
 import { Property, DatabaseRecord } from "@/components/database/types";
 import { toast } from "sonner";
+import { postToSheet } from "@/lib/sheetWebhook";
 import { ImportModal } from "@/components/ImportModal";
 import { FileUp, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,14 @@ export default function CustomerDatabase() {
         email: data.email,
       }]);
       if (error) throw error;
+      postToSheet("customer", {
+        name: data.name || "",
+        phone: data.phone || "",
+        email: data.email || "",
+        tags: Array.isArray(data.tags) ? data.tags.join(",") : (data.tags || ""),
+        notes: data.notes || "",
+        created_at: new Date().toISOString(),
+      });
       toast.success("追加しました");
       fetchCustomers();
     } catch (error) {
