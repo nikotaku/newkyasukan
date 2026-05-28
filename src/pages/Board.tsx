@@ -6,18 +6,18 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash2, MessageSquare, Sparkles, Loader2 } from "lucide-react";
+import { Trash2, MessageSquare, Sparkles, Loader2, Pin, PinOff } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
 import { StaffConcierge } from "@/components/StaffConcierge";
-import { AnnouncementsList } from "@/components/AnnouncementsList";
 
 interface BoardPost {
   id: string;
   author_name: string;
   content: string;
   created_at: string;
+  is_pinned: boolean;
 }
 
 const MAX_CHARS = 140;
@@ -35,6 +35,7 @@ const Board = () => {
       const { data, error } = await supabase
         .from("board_posts")
         .select("*")
+        .order("is_pinned", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as BoardPost[];
@@ -63,6 +64,17 @@ const Board = () => {
       queryClient.invalidateQueries({ queryKey: ["board-posts"] });
       toast.success("削除しました");
     },
+  });
+
+  const pinMutation = useMutation({
+    mutationFn: async ({ id, is_pinned }: { id: string; is_pinned: boolean }) => {
+      const { error } = await supabase.from("board_posts").update({ is_pinned }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board-posts"] });
+    },
+    onError: () => toast.error("固定の更新に失敗しました"),
   });
 
   const handlePost = () => {
@@ -97,7 +109,7 @@ const Board = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <main className="md:ml-[180px] pt-[60px] p-4 max-w-xl mx-auto">
-        <AnnouncementsList />
+        <h1 className="text-lg font-bold mb-4">タイムライン</h1>
 
         {/* Post composer */}
         {isAdmin && (
@@ -151,12 +163,13 @@ const Board = () => {
         ) : (
           <div className="divide-y divide-border">
             {posts.map((post) => (
-              <div key={post.id} className="py-3 flex gap-3">
+              <div key={post.id} className={`py-3 flex gap-3 ${post.is_pinned ? "bg-amber-50/60 -mx-2 px-2 rounded" : ""}`}>
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
                   {post.author_name.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
+                    {post.is_pinned && <Pin size={12} className="text-amber-500 shrink-0" />}
                     <span className="font-semibold text-sm truncate">{post.author_name}</span>
                     <span className="text-xs text-muted-foreground shrink-0">
                       {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: ja })}
@@ -165,12 +178,21 @@ const Board = () => {
                   <p className="text-sm mt-0.5 whitespace-pre-wrap break-words">{post.content}</p>
                 </div>
                 {isAdmin && (
-                  <button
-                    onClick={() => { if (confirm("削除しますか？")) deleteMutation.mutate(post.id); }}
-                    className="text-muted-foreground hover:text-destructive transition-colors shrink-0 self-start mt-1"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0 self-start mt-1">
+                    <button
+                      onClick={() => pinMutation.mutate({ id: post.id, is_pinned: !post.is_pinned })}
+                      className={`transition-colors ${post.is_pinned ? "text-amber-500 hover:text-muted-foreground" : "text-muted-foreground hover:text-amber-500"}`}
+                      title={post.is_pinned ? "固定を解除" : "上部に固定"}
+                    >
+                      {post.is_pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                    </button>
+                    <button
+                      onClick={() => { if (confirm("削除しますか？")) deleteMutation.mutate(post.id); }}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 )}
               </div>
             ))}

@@ -12,7 +12,6 @@ const navItems = [
   { to: "/casts", label: "THERAPIST", sub: "セラピスト", external: false },
   { to: "/system", label: "SYSTEM", sub: "料金システム", external: false },
   { to: "/access", label: "ACCESS", sub: "アクセス", external: false },
-  { to: "/news", label: "NEWS", sub: "お知らせ", external: false },
   { to: RECRUIT_URL, label: "RECRUIT", sub: "求人情報", external: true },
   { to: "/booking", label: "RESERVE", sub: "Web予約", external: false },
 ];
