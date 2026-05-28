@@ -50,7 +50,6 @@ import PublicSystem from "./pages/public/System";
 import PublicAccess from "./pages/public/Access";
 import NotionPageView from "./pages/NotionPageView";
 import BookingReservation from "./pages/public/BookingReservation";
-import TextGeneration from "./pages/TextGeneration";
 import Agreement from "./pages/Agreement";
 import RoomSettings from "./pages/RoomSettings";
 import SchedulePage from "./pages/Schedule";
@@ -88,6 +87,7 @@ import SystemSMS from "./pages/SystemSMS";
 import SystemSMSAuto from "./pages/SystemSMSAuto";
 import TherapistCheckout from "./pages/TherapistCheckout";
 import SNSDatabase from "./pages/SNSDatabase";
+import PasswordDatabase from "./pages/PasswordDatabase";
 import TherapistMyPage from "./pages/TherapistMyPage";
 import CustomerDatabase from "./pages/CustomerDatabase";
 import FacilitiesRooms from "./pages/FacilitiesRooms";
@@ -151,11 +151,11 @@ const App = () => (
           <Route path="/report" element={<Report />} />
           <Route path="/salary" element={<Salary />} />
           <Route path="/pricing-management" element={<Pricing />} />
-          <Route path="/text-generation" element={<TextGeneration />} />
           <Route path="/shop" element={<Settings />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/board" element={<Board />} />
           <Route path="/knowledge" element={<Knowledge />} />
+          <Route path="/knowledge/passwords" element={<PasswordDatabase />} />
           <Route path="/templates" element={<TextTemplates />} />
           <Route path="/sales/customer-info" element={<SalesCustomerInfo />} />
           <Route path="/sales/closing" element={<SalesClosing />} />

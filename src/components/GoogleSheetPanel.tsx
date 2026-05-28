@@ -125,12 +125,13 @@ export function GoogleSheetPanel({ source, onData, onImport, className }: Google
           <span className="text-xs text-muted-foreground">{rows.length}行 × {headers.length}列</span>
         )}
 
-        {onImport && rows.length > 0 && (
+        {onImport && (
           <Button
             size="sm"
             onClick={handleImport}
-            disabled={importing}
+            disabled={importing || rows.length === 0}
             className="gap-1.5 ml-auto"
+            title={rows.length === 0 ? "先に「シートから取得」を押してください" : undefined}
           >
             {importing ? <RefreshCw size={13} className="animate-spin" /> : <Download size={13} />}
             {importing ? "取り込み中..." : "DBに取り込む"}

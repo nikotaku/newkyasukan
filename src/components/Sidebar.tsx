@@ -6,7 +6,6 @@ import {
   BarChart3,
   LogOut,
   ExternalLink,
-  Sparkles,
   MessageSquare,
   ChevronDown,
   Cpu,
@@ -139,6 +138,7 @@ const menuItems: MenuItem[] = [
     icon: BookOpen,
     children: [
       { href: "/knowledge", label: "ナレッジDB" },
+      { href: "/knowledge/passwords", label: "PW管理" },
       { href: "/templates", label: "文章テンプレート" },
     ],
   },
@@ -193,7 +193,6 @@ const menuItems: MenuItem[] = [
       },
     ],
   },
-  { href: "/text-generation", label: "文章生成", icon: Sparkles },
 ];
 
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
