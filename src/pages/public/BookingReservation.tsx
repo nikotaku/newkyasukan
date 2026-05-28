@@ -779,11 +779,13 @@ const BookingReservation = () => {
                         <p className="text-sm">別の日付をお選びください</p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <>
+                      <p className="text-xs text-muted-foreground mb-2 md:hidden">← 左右にスワイプしてセラピストを見る →</p>
+                      <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-3 -mx-1 px-1">
                         {/* 指名なしカード */}
                         <Card
                           className={cn(
-                            "cursor-pointer transition-all hover:shadow-lg",
+                            "cursor-pointer transition-all hover:shadow-lg shrink-0 w-56 snap-start",
                             selectedCastId === "none"
                               ? "ring-2 ring-[#c49480] shadow-lg"
                               : "hover:ring-1 hover:ring-[#d4b5a8]"
@@ -814,9 +816,9 @@ const BookingReservation = () => {
                           <Card
                             key={cast.id}
                             className={cn(
-                              "cursor-pointer transition-all hover:shadow-lg",
-                              selectedCastId === cast.id 
-                                ? "ring-2 ring-[#c49480] shadow-lg" 
+                              "cursor-pointer transition-all hover:shadow-lg shrink-0 w-56 snap-start",
+                              selectedCastId === cast.id
+                                ? "ring-2 ring-[#c49480] shadow-lg"
                                 : "hover:ring-1 hover:ring-[#d4b5a8]"
                             )}
                             onClick={() => setSelectedCastId(cast.id)}
@@ -893,6 +895,7 @@ const BookingReservation = () => {
                           </Card>
                         ))}
                       </div>
+                      </>
                     )}
                   </div>
                   <div className="flex justify-end">

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Link as LinkIcon, Copy, Eye, EyeOff, CalendarPlus, GripVertical, FileUp, X } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Link as LinkIcon, Copy, Eye, EyeOff, CalendarPlus, GripVertical, FileUp, X, ChevronDown, ChevronRight } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
 import { ImportModal } from "@/components/ImportModal";
 import { DashboardHeader } from "@/components/DashboardHeader";
@@ -19,11 +19,13 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 const THERAPIST_FEATURES = [
-  "人妻", "お姉さん系", "清楚系", "癒し系", "S系", "M系",
-  "ポッチャリ", "スレンダー", "モデル系", "巨乳", "パイパン", "学生",
-  "人見知り", "社交的", "甘えん坊", "ガールズトーク", "話し上手", "サービス旺盛",
-  "スキンシップ多め", "アイドル系", "フェロモン系", "外国人系", "エステ", "可愛い", "綺麗", "小柄",
+  "新人", "経験豊富", "業界未経験", "施術上手", "上品", "甘えん坊", "おとなしい", "おっとり",
+  "明るい", "優しい", "努力家", "礼儀正しい", "清楚系", "天然系", "セクシー系", "お姉様系",
+  "お嬢様系", "ギャル系", "美人系", "熟女系", "かわいい系", "アイドル系", "癒し系", "妹系",
+  "モデル体型", "小柄", "色白肌",
 ];
+
+const MAX_FEATURES = 4;
 
 const THERAPIST_EXPERIENCE_OPTIONS = ["1年未満", "1〜3年", "3〜5年", "5年以上"];
 const BLOOD_TYPES = ["A", "B", "O", "AB"];
@@ -55,6 +57,10 @@ interface Cast {
   therapist_experience: string | null;
   favorite_techniques: string | null;
   favorite_food: string | null;
+  ideal_type: string | null;
+  celebrity_lookalike: string | null;
+  day_off_activities: string | null;
+  hobbies: string | null;
   ideal_partner: string | null;
   follow_list: string | null;
   media_registration: string[] | null;
@@ -98,6 +104,8 @@ export default function Staff() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingCast, setEditingCast] = useState<Cast | null>(null);
   const [mgmtProps, setMgmtProps] = useState<{ key: string; value: string }[]>([]);
+  const [showProfileDetail, setShowProfileDetail] = useState(true);
+  const [showProfileDetailAdd, setShowProfileDetailAdd] = useState(true);
   const [loading, setLoading] = useState(true);
   const [generatingContent, setGeneratingContent] = useState(false);
   
@@ -126,6 +134,10 @@ export default function Staff() {
     body_size: "",
     enrollment_period: "",
     favorite_food: "",
+    ideal_type: "",
+    celebrity_lookalike: "",
+    day_off_activities: "",
+    hobbies: "",
     ideal_partner: "",
     celebrity_like: "",
     uses_sns: false,
@@ -279,6 +291,11 @@ export default function Staff() {
           birth_date: formData.birth_date || null,
           body_size: formData.body_size || null,
           enrollment_period: formData.enrollment_period || null,
+          favorite_food: formData.favorite_food || null,
+          ideal_type: formData.ideal_type || null,
+          celebrity_lookalike: formData.celebrity_lookalike || null,
+          day_off_activities: formData.day_off_activities || null,
+          hobbies: formData.hobbies || null,
           hobby: formData.hobby || null,
           celebrity_like: formData.celebrity_like || null,
           uses_sns: formData.uses_sns || false,
@@ -399,6 +416,11 @@ export default function Staff() {
         birth_date: editingCast.birth_date || null,
         body_size: editingCast.body_size || null,
         enrollment_period: editingCast.enrollment_period || null,
+        favorite_food: editingCast.favorite_food || null,
+        ideal_type: editingCast.ideal_type || null,
+        celebrity_lookalike: editingCast.celebrity_lookalike || null,
+        day_off_activities: editingCast.day_off_activities || null,
+        hobbies: editingCast.hobbies || null,
         hobby: editingCast.hobby || null,
         celebrity_like: editingCast.celebrity_like || null,
         uses_sns: editingCast.uses_sns || false,
@@ -793,19 +815,8 @@ export default function Staff() {
                             <Label htmlFor="add-name-kana">フリガナ</Label>
                             <Input id="add-name-kana" placeholder="例：サクラ" value={formData.name_kana} onChange={(e) => setFormData({...formData, name_kana: e.target.value})} />
                           </div>
-                          <div>
-                            <Label htmlFor="add-name-en">英語表記</Label>
-                            <Input id="add-name-en" placeholder="例：SAKURA" value={formData.name_en} onChange={(e) => setFormData({...formData, name_en: e.target.value})} />
-                          </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div>
-                            <Label>血液型</Label>
-                            <Select value={formData.blood_type} onValueChange={(v) => setFormData({...formData, blood_type: v})}>
-                              <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
-                              <SelectContent>{BLOOD_TYPES.map(b => <SelectItem key={b} value={b}>{b}型</SelectItem>)}</SelectContent>
-                            </Select>
-                          </div>
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor="add-height">身長 (cm)</Label>
                             <Input id="add-height" type="number" placeholder="158" value={formData.height} onChange={(e) => setFormData({...formData, height: e.target.value})} />
@@ -832,14 +843,18 @@ export default function Staff() {
 
                       {/* セラピストの特徴 */}
                       <div>
-                        <Label className="font-semibold">セラピストの特徴</Label>
+                        <Label className="font-semibold">セラピストの特徴（4つまで）</Label>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {THERAPIST_FEATURES.map((f) => {
                             const checked = formData.features.includes(f);
                             return (
                               <button key={f} type="button"
                                 className={`px-2 py-1 text-xs rounded-full border transition-colors ${checked ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground/30 text-muted-foreground hover:border-primary"}`}
-                                onClick={() => setFormData({...formData, features: checked ? formData.features.filter(x => x !== f) : [...formData.features, f]})}>
+                                onClick={() => {
+                                  if (checked) { setFormData({...formData, features: formData.features.filter(x => x !== f)}); }
+                                  else if (formData.features.length >= MAX_FEATURES) { toast({ title: "特徴は4つまで選択できます", variant: "destructive" }); }
+                                  else { setFormData({...formData, features: [...formData.features, f]}); }
+                                }}>
                                 {f}
                               </button>
                             );
@@ -862,29 +877,42 @@ export default function Staff() {
                         </div>
                       </div>
 
-                      {/* 特技 */}
+                      {/* サイズ */}
                       <div>
-                        <Label htmlFor="add-techniques" className="font-semibold">特技</Label>
-                        <Textarea id="add-techniques" rows={2} className="mt-1" placeholder="得意な施術・特技..." value={formData.favorite_techniques} onChange={(e) => setFormData({...formData, favorite_techniques: e.target.value})} />
+                        <Label htmlFor="add-body-size" className="font-semibold">サイズ (T/W/H)</Label>
+                        <Input id="add-body-size" className="mt-1" placeholder="158/58/84" value={formData.body_size} onChange={(e) => setFormData({...formData, body_size: e.target.value})} />
                       </div>
 
-                      {/* スタイル */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">スタイル</Label>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label htmlFor="add-hometown">出身</Label>
-                            <Input id="add-hometown" placeholder="東京都" value={formData.hometown} onChange={(e) => setFormData({...formData, hometown: e.target.value})} />
+                      {/* プロフィール詳細（トグル） */}
+                      <div className="border rounded-lg">
+                        <button type="button" className="w-full flex items-center justify-between p-4" onClick={() => setShowProfileDetailAdd(v => !v)}>
+                          <span className="font-semibold">プロフィール詳細</span>
+                          {showProfileDetailAdd ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                        {showProfileDetailAdd && (
+                          <div className="px-4 pb-4 space-y-3">
+                            <div>
+                              <Label htmlFor="add-favfood">好きな食べ物</Label>
+                              <Input id="add-favfood" className="mt-1" value={formData.favorite_food} onChange={(e) => setFormData({...formData, favorite_food: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="add-idealtype">好きな男性のタイプ</Label>
+                              <Input id="add-idealtype" className="mt-1" value={formData.ideal_type} onChange={(e) => setFormData({...formData, ideal_type: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="add-celeb">似ている芸能人</Label>
+                              <Input id="add-celeb" className="mt-1" value={formData.celebrity_lookalike} onChange={(e) => setFormData({...formData, celebrity_lookalike: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="add-dayoff">休みの日は何してる？</Label>
+                              <Textarea id="add-dayoff" rows={2} className="mt-1" value={formData.day_off_activities} onChange={(e) => setFormData({...formData, day_off_activities: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="add-hobbies">趣味・特技</Label>
+                              <Textarea id="add-hobbies" rows={2} className="mt-1" value={formData.hobbies} onChange={(e) => setFormData({...formData, hobbies: e.target.value})} />
+                            </div>
                           </div>
-                          <div>
-                            <Label htmlFor="add-birth-date">生年月日</Label>
-                            <Input id="add-birth-date" type="date" value={formData.birth_date} onChange={(e) => setFormData({...formData, birth_date: e.target.value})} />
-                          </div>
-                          <div>
-                            <Label htmlFor="add-body-size">サイズ (T/W/H)</Label>
-                            <Input id="add-body-size" placeholder="158/58/84" value={formData.body_size} onChange={(e) => setFormData({...formData, body_size: e.target.value})} />
-                          </div>
-                        </div>
+                        )}
                       </div>
 
                       {/* ブログ・SNS */}
@@ -999,18 +1027,7 @@ export default function Staff() {
                           <Label htmlFor="e-name-kana">フリガナ</Label>
                           <Input id="e-name-kana" value={editingCast.name_kana || ""} onChange={(e) => setEditingCast({...editingCast, name_kana: e.target.value})} />
                         </div>
-                        <div>
-                          <Label htmlFor="e-name-en">英語表記</Label>
-                          <Input id="e-name-en" value={editingCast.name_en || ""} onChange={(e) => setEditingCast({...editingCast, name_en: e.target.value})} />
-                        </div>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div>
-                            <Label>血液型</Label>
-                            <Select value={editingCast.blood_type || ""} onValueChange={(v) => setEditingCast({...editingCast, blood_type: v})}>
-                              <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
-                              <SelectContent>{BLOOD_TYPES.map(b => <SelectItem key={b} value={b}>{b}型</SelectItem>)}</SelectContent>
-                            </Select>
-                          </div>
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor="e-height">身長 (cm)</Label>
                             <Input id="e-height" type="number" value={editingCast.height || ""} onChange={(e) => setEditingCast({...editingCast, height: parseInt(e.target.value) || null})} />
@@ -1042,14 +1059,19 @@ export default function Staff() {
 
                       {/* セラピストの特徴 */}
                       <div>
-                        <Label className="font-semibold">セラピストの特徴</Label>
+                        <Label className="font-semibold">セラピストの特徴（4つまで）</Label>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {THERAPIST_FEATURES.map((f) => {
-                            const checked = (editingCast.features || []).includes(f);
+                            const cur = editingCast.features || [];
+                            const checked = cur.includes(f);
                             return (
                               <button key={f} type="button"
                                 className={`px-2 py-1 text-xs rounded-full border transition-colors ${checked ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground/30 text-muted-foreground hover:border-primary"}`}
-                                onClick={() => setEditingCast({...editingCast, features: checked ? (editingCast.features || []).filter(x => x !== f) : [...(editingCast.features || []), f]})}>
+                                onClick={() => {
+                                  if (checked) { setEditingCast({...editingCast, features: cur.filter(x => x !== f)}); }
+                                  else if (cur.length >= MAX_FEATURES) { toast({ title: "特徴は4つまで選択できます", variant: "destructive" }); }
+                                  else { setEditingCast({...editingCast, features: [...cur, f]}); }
+                                }}>
                                 {f}
                               </button>
                             );
@@ -1072,29 +1094,42 @@ export default function Staff() {
                         </div>
                       </div>
 
-                      {/* 特技 */}
+                      {/* サイズ */}
                       <div>
-                        <Label htmlFor="e-techniques" className="font-semibold">特技</Label>
-                        <Textarea id="e-techniques" rows={2} className="mt-1" value={editingCast.favorite_techniques || ""} onChange={(e) => setEditingCast({...editingCast, favorite_techniques: e.target.value})} />
+                        <Label htmlFor="e-body-size" className="font-semibold">サイズ (T/W/H)</Label>
+                        <Input id="e-body-size" className="mt-1" placeholder="158/58/84" value={editingCast.body_size || ""} onChange={(e) => setEditingCast({...editingCast, body_size: e.target.value})} />
                       </div>
 
-                      {/* スタイル */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">スタイル</Label>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label htmlFor="e-hometown">出身</Label>
-                            <Input id="e-hometown" value={editingCast.hometown || ""} onChange={(e) => setEditingCast({...editingCast, hometown: e.target.value})} />
+                      {/* プロフィール詳細（トグル） */}
+                      <div className="border rounded-lg">
+                        <button type="button" className="w-full flex items-center justify-between p-4" onClick={() => setShowProfileDetail(v => !v)}>
+                          <span className="font-semibold">プロフィール詳細</span>
+                          {showProfileDetail ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                        {showProfileDetail && (
+                          <div className="px-4 pb-4 space-y-3">
+                            <div>
+                              <Label htmlFor="e-favfood">好きな食べ物</Label>
+                              <Input id="e-favfood" className="mt-1" value={editingCast.favorite_food || ""} onChange={(e) => setEditingCast({...editingCast, favorite_food: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-idealtype">好きな男性のタイプ</Label>
+                              <Input id="e-idealtype" className="mt-1" value={editingCast.ideal_type || ""} onChange={(e) => setEditingCast({...editingCast, ideal_type: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-celeb">似ている芸能人</Label>
+                              <Input id="e-celeb" className="mt-1" value={editingCast.celebrity_lookalike || ""} onChange={(e) => setEditingCast({...editingCast, celebrity_lookalike: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-dayoff">休みの日は何してる？</Label>
+                              <Textarea id="e-dayoff" rows={2} className="mt-1" value={editingCast.day_off_activities || ""} onChange={(e) => setEditingCast({...editingCast, day_off_activities: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-hobbies">趣味・特技</Label>
+                              <Textarea id="e-hobbies" rows={2} className="mt-1" value={editingCast.hobbies || ""} onChange={(e) => setEditingCast({...editingCast, hobbies: e.target.value})} />
+                            </div>
                           </div>
-                          <div>
-                            <Label htmlFor="e-birth-date">生年月日</Label>
-                            <Input id="e-birth-date" type="date" value={editingCast.birth_date || ""} onChange={(e) => setEditingCast({...editingCast, birth_date: e.target.value})} />
-                          </div>
-                          <div>
-                            <Label htmlFor="e-body-size">サイズ (T/W/H)</Label>
-                            <Input id="e-body-size" placeholder="158/58/84" value={editingCast.body_size || ""} onChange={(e) => setEditingCast({...editingCast, body_size: e.target.value})} />
-                          </div>
-                        </div>
+                        )}
                       </div>
 
                       {/* ブログ・SNS */}
