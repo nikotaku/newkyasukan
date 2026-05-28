@@ -28,11 +28,12 @@ interface TodayShift {
   };
 }
 
-const STORE_SNS = [
-  { label: "店舗公式 X (旧Twitter)", short: "X", color: "#000000", url: "https://twitter.com/zenryoku_esthe" },
-  { label: "店舗公式 LINE", short: "L", color: "#06c755", url: "https://lin.ee/RdRhmXw" },
-  { label: "店舗公式 O2 (ゼロツー)", short: "O2", color: "#e85298", url: "https://m-sns.net/s/@zr_sendai2" },
-  { label: "店舗公式 Bluesky", short: "B", color: "#1185fe", url: "https://bsky.app/profile/zenryoku-esthe.bsky.social" },
+const STORE_SNS_DEFS = [
+  { key: "store_sns_x", label: "店舗公式 X (旧Twitter)", short: "X", color: "#000000" },
+  { key: "store_sns_line", label: "店舗公式 LINE", short: "L", color: "#06c755" },
+  { key: "store_sns_o2", label: "店舗公式 O2 (ゼロツー)", short: "O2", color: "#e85298" },
+  { key: "store_sns_instagram", label: "店舗公式 Instagram", short: "IG", color: "#d62976" },
+  { key: "store_sns_bluesky", label: "店舗公式 Bluesky", short: "B", color: "#1185fe" },
 ];
 
 const FALLBACK_BANNERS = [
@@ -43,9 +44,14 @@ const FALLBACK_BANNERS = [
 const Top = () => {
   const [todayShifts, setTodayShifts] = useState<TodayShift[]>([]);
   const [bannerSlides, setBannerSlides] = useState<string[]>(FALLBACK_BANNERS);
+  const [snsContent, setSnsContent] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
   const navigate = useNavigate();
+
+  const storeSns = STORE_SNS_DEFS
+    .map((d) => ({ ...d, url: snsContent[d.key] || "" }))
+    .filter((d) => d.url);
 
   useEffect(() => {
     document.title = "全力エステ 仙台店｜仙台のメンズエステ";
@@ -61,7 +67,7 @@ const Top = () => {
 
   const fetchAll = async () => {
     const today = format(new Date(), "yyyy-MM-dd");
-    const [s, b] = await Promise.all([
+    const [s, b, content] = await Promise.all([
       supabase
         .from("shifts")
         .select("id,cast_id,start_time,end_time,casts(id,name,photo,age,height,cup_size,message,tags,x_account)")
@@ -72,8 +78,14 @@ const Top = () => {
         .select("image_url")
         .eq("is_active", true)
         .order("display_order", { ascending: true }),
+      supabase.from("site_content").select("key, value").like("key", "store_sns_%"),
     ]);
 
+    if (content.data) {
+      const map: Record<string, string> = {};
+      content.data.forEach((r: { key: string; value: string }) => { map[r.key] = r.value; });
+      setSnsContent(map);
+    }
     if (s.data) {
       const seen = new Set<string>();
       const unique = (s.data as any[]).filter(sh => {
@@ -241,7 +253,7 @@ const Top = () => {
             最短のご案内情報はこちらからご確認いただけます。
           </p>
           <div className="grid gap-3 sm:grid-cols-2 mt-6 md:mt-8">
-            {STORE_SNS.map((s) => (
+            {storeSns.map((s) => (
               <a
                 key={s.label}
                 href={s.url}
