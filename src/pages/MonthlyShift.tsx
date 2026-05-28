@@ -259,7 +259,6 @@ export default function MonthlyShift() {
               </div>
             </div>
           </div>
-          </div>
 
             {/* ===== マトリクスビュー ===== */}
             <div className={viewMode === "matrix" ? "" : "hidden"}>
