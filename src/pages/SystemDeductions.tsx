@@ -5,13 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +19,7 @@ interface Deduction {
   deduction_type: "fixed" | "percentage";
   amount: number;
   is_active: boolean;
+  rule: string | null;
 }
 
 export default function SystemDeductions() {
@@ -36,6 +32,7 @@ export default function SystemDeductions() {
     deduction_type: "fixed" as "fixed" | "percentage",
     amount: 0,
     is_active: true,
+    rule: "",
   });
 
   const { user, loading: authLoading } = useAuth();
@@ -66,9 +63,15 @@ export default function SystemDeductions() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { error } = await supabase.from("deductions").insert([formData]);
+      const { error } = await supabase.from("deductions").insert([{
+        name: formData.name,
+        deduction_type: formData.deduction_type,
+        amount: formData.amount,
+        is_active: formData.is_active,
+        rule: formData.rule || null,
+      }]);
       if (error) throw error;
-      setFormData({ name: "", deduction_type: "fixed", amount: 0, is_active: true });
+      setFormData({ name: "", deduction_type: "fixed", amount: 0, is_active: true, rule: "" });
       setShowForm(false);
       fetchDeductions();
     } catch (error) {
@@ -96,7 +99,7 @@ export default function SystemDeductions() {
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">控除設定</h1>
-              <p className="text-muted-foreground">給与控除の種別管理</p>
+              <p className="text-muted-foreground">給与控除の種別・ルール管理</p>
             </div>
             <Button onClick={() => setShowForm(!showForm)}>
               <Plus size={16} className="mr-2" />追加
@@ -128,6 +131,16 @@ export default function SystemDeductions() {
                       <Input type="number" min="0" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })} />
                     </div>
                   </div>
+                  <div>
+                    <Label>ルール・備考</Label>
+                    <Textarea
+                      placeholder="例: 1本あたり1000円、上限2000円"
+                      value={formData.rule}
+                      onChange={(e) => setFormData({ ...formData, rule: e.target.value })}
+                      rows={2}
+                      className="mt-1"
+                    />
+                  </div>
                   <div className="flex gap-2">
                     <Button type="submit">保存</Button>
                     <Button type="button" variant="outline" onClick={() => setShowForm(false)}>キャンセル</Button>
@@ -145,15 +158,20 @@ export default function SystemDeductions() {
             <div className="space-y-3">
               {deductions.map((deduction) => (
                 <Card key={deduction.id}>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center justify-between">
-                      <div>
+                  <CardContent className="pt-4 pb-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
                         <div className="font-semibold">{deduction.name}</div>
                         <p className="text-sm text-muted-foreground">
                           {deduction.deduction_type === "fixed"
                             ? `¥${(deduction.amount || 0).toLocaleString()}`
                             : `${deduction.amount || 0}%`}
                         </p>
+                        {deduction.rule && (
+                          <p className="text-xs text-muted-foreground mt-1 bg-muted/50 rounded px-2 py-1 inline-block">
+                            ルール: {deduction.rule}
+                          </p>
+                        )}
                       </div>
                       <Button size="sm" variant="ghost" onClick={() => handleDelete(deduction.id)}>
                         <Trash2 size={14} />

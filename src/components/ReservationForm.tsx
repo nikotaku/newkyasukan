@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { calcPaymentFee, findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
 
 interface Cast {
   id: string;
@@ -66,6 +67,7 @@ interface FormData {
   discount: number;
   price: number;
   payment_method: string;
+  payment_fee: number;
   reservation_method: string;
   notes: string;
 }
@@ -123,6 +125,15 @@ export function ReservationForm({
   const [ngCastId, setNgCastId] = useState("");
   const [ngReason, setNgReason] = useState("");
   const [saving, setSaving] = useState(false);
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSetting[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from("payment_settings")
+      .select("id, payment_method, payment_link, fee_percentage")
+      .then(({ data }) => setPaymentSettings((data || []) as PaymentSetting[]));
+  }, []);
+
   const courseTypes = useMemo(() => {
     const types = [...new Set(backRates.map(r => r.course_type))];
     return types;
@@ -169,11 +180,12 @@ export function ReservationForm({
     }
     discountAmount = Math.min(discountAmount, subtotal);
     const totalPrice = subtotal - discountAmount;
+    const fee = calcPaymentFee(totalPrice, paymentSettings, formData.payment_method);
 
-    if (totalPrice !== formData.price || discountAmount !== formData.discount) {
-      setFormData({ ...formData, price: totalPrice, discount: discountAmount });
+    if (totalPrice !== formData.price || discountAmount !== formData.discount || fee !== formData.payment_fee) {
+      setFormData({ ...formData, price: totalPrice, discount: discountAmount, payment_fee: fee });
     }
-  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.discount_id, backRates, optionRates, nominationRates, discounts]);
+  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.discount_id, formData.payment_method, backRates, optionRates, nominationRates, discounts, paymentSettings]);
 
   useEffect(() => {
     const phone = formData.customer_phone.replace(/[-\s]/g, "");
@@ -300,10 +312,13 @@ export function ReservationForm({
     setFormData({ ...formData, selectedOptions: newOptions });
   }, [formData, setFormData]);
 
-  const availableOptions = useMemo(() => 
+  const availableOptions = useMemo(() =>
     regularOptions.map(rate => rate.option_name),
     [regularOptions]
   );
+
+  const cardFeePct = useMemo(() => findPaymentSetting(paymentSettings, "card")?.fee_percentage ?? 0, [paymentSettings]);
+  const paypayFeePct = useMemo(() => findPaymentSetting(paymentSettings, "paypay")?.fee_percentage ?? 0, [paymentSettings]);
 
   return (
     <div className="space-y-4">
@@ -714,6 +729,23 @@ export function ReservationForm({
       </div>
 
       <div>
+        <Label>お支払い方法</Label>
+        <Select
+          value={formData.payment_method || "cash"}
+          onValueChange={(value) => setFormData({ ...formData, payment_method: value })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="cash">現金</SelectItem>
+            <SelectItem value="card">カード{cardFeePct > 0 ? `（手数料${cardFeePct}%）` : ""}</SelectItem>
+            <SelectItem value="paypay">PayPay{paypayFeePct > 0 ? `（手数料${paypayFeePct}%）` : ""}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
         <Label htmlFor="notes">備考</Label>
         <Textarea
           id="notes"
@@ -730,9 +762,21 @@ export function ReservationForm({
             <span className="text-rose-600">-¥{formData.discount.toLocaleString()}</span>
           </div>
         )}
+        {formData.payment_fee > 0 && (
+          <>
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>小計</span>
+              <span>¥{formData.price.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>決済手数料</span>
+              <span>+¥{formData.payment_fee.toLocaleString()}</span>
+            </div>
+          </>
+        )}
         <div className="text-right">
           <p className="text-sm text-muted-foreground mb-1">合計金額</p>
-          <p className="text-2xl font-bold text-primary">¥{formData.price.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-primary">¥{(formData.price + (formData.payment_fee || 0)).toLocaleString()}</p>
         </div>
       </div>
 

@@ -149,6 +149,7 @@ export default function ReservationsList() {
     discount: 0,
     price: 12000,
     payment_method: "cash",
+    payment_fee: 0,
     reservation_method: "",
     notes: "",
   });
@@ -219,6 +220,8 @@ export default function ReservationsList() {
         nomination_type: formData.nomination_type === "none" ? null : formData.nomination_type,
         price: formData.price,
         discount: formData.discount,
+        payment_method: formData.payment_method || null,
+        payment_fee: formData.payment_fee || 0,
         notes: formData.notes || null,
         room: formData.room || null,
         created_by: user!.id,

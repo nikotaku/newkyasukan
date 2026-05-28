@@ -83,6 +83,7 @@ const menuItems: MenuItem[] = [
         groupLabel: "売上管理",
         items: [
           { href: "/sales/closing", label: "締め作業" },
+          { href: "/sales/clearance", label: "精算管理" },
           { href: "/sales/monthly-sales", label: "月別売上" },
           { href: "/sales/card-sales", label: "カード売上" },
           { href: "/sales/paypay-sales", label: "PayPay売上" },
@@ -105,6 +106,7 @@ const menuItems: MenuItem[] = [
           { href: "/system/courses", label: "コース" },
           { href: "/system/options", label: "オプション" },
           { href: "/system/discounts", label: "各種割引" },
+          { href: "/system/payment-methods", label: "決済方法" },
         ],
       },
       {
@@ -112,6 +114,7 @@ const menuItems: MenuItem[] = [
         items: [
           { href: "/system/deductions", label: "控除" },
           { href: "/system/allowances", label: "手当" },
+          { href: "/system/referral-rewards", label: "広告費" },
         ],
       },
       {

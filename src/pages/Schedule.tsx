@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
 
 interface Cast {
   id: string;
@@ -46,6 +47,8 @@ interface Reservation {
   course_type: string | null;
   nomination_type: string | null;
   price: number;
+  payment_method: string | null;
+  payment_fee: number | null;
   status: string;
   payment_status: string;
   room: string | null;
@@ -121,6 +124,7 @@ export default function Schedule() {
     discount: 0,
     price: 12000,
     payment_method: "cash",
+    payment_fee: 0,
     reservation_method: "",
     notes: "",
   });
@@ -131,6 +135,7 @@ export default function Schedule() {
   const [optionRates, setOptionRates] = useState<any[]>([]);
   const [nominationRates, setNominationRates] = useState<any[]>([]);
   const [discounts, setDiscounts] = useState<{ id: string; name: string; discount_type: "fixed" | "percentage"; discount_value: number }[]>([]);
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSetting[]>([]);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -144,13 +149,14 @@ export default function Schedule() {
   }, [user, selectedDate]);
 
   const fetchFormData = async () => {
-    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }] = await Promise.all([
+    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }, { data: p }] = await Promise.all([
       supabase.from("casts").select("id, name").order("name"),
       supabase.from("rooms").select("id, name, address").eq("is_active", true).order("name"),
       supabase.from("back_rates").select("*"),
       supabase.from("option_rates").select("*"),
       supabase.from("nomination_rates").select("*"),
       supabase.from("discounts").select("id, name, discount_type, discount_value, is_active").eq("is_active", true).order("name"),
+      supabase.from("payment_settings").select("id, payment_method, payment_link, fee_percentage"),
     ]);
     if (c) setCasts(c);
     if (r) setRooms(r);
@@ -158,6 +164,7 @@ export default function Schedule() {
     if (o) setOptionRates(o);
     if (n) setNominationRates(n);
     if (d) setDiscounts(d as any);
+    if (p) setPaymentSettings(p as PaymentSetting[]);
   };
 
   const fetchData = async () => {
@@ -227,6 +234,8 @@ export default function Schedule() {
         nomination_type: formData.nomination_type === "none" ? null : formData.nomination_type,
         price: formData.price,
         discount: formData.discount || 0,
+        payment_method: formData.payment_method || null,
+        payment_fee: formData.payment_fee || 0,
         notes: formData.notes || null,
         room: formData.room || null,
         created_by: user.id,
@@ -630,6 +639,14 @@ export default function Schedule() {
                       <span className="font-medium">{detailRes.course_name}</span>
                       <span className="text-muted-foreground">料金</span>
                       <span className="font-medium">¥{detailRes.price.toLocaleString()}</span>
+                      {(detailRes.payment_fee ?? 0) > 0 && (
+                        <>
+                          <span className="text-muted-foreground">決済手数料</span>
+                          <span className="font-medium">+¥{(detailRes.payment_fee ?? 0).toLocaleString()}</span>
+                          <span className="text-muted-foreground">総額</span>
+                          <span className="font-semibold text-primary">¥{(detailRes.price + (detailRes.payment_fee ?? 0)).toLocaleString()}</span>
+                        </>
+                      )}
                       {detailRes.nomination_type && (
                         <>
                           <span className="text-muted-foreground">指名</span>
@@ -664,6 +681,10 @@ export default function Schedule() {
                         const therapist = d.nomination_type && d.nomination_type !== "none"
                           ? d.nomination_type
                           : "フリー（フリー）";
+                        const fee = d.payment_fee || 0;
+                        const grandTotal = d.price + fee;
+                        const paySetting = findPaymentSetting(paymentSettings, d.payment_method || "");
+                        const payLink = fee > 0 && paySetting?.payment_link ? paySetting.payment_link : null;
                         const text = [
                           `${d.customer_name} 様`,
                           `ご予約ありがとうございます。`,
@@ -679,8 +700,9 @@ export default function Schedule() {
                           `[料金]`,
                           `コース料金：${d.price.toLocaleString()}円`,
                           `指名料：0円`,
-                          `決済手数料：0円`,
-                          `総額：${d.price.toLocaleString()}円`,
+                          `決済手数料：${fee.toLocaleString()}円`,
+                          `総額：${grandTotal.toLocaleString()}円`,
+                          ...(payLink ? [``, `▼${paySetting?.payment_method ?? "カード"}決済はこちら`, payLink] : []),
                           ``,
                           `【住所】`,
                           `仙台市 青葉区 春日町11-12`,
