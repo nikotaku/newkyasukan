@@ -44,8 +44,9 @@ export function mapCustomerRows(headers: string[], dataRows: string[][]) {
       const visitRaw = getCol(r, headers, "利用回数");
       return {
         name: getCol(r, headers, "名前") || phone,
+        kana: getColAny(r, headers, ["かな", "カナ", "フリガナ", "ふりがな"]) || null,
         phone,
-        email: getCol(r, headers, "Email") || null,
+        email: getColAny(r, headers, ["Email", "email", "メールアドレス", "メール"]) || null,
         visit_count: visitRaw ? parseInt(visitRaw, 10) : null,
         status: statusRaw === "出禁" ? "banned" : statusRaw === "要注意" ? "caution" : "active",
         notes: [memo, ng ? `NG: ${ng}` : ""].filter(Boolean).join(" / ") || null,
@@ -99,10 +100,10 @@ export function mapReservationRows(headers: string[], dataRows: string[][], cast
   return dataRows
     .filter((r) => r.some((c) => c.trim()))
     .map((r) => {
-      const d = parseDate(getColAny(r, headers, ["予約日", "予約日時", "日時", "日付", "来店日", "予約日付"]));
+      const d = parseDate(getColAny(r, headers, ["開始日時", "予約日時", "予約日", "日時", "日付", "来店日", "予約日付"]));
       if (!d) return null;
       const castName = parseCast(getColAny(r, headers, ["キャスト", "セラピスト", "担当", "担当者"]));
-      const route = getColAny(r, headers, ["経路", "流入経路", "媒体"]);
+      const route = getColAny(r, headers, ["予約経路", "経路", "流入経路", "媒体"]);
       const notesBase = getColAny(r, headers, ["メモ", "備考", "コメント"]);
       const noteParts = [notesBase, route ? `経路: ${route}` : ""].filter(Boolean);
       const course = getColAny(r, headers, ["コース", "メニュー", "コース名"]);
@@ -111,12 +112,15 @@ export function mapReservationRows(headers: string[], dataRows: string[][], cast
         start_time: d.time,
         customer_name: getColAny(r, headers, ["予約名", "顧客名", "お名前", "名前", "予約者"]) || "不明",
         customer_phone: getColAny(r, headers, ["電話番号", "電話", "TEL", "tel"]).replace(/^'/, "").replace(/[^\d]/g, "") || "",
+        customer_email: getColAny(r, headers, ["メールアドレス", "Email", "email", "メール"]) || null,
         cast_id: castName ? (castMap.get(castName) || null) : null,
+        nomination_type: getColAny(r, headers, ["指名", "指名種別"]) || null,
         course_name: course || "不明",
         duration: parseDur(course),
         room: getColAny(r, headers, ["ルーム", "部屋", "店舗"]) || null,
         price: parsePrice(getColAny(r, headers, ["売上", "料金", "金額", "価格"])),
-        payment_method: parsePay(getColAny(r, headers, ["決済", "支払", "支払方法", "決済方法"])),
+        payment_method: parsePay(getColAny(r, headers, ["決済方法", "決済", "支払", "支払方法"])),
+        referral_source: route || null,
         status: parseStatus(getColAny(r, headers, ["ステータス", "状態", "予約状況"])),
         notes: noteParts.join(" / ") || null,
       };
