@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
 
 interface MonthlyReport {
   month_date: string;
@@ -22,9 +24,18 @@ interface MonthlyReport {
 }
 
 const yen = (v: number | null) =>
-  v == null ? "—" : `¥${v.toLocaleString()}`;
-const num = (v: number | null) =>
-  v == null ? "—" : v.toLocaleString();
+  v == null || v === 0 ? "¥0" : `¥${v.toLocaleString()}`;
+const num = (v: number | null) => (v == null ? 0 : v);
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white border rounded shadow px-3 py-2 text-xs">
+      <p className="font-semibold mb-1">{label}</p>
+      <p className="text-[#38bdf8]">売上: ¥{payload[0]?.value?.toLocaleString()}</p>
+    </div>
+  );
+};
 
 export default function SalesMonthlySales() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -58,14 +69,13 @@ export default function SalesMonthlySales() {
     }
   };
 
-  const totalRevenue = reports.reduce((s, r) => s + (r.revenue ?? 0), 0);
-  const avgRevenue = reports.length > 0 ? totalRevenue / reports.length : 0;
-  const totalGross = reports.reduce((s, r) => s + (r.gross_profit ?? 0), 0);
-
-  const growthRate = (current: MonthlyReport, prev: MonthlyReport | undefined) => {
-    if (!prev || !prev.revenue || !current.revenue) return null;
-    return ((current.revenue - prev.revenue) / prev.revenue) * 100;
-  };
+  // Chart data: oldest first
+  const chartData = [...reports]
+    .reverse()
+    .map((r) => ({
+      label: format(parseISO(r.month_date), "M/1", { locale: ja }),
+      売上: r.revenue ?? 0,
+    }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -75,41 +85,49 @@ export default function SalesMonthlySales() {
       <main className="pt-[60px] md:ml-[240px] p-6">
         <div className="max-w-7xl mx-auto">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold">月別レポート</h1>
-            <p className="text-muted-foreground">月ごとの売上・客数・粗利推移</p>
+            <h1 className="text-2xl font-bold">月別売上</h1>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">累計売上</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{yen(totalRevenue)}</div>
-                <p className="text-xs text-muted-foreground mt-1">{reports.length}ヶ月分</p>
+          {/* Line Chart */}
+          {!loading && chartData.length > 0 && (
+            <Card className="mb-6">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 mb-4 text-sm font-medium text-[#38bdf8]">
+                  <span className="inline-block w-6 border-t-2 border-[#38bdf8]" />
+                  売上
+                </div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={chartData} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) => `${(v / 1_000_000).toFixed(0)}M`}
+                      width={42}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Line
+                      type="monotone"
+                      dataKey="売上"
+                      stroke="#38bdf8"
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: "#38bdf8" }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">平均月売上</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{yen(Math.round(avgRevenue))}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">累計粗利</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{yen(totalGross)}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  粗利率 {totalRevenue > 0 ? ((totalGross / totalRevenue) * 100).toFixed(1) : "—"}%
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          )}
 
+          {/* Table */}
           {loading ? (
             <div className="text-center text-muted-foreground py-12">読み込み中...</div>
           ) : reports.length === 0 ? (
@@ -120,71 +138,34 @@ export default function SalesMonthlySales() {
             </Card>
           ) : (
             <Card>
-              <CardContent className="pt-6 p-0">
+              <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="border-b bg-muted/40">
+                    <thead className="border-b bg-muted/30">
                       <tr>
-                        <th className="text-left py-3 px-4 font-semibold whitespace-nowrap">年月</th>
-                        <th className="text-right py-3 px-4 font-semibold whitespace-nowrap">売上</th>
-                        <th className="text-right py-3 px-3 font-semibold whitespace-nowrap">前月比</th>
-                        <th className="text-right py-3 px-4 font-semibold whitespace-nowrap">客数</th>
-                        <th className="text-right py-3 px-4 font-semibold whitespace-nowrap">件数</th>
-                        <th className="text-right py-3 px-4 font-semibold whitespace-nowrap">新規</th>
-                        <th className="text-right py-3 px-4 font-semibold whitespace-nowrap">リピ</th>
-                        <th className="text-right py-3 px-4 font-semibold whitespace-nowrap">給与</th>
-                        <th className="text-right py-3 px-4 font-semibold whitespace-nowrap">割引</th>
-                        <th className="text-right py-3 px-4 font-semibold whitespace-nowrap">粗利</th>
-                        <th className="text-right py-3 px-4 font-semibold whitespace-nowrap">粗利率</th>
+                        {["月", "売上", "出勤", "予約", "新規", "リピート", "報酬", "経費", "利益"].map((h) => (
+                          <th key={h} className="py-3 px-4 font-semibold whitespace-nowrap text-left first:text-left [&:not(:first-child)]:text-right">
+                            {h}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {reports.map((row, idx) => {
-                        const prev = reports[idx + 1];
-                        const rate = growthRate(row, prev);
-                        const grossRate = row.revenue && row.gross_profit
-                          ? (row.gross_profit / row.revenue) * 100
-                          : null;
-                        return (
-                          <tr key={row.month_date} className="border-b hover:bg-muted/40 transition-colors">
-                            <td className="py-3 px-4 font-semibold whitespace-nowrap">
-                              {format(parseISO(row.month_date), "yyyy年M月", { locale: ja })}
-                            </td>
-                            <td className="py-3 px-4 text-right font-medium tabular-nums">
-                              {yen(row.revenue)}
-                            </td>
-                            <td className="py-3 px-3 text-right whitespace-nowrap tabular-nums">
-                              {rate == null ? (
-                                <Minus size={12} className="inline text-muted-foreground" />
-                              ) : rate >= 0 ? (
-                                <span className="text-green-600 flex items-center justify-end gap-0.5">
-                                  <TrendingUp size={12} />+{rate.toFixed(1)}%
-                                </span>
-                              ) : (
-                                <span className="text-red-500 flex items-center justify-end gap-0.5">
-                                  <TrendingDown size={12} />{rate.toFixed(1)}%
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-right tabular-nums">{num(row.customer_count)}</td>
-                            <td className="py-3 px-4 text-right tabular-nums">{num(row.session_count)}</td>
-                            <td className="py-3 px-4 text-right tabular-nums text-blue-600">{num(row.new_customers)}</td>
-                            <td className="py-3 px-4 text-right tabular-nums text-green-600">{num(row.repeat_customers)}</td>
-                            <td className="py-3 px-4 text-right tabular-nums text-muted-foreground">{yen(row.therapist_pay)}</td>
-                            <td className="py-3 px-4 text-right tabular-nums">
-                              {row.discount == null ? "—" : (
-                                <span className={row.discount < 0 ? "text-red-500" : ""}>
-                                  {row.discount < 0 ? `-¥${Math.abs(row.discount).toLocaleString()}` : `¥${row.discount.toLocaleString()}`}
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-right font-medium tabular-nums">{yen(row.gross_profit)}</td>
-                            <td className="py-3 px-4 text-right tabular-nums text-muted-foreground">
-                              {grossRate != null ? `${grossRate.toFixed(1)}%` : "—"}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {reports.map((row) => (
+                        <tr key={row.month_date} className="border-b hover:bg-muted/30 transition-colors">
+                          <td className="py-3 px-4 font-semibold whitespace-nowrap">
+                            {format(parseISO(row.month_date), "yyyy年M月", { locale: ja })}
+                          </td>
+                          <td className="py-3 px-4 text-right tabular-nums">{yen(row.revenue)}</td>
+                          <td className="py-3 px-4 text-right tabular-nums">{num(row.customer_count)}</td>
+                          <td className="py-3 px-4 text-right tabular-nums text-blue-500">{num(row.session_count)}</td>
+                          <td className="py-3 px-4 text-right tabular-nums">{num(row.new_customers)}</td>
+                          <td className="py-3 px-4 text-right tabular-nums">{num(row.repeat_customers)}</td>
+                          <td className="py-3 px-4 text-right tabular-nums text-red-500">{yen(row.therapist_pay)}</td>
+                          <td className="py-3 px-4 text-right tabular-nums text-red-500">{yen(row.discount)}</td>
+                          <td className="py-3 px-4 text-right tabular-nums text-red-500">{yen(row.gross_profit)}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>

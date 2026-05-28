@@ -21,6 +21,7 @@ const DEFAULT_PROPERTIES: Property[] = [
   { id: "visit_count", name: "来店回数", type: "number", width: 100 },
   { id: "total_spent", name: "累計売上", type: "number", width: 110 },
   { id: "last_visited", name: "最終来店", type: "date", width: 110 },
+  { id: "last_therapist", name: "前回セラピスト", type: "text", width: 130 },
   {
     id: "tags", name: "タグ", type: "multi_select", width: 180,
     options: [
@@ -68,12 +69,33 @@ export default function CustomerDatabase() {
   const fetchCustomers = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("*")
-        .order("name");
+      const [{ data, error }, { data: resvData }] = await Promise.all([
+        supabase.from("customers").select("*").order("name"),
+        supabase
+          .from("reservations")
+          .select("customer_phone, reservation_date, start_time, casts(name)")
+          .not("cast_id", "is", null)
+          .order("reservation_date", { ascending: false })
+          .order("start_time", { ascending: false })
+          .limit(5000),
+      ]);
       if (error && error.code !== "PGRST116") throw error;
-      setRecords((data || []).map(mapToRecord));
+
+      // Build phone → last therapist name map (first occurrence = most recent)
+      const lastTherapistMap = new Map<string, string>();
+      for (const r of (resvData || [])) {
+        const phone = (r.customer_phone || "").replace(/[^\d]/g, "");
+        if (phone && !lastTherapistMap.has(phone)) {
+          const castName = (r.casts as any)?.name;
+          if (castName) lastTherapistMap.set(phone, castName);
+        }
+      }
+
+      const records = (data || []).map((row) => ({
+        ...mapToRecord(row),
+        last_therapist: lastTherapistMap.get((row.phone || "").replace(/[^\d]/g, "")) ?? null,
+      }));
+      setRecords(records);
     } catch (error) {
       console.error("Error fetching customers:", error);
     } finally {
