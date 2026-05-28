@@ -100,11 +100,19 @@ interface Cast {
   customer_base_memo: string | null;
   referral_route: string | null;
   interview_sheet_url: string | null;
+  referral_reward_id: string | null;
+}
+
+interface ReferralReward {
+  id: string;
+  name: string;
+  amount: number;
 }
 
 export default function Staff() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [casts, setCasts] = useState<Cast[]>([]);
+  const [referralRewards, setReferralRewards] = useState<ReferralReward[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -190,7 +198,8 @@ export default function Staff() {
   // キャストデータを取得
   useEffect(() => {
     fetchCasts();
-    
+    fetchReferralRewards();
+
     // リアルタイム更新を購読
     const channel = supabase
       .channel('casts-changes')
@@ -233,6 +242,15 @@ export default function Staff() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchReferralRewards = async () => {
+    const { data } = await supabase
+      .from('referral_rewards')
+      .select('id, name, amount')
+      .eq('is_active', true)
+      .order('name');
+    setReferralRewards((data || []) as ReferralReward[]);
   };
 
   const getCastCategory = (cast: Cast): CategoryTag => {
@@ -413,6 +431,7 @@ export default function Staff() {
         customer_base_memo: editingCast.customer_base_memo || null,
         referral_route: editingCast.referral_route || null,
         interview_sheet_url: editingCast.interview_sheet_url || null,
+        referral_reward_id: editingCast.referral_reward_id || null,
         is_visible: editingCast.is_visible,
         custom_fields: Object.fromEntries(
           mgmtProps.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])
@@ -1239,6 +1258,26 @@ export default function Staff() {
                         <div>
                           <Label htmlFor="e-referral-route">紹介経由</Label>
                           <Input id="e-referral-route" className="mt-1" value={editingCast.referral_route || ""} onChange={(e) => setEditingCast({...editingCast, referral_route: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label>紹介報酬（広告費）</Label>
+                          <Select
+                            value={editingCast.referral_reward_id || "none"}
+                            onValueChange={(v) => setEditingCast({...editingCast, referral_reward_id: v === "none" ? null : v})}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="適用なし" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">適用なし</SelectItem>
+                              {referralRewards.map((r) => (
+                                <SelectItem key={r.id} value={r.id}>
+                                  {r.name}（予約1本¥{r.amount.toLocaleString()}）
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground mt-1">ルールはシステム＞給与＞広告費で登録できます</p>
                         </div>
                         <div>
                           <Label htmlFor="e-recent-dispatch">直近確定詳細</Label>
