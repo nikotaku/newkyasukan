@@ -22,17 +22,27 @@ export const PublicNavigation = () => {
 
   return (
     <>
-      {/* Logo Header with right-aligned business info (公式準拠) */}
+      {/* Logo Header — ロゴは左上に控えめに配置、店舗情報は右 */}
       <div
-        className="relative py-3 md:py-10 border-b border-[#3a3634]"
+        className="border-b border-[#3a3634] py-2.5 md:py-4"
         style={{
           background:
             "linear-gradient(135deg, #2e2b29 0%, #242220 50%, #2e2b29 100%)",
         }}
       >
-        <div className="container mx-auto px-4">
-          {/* PC: business info top-right */}
-          <div className="hidden md:flex absolute top-3 right-6 items-center gap-5 text-sm" style={{ color: "#c49480" }}>
+        <div className="container mx-auto px-4 flex items-center justify-between gap-3">
+          {/* Logo - top left, modest */}
+          <Link to="/" className="shrink-0">
+            <img
+              src={SHOP_LOGO}
+              alt="全力エステ 仙台"
+              className="h-8 md:h-11 object-contain"
+              loading="eager"
+            />
+          </Link>
+
+          {/* PC: business info right */}
+          <div className="hidden md:flex items-center gap-5 text-sm" style={{ color: "#c49480" }}>
             <span className="inline-flex items-center gap-1.5">
               <Clock size={14} />
               12:00〜26:00(24:40最終受付)
@@ -47,21 +57,8 @@ export const PublicNavigation = () => {
             </a>
           </div>
 
-          {/* Logo - centered */}
-          <Link to="/" className="block text-center">
-            <img
-              src={SHOP_LOGO}
-              alt="全力エステ 仙台"
-              className="h-12 md:h-28 mx-auto object-contain"
-              loading="eager"
-            />
-          </Link>
-
-          {/* SP: business info under logo */}
-          <div className="md:hidden flex justify-center items-center gap-3 mt-1.5 text-[10px]" style={{ color: "#c49480" }}>
-            <span className="inline-flex items-center gap-1">
-              <Clock size={11} /> 12:00〜26:00
-            </span>
+          {/* SP: business info right (compact) */}
+          <div className="md:hidden flex items-center gap-2 text-[10px]" style={{ color: "#c49480" }}>
             <a
               href="tel:09081264042"
               className="inline-flex items-center gap-1 font-semibold"
