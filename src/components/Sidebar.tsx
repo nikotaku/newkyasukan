@@ -83,9 +83,8 @@ const menuItems: MenuItem[] = [
         groupLabel: "売り上げ",
         items: [
           { href: "/sales/pending-reports", label: "確認待ちボックス" },
-          { href: "/sales/closing", label: "締め作業" },
           { href: "/sales/monthly-sales", label: "月別売上" },
-          { href: "/sales/daily-sales", label: "日別売上" },
+          { href: "/sales/daily-sales", label: "日別清算" },
           { href: "/sales/card-sales", label: "カード売上" },
           { href: "/sales/paypay-sales", label: "PayPay売上" },
           { href: "/sales/monthly-target", label: "月別売上目標" },

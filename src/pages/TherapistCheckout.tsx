@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,10 +78,14 @@ const PAYMENT_METHODS = [
 export default function TherapistCheckout() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialStep = searchParams.get("step") ?? "sales";
+  const [activeTab, setActiveTab] = useState(initialStep);
   const [cast, setCast] = useState<Cast | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<string | null>(null);
+  const [nextShift, setNextShift] = useState<{ shift_date: string; room: string | null } | null>(null);
 
   // 予約データ
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -332,6 +336,27 @@ export default function TherapistCheckout() {
         cast_id: cast?.id,
       }]);
       if (error) throw error;
+      // Mark clearance completed if one exists
+      if (cast?.id) {
+        await supabase
+          .from("daily_clearances" as any)
+          .update({ status: "completed" })
+          .eq("cast_id", cast.id)
+          .eq("date", selectedDate)
+          .eq("status", "pending");
+        // Fetch next shift for greeting
+        const today = format(new Date(), "yyyy-MM-dd");
+        const { data: shiftData } = await supabase
+          .from("shifts")
+          .select("shift_date, room")
+          .eq("cast_id", cast.id)
+          .eq("approval_status", "approved")
+          .gt("shift_date", today)
+          .order("shift_date")
+          .limit(1)
+          .maybeSingle();
+        setNextShift(shiftData as { shift_date: string; room: string | null } | null);
+      }
       setSubmitted("cleaning");
     } catch (err: any) {
       console.error("清掃チェック送信エラー:", err);
@@ -380,6 +405,38 @@ export default function TherapistCheckout() {
     </Card>
   );
 
+  const CleaningSuccessCard = () => (
+    <Card className="border-green-200">
+      <CardContent className="pt-8 pb-8 text-center space-y-4">
+        <div className="text-4xl">💐</div>
+        <p className="font-bold text-xl">お疲れさまでした💐</p>
+        <div className="text-sm text-muted-foreground space-y-2 bg-muted/30 rounded-xl p-4 text-left">
+          <p>今回の勤務により全力エステより<strong className="text-primary">0.5pt</strong>が付与されました！</p>
+          {nextShift ? (
+            <p>
+              次回の勤務は
+              <strong>
+                {format(new Date(nextShift.shift_date), "M月d日(E)", { locale: ja })}
+                {nextShift.room ? `　${nextShift.room}ルーム` : ""}
+              </strong>
+              です。
+            </p>
+          ) : (
+            <p>次回のシフトが確定したらお知らせします。</p>
+          )}
+          <p>本日もありがとうございました！</p>
+        </div>
+        <Button
+          className="mt-2"
+          variant="outline"
+          onClick={() => navigate(`/therapist/${token}`)}
+        >
+          マイページに戻る
+        </Button>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
@@ -406,7 +463,7 @@ export default function TherapistCheckout() {
       <main className="container mx-auto px-4 py-6 max-w-lg">
         <h1 className="text-xl font-bold mb-6">退勤フォーム</h1>
 
-        <Tabs defaultValue="sales">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full mb-6">
             <TabsTrigger value="sales" className="flex-1">売上入力</TabsTrigger>
             <TabsTrigger value="cleaning" className="flex-1">清掃チェック</TabsTrigger>
@@ -763,7 +820,7 @@ export default function TherapistCheckout() {
           {/* ─── 清掃チェック ─── */}
           <TabsContent value="cleaning">
             {submitted === "cleaning" ? (
-              <SuccessCard label="清掃チェック" />
+              <CleaningSuccessCard />
             ) : (
               <Card>
                 <CardHeader><CardTitle>清掃チェック</CardTitle></CardHeader>
