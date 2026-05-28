@@ -144,9 +144,6 @@ const Casts = () => {
                         {cast.tags?.map((tag, idx) => (
                           <span key={idx} className={`text-white text-xs font-bold px-2 py-1 rounded shadow-md ${tag === '人気セラピスト' ? 'bg-red-500' : tag === '新人' ? 'bg-pink-500' : 'bg-blue-500'}`}>{tag}</span>
                         ))}
-                        {isNewFace(cast.join_date) && (!cast.tags || !cast.tags.includes('新人')) && (
-                          <span className="bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded shadow-md">新人</span>
-                        )}
                       </div>
                       {cast.photo ? (
                         <img src={driveImgUrl(cast.photo)} alt={cast.name} className="w-full aspect-[3/4] object-cover" />
