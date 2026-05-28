@@ -117,6 +117,8 @@ export default function Schedule() {
     course_type: "aroma",
     course_name: "80分 アロマオイルコース",
     selectedOptions: [] as string[],
+    discount_id: "none",
+    discount: 0,
     price: 12000,
     payment_method: "cash",
     reservation_method: "",
@@ -128,6 +130,7 @@ export default function Schedule() {
   const [backRates, setBackRates] = useState<any[]>([]);
   const [optionRates, setOptionRates] = useState<any[]>([]);
   const [nominationRates, setNominationRates] = useState<any[]>([]);
+  const [discounts, setDiscounts] = useState<{ id: string; name: string; discount_type: "fixed" | "percentage"; discount_value: number }[]>([]);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -141,18 +144,20 @@ export default function Schedule() {
   }, [user, selectedDate]);
 
   const fetchFormData = async () => {
-    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }] = await Promise.all([
+    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }] = await Promise.all([
       supabase.from("casts").select("id, name").order("name"),
       supabase.from("rooms").select("id, name, address").eq("is_active", true).order("name"),
       supabase.from("back_rates").select("*"),
       supabase.from("option_rates").select("*"),
       supabase.from("nomination_rates").select("*"),
+      supabase.from("discounts").select("id, name, discount_type, discount_value, is_active").eq("is_active", true).order("name"),
     ]);
     if (c) setCasts(c);
     if (r) setRooms(r);
     if (b) setBackRates(b);
     if (o) setOptionRates(o);
     if (n) setNominationRates(n);
+    if (d) setDiscounts(d as any);
   };
 
   const fetchData = async () => {
@@ -221,6 +226,7 @@ export default function Schedule() {
         options: formData.selectedOptions,
         nomination_type: formData.nomination_type === "none" ? null : formData.nomination_type,
         price: formData.price,
+        discount: formData.discount || 0,
         notes: formData.notes || null,
         room: formData.room || null,
         created_by: user.id,
@@ -330,6 +336,7 @@ export default function Schedule() {
                       backRates={backRates}
                       optionRates={optionRates}
                       nominationRates={nominationRates}
+                      discounts={discounts}
                       onSubmit={handleAddReservation}
                     />
                   </div>

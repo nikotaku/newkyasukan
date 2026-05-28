@@ -230,42 +230,22 @@ export default function Staff() {
     }
 
     try {
-      const { error } = await supabase
+      // Step 1: insert base fields
+      const { data: inserted, error } = await supabase
         .from('casts')
         .insert([{
           name: formData.name,
-          name_kana: formData.name_kana || null,
-          name_en: formData.name_en || null,
           type: formData.type,
           room: formData.room,
           status: formData.status,
-          profile: formData.profile || null,
+          profile: formData.therapist_comment || formData.profile || null,
           photo: formData.photos[0] || null,
           photos: formData.photos.length > 0 ? formData.photos : null,
-          blood_type: formData.blood_type || null,
-          height: formData.height !== "" ? Number(formData.height) : null,
-          weight: formData.weight !== "" ? Number(formData.weight) : null,
-          bust_size: formData.bust_size || null,
-          shop_comment: formData.shop_comment || null,
-          therapist_comment: formData.therapist_comment || null,
-          features: formData.features.length > 0 ? formData.features : null,
-          therapist_experience: formData.therapist_experience || null,
+          x_account: formData.x_account || null,
+          therapist_years: formData.therapist_years || null,
           favorite_techniques: formData.favorite_techniques || null,
-          age: formData.age !== "" ? Number(formData.age) : null,
-          hometown: formData.hometown || null,
-          birth_date: formData.birth_date || null,
-          body_size: formData.body_size || null,
-          enrollment_period: formData.enrollment_period || null,
           favorite_food: formData.favorite_food || null,
           ideal_partner: formData.ideal_partner || null,
-          celebrity_like: formData.celebrity_like || null,
-          uses_sns: formData.uses_sns || false,
-          hobby: formData.hobby || null,
-          blog_url: formData.blog_url || null,
-          x_account: formData.x_account || null,
-          skebiy_url: formData.skebiy_url || null,
-          instagram_url: formData.instagram_url || null,
-          therapist_years: formData.therapist_years || null,
           follow_list: formData.follow_list || null,
           media_registration: formData.media_registration.length > 0 ? formData.media_registration : null,
           marks: formData.marks.length > 0 ? formData.marks : null,
@@ -276,15 +256,40 @@ export default function Staff() {
           memo: formData.memo || null,
           dispatch_status: formData.dispatch_status || 'none',
           repeat_scheduled: formData.repeat_scheduled || false,
-        }]);
+        }])
+        .select('id')
+        .single();
 
       if (error) throw error;
 
-      toast({
-        title: "キャスト追加",
-        description: "新しいキャストが追加されました",
-      });
+      // Step 2: update new profile fields (silent fail if migration not run)
+      if (inserted?.id) {
+        await supabase.from('casts').update({
+          name_kana: formData.name_kana || null,
+          name_en: formData.name_en || null,
+          blood_type: formData.blood_type || null,
+          height: formData.height !== "" ? Number(formData.height) : null,
+          weight: formData.weight !== "" ? Number(formData.weight) : null,
+          bust_size: formData.bust_size || null,
+          shop_comment: formData.shop_comment || null,
+          therapist_comment: formData.therapist_comment || null,
+          features: formData.features.length > 0 ? formData.features : null,
+          therapist_experience: formData.therapist_experience || null,
+          age: formData.age !== "" ? Number(formData.age) : null,
+          hometown: formData.hometown || null,
+          birth_date: formData.birth_date || null,
+          body_size: formData.body_size || null,
+          enrollment_period: formData.enrollment_period || null,
+          hobby: formData.hobby || null,
+          celebrity_like: formData.celebrity_like || null,
+          uses_sns: formData.uses_sns || false,
+          blog_url: formData.blog_url || null,
+          skebiy_url: formData.skebiy_url || null,
+          instagram_url: formData.instagram_url || null,
+        }).eq('id', inserted.id);
+      }
 
+      toast({ title: "追加しました", description: "新しいセラピストが登録されました" });
       setIsAddDialogOpen(false);
       setFormData({ ...emptyForm });
     } catch (error: any) {
@@ -333,77 +338,83 @@ export default function Staff() {
 
     try {
       const photos = editingCast.photos || [];
-      console.log('Updating cast with photos:', photos);
-      const { error } = await supabase
-        .from('casts')
-        .update({
-          name: editingCast.name,
-          name_kana: editingCast.name_kana || null,
-          name_en: editingCast.name_en || null,
-          type: editingCast.type,
-          room: editingCast.room,
-          status: editingCast.status,
-          profile: editingCast.profile || null,
-          photo: photos.length > 0 ? photos[0] : null,
-          photos: photos.length > 0 ? photos : null,
-          blood_type: editingCast.blood_type || null,
-          height: editingCast.height || null,
-          weight: editingCast.weight || null,
-          bust_size: editingCast.bust_size || null,
-          shop_comment: editingCast.shop_comment || null,
-          therapist_comment: editingCast.therapist_comment || null,
-          features: editingCast.features || null,
-          therapist_experience: editingCast.therapist_experience || null,
-          age: editingCast.age || null,
-          hometown: editingCast.hometown || null,
-          birth_date: editingCast.birth_date || null,
-          body_size: editingCast.body_size || null,
-          enrollment_period: editingCast.enrollment_period || null,
-          hobby: editingCast.hobby || null,
-          celebrity_like: editingCast.celebrity_like || null,
-          uses_sns: editingCast.uses_sns || false,
-          blog_url: editingCast.blog_url || null,
-          skebiy_url: editingCast.skebiy_url || null,
-          instagram_url: editingCast.instagram_url || null,
-          x_account: editingCast.x_account || null,
-          message: editingCast.message || null,
-          line_url: editingCast.line_url || null,
-          litlink_url: editingCast.litlink_url || null,
-          o2_url: editingCast.o2_url || null,
-          hp_notice: editingCast.hp_notice || null,
-          therapist_years: editingCast.therapist_years || null,
-          favorite_techniques: editingCast.favorite_techniques || null,
-          favorite_food: editingCast.favorite_food || null,
-          ideal_partner: editingCast.ideal_partner || null,
-          follow_list: editingCast.follow_list || null,
-          media_registration: editingCast.media_registration || null,
-          marks: editingCast.marks || null,
-          files: editingCast.files || null,
-          registration_sheet: editingCast.registration_sheet || null,
-          format_type: editingCast.format_type || null,
-          recent_dispatch_details: editingCast.recent_dispatch_details || null,
-          memo: editingCast.memo || null,
-          dispatch_status: editingCast.dispatch_status || 'none',
-          repeat_scheduled: editingCast.repeat_scheduled || false,
-          is_visible: editingCast.is_visible,
-        })
-        .eq('id', editingCast.id);
 
-      if (error) throw error;
+      // Step 1: update base fields (always exist in DB)
+      const basePayload: Record<string, any> = {
+        name: editingCast.name,
+        type: editingCast.type,
+        room: editingCast.room,
+        status: editingCast.status,
+        profile: editingCast.therapist_comment || editingCast.profile || null,
+        photo: photos.length > 0 ? photos[0] : null,
+        photos: photos.length > 0 ? photos : null,
+        x_account: editingCast.x_account || null,
+        message: editingCast.message || null,
+        line_url: editingCast.line_url || null,
+        litlink_url: editingCast.litlink_url || null,
+        o2_url: editingCast.o2_url || null,
+        hp_notice: editingCast.hp_notice || null,
+        therapist_years: editingCast.therapist_years || null,
+        favorite_techniques: editingCast.favorite_techniques || null,
+        favorite_food: editingCast.favorite_food || null,
+        ideal_partner: editingCast.ideal_partner || null,
+        follow_list: editingCast.follow_list || null,
+        media_registration: editingCast.media_registration || null,
+        marks: editingCast.marks || null,
+        files: editingCast.files || null,
+        registration_sheet: editingCast.registration_sheet || null,
+        format_type: editingCast.format_type || null,
+        recent_dispatch_details: editingCast.recent_dispatch_details || null,
+        memo: editingCast.memo || null,
+        dispatch_status: editingCast.dispatch_status || 'none',
+        repeat_scheduled: editingCast.repeat_scheduled || false,
+        is_visible: editingCast.is_visible,
+      };
+      const { error: baseError } = await supabase.from('casts').update(basePayload).eq('id', editingCast.id);
+      if (baseError) throw baseError;
 
-      toast({
-        title: "キャスト更新",
-        description: "キャスト情報が更新されました",
-      });
-      
+      // Step 2: update new profile fields (requires migration SQL) — silent fail if columns missing
+      const profilePayload: Record<string, any> = {
+        name_kana: editingCast.name_kana || null,
+        name_en: editingCast.name_en || null,
+        blood_type: editingCast.blood_type || null,
+        height: editingCast.height || null,
+        weight: editingCast.weight || null,
+        bust_size: editingCast.bust_size || null,
+        shop_comment: editingCast.shop_comment || null,
+        therapist_comment: editingCast.therapist_comment || null,
+        features: editingCast.features || null,
+        therapist_experience: editingCast.therapist_experience || null,
+        age: editingCast.age || null,
+        hometown: editingCast.hometown || null,
+        birth_date: editingCast.birth_date || null,
+        body_size: editingCast.body_size || null,
+        enrollment_period: editingCast.enrollment_period || null,
+        hobby: editingCast.hobby || null,
+        celebrity_like: editingCast.celebrity_like || null,
+        uses_sns: editingCast.uses_sns || false,
+        blog_url: editingCast.blog_url || null,
+        skebiy_url: editingCast.skebiy_url || null,
+        instagram_url: editingCast.instagram_url || null,
+      };
+      const { error: profileError } = await supabase.from('casts').update(profilePayload).eq('id', editingCast.id);
+      if (profileError) {
+        console.warn('Profile fields not saved (migration may be needed):', profileError.message);
+        toast({
+          title: "基本情報を保存しました",
+          description: "新プロフィール項目の保存にはDBマイグレーションが必要です",
+        });
+      } else {
+        toast({ title: "保存しました", description: "セラピスト情報を更新しました" });
+      }
+
       setIsEditDialogOpen(false);
       setEditingCast(null);
     } catch (error: any) {
       console.error('Error updating cast:', error);
-      const msg = error?.message || error?.details || "キャストの更新に失敗しました";
       toast({
         title: "エラー",
-        description: msg,
+        description: error?.message || "キャストの更新に失敗しました",
         variant: "destructive",
       });
     }
