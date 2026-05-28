@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { calcPaymentFee, findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
 import { z } from "zod";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 
@@ -118,6 +119,7 @@ const BookingReservation = () => {
   const [referralSource, setReferralSource] = useState<string>("");
   const [referralOther, setReferralOther] = useState<string>("");
   const [totalPrice, setTotalPrice] = useState<number>(0);
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSetting[]>([]);
 
   useEffect(() => {
     document.title = "全力エステ - WEB予約";
@@ -219,6 +221,9 @@ const BookingReservation = () => {
     setTotalPrice(price);
   };
 
+  const paymentFee = calcPaymentFee(totalPrice, paymentSettings, paymentMethod);
+  const grandTotal = totalPrice + paymentFee;
+
   const fetchAvailableCasts = async () => {
     setLoading(true);
     try {
@@ -316,9 +321,14 @@ const BookingReservation = () => {
         .from('nomination_rates')
         .select('*');
 
+      const { data: paymentData } = await supabase
+        .from('payment_settings')
+        .select('id, payment_method, payment_link, fee_percentage');
+
       if (backData) setBackRates(backData as any);
       if (optionData) setOptionRates(optionData);
       if (nominationData) setNominationRates(nominationData);
+      if (paymentData) setPaymentSettings(paymentData as PaymentSetting[]);
     } catch (error) {
       console.error('Error fetching rates:', error);
     }
@@ -466,6 +476,8 @@ const BookingReservation = () => {
           options: selectedOptions.length > 0 ? selectedOptions : null,
           nomination_type: nominationType !== 'none' ? nominationType : null,
           price: totalPrice,
+          payment_method: paymentMethod || null,
+          payment_fee: paymentFee || 0,
           notes: notes.trim() || null,
           status: "pending",
           payment_status: "unpaid",
@@ -506,6 +518,10 @@ const BookingReservation = () => {
         ...(nominationType && nominationType !== 'none' ? [`指名: ${nominationType}`] : []),
         ...(selectedOptions.length > 0 ? [`オプション: ${selectedOptions.join(', ')}`] : []),
         `料金: ¥${totalPrice.toLocaleString()}`,
+        ...(paymentFee > 0 ? [`決済手数料: ¥${paymentFee.toLocaleString()}`, `総額: ¥${grandTotal.toLocaleString()}`] : []),
+        ...(paymentFee > 0 && findPaymentSetting(paymentSettings, paymentMethod)?.payment_link
+          ? [``, `▼決済はこちら`, findPaymentSetting(paymentSettings, paymentMethod)!.payment_link as string]
+          : []),
         ``,
         `お名前: ${customerName}`,
         `電話番号: ${customerPhone}`,
@@ -1088,10 +1104,22 @@ const BookingReservation = () => {
 
                     {/* 合計金額 */}
                     <div className="bg-muted p-4 rounded-lg">
+                      {paymentFee > 0 && (
+                        <>
+                          <div className="flex justify-between items-center text-sm text-muted-foreground">
+                            <span>小計:</span>
+                            <span>¥{totalPrice.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm text-muted-foreground mb-1">
+                            <span>決済手数料:</span>
+                            <span>+¥{paymentFee.toLocaleString()}</span>
+                          </div>
+                        </>
+                      )}
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-semibold">合計金額:</span>
                         <span className="text-2xl font-bold" style={{ color: "#c49480" }}>
-                          ¥{totalPrice.toLocaleString()}
+                          ¥{grandTotal.toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -1184,8 +1212,8 @@ const BookingReservation = () => {
                       <div className="space-y-2 mt-2">
                         {[
                           { value: "cash", label: "現金" },
-                          { value: "card", label: "カード（別途手数料が発生します）" },
-                          { value: "paypay", label: "PayPay（別途手数料が発生します）" },
+                          { value: "card", label: `カード${(findPaymentSetting(paymentSettings, "card")?.fee_percentage ?? 0) > 0 ? `（手数料${findPaymentSetting(paymentSettings, "card")!.fee_percentage}%）` : ""}` },
+                          { value: "paypay", label: `PayPay${(findPaymentSetting(paymentSettings, "paypay")?.fee_percentage ?? 0) > 0 ? `（手数料${findPaymentSetting(paymentSettings, "paypay")!.fee_percentage}%）` : ""}` },
                         ].map((method) => (
                           <div key={method.value} className="flex items-center space-x-2">
                             <input

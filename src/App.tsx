@@ -76,6 +76,7 @@ import SystemCourses from "./pages/SystemCourses";
 import SystemOptions from "./pages/SystemOptions";
 import SystemDiscounts from "./pages/SystemDiscounts";
 import SystemDeductions from "./pages/SystemDeductions";
+import SystemPaymentMethods from "./pages/SystemPaymentMethods";
 import SystemAllowances from "./pages/SystemAllowances";
 import SystemSMS from "./pages/SystemSMS";
 import SystemSMSAuto from "./pages/SystemSMSAuto";
@@ -162,6 +163,7 @@ const App = () => (
           <Route path="/system/courses" element={<SystemCourses />} />
           <Route path="/system/options" element={<SystemOptions />} />
           <Route path="/system/discounts" element={<SystemDiscounts />} />
+          <Route path="/system/payment-methods" element={<SystemPaymentMethods />} />
           <Route path="/system/deductions" element={<SystemDeductions />} />
           <Route path="/system/allowances" element={<SystemAllowances />} />
           <Route path="/system/sms" element={<SystemSMS />} />
