@@ -254,10 +254,11 @@ export default function MonthlyShift() {
               })}
             </div>
           </div>
-        ) : activeCasts.length === 0 ? (
-          <div className="text-center text-muted-foreground py-12">この月のシフトはありません</div>
         ) : (
           /* ===== セラピスト×日付マトリクス ===== */
+          activeCasts.length === 0 ? (
+            <div className="text-center text-muted-foreground py-12">この月のシフトはありません</div>
+          ) :
           <div className="overflow-x-auto rounded-lg border">
             <table className="text-xs border-collapse min-w-max">
               <thead>
