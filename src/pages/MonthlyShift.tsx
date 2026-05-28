@@ -145,18 +145,19 @@ export default function MonthlyShift() {
         {/* ヘッダー */}
         <div className="mb-4">
           {/* 1行目: タイトル + 月ナビ + シフト追加 */}
-          <div className="flex items-center gap-2 mb-2">
-            <h1 className="text-lg font-bold">月別シフト</h1>
-            <Button size="sm" variant="outline" onClick={prevMonth} className="h-7 w-7 p-0"><ChevronLeft size={15} /></Button>
-            <span className="text-sm font-medium w-[76px] text-center">
-              {format(selectedMonth, "yyyy年M月", { locale: ja })}
-            </span>
-            <Button size="sm" variant="outline" onClick={nextMonth} className="h-7 w-7 p-0"><ChevronRight size={15} /></Button>
-            <div className="ml-auto">
-              <Button onClick={() => setShowDialog(true)} size="sm">
-                <Plus size={14} className="mr-1" />シフト追加
-              </Button>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <h1 className="text-lg font-bold mr-1">月別シフト</h1>
+            {/* 月ナビ（まとまったグループ） */}
+            <div className="flex items-center gap-1 shrink-0">
+              <Button size="sm" variant="outline" onClick={prevMonth} className="h-8 w-8 p-0"><ChevronLeft size={16} /></Button>
+              <span className="text-sm font-medium w-[80px] text-center">
+                {format(selectedMonth, "yyyy年M月", { locale: ja })}
+              </span>
+              <Button size="sm" variant="outline" onClick={nextMonth} className="h-8 w-8 p-0"><ChevronRight size={16} /></Button>
             </div>
+            <Button onClick={() => setShowDialog(true)} size="sm" className="ml-auto shrink-0">
+              <Plus size={14} className="mr-1" />シフト追加
+            </Button>
           </div>
           {/* 2行目: ビュー切り替え */}
           <div className="flex rounded-md border overflow-hidden w-fit">
