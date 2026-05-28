@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Clock, Phone } from "lucide-react";
+import { Clock, Phone, Menu } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { usePageTracking } from "@/hooks/usePageTracking";
 
 const SHOP_LOGO = "https://cdn2-caskan.com/caskan/img/shop_logo/1401_logo_1750237137.png";
@@ -18,6 +20,7 @@ const navItems = [
 
 export const PublicNavigation = () => {
   const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
   usePageTracking();
 
   return (
@@ -57,24 +60,54 @@ export const PublicNavigation = () => {
             </a>
           </div>
 
-          {/* SP: business info right (compact) */}
-          <div className="md:hidden flex items-center gap-2 text-[10px]" style={{ color: "#c49480" }}>
+          {/* SP: phone + hamburger */}
+          <div className="md:hidden flex items-center gap-3" style={{ color: "#c49480" }}>
             <a
               href="tel:09081264042"
-              className="inline-flex items-center gap-1 font-semibold"
+              className="inline-flex items-center gap-1 font-semibold text-[10px]"
               style={{ color: "#c49480" }}
             >
               <Phone size={11} /> 090-8126-4042
             </a>
+            <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+              <SheetTrigger asChild>
+                <button aria-label="メニュー" className="p-1 text-[#d8ceca] hover:text-white">
+                  <Menu size={24} />
+                </button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-72 p-0 border-r border-[#3a3634] text-white" style={{ backgroundColor: "#242220" }}>
+                <div className="px-5 py-4 border-b border-[#3a3634]">
+                  <img src={SHOP_LOGO} alt="全力エステ 仙台" className="h-9 object-contain" />
+                </div>
+                <nav className="py-2">
+                  {navItems.map((item) => {
+                    const isActive = !item.external && location.pathname === item.to;
+                    const cls = `flex items-baseline gap-2 px-5 py-3.5 border-b border-[#3a3634]/60 transition-colors ${
+                      isActive ? "bg-[#3a3634]" : "hover:bg-[#3a3634]/60"
+                    }`;
+                    const inner = (
+                      <>
+                        <span className="text-[#d8ceca] font-semibold text-sm tracking-wider">{item.label}</span>
+                        <span className="text-[11px] text-[#9a8c88]">{item.sub}</span>
+                      </>
+                    );
+                    return item.external ? (
+                      <a key={item.to} href={item.to} target="_blank" rel="noopener noreferrer" className={cls} onClick={() => setMenuOpen(false)}>{inner}</a>
+                    ) : (
+                      <Link key={item.to} to={item.to} className={cls} onClick={() => setMenuOpen(false)}>{inner}</Link>
+                    );
+                  })}
+                </nav>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="bg-[#242220] border-b border-[#3a3634] sticky top-0 z-50 shadow-sm">
+      {/* Navigation (PC only) */}
+      <nav className="hidden md:block bg-[#242220] border-b border-[#3a3634] sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto">
-          {/* PC */}
-          <div className="hidden md:flex justify-center items-center">
+          <div className="flex justify-center items-center">
             {navItems.map((item) => {
               const isActive = !item.external && location.pathname === item.to;
               const cls = `px-5 py-3 text-center transition-colors border-b-2 ${
@@ -90,29 +123,6 @@ export const PublicNavigation = () => {
                 ? <a key={item.to} href={item.to} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>
                 : <Link key={item.to} to={item.to} className={cls}>{inner}</Link>;
             })}
-          </div>
-
-          {/* SP - 2行 */}
-          <div className="md:hidden">
-            {[navItems.slice(0, 4), navItems.slice(4)].map((group, gi) => (
-              <div key={gi} className={`flex justify-center items-center flex-wrap ${gi > 0 ? "border-t border-[#3a3634]" : ""}`}>
-                {group.map((item) => {
-                  const isActive = !item.external && location.pathname === item.to;
-                  const cls = `flex-1 py-2 text-center transition-colors border-b-2 ${
-                    isActive ? "bg-[#3a3634] border-[#c49480]" : "border-transparent hover:bg-[#3a3634]"
-                  }`;
-                  const inner = (
-                    <>
-                      <div className="text-[#d8ceca] font-semibold text-[10px] tracking-wider">{item.label}</div>
-                      <div className="text-[8px] text-[#9a8c88]">{item.sub}</div>
-                    </>
-                  );
-                  return item.external
-                    ? <a key={item.to} href={item.to} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>
-                    : <Link key={item.to} to={item.to} className={cls}>{inner}</Link>;
-                })}
-              </div>
-            ))}
           </div>
         </div>
       </nav>
