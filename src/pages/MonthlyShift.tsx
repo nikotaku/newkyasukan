@@ -42,6 +42,7 @@ export default function MonthlyShift() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [viewMode, setViewMode] = useState<"calendar" | "matrix">("calendar");
   const [showDialog, setShowDialog] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     cast_id: "",
@@ -50,6 +51,31 @@ export default function MonthlyShift() {
     end_time: "21:00",
     room: "",
   });
+
+  const openAdd = (preset?: Partial<typeof form>) => {
+    setEditingId(null);
+    setForm({
+      cast_id: "",
+      shift_date: format(new Date(), "yyyy-MM-dd"),
+      start_time: "12:00",
+      end_time: "21:00",
+      room: "",
+      ...preset,
+    });
+    setShowDialog(true);
+  };
+
+  const openEdit = (shift: Shift) => {
+    setEditingId(shift.id);
+    setForm({
+      cast_id: shift.cast_id,
+      shift_date: shift.shift_date,
+      start_time: shift.start_time.slice(0, 5),
+      end_time: shift.end_time.slice(0, 5),
+      room: shift.room || "",
+    });
+    setShowDialog(true);
+  };
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -102,17 +128,21 @@ export default function MonthlyShift() {
   const handleSave = async () => {
     if (!form.cast_id) { toast.error("セラピストを選択してください"); return; }
     setSaving(true);
-    const { error } = await supabase.from("shifts").insert([{
+    const payload = {
       cast_id: form.cast_id,
       shift_date: form.shift_date,
       start_time: form.start_time,
       end_time: form.end_time,
       room: form.room || null,
-    }]);
+    };
+    const { error } = editingId
+      ? await supabase.from("shifts").update(payload).eq("id", editingId)
+      : await supabase.from("shifts").insert([payload]);
     setSaving(false);
     if (error) { toast.error("保存に失敗しました"); return; }
-    toast.success("シフトを追加しました");
+    toast.success(editingId ? "シフトを更新しました" : "シフトを追加しました");
     setShowDialog(false);
+    setEditingId(null);
     fetchMonthlyShifts();
   };
 
@@ -187,7 +217,7 @@ export default function MonthlyShift() {
               </span>
               <Button size="sm" variant="outline" onClick={nextMonth} className="h-8 w-8 p-0"><ChevronRight size={16} /></Button>
             </div>
-            <Button onClick={() => setShowDialog(true)} size="sm" className="ml-auto shrink-0">
+            <Button onClick={() => openAdd()} size="sm" className="ml-auto shrink-0">
               <Plus size={14} className="mr-1" />シフト追加
             </Button>
           </div>
@@ -286,8 +316,7 @@ export default function MonthlyShift() {
                     )}
                     onClick={() => {
                       if (!inMonth) return;
-                      setForm(f => ({ ...f, shift_date: dateStr }));
-                      setShowDialog(true);
+                      openAdd({ shift_date: dateStr });
                     }}
                   >
                     <div className={cn(
@@ -304,12 +333,13 @@ export default function MonthlyShift() {
                         <div
                           key={s.id}
                           className={cn(
-                            "group relative flex items-center gap-1 rounded px-1 py-0.5 text-[10px] leading-tight",
+                            "group relative flex items-center gap-1 rounded px-1 py-0.5 text-[10px] leading-tight cursor-pointer",
                             s.approval_status === "pending" && "bg-amber-100 dark:bg-amber-900/30",
                             s.approval_status === "rejected" && "bg-rose-100 dark:bg-rose-900/20 line-through opacity-60",
                             s.approval_status === "approved" && "bg-primary/10"
                           )}
-                          onClick={e => e.stopPropagation()}
+                          onClick={e => { e.stopPropagation(); openEdit(s); }}
+                          title="クリックで編集"
                         >
                           {s.approval_status === "pending" && (
                             <span className="text-amber-600 shrink-0" title="承認待ち">●</span>
@@ -324,7 +354,7 @@ export default function MonthlyShift() {
                             {s.start_time.slice(0,5)}〜{s.end_time.slice(0,5)}
                           </span>
                           <button
-                            onClick={() => handleDelete(s.id)}
+                            onClick={e => { e.stopPropagation(); handleDelete(s.id); }}
                             className="absolute top-0 right-0 hidden group-hover:flex items-center justify-center w-3.5 h-3.5 bg-red-500 text-white rounded-full text-[9px] leading-none"
                           >×</button>
                         </div>
@@ -390,14 +420,14 @@ export default function MonthlyShift() {
                             dow === 0 && "bg-red-50/40 dark:bg-red-950/10",
                             dow === 6 && "bg-blue-50/40 dark:bg-blue-950/10"
                           )}
-                          onClick={() => {
-                            setForm(f => ({ ...f, cast_id: cast.id, shift_date: dateStr }));
-                            setShowDialog(true);
-                          }}
+                          onClick={() => openAdd({ cast_id: cast.id, shift_date: dateStr })}
                         >
                           {cell.map(s => (
-                            <div key={s.id} className={cn(
-                              "group relative rounded px-1 py-0.5 mb-0.5",
+                            <div key={s.id}
+                              onClick={e => { e.stopPropagation(); openEdit(s); }}
+                              title="クリックで編集"
+                              className={cn(
+                              "group relative rounded px-1 py-0.5 mb-0.5 cursor-pointer",
                               s.approval_status === "pending" && "bg-amber-100 dark:bg-amber-900/30",
                               s.approval_status === "rejected" && "bg-rose-100 dark:bg-rose-900/20 line-through opacity-60",
                               s.approval_status === "approved" && "bg-primary/10"
@@ -435,10 +465,10 @@ export default function MonthlyShift() {
         )}
       </main>
 
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <Dialog open={showDialog} onOpenChange={(o) => { setShowDialog(o); if (!o) setEditingId(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>シフト入力</DialogTitle>
+            <DialogTitle>{editingId ? "シフト編集" : "シフト入力"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
@@ -475,7 +505,15 @@ export default function MonthlyShift() {
             </div>
             <div className="flex gap-2 pt-2">
               <Button className="flex-1" onClick={handleSave} disabled={saving}>{saving ? "保存中..." : "保存"}</Button>
-              <Button variant="outline" className="flex-1" onClick={() => setShowDialog(false)}>キャンセル</Button>
+              {editingId && (
+                <Button
+                  variant="destructive"
+                  onClick={() => { handleDelete(editingId); setShowDialog(false); setEditingId(null); }}
+                >
+                  <Trash2 size={14} className="mr-1" />削除
+                </Button>
+              )}
+              <Button variant="outline" className="flex-1" onClick={() => { setShowDialog(false); setEditingId(null); }}>キャンセル</Button>
             </div>
           </div>
         </DialogContent>
