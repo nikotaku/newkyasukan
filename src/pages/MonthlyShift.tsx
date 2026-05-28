@@ -143,35 +143,35 @@ export default function MonthlyShift() {
 
       <main className="pt-[60px] md:ml-[240px] p-2 md:p-6 overflow-x-auto">
         {/* ヘッダー */}
-        <div className="mb-4 flex flex-wrap items-center gap-2 justify-between">
-          {/* 左: タイトル + 月ナビ */}
-          <div className="flex items-center gap-1">
+        <div className="mb-4">
+          {/* 1行目: タイトル + 月ナビ + シフト追加 */}
+          <div className="flex items-center gap-2 mb-2">
             <h1 className="text-lg font-bold">月別シフト</h1>
             <Button size="sm" variant="outline" onClick={prevMonth} className="h-7 w-7 p-0"><ChevronLeft size={15} /></Button>
             <span className="text-sm font-medium w-[76px] text-center">
               {format(selectedMonth, "yyyy年M月", { locale: ja })}
             </span>
             <Button size="sm" variant="outline" onClick={nextMonth} className="h-7 w-7 p-0"><ChevronRight size={15} /></Button>
-          </div>
-          {/* 右: ビュー切り替え + シフト追加 */}
-          <div className="flex items-center gap-2">
-            <div className="flex rounded-md border overflow-hidden">
-              <button
-                onClick={() => setViewMode("calendar")}
-                className={cn("px-3 py-1.5 text-xs flex items-center gap-1", viewMode === "calendar" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
-              >
-                <LayoutGrid size={13} />カレンダー
-              </button>
-              <button
-                onClick={() => setViewMode("matrix")}
-                className={cn("px-3 py-1.5 text-xs flex items-center gap-1 border-l", viewMode === "matrix" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
-              >
-                <Table2 size={13} />マトリクス
-              </button>
+            <div className="ml-auto">
+              <Button onClick={() => setShowDialog(true)} size="sm">
+                <Plus size={14} className="mr-1" />シフト追加
+              </Button>
             </div>
-            <Button onClick={() => setShowDialog(true)} size="sm">
-              <Plus size={14} className="mr-1" />シフト追加
-            </Button>
+          </div>
+          {/* 2行目: ビュー切り替え */}
+          <div className="flex rounded-md border overflow-hidden w-fit">
+            <button
+              onClick={() => setViewMode("calendar")}
+              className={cn("px-3 py-1.5 text-xs flex items-center gap-1", viewMode === "calendar" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
+            >
+              <LayoutGrid size={13} />カレンダー
+            </button>
+            <button
+              onClick={() => setViewMode("matrix")}
+              className={cn("px-3 py-1.5 text-xs flex items-center gap-1 border-l", viewMode === "matrix" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
+            >
+              <Table2 size={13} />マトリクス
+            </button>
           </div>
         </div>
 
