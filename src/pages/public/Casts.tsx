@@ -24,6 +24,10 @@ interface Cast {
   join_date: string;
   profile: string | null;
   x_account: string | null;
+  line_url: string | null;
+  litlink_url: string | null;
+  o2_url: string | null;
+  instagram_url: string | null;
 }
 
 const Casts = () => {
@@ -140,9 +144,6 @@ const Casts = () => {
                         {cast.tags?.map((tag, idx) => (
                           <span key={idx} className={`text-white text-xs font-bold px-2 py-1 rounded shadow-md ${tag === '人気セラピスト' ? 'bg-red-500' : tag === '新人' ? 'bg-pink-500' : 'bg-blue-500'}`}>{tag}</span>
                         ))}
-                        {isNewFace(cast.join_date) && (!cast.tags || !cast.tags.includes('新人')) && (
-                          <span className="bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded shadow-md">新人</span>
-                        )}
                       </div>
                       {cast.photo ? (
                         <img src={driveImgUrl(cast.photo)} alt={cast.name} className="w-full aspect-[3/4] object-cover" />
@@ -151,11 +152,36 @@ const Casts = () => {
                           <span className="text-4xl text-white">{cast.name.charAt(0)}</span>
                         </div>
                       )}
-                      {cast.x_account && (
-                        <div className="absolute bottom-12 right-2">
-                          <a href={`https://twitter.com/${cast.x_account}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                            <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-6 h-6" />
-                          </a>
+                      {(cast.x_account || cast.line_url || cast.litlink_url || cast.instagram_url || cast.o2_url) && (
+                        <div className="absolute bottom-12 right-2 flex items-center gap-1.5">
+                          {cast.x_account && (
+                            <a href={cast.x_account.startsWith("http") ? cast.x_account : `https://twitter.com/${cast.x_account}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="X">
+                              <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-6 h-6 rounded shadow" />
+                            </a>
+                          )}
+                          {cast.line_url && (
+                            <a href={cast.line_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="LINE">
+                              <img src="https://storage.googleapis.com/caskan/asset/line_icon.png" alt="LINE" className="w-6 h-6 rounded shadow" />
+                            </a>
+                          )}
+                          {cast.instagram_url && (
+                            <a href={cast.instagram_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="Instagram"
+                              className="w-6 h-6 rounded shadow flex items-center justify-center text-white text-[10px] font-bold" style={{ background: "linear-gradient(45deg,#feda75,#d62976,#4f5bd5)" }}>
+                              IG
+                            </a>
+                          )}
+                          {cast.litlink_url && (
+                            <a href={cast.litlink_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="リットリンク"
+                              className="w-6 h-6 rounded shadow flex items-center justify-center bg-white text-[#c49480] text-[10px] font-bold">
+                              lit
+                            </a>
+                          )}
+                          {cast.o2_url && (
+                            <a href={cast.o2_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="口コミO2"
+                              className="w-6 h-6 rounded shadow flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: "#e85298" }}>
+                              O2
+                            </a>
+                          )}
                         </div>
                       )}
                       <div className="p-3">
