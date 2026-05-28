@@ -314,8 +314,9 @@ export default function TherapistCheckout() {
       }]);
       if (error) throw error;
       setSubmitted("sales");
-    } catch {
-      toast.error("送信に失敗しました");
+    } catch (err: any) {
+      console.error("売上送信エラー:", err);
+      toast.error(`送信に失敗しました：${err?.message ?? "不明なエラー"}`);
     } finally {
       setSubmitting(false);
     }
@@ -332,8 +333,9 @@ export default function TherapistCheckout() {
       }]);
       if (error) throw error;
       setSubmitted("cleaning");
-    } catch {
-      toast.error("送信に失敗しました");
+    } catch (err: any) {
+      console.error("清掃チェック送信エラー:", err);
+      toast.error(`送信に失敗しました：${err?.message ?? "不明なエラー"}`);
     } finally {
       setSubmitting(false);
     }
@@ -350,8 +352,9 @@ export default function TherapistCheckout() {
       }]);
       if (error) throw error;
       setSubmitted("feedback");
-    } catch {
-      toast.error("送信に失敗しました");
+    } catch (err: any) {
+      console.error("フィードバック送信エラー:", err);
+      toast.error(`送信に失敗しました：${err?.message ?? "不明なエラー"}`);
     } finally {
       setSubmitting(false);
     }
