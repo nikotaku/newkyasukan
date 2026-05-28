@@ -93,8 +93,6 @@ export default function Staff() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [casts, setCasts] = useState<Cast[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState<string>("all");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -215,12 +213,9 @@ export default function Staff() {
     }
   };
 
-  const filteredCasts = casts.filter(cast => {
-    const matchesSearch = cast.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === "all" || cast.type === filterType;
-    const matchesStatus = filterStatus === "all" || cast.status === filterStatus;
-    return matchesSearch && matchesType && matchesStatus;
-  });
+  const filteredCasts = casts.filter(cast =>
+    cast.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleAddCast = async () => {
     if (!isAdmin) {
@@ -497,49 +492,6 @@ export default function Staff() {
         description: "キャストの削除に失敗しました",
         variant: "destructive",
       });
-    }
-  };
-
-  const handleStatusChange = async (id: string, newStatus: string) => {
-    if (!isAdmin) {
-      toast({
-        title: "権限エラー",
-        description: "管理者のみステータスを変更できます",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('casts')
-        .update({ status: newStatus })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      const statusText = newStatus;
-      toast({
-        title: "ステータス変更",
-        description: `ステータスを「${statusText}」に変更しました`,
-      });
-    } catch (error) {
-      console.error('Error updating status:', error);
-      toast({
-        title: "エラー",
-        description: "ステータスの変更に失敗しました",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "派遣中": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
-      case "リピート予定": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
-      case "残タスク": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-      case "未着手": return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
-      default: return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
     }
   };
 
@@ -1254,28 +1206,6 @@ export default function Staff() {
                       className="pl-10"
                     />
                   </div>
-                  <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger className="w-[130px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全タイプ</SelectItem>
-                      <SelectItem value="インルーム">インルーム</SelectItem>
-                      <SelectItem value="ラスルーム">ラスルーム</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全ステータス</SelectItem>
-                      <SelectItem value="派遣中">派遣中</SelectItem>
-                      <SelectItem value="リピート予定">リピート予定</SelectItem>
-                      <SelectItem value="残タスク">残タスク</SelectItem>
-                      <SelectItem value="未着手">未着手</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </CardContent>
             </Card>
@@ -1312,7 +1242,7 @@ export default function Staff() {
                     )}
                   </div>
 
-                  {/* Name & Room */}
+                  {/* Name */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm truncate">{cast.name}</span>
@@ -1322,26 +1252,7 @@ export default function Staff() {
                         </Badge>
                       )}
                     </div>
-                    {cast.room && <p className="text-xs text-muted-foreground truncate">{cast.room}</p>}
                   </div>
-
-                  {/* Status buttons - hidden on mobile */}
-                  {isAdmin && (
-                    <div className="hidden md:flex items-center gap-1 flex-shrink-0">
-                      {['waiting', 'busy', 'offline'].map((s) => (
-                        <Button
-                          key={s}
-                          variant={cast.status === s ? "default" : "outline"}
-                          size="sm"
-                          className="text-[11px] h-7 px-2"
-                          disabled={cast.status === s}
-                          onClick={(e) => { e.stopPropagation(); handleStatusChange(cast.id, s); }}
-                        >
-                          {s === 'waiting' ? '待機' : s === 'busy' ? '接客' : '退勤'}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
 
                   {/* Actions */}
                   {isAdmin && (
