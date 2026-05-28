@@ -19,9 +19,22 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
+const THERAPIST_FEATURES = [
+  "人妻", "お姉さん系", "清楚系", "癒し系", "S系", "M系",
+  "ポッチャリ", "スレンダー", "モデル系", "巨乳", "パイパン", "学生",
+  "人見知り", "社交的", "甘えん坊", "ガールズトーク", "話し上手", "サービス旺盛",
+  "スキンシップ多め", "アイドル系", "フェロモン系", "外国人系", "エステ", "可愛い", "綺麗", "小柄",
+];
+
+const THERAPIST_EXPERIENCE_OPTIONS = ["1年未満", "1〜3年", "3〜5年", "5年以上"];
+const BLOOD_TYPES = ["A", "B", "O", "AB"];
+const BUST_SIZES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+
 interface Cast {
   id: string;
   name: string;
+  name_kana: string | null;
+  name_en: string | null;
   type: string;
   status: string;
   photo: string | null;
@@ -40,12 +53,14 @@ interface Cast {
   join_date: string;
   access_token?: string | null;
   therapist_years: number | null;
+  therapist_experience: string | null;
   favorite_techniques: string | null;
   favorite_food: string | null;
   ideal_partner: string | null;
   follow_list: string | null;
   media_registration: string[] | null;
   marks: string[] | null;
+  features: string[] | null;
   files: string[] | null;
   registration_sheet: string | null;
   format_type: string | null;
@@ -55,6 +70,23 @@ interface Cast {
   repeat_scheduled: boolean | null;
   is_visible: boolean;
   display_order?: number;
+  blood_type: string | null;
+  height: number | null;
+  weight: number | null;
+  bust_size: string | null;
+  shop_comment: string | null;
+  therapist_comment: string | null;
+  age: number | null;
+  hometown: string | null;
+  birth_date: string | null;
+  body_size: string | null;
+  enrollment_period: string | null;
+  hobby: string | null;
+  celebrity_like: string | null;
+  uses_sns: boolean | null;
+  blog_url: string | null;
+  skebiy_url: string | null;
+  instagram_url: string | null;
 }
 
 export default function Staff() {
@@ -70,19 +102,40 @@ export default function Staff() {
   const [loading, setLoading] = useState(true);
   const [generatingContent, setGeneratingContent] = useState(false);
   
-  // フォーム用の状態
-  const [formData, setFormData] = useState({
+  const emptyForm = {
     name: "",
+    name_kana: "",
+    name_en: "",
     type: "インルーム",
     room: "インルーム",
     status: "未着手",
     profile: "",
     photo: "",
     photos: [] as string[],
-    therapist_years: 0,
+    blood_type: "",
+    height: "" as string | number,
+    weight: "" as string | number,
+    bust_size: "",
+    shop_comment: "",
+    therapist_comment: "",
+    features: [] as string[],
+    therapist_experience: "",
     favorite_techniques: "",
+    age: "" as string | number,
+    hometown: "",
+    birth_date: "",
+    body_size: "",
+    enrollment_period: "",
     favorite_food: "",
     ideal_partner: "",
+    celebrity_like: "",
+    uses_sns: false,
+    hobby: "",
+    blog_url: "",
+    x_account: "",
+    skebiy_url: "",
+    instagram_url: "",
+    therapist_years: 0,
     follow_list: "",
     media_registration: [] as string[],
     marks: [] as string[],
@@ -93,7 +146,9 @@ export default function Staff() {
     memo: "",
     dispatch_status: "none",
     repeat_scheduled: false,
-  });
+  };
+  // フォーム用の状態
+  const [formData, setFormData] = useState({ ...emptyForm });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
   const dragCastId = useRef<string | null>(null);
@@ -179,16 +234,38 @@ export default function Staff() {
         .from('casts')
         .insert([{
           name: formData.name,
+          name_kana: formData.name_kana || null,
+          name_en: formData.name_en || null,
           type: formData.type,
           room: formData.room,
           status: formData.status,
-          profile: formData.profile,
-          photo: formData.photos[0] || formData.photo || null,
+          profile: formData.profile || null,
+          photo: formData.photos[0] || null,
           photos: formData.photos.length > 0 ? formData.photos : null,
-          therapist_years: formData.therapist_years || null,
+          blood_type: formData.blood_type || null,
+          height: formData.height !== "" ? Number(formData.height) : null,
+          weight: formData.weight !== "" ? Number(formData.weight) : null,
+          bust_size: formData.bust_size || null,
+          shop_comment: formData.shop_comment || null,
+          therapist_comment: formData.therapist_comment || null,
+          features: formData.features.length > 0 ? formData.features : null,
+          therapist_experience: formData.therapist_experience || null,
           favorite_techniques: formData.favorite_techniques || null,
+          age: formData.age !== "" ? Number(formData.age) : null,
+          hometown: formData.hometown || null,
+          birth_date: formData.birth_date || null,
+          body_size: formData.body_size || null,
+          enrollment_period: formData.enrollment_period || null,
           favorite_food: formData.favorite_food || null,
           ideal_partner: formData.ideal_partner || null,
+          celebrity_like: formData.celebrity_like || null,
+          uses_sns: formData.uses_sns || false,
+          hobby: formData.hobby || null,
+          blog_url: formData.blog_url || null,
+          x_account: formData.x_account || null,
+          skebiy_url: formData.skebiy_url || null,
+          instagram_url: formData.instagram_url || null,
+          therapist_years: formData.therapist_years || null,
           follow_list: formData.follow_list || null,
           media_registration: formData.media_registration.length > 0 ? formData.media_registration : null,
           marks: formData.marks.length > 0 ? formData.marks : null,
@@ -207,36 +284,14 @@ export default function Staff() {
         title: "キャスト追加",
         description: "新しいキャストが追加されました",
       });
-      
+
       setIsAddDialogOpen(false);
-      setFormData({
-        name: "",
-        type: "インルーム",
-        room: "インルーム",
-        status: "未着手",
-        profile: "",
-        photo: "",
-        photos: [],
-        therapist_years: 0,
-        favorite_techniques: "",
-        favorite_food: "",
-        ideal_partner: "",
-        follow_list: "",
-        media_registration: [],
-        marks: [],
-        files: [],
-        registration_sheet: "",
-        format_type: "",
-        recent_dispatch_details: "",
-        memo: "",
-        dispatch_status: "none",
-        repeat_scheduled: false,
-      });
-    } catch (error) {
+      setFormData({ ...emptyForm });
+    } catch (error: any) {
       console.error('Error adding cast:', error);
       toast({
         title: "エラー",
-        description: "キャストの追加に失敗しました",
+        description: error?.message || "キャストの追加に失敗しました",
         variant: "destructive",
       });
     }
@@ -283,12 +338,33 @@ export default function Staff() {
         .from('casts')
         .update({
           name: editingCast.name,
+          name_kana: editingCast.name_kana || null,
+          name_en: editingCast.name_en || null,
           type: editingCast.type,
           room: editingCast.room,
           status: editingCast.status,
-          profile: editingCast.profile,
+          profile: editingCast.profile || null,
           photo: photos.length > 0 ? photos[0] : null,
           photos: photos.length > 0 ? photos : null,
+          blood_type: editingCast.blood_type || null,
+          height: editingCast.height || null,
+          weight: editingCast.weight || null,
+          bust_size: editingCast.bust_size || null,
+          shop_comment: editingCast.shop_comment || null,
+          therapist_comment: editingCast.therapist_comment || null,
+          features: editingCast.features || null,
+          therapist_experience: editingCast.therapist_experience || null,
+          age: editingCast.age || null,
+          hometown: editingCast.hometown || null,
+          birth_date: editingCast.birth_date || null,
+          body_size: editingCast.body_size || null,
+          enrollment_period: editingCast.enrollment_period || null,
+          hobby: editingCast.hobby || null,
+          celebrity_like: editingCast.celebrity_like || null,
+          uses_sns: editingCast.uses_sns || false,
+          blog_url: editingCast.blog_url || null,
+          skebiy_url: editingCast.skebiy_url || null,
+          instagram_url: editingCast.instagram_url || null,
           x_account: editingCast.x_account || null,
           message: editingCast.message || null,
           line_url: editingCast.line_url || null,
@@ -607,37 +683,219 @@ export default function Staff() {
                           新規追加
                         </Button>
                       </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                  <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>新しいキャストを追加</DialogTitle>
+                      <DialogTitle>新しいセラピストを追加</DialogTitle>
                     </DialogHeader>
-                    <Tabs defaultValue="basic" className="w-full">
-                      <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="basic">基本情報</TabsTrigger>
-                        <TabsTrigger value="details">詳細情報</TabsTrigger>
-                      </TabsList>
-                      
-                      <TabsContent value="basic" className="space-y-4 mt-4">
-                        <div>
-                          <Label htmlFor="name">セラピスト名</Label>
-                          <Input 
-                            id="name" 
-                            placeholder="名前を入力"
-                            value={formData.name}
-                            onChange={(e) => setFormData({...formData, name: e.target.value})}
-                          />
+                    <div className="space-y-5 pb-4">
+                      {/* 写真 */}
+                      <div>
+                        <Label className="font-semibold">セラピスト写真</Label>
+                        <div className="mt-2 space-y-2">
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="GoogleドライブURL またはファイルID"
+                              value={newPhotoUrl}
+                              onChange={(e) => setNewPhotoUrl(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, false))}
+                            />
+                            <Button type="button" variant="outline" onClick={() => addPhotoUrl(newPhotoUrl, false)} disabled={!newPhotoUrl.trim()}>
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            {Array.from({ length: 6 }).map((_, index) => {
+                              const photo = formData.photos[index];
+                              return (
+                                <div key={index} className="relative aspect-square border-2 border-dashed border-muted rounded-md overflow-hidden flex items-center justify-center bg-muted/30">
+                                  {photo ? (
+                                    <>
+                                      <img src={driveImgUrl(photo)} alt={`写真${index + 1}`} className="w-full h-full object-cover" />
+                                      <Button type="button" variant="destructive" size="sm" className="absolute top-1 right-1 h-6 w-6 p-0" onClick={() => handleRemovePhoto(index, false)}>
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                      <Badge variant="secondary" className="absolute bottom-1 left-1 text-[10px] px-1">{index + 1}</Badge>
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">写真{index + 1}</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
+                      </div>
+
+                      {/* ショップコメント */}
+                      <div>
+                        <Label htmlFor="add-shop-comment" className="font-semibold">ショップコメント</Label>
+                        <Textarea id="add-shop-comment" rows={3} className="mt-1" value={formData.shop_comment} onChange={(e) => setFormData({...formData, shop_comment: e.target.value})} />
+                      </div>
+
+                      {/* 基本情報 */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">基本情報</Label>
+                        <div className="grid grid-cols-1 gap-3">
                           <div>
-                            <Label htmlFor="room">ルーム</Label>
-                            <Select 
-                              value={formData.room}
-                              onValueChange={(value) => setFormData({...formData, room: value})}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="ルームを選択" />
-                              </SelectTrigger>
+                            <Label htmlFor="add-name">名前 <span className="text-destructive">*</span></Label>
+                            <Input id="add-name" placeholder="例：さくら" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label htmlFor="add-name-kana">フリガナ</Label>
+                            <Input id="add-name-kana" placeholder="例：サクラ" value={formData.name_kana} onChange={(e) => setFormData({...formData, name_kana: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label htmlFor="add-name-en">英語表記</Label>
+                            <Input id="add-name-en" placeholder="例：SAKURA" value={formData.name_en} onChange={(e) => setFormData({...formData, name_en: e.target.value})} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <Label>血液型</Label>
+                            <Select value={formData.blood_type} onValueChange={(v) => setFormData({...formData, blood_type: v})}>
+                              <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
+                              <SelectContent>{BLOOD_TYPES.map(b => <SelectItem key={b} value={b}>{b}型</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="add-height">身長 (cm)</Label>
+                            <Input id="add-height" type="number" placeholder="158" value={formData.height} onChange={(e) => setFormData({...formData, height: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label htmlFor="add-weight">体重 (kg)</Label>
+                            <Input id="add-weight" type="number" placeholder="48" value={formData.weight} onChange={(e) => setFormData({...formData, weight: e.target.value})} />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>バストのカップ数</Label>
+                          <Select value={formData.bust_size} onValueChange={(v) => setFormData({...formData, bust_size: v})}>
+                            <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
+                            <SelectContent>{BUST_SIZES.map(b => <SelectItem key={b} value={b}>{b}カップ</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* セラピストコメント */}
+                      <div>
+                        <Label htmlFor="add-therapist-comment" className="font-semibold">セラピストコメント</Label>
+                        <Textarea id="add-therapist-comment" rows={3} className="mt-1" value={formData.therapist_comment} onChange={(e) => setFormData({...formData, therapist_comment: e.target.value})} />
+                      </div>
+
+                      {/* セラピストの特徴 */}
+                      <div>
+                        <Label className="font-semibold">セラピストの特徴</Label>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {THERAPIST_FEATURES.map((f) => {
+                            const checked = formData.features.includes(f);
+                            return (
+                              <button key={f} type="button"
+                                className={`px-2 py-1 text-xs rounded-full border transition-colors ${checked ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground/30 text-muted-foreground hover:border-primary"}`}
+                                onClick={() => setFormData({...formData, features: checked ? formData.features.filter(x => x !== f) : [...formData.features, f]})}>
+                                {f}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* エステ歴 */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="font-semibold">エステ歴</Label>
+                          <Select value={formData.therapist_experience} onValueChange={(v) => setFormData({...formData, therapist_experience: v})}>
+                            <SelectTrigger className="mt-1"><SelectValue placeholder="選択" /></SelectTrigger>
+                            <SelectContent>{THERAPIST_EXPERIENCE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="add-age" className="font-semibold">年齢</Label>
+                          <Input id="add-age" type="number" placeholder="25" className="mt-1" value={formData.age} onChange={(e) => setFormData({...formData, age: e.target.value})} />
+                        </div>
+                      </div>
+
+                      {/* 特技 */}
+                      <div>
+                        <Label htmlFor="add-techniques" className="font-semibold">特技</Label>
+                        <Textarea id="add-techniques" rows={2} className="mt-1" placeholder="得意な施術・特技..." value={formData.favorite_techniques} onChange={(e) => setFormData({...formData, favorite_techniques: e.target.value})} />
+                      </div>
+
+                      {/* スタイル */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">スタイル</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="add-hometown">出身</Label>
+                            <Input id="add-hometown" placeholder="東京都" value={formData.hometown} onChange={(e) => setFormData({...formData, hometown: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label htmlFor="add-birth-date">生年月日</Label>
+                            <Input id="add-birth-date" type="date" value={formData.birth_date} onChange={(e) => setFormData({...formData, birth_date: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label htmlFor="add-body-size">サイズ (T/W/H)</Label>
+                            <Input id="add-body-size" placeholder="158/58/84" value={formData.body_size} onChange={(e) => setFormData({...formData, body_size: e.target.value})} />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* セラピストの情報 */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">セラピストの情報</Label>
+                        <div>
+                          <Label htmlFor="add-enrollment">在籍期間</Label>
+                          <Input id="add-enrollment" placeholder="2024年4月〜" value={formData.enrollment_period} onChange={(e) => setFormData({...formData, enrollment_period: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="add-ideal-partner">担当な相手 / 好きな流派のタイプ</Label>
+                          <Input id="add-ideal-partner" placeholder="紳士な方" value={formData.ideal_partner} onChange={(e) => setFormData({...formData, ideal_partner: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="add-food">好きな食べ物</Label>
+                          <Input id="add-food" placeholder="じゃがりこ" value={formData.favorite_food} onChange={(e) => setFormData({...formData, favorite_food: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="add-celebrity">好きな著名人</Label>
+                          <Input id="add-celebrity" placeholder="" value={formData.celebrity_like} onChange={(e) => setFormData({...formData, celebrity_like: e.target.value})} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" id="add-uses-sns" checked={formData.uses_sns} onChange={(e) => setFormData({...formData, uses_sns: e.target.checked})} className="h-4 w-4" />
+                          <Label htmlFor="add-uses-sns">SNS利用している？</Label>
+                        </div>
+                        <div>
+                          <Label htmlFor="add-hobby">趣味・特徴</Label>
+                          <Textarea id="add-hobby" rows={2} value={formData.hobby} onChange={(e) => setFormData({...formData, hobby: e.target.value})} />
+                        </div>
+                      </div>
+
+                      {/* ブログ・SNS */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">ブログ・SNS</Label>
+                        <div>
+                          <Label htmlFor="add-blog">外部ブログ</Label>
+                          <Input id="add-blog" placeholder="https://..." value={formData.blog_url} onChange={(e) => setFormData({...formData, blog_url: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="add-x">X (Twitter)</Label>
+                          <Input id="add-x" placeholder="@username" value={formData.x_account} onChange={(e) => setFormData({...formData, x_account: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="add-skebiy">Skebiy</Label>
+                          <Input id="add-skebiy" placeholder="https://..." value={formData.skebiy_url} onChange={(e) => setFormData({...formData, skebiy_url: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="add-instagram">Instagram</Label>
+                          <Input id="add-instagram" placeholder="https://..." value={formData.instagram_url} onChange={(e) => setFormData({...formData, instagram_url: e.target.value})} />
+                        </div>
+                      </div>
+
+                      {/* 管理情報 */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">管理情報</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label>ルーム</Label>
+                            <Select value={formData.room} onValueChange={(v) => setFormData({...formData, room: v})}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="インルーム">インルーム</SelectItem>
                                 <SelectItem value="ラスルーム">ラスルーム</SelectItem>
@@ -645,14 +903,9 @@ export default function Staff() {
                             </Select>
                           </div>
                           <div>
-                            <Label htmlFor="status">ステータス</Label>
-                            <Select 
-                              value={formData.status}
-                              onValueChange={(value) => setFormData({...formData, status: value})}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="ステータスを選択" />
-                              </SelectTrigger>
+                            <Label>ステータス</Label>
+                            <Select value={formData.status} onValueChange={(v) => setFormData({...formData, status: v})}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="派遣中">派遣中</SelectItem>
                                 <SelectItem value="リピート予定">リピート予定</SelectItem>
@@ -662,217 +915,16 @@ export default function Staff() {
                             </Select>
                           </div>
                         </div>
-                        
                         <div>
-                          <Label htmlFor="profile">プロフィール</Label>
-                          <Textarea 
-                            id="profile" 
-                            rows={3} 
-                            placeholder="キャストの魅力や特徴を入力..."
-                            value={formData.profile}
-                            onChange={(e) => setFormData({...formData, profile: e.target.value})}
-                          />
+                          <Label htmlFor="add-memo">メモ</Label>
+                          <Textarea id="add-memo" rows={3} value={formData.memo} onChange={(e) => setFormData({...formData, memo: e.target.value})} />
                         </div>
-                        
-                        <div>
-                          <Label>写真（GoogleドライブURL）</Label>
-                          <div className="space-y-2">
-                            <div className="flex gap-2">
-                              <Input
-                                placeholder="https://drive.google.com/file/d/... またはファイルID"
-                                value={newPhotoUrl}
-                                onChange={(e) => setNewPhotoUrl(e.target.value)}
-                                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, false))}
-                              />
-                              <Button type="button" variant="outline" onClick={() => addPhotoUrl(newPhotoUrl, false)} disabled={!newPhotoUrl.trim()}>
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                            {formData.photos.length > 0 && (
-                              <div className="grid grid-cols-2 gap-2">
-                                {formData.photos.map((photo, index) => (
-                                  <div key={index} className="relative group">
-                                    <img
-                                      src={driveImgUrl(photo)}
-                                      alt={`プレビュー ${index + 1}`}
-                                      className="w-full h-[200px] object-cover rounded-md"
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="destructive"
-                                      size="sm"
-                                      className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      onClick={() => handleRemovePhoto(index, false)}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                    <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </TabsContent>
+                      </div>
 
-                      <TabsContent value="details" className="space-y-4 mt-4">
-                        <div>
-                          <Label htmlFor="dispatch-status">派遣ステータス</Label>
-                          <Select 
-                            value={formData.dispatch_status}
-                            onValueChange={(value) => setFormData({...formData, dispatch_status: value})}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">未設定</SelectItem>
-                              <SelectItem value="scheduled">派遣予定</SelectItem>
-                              <SelectItem value="dispatched">派遣中</SelectItem>
-                              <SelectItem value="completed">完了</SelectItem>
-                              <SelectItem value="cancelled">キャンセル</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="repeat-scheduled"
-                            checked={formData.repeat_scheduled}
-                            onChange={(e) => setFormData({...formData, repeat_scheduled: e.target.checked})}
-                            className="h-4 w-4"
-                          />
-                          <Label htmlFor="repeat-scheduled">リピート予定</Label>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="therapist-years">セラピスト歴（年）</Label>
-                            <Input 
-                              id="therapist-years" 
-                              type="number"
-                              placeholder="3"
-                              value={formData.therapist_years || ""}
-                              onChange={(e) => setFormData({...formData, therapist_years: parseInt(e.target.value) || 0})}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="favorite-food">好きな食べ物</Label>
-                            <Input 
-                              id="favorite-food" 
-                              placeholder="じゃがりこ"
-                              value={formData.favorite_food}
-                              onChange={(e) => setFormData({...formData, favorite_food: e.target.value})}
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label htmlFor="favorite-techniques">得意な施術</Label>
-                          <Textarea 
-                            id="favorite-techniques" 
-                            rows={3}
-                            placeholder="極液を使った密着施術..."
-                            value={formData.favorite_techniques}
-                            onChange={(e) => setFormData({...formData, favorite_techniques: e.target.value})}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="ideal-partner">好きな男性のタイプ</Label>
-                          <Textarea 
-                            id="ideal-partner" 
-                            rows={2}
-                            placeholder="紳士な方"
-                            value={formData.ideal_partner}
-                            onChange={(e) => setFormData({...formData, ideal_partner: e.target.value})}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="follow-list">フォロー&リスト</Label>
-                          <Input 
-                            id="follow-list" 
-                            placeholder="追加中"
-                            value={formData.follow_list}
-                            onChange={(e) => setFormData({...formData, follow_list: e.target.value})}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="media-registration">媒体登録（カンマ区切り）</Label>
-                          <Input 
-                            id="media-registration" 
-                            placeholder="キャスカン, エスタマ"
-                            value={formData.media_registration.join(", ")}
-                            onChange={(e) => setFormData({
-                              ...formData, 
-                              media_registration: e.target.value.split(",").map(s => s.trim()).filter(s => s)
-                            })}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="marks">マーク一覧（カンマ区切り）</Label>
-                          <Input 
-                            id="marks" 
-                            placeholder="【エスたま】新人, 【エスたま】お気に入り"
-                            value={formData.marks.join(", ")}
-                            onChange={(e) => setFormData({
-                              ...formData, 
-                              marks: e.target.value.split(",").map(s => s.trim()).filter(s => s)
-                            })}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="registration-sheet">登録シート</Label>
-                          <Input 
-                            id="registration-sheet" 
-                            placeholder="登録シートURL"
-                            value={formData.registration_sheet}
-                            onChange={(e) => setFormData({...formData, registration_sheet: e.target.value})}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="format-type">フォーマット</Label>
-                          <Input 
-                            id="format-type" 
-                            placeholder="フォーマット種類"
-                            value={formData.format_type}
-                            onChange={(e) => setFormData({...formData, format_type: e.target.value})}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="recent-dispatch">直近派遣詳細</Label>
-                          <Textarea 
-                            id="recent-dispatch" 
-                            rows={3}
-                            placeholder="直近の派遣情報..."
-                            value={formData.recent_dispatch_details}
-                            onChange={(e) => setFormData({...formData, recent_dispatch_details: e.target.value})}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="memo">メモ欄</Label>
-                          <Textarea 
-                            id="memo" 
-                            rows={4}
-                            placeholder="メモを入力..."
-                            value={formData.memo}
-                            onChange={(e) => setFormData({...formData, memo: e.target.value})}
-                          />
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-                    
-                    <Button onClick={handleAddCast} className="w-full mt-4">
-                      追加
-                    </Button>
+                      <Button onClick={handleAddCast} className="w-full" disabled={!formData.name.trim()}>
+                        追加する
+                      </Button>
+                    </div>
                   </DialogContent>
                 </Dialog>
               )}
@@ -882,108 +934,24 @@ export default function Staff() {
             {/* Edit Dialog */}
             {editingCast && (
               <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>キャスト編集</DialogTitle>
+                    <DialogTitle>セラピスト編集</DialogTitle>
                   </DialogHeader>
-                  <Tabs defaultValue="basic" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="basic">基本情報</TabsTrigger>
-                      <TabsTrigger value="details">詳細情報</TabsTrigger>
+                  <Tabs defaultValue="profile" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 mb-2">
+                      <TabsTrigger value="profile">プロフィール</TabsTrigger>
+                      <TabsTrigger value="mgmt">管理情報</TabsTrigger>
                     </TabsList>
-                    
-                    <TabsContent value="basic" className="space-y-4 mt-4">
-                      <div>
-                        <Label htmlFor="edit-name">セラピスト名</Label>
-                        <Input
-                          id="edit-name"
-                          placeholder="名前を入力"
-                          value={editingCast.name}
-                          onChange={(e) => setEditingCast({...editingCast, name: e.target.value})}
-                        />
-                      </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="edit-type">タイプ</Label>
-                          <Select 
-                            value={editingCast.type}
-                            onValueChange={(value) => setEditingCast({...editingCast, type: value})}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="新人">新人</SelectItem>
-                              <SelectItem value="standard">スタンダード</SelectItem>
-                              <SelectItem value="premium">プレミアム</SelectItem>
-                              <SelectItem value="VIP">VIP</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="edit-room">ルーム</Label>
-                          <Select 
-                            value={editingCast.room || ""}
-                            onValueChange={(value) => setEditingCast({...editingCast, room: value})}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="ルームを選択" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="インルーム">インルーム</SelectItem>
-                              <SelectItem value="ラスルーム">ラスルーム</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      
+                    <TabsContent value="profile" className="space-y-5 pb-4">
+                      {/* 写真 */}
                       <div>
-                        <Label htmlFor="edit-status">ステータス</Label>
-                        <Select 
-                          value={editingCast.status}
-                          onValueChange={(value) => setEditingCast({...editingCast, status: value})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="waiting">待機中</SelectItem>
-                            <SelectItem value="busy">接客中</SelectItem>
-                            <SelectItem value="offline">退勤</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <Label htmlFor="edit-profile">プロフィール</Label>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleGenerateContent('profile')}
-                            disabled={generatingContent}
-                          >
-                            <Sparkles className="w-4 h-4 mr-1" />
-                            AI生成
-                          </Button>
-                        </div>
-                        <Textarea 
-                          id="edit-profile" 
-                          rows={5}
-                          placeholder="キャストの魅力や特徴を入力..."
-                          value={editingCast.profile || ""}
-                          onChange={(e) => setEditingCast({...editingCast, profile: e.target.value})}
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label>写真（GoogleドライブURL）</Label>
-                        <div className="space-y-2">
+                        <Label className="font-semibold">セラピスト写真</Label>
+                        <div className="mt-2 space-y-2">
                           <div className="flex gap-2">
                             <Input
-                              placeholder="https://drive.google.com/file/d/... またはファイルID"
+                              placeholder="GoogleドライブURL またはファイルID"
                               value={newPhotoUrl}
                               onChange={(e) => setNewPhotoUrl(e.target.value)}
                               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, true))}
@@ -992,132 +960,243 @@ export default function Staff() {
                               <Plus className="h-4 w-4" />
                             </Button>
                           </div>
-                          {(editingCast.photos || []).length > 0 && (
-                            <div className="grid grid-cols-2 gap-2">
-                              {(editingCast.photos || []).map((photo, index) => (
-                                <div key={index} className="relative group">
-                                  <img
-                                    src={driveImgUrl(photo)}
-                                    alt={`プレビュー ${index + 1}`}
-                                    className="w-full h-[200px] object-cover rounded-md"
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="destructive"
-                                    size="sm"
-                                    className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={() => handleRemovePhoto(index, true)}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                  <Badge variant="secondary" className="absolute bottom-1 left-1">{index + 1}</Badge>
+                          <div className="grid grid-cols-3 gap-2">
+                            {Array.from({ length: 6 }).map((_, index) => {
+                              const photo = (editingCast.photos || [])[index];
+                              return (
+                                <div key={index} className="relative aspect-square border-2 border-dashed border-muted rounded-md overflow-hidden flex items-center justify-center bg-muted/30">
+                                  {photo ? (
+                                    <>
+                                      <img src={driveImgUrl(photo)} alt={`写真${index + 1}`} className="w-full h-full object-cover" />
+                                      <Button type="button" variant="destructive" size="sm" className="absolute top-1 right-1 h-6 w-6 p-0" onClick={() => handleRemovePhoto(index, true)}>
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                      <Badge variant="secondary" className="absolute bottom-1 left-1 text-[10px] px-1">{index + 1}</Badge>
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">写真{index + 1}</span>
+                                  )}
                                 </div>
-                              ))}
-                            </div>
-                          )}
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
 
+                      {/* ショップコメント */}
                       <div>
-                        <Label htmlFor="edit-x-account">Xアカウント</Label>
-                        <Input 
-                          id="edit-x-account" 
-                          placeholder="@username"
-                          value={editingCast.x_account || ""}
-                          onChange={(e) => setEditingCast({...editingCast, x_account: e.target.value})}
-                        />
+                        <Label htmlFor="e-shop-comment" className="font-semibold">ショップコメント</Label>
+                        <Textarea id="e-shop-comment" rows={3} className="mt-1" value={editingCast.shop_comment || ""} onChange={(e) => setEditingCast({...editingCast, shop_comment: e.target.value})} />
                       </div>
 
-                      <div className="space-y-3">
-                        <Label className="text-sm font-semibold text-muted-foreground">公開プロフィール</Label>
+                      {/* 基本情報 */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">基本情報</Label>
                         <div>
-                          <Label htmlFor="edit-message">セラピストコメント（公開）</Label>
-                          <Textarea
-                            id="edit-message"
-                            rows={3}
-                            placeholder="セラピスト本人からのコメント..."
-                            value={editingCast.message || ""}
-                            onChange={(e) => setEditingCast({...editingCast, message: e.target.value})}
-                          />
+                          <Label htmlFor="e-name">名前</Label>
+                          <Input id="e-name" value={editingCast.name} onChange={(e) => setEditingCast({...editingCast, name: e.target.value})} />
                         </div>
                         <div>
-                          <Label htmlFor="edit-line-url">LINE URL</Label>
-                          <Input
-                            id="edit-line-url"
-                            placeholder="https://lin.ee/..."
-                            value={editingCast.line_url || ""}
-                            onChange={(e) => setEditingCast({...editingCast, line_url: e.target.value})}
-                          />
+                          <Label htmlFor="e-name-kana">フリガナ</Label>
+                          <Input id="e-name-kana" value={editingCast.name_kana || ""} onChange={(e) => setEditingCast({...editingCast, name_kana: e.target.value})} />
                         </div>
                         <div>
-                          <Label htmlFor="edit-litlink-url">リットリンク URL</Label>
-                          <Input
-                            id="edit-litlink-url"
-                            placeholder="https://lit.link/..."
-                            value={editingCast.litlink_url || ""}
-                            onChange={(e) => setEditingCast({...editingCast, litlink_url: e.target.value})}
-                          />
+                          <Label htmlFor="e-name-en">英語表記</Label>
+                          <Input id="e-name-en" value={editingCast.name_en || ""} onChange={(e) => setEditingCast({...editingCast, name_en: e.target.value})} />
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <Label>血液型</Label>
+                            <Select value={editingCast.blood_type || ""} onValueChange={(v) => setEditingCast({...editingCast, blood_type: v})}>
+                              <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
+                              <SelectContent>{BLOOD_TYPES.map(b => <SelectItem key={b} value={b}>{b}型</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="e-height">身長 (cm)</Label>
+                            <Input id="e-height" type="number" value={editingCast.height || ""} onChange={(e) => setEditingCast({...editingCast, height: parseInt(e.target.value) || null})} />
+                          </div>
+                          <div>
+                            <Label htmlFor="e-weight">体重 (kg)</Label>
+                            <Input id="e-weight" type="number" value={editingCast.weight || ""} onChange={(e) => setEditingCast({...editingCast, weight: parseInt(e.target.value) || null})} />
+                          </div>
                         </div>
                         <div>
-                          <Label htmlFor="edit-o2-url">口コミ（O2）URL</Label>
-                          <Input
-                            id="edit-o2-url"
-                            placeholder="https://..."
-                            value={editingCast.o2_url || ""}
-                            onChange={(e) => setEditingCast({...editingCast, o2_url: e.target.value})}
-                          />
+                          <Label>バストのカップ数</Label>
+                          <Select value={editingCast.bust_size || ""} onValueChange={(v) => setEditingCast({...editingCast, bust_size: v})}>
+                            <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
+                            <SelectContent>{BUST_SIZES.map(b => <SelectItem key={b} value={b}>{b}カップ</SelectItem>)}</SelectContent>
+                          </Select>
                         </div>
                       </div>
 
+                      {/* セラピストコメント */}
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <Label htmlFor="edit-hp-notice">HP告知</Label>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleGenerateContent('announcement')}
-                            disabled={generatingContent}
-                          >
-                            <Sparkles className="w-4 h-4 mr-1" />
-                            AI生成
+                        <div className="flex items-center justify-between mb-1">
+                          <Label htmlFor="e-therapist-comment" className="font-semibold">セラピストコメント</Label>
+                          <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateContent('profile')} disabled={generatingContent}>
+                            <Sparkles className="w-4 h-4 mr-1" />AI生成
                           </Button>
                         </div>
-                        <Textarea 
-                          id="edit-hp-notice" 
-                          rows={3} 
-                          placeholder="ホームページに表示するお知らせ..."
-                          value={editingCast.hp_notice || ""}
-                          onChange={(e) => setEditingCast({...editingCast, hp_notice: e.target.value})}
-                        />
+                        <Textarea id="e-therapist-comment" rows={3} value={editingCast.therapist_comment || editingCast.profile || ""} onChange={(e) => setEditingCast({...editingCast, therapist_comment: e.target.value, profile: e.target.value})} />
+                      </div>
+
+                      {/* セラピストの特徴 */}
+                      <div>
+                        <Label className="font-semibold">セラピストの特徴</Label>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {THERAPIST_FEATURES.map((f) => {
+                            const checked = (editingCast.features || []).includes(f);
+                            return (
+                              <button key={f} type="button"
+                                className={`px-2 py-1 text-xs rounded-full border transition-colors ${checked ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground/30 text-muted-foreground hover:border-primary"}`}
+                                onClick={() => setEditingCast({...editingCast, features: checked ? (editingCast.features || []).filter(x => x !== f) : [...(editingCast.features || []), f]})}>
+                                {f}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* エステ歴・年齢 */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="font-semibold">エステ歴</Label>
+                          <Select value={editingCast.therapist_experience || ""} onValueChange={(v) => setEditingCast({...editingCast, therapist_experience: v})}>
+                            <SelectTrigger className="mt-1"><SelectValue placeholder="選択" /></SelectTrigger>
+                            <SelectContent>{THERAPIST_EXPERIENCE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="e-age" className="font-semibold">年齢</Label>
+                          <Input id="e-age" type="number" className="mt-1" value={editingCast.age || ""} onChange={(e) => setEditingCast({...editingCast, age: parseInt(e.target.value) || null})} />
+                        </div>
+                      </div>
+
+                      {/* 特技 */}
+                      <div>
+                        <Label htmlFor="e-techniques" className="font-semibold">特技</Label>
+                        <Textarea id="e-techniques" rows={2} className="mt-1" value={editingCast.favorite_techniques || ""} onChange={(e) => setEditingCast({...editingCast, favorite_techniques: e.target.value})} />
+                      </div>
+
+                      {/* スタイル */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">スタイル</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="e-hometown">出身</Label>
+                            <Input id="e-hometown" value={editingCast.hometown || ""} onChange={(e) => setEditingCast({...editingCast, hometown: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label htmlFor="e-birth-date">生年月日</Label>
+                            <Input id="e-birth-date" type="date" value={editingCast.birth_date || ""} onChange={(e) => setEditingCast({...editingCast, birth_date: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label htmlFor="e-body-size">サイズ (T/W/H)</Label>
+                            <Input id="e-body-size" placeholder="158/58/84" value={editingCast.body_size || ""} onChange={(e) => setEditingCast({...editingCast, body_size: e.target.value})} />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* セラピストの情報 */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">セラピストの情報</Label>
+                        <div>
+                          <Label htmlFor="e-enrollment">在籍期間</Label>
+                          <Input id="e-enrollment" value={editingCast.enrollment_period || ""} onChange={(e) => setEditingCast({...editingCast, enrollment_period: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-ideal">担当な相手 / 好きな流派のタイプ</Label>
+                          <Input id="e-ideal" value={editingCast.ideal_partner || ""} onChange={(e) => setEditingCast({...editingCast, ideal_partner: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-food">好きな食べ物</Label>
+                          <Input id="e-food" value={editingCast.favorite_food || ""} onChange={(e) => setEditingCast({...editingCast, favorite_food: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-celebrity">好きな著名人</Label>
+                          <Input id="e-celebrity" value={editingCast.celebrity_like || ""} onChange={(e) => setEditingCast({...editingCast, celebrity_like: e.target.value})} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" id="e-uses-sns" checked={editingCast.uses_sns || false} onChange={(e) => setEditingCast({...editingCast, uses_sns: e.target.checked})} className="h-4 w-4" />
+                          <Label htmlFor="e-uses-sns">SNS利用している？</Label>
+                        </div>
+                        <div>
+                          <Label htmlFor="e-hobby">趣味・特徴</Label>
+                          <Textarea id="e-hobby" rows={2} value={editingCast.hobby || ""} onChange={(e) => setEditingCast({...editingCast, hobby: e.target.value})} />
+                        </div>
+                      </div>
+
+                      {/* ブログ・SNS */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">ブログ・SNS</Label>
+                        <div>
+                          <Label htmlFor="e-blog">外部ブログ</Label>
+                          <Input id="e-blog" placeholder="https://..." value={editingCast.blog_url || ""} onChange={(e) => setEditingCast({...editingCast, blog_url: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-x">X (Twitter)</Label>
+                          <Input id="e-x" placeholder="@username" value={editingCast.x_account || ""} onChange={(e) => setEditingCast({...editingCast, x_account: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-skebiy">Skebiy</Label>
+                          <Input id="e-skebiy" placeholder="https://..." value={editingCast.skebiy_url || ""} onChange={(e) => setEditingCast({...editingCast, skebiy_url: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-instagram">Instagram</Label>
+                          <Input id="e-instagram" placeholder="https://..." value={editingCast.instagram_url || ""} onChange={(e) => setEditingCast({...editingCast, instagram_url: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-line-url">LINE URL</Label>
+                          <Input id="e-line-url" placeholder="https://lin.ee/..." value={editingCast.line_url || ""} onChange={(e) => setEditingCast({...editingCast, line_url: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-litlink">リットリンク URL</Label>
+                          <Input id="e-litlink" placeholder="https://lit.link/..." value={editingCast.litlink_url || ""} onChange={(e) => setEditingCast({...editingCast, litlink_url: e.target.value})} />
+                        </div>
                       </div>
                     </TabsContent>
-                    
-                    <TabsContent value="details" className="space-y-4 mt-4">
+
+                    <TabsContent value="mgmt" className="space-y-4 pb-4">
                       <div className="flex items-center justify-between p-3 rounded-lg border">
                         <div className="flex items-center gap-2">
                           {editingCast.is_visible ? <Eye className="h-4 w-4 text-green-600" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
                           <Label>HP表示</Label>
                         </div>
-                        <Button
-                          type="button"
-                          variant={editingCast.is_visible ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setEditingCast({...editingCast, is_visible: !editingCast.is_visible})}
-                        >
+                        <Button type="button" variant={editingCast.is_visible ? "default" : "outline"} size="sm" onClick={() => setEditingCast({...editingCast, is_visible: !editingCast.is_visible})}>
                           {editingCast.is_visible ? "ON" : "OFF"}
                         </Button>
                       </div>
 
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label>ルーム</Label>
+                          <Select value={editingCast.room || ""} onValueChange={(v) => setEditingCast({...editingCast, room: v})}>
+                            <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="インルーム">インルーム</SelectItem>
+                              <SelectItem value="ラスルーム">ラスルーム</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>ステータス</Label>
+                          <Select value={editingCast.status} onValueChange={(v) => setEditingCast({...editingCast, status: v})}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="派遣中">派遣中</SelectItem>
+                              <SelectItem value="リピート予定">リピート予定</SelectItem>
+                              <SelectItem value="残タスク">残タスク</SelectItem>
+                              <SelectItem value="未着手">未着手</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
                       <div>
-                        <Label htmlFor="edit-dispatch-status">派遣ステータス</Label>
-                        <Select 
-                          value={editingCast.dispatch_status || "none"}
-                          onValueChange={(value) => setEditingCast({...editingCast, dispatch_status: value})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
+                        <Label>派遣ステータス</Label>
+                        <Select value={editingCast.dispatch_status || "none"} onValueChange={(v) => setEditingCast({...editingCast, dispatch_status: v})}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">未設定</SelectItem>
                             <SelectItem value="scheduled">派遣予定</SelectItem>
@@ -1128,143 +1207,50 @@ export default function Staff() {
                         </Select>
                       </div>
 
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="edit-repeat-scheduled"
-                          checked={editingCast.repeat_scheduled || false}
-                          onChange={(e) => setEditingCast({...editingCast, repeat_scheduled: e.target.checked})}
-                          className="h-4 w-4"
-                        />
-                        <Label htmlFor="edit-repeat-scheduled">リピート予定</Label>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="edit-therapist-years">セラピスト歴（年）</Label>
-                          <Input 
-                            id="edit-therapist-years" 
-                            type="number"
-                            placeholder="3"
-                            value={editingCast.therapist_years || ""}
-                            onChange={(e) => setEditingCast({...editingCast, therapist_years: parseInt(e.target.value) || null})}
-                          />
+                      <div>
+                        <Label>HP告知</Label>
+                        <div className="flex justify-end mb-1">
+                          <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateContent('announcement')} disabled={generatingContent}>
+                            <Sparkles className="w-4 h-4 mr-1" />AI生成
+                          </Button>
                         </div>
-                        <div>
-                          <Label htmlFor="edit-favorite-food">好きな食べ物</Label>
-                          <Input 
-                            id="edit-favorite-food" 
-                            placeholder="じゃがりこ"
-                            value={editingCast.favorite_food || ""}
-                            onChange={(e) => setEditingCast({...editingCast, favorite_food: e.target.value})}
-                          />
-                        </div>
+                        <Textarea rows={3} value={editingCast.hp_notice || ""} onChange={(e) => setEditingCast({...editingCast, hp_notice: e.target.value})} />
                       </div>
 
                       <div>
-                        <Label htmlFor="edit-favorite-techniques">得意な施術</Label>
-                        <Textarea 
-                          id="edit-favorite-techniques" 
-                          rows={3}
-                          placeholder="極液を使った密着施術..."
-                          value={editingCast.favorite_techniques || ""}
-                          onChange={(e) => setEditingCast({...editingCast, favorite_techniques: e.target.value})}
-                        />
+                        <Label>媒体登録（カンマ区切り）</Label>
+                        <Input placeholder="キャスカン, エスタマ" value={(editingCast.media_registration || []).join(", ")} onChange={(e) => setEditingCast({...editingCast, media_registration: e.target.value.split(",").map(s => s.trim()).filter(s => s)})} />
                       </div>
 
                       <div>
-                        <Label htmlFor="edit-ideal-partner">好きな男性のタイプ</Label>
-                        <Textarea 
-                          id="edit-ideal-partner" 
-                          rows={2}
-                          placeholder="紳士な方"
-                          value={editingCast.ideal_partner || ""}
-                          onChange={(e) => setEditingCast({...editingCast, ideal_partner: e.target.value})}
-                        />
+                        <Label>マーク一覧（カンマ区切り）</Label>
+                        <Input placeholder="【エスたま】新人" value={(editingCast.marks || []).join(", ")} onChange={(e) => setEditingCast({...editingCast, marks: e.target.value.split(",").map(s => s.trim()).filter(s => s)})} />
                       </div>
 
                       <div>
-                        <Label htmlFor="edit-follow-list">フォロー&リスト</Label>
-                        <Input 
-                          id="edit-follow-list" 
-                          placeholder="追加中"
-                          value={editingCast.follow_list || ""}
-                          onChange={(e) => setEditingCast({...editingCast, follow_list: e.target.value})}
-                        />
+                        <Label>登録シート URL</Label>
+                        <Input value={editingCast.registration_sheet || ""} onChange={(e) => setEditingCast({...editingCast, registration_sheet: e.target.value})} />
                       </div>
 
                       <div>
-                        <Label htmlFor="edit-media-registration">媒体登録（カンマ区切り）</Label>
-                        <Input 
-                          id="edit-media-registration" 
-                          placeholder="キャスカン, エスタマ"
-                          value={(editingCast.media_registration || []).join(", ")}
-                          onChange={(e) => setEditingCast({
-                            ...editingCast, 
-                            media_registration: e.target.value.split(",").map(s => s.trim()).filter(s => s)
-                          })}
-                        />
+                        <Label>口コミ（O2）URL</Label>
+                        <Input placeholder="https://..." value={editingCast.o2_url || ""} onChange={(e) => setEditingCast({...editingCast, o2_url: e.target.value})} />
                       </div>
 
                       <div>
-                        <Label htmlFor="edit-marks">マーク一覧（カンマ区切り）</Label>
-                        <Input 
-                          id="edit-marks" 
-                          placeholder="【エスたま】新人, 【エスたま】お気に入り"
-                          value={(editingCast.marks || []).join(", ")}
-                          onChange={(e) => setEditingCast({
-                            ...editingCast, 
-                            marks: e.target.value.split(",").map(s => s.trim()).filter(s => s)
-                          })}
-                        />
+                        <Label>直近派遣詳細</Label>
+                        <Textarea rows={3} value={editingCast.recent_dispatch_details || ""} onChange={(e) => setEditingCast({...editingCast, recent_dispatch_details: e.target.value})} />
                       </div>
 
                       <div>
-                        <Label htmlFor="edit-registration-sheet">登録シート</Label>
-                        <Input 
-                          id="edit-registration-sheet" 
-                          placeholder="登録シートURL"
-                          value={editingCast.registration_sheet || ""}
-                          onChange={(e) => setEditingCast({...editingCast, registration_sheet: e.target.value})}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="edit-format-type">フォーマット</Label>
-                        <Input 
-                          id="edit-format-type" 
-                          placeholder="フォーマット種類"
-                          value={editingCast.format_type || ""}
-                          onChange={(e) => setEditingCast({...editingCast, format_type: e.target.value})}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="edit-recent-dispatch">直近派遣詳細</Label>
-                        <Textarea 
-                          id="edit-recent-dispatch" 
-                          rows={3}
-                          placeholder="直近の派遣情報..."
-                          value={editingCast.recent_dispatch_details || ""}
-                          onChange={(e) => setEditingCast({...editingCast, recent_dispatch_details: e.target.value})}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="edit-memo">メモ欄</Label>
-                        <Textarea 
-                          id="edit-memo" 
-                          rows={4}
-                          placeholder="メモを入力..."
-                          value={editingCast.memo || ""}
-                          onChange={(e) => setEditingCast({...editingCast, memo: e.target.value})}
-                        />
+                        <Label>メモ</Label>
+                        <Textarea rows={4} value={editingCast.memo || ""} onChange={(e) => setEditingCast({...editingCast, memo: e.target.value})} />
                       </div>
                     </TabsContent>
                   </Tabs>
-                  
+
                   <Button onClick={handleUpdateCast} className="w-full mt-4">
-                    更新
+                    更新する
                   </Button>
                 </DialogContent>
               </Dialog>
