@@ -816,15 +816,9 @@ export default function Staff() {
                             <Input id="add-name-kana" placeholder="例：サクラ" value={formData.name_kana} onChange={(e) => setFormData({...formData, name_kana: e.target.value})} />
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label htmlFor="add-height">身長 (cm)</Label>
-                            <Input id="add-height" type="number" placeholder="158" value={formData.height} onChange={(e) => setFormData({...formData, height: e.target.value})} />
-                          </div>
-                          <div>
-                            <Label htmlFor="add-weight">体重 (kg)</Label>
-                            <Input id="add-weight" type="number" placeholder="48" value={formData.weight} onChange={(e) => setFormData({...formData, weight: e.target.value})} />
-                          </div>
+                        <div>
+                          <Label htmlFor="add-height">身長 (cm)</Label>
+                          <Input id="add-height" type="number" placeholder="158" value={formData.height} onChange={(e) => setFormData({...formData, height: e.target.value})} />
                         </div>
                         <div>
                           <Label>バストのカップ数</Label>
@@ -891,6 +885,10 @@ export default function Staff() {
                         </button>
                         {showProfileDetailAdd && (
                           <div className="px-4 pb-4 space-y-3">
+                            <div>
+                              <Label htmlFor="add-techniques">得意な施術</Label>
+                              <Textarea id="add-techniques" rows={2} className="mt-1" placeholder="得意な施術..." value={formData.favorite_techniques} onChange={(e) => setFormData({...formData, favorite_techniques: e.target.value})} />
+                            </div>
                             <div>
                               <Label htmlFor="add-favfood">好きな食べ物</Label>
                               <Input id="add-favfood" className="mt-1" value={formData.favorite_food} onChange={(e) => setFormData({...formData, favorite_food: e.target.value})} />
@@ -1027,15 +1025,9 @@ export default function Staff() {
                           <Label htmlFor="e-name-kana">フリガナ</Label>
                           <Input id="e-name-kana" value={editingCast.name_kana || ""} onChange={(e) => setEditingCast({...editingCast, name_kana: e.target.value})} />
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label htmlFor="e-height">身長 (cm)</Label>
-                            <Input id="e-height" type="number" value={editingCast.height || ""} onChange={(e) => setEditingCast({...editingCast, height: parseInt(e.target.value) || null})} />
-                          </div>
-                          <div>
-                            <Label htmlFor="e-weight">体重 (kg)</Label>
-                            <Input id="e-weight" type="number" value={editingCast.weight || ""} onChange={(e) => setEditingCast({...editingCast, weight: parseInt(e.target.value) || null})} />
-                          </div>
+                        <div>
+                          <Label htmlFor="e-height">身長 (cm)</Label>
+                          <Input id="e-height" type="number" value={editingCast.height || ""} onChange={(e) => setEditingCast({...editingCast, height: parseInt(e.target.value) || null})} />
                         </div>
                         <div>
                           <Label>バストのカップ数</Label>
@@ -1108,6 +1100,10 @@ export default function Staff() {
                         </button>
                         {showProfileDetail && (
                           <div className="px-4 pb-4 space-y-3">
+                            <div>
+                              <Label htmlFor="e-techniques">得意な施術</Label>
+                              <Textarea id="e-techniques" rows={2} className="mt-1" value={editingCast.favorite_techniques || ""} onChange={(e) => setEditingCast({...editingCast, favorite_techniques: e.target.value})} />
+                            </div>
                             <div>
                               <Label htmlFor="e-favfood">好きな食べ物</Label>
                               <Input id="e-favfood" className="mt-1" value={editingCast.favorite_food || ""} onChange={(e) => setEditingCast({...editingCast, favorite_food: e.target.value})} />
