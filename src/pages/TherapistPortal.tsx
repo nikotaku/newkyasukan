@@ -45,6 +45,7 @@ interface ShiftRow {
   end_time: string;
   room: string | null;
   notes: string | null;
+  approval_status: string;
 }
 
 type View = "menu" | "settlement" | "transport" | "shift";
@@ -100,6 +101,22 @@ export default function TherapistPortal() {
     if (view === "transport" && cast) fetchExpenses();
     if (view === "shift" && cast) fetchShifts();
   }, [view, year, month, cast]);
+
+  // シフトのステータス変更をリアルタイム反映
+  useEffect(() => {
+    if (view !== "shift" || !cast) return;
+    const channel = supabase
+      .channel(`therapist-shifts-${cast.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "shifts", filter: `cast_id=eq.${cast.id}` },
+        () => fetchShifts()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [view, cast, year, month]);
 
   const fetchShifts = async () => {
     setShiftsLoading(true);
@@ -181,6 +198,14 @@ export default function TherapistPortal() {
   };
   const expenseStatusColor: Record<string, string> = {
     pending: "text-amber-600", approved: "text-green-600", rejected: "text-rose-600",
+  };
+  const shiftStatusLabel: Record<string, string> = {
+    pending: "承認待ち", approved: "確定", rejected: "却下",
+  };
+  const shiftStatusBadge: Record<string, string> = {
+    pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+    approved: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+    rejected: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
   };
 
   const menuItems = [
@@ -269,10 +294,15 @@ export default function TherapistPortal() {
                       <p>{format(new Date(s.shift_date), "(E)", { locale: ja })}</p>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">
-                        {s.start_time.slice(0, 5)} - {s.end_time.slice(0, 5)}
-                      </p>
-                      {s.room && (
+                      <div className="flex items-center gap-2">
+                        <p className={`text-sm font-medium ${s.approval_status === "rejected" ? "line-through text-muted-foreground" : ""}`}>
+                          {s.start_time.slice(0, 5)} - {s.end_time.slice(0, 5)}
+                        </p>
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${shiftStatusBadge[s.approval_status] ?? "bg-muted text-muted-foreground"}`}>
+                          {shiftStatusLabel[s.approval_status] ?? s.approval_status}
+                        </span>
+                      </div>
+                      {s.room && s.approval_status === "approved" && (
                         <p className="text-xs text-primary font-medium mt-0.5">
                           ルーム：{s.room}
                         </p>

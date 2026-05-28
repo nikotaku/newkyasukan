@@ -22,6 +22,7 @@ interface Shift {
   start_time: string;
   end_time: string;
   room: string | null;
+  approval_status: string;
   casts: { name: string };
 }
 
@@ -31,6 +32,7 @@ interface Cast {
 }
 
 const WEEKDAY = ["日", "月", "火", "水", "木", "金", "土"];
+const ROOMS = ["インルーム", "ラスルーム"];
 
 export default function MonthlyShift() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -57,10 +59,20 @@ export default function MonthlyShift() {
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (user) {
-      fetchMonthlyShifts();
-      fetchCasts();
-    }
+    if (!user) return;
+    fetchMonthlyShifts();
+    fetchCasts();
+
+    const channel = supabase
+      .channel("monthly-shift-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "shifts" }, () => {
+        fetchMonthlyShifts();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user, selectedMonth]);
 
   const fetchMonthlyShifts = async () => {
@@ -109,10 +121,30 @@ export default function MonthlyShift() {
     setShifts(prev => prev.filter(s => s.id !== id));
   };
 
+  const updateStatus = async (id: string, approval_status: "approved" | "rejected", room?: string | null) => {
+    const patch: { approval_status: string; room?: string | null } = { approval_status };
+    if (room !== undefined) patch.room = room;
+    const { error } = await supabase.from("shifts").update(patch).eq("id", id);
+    if (error) { toast.error("更新に失敗しました"); return; }
+    toast.success(approval_status === "approved" ? "承認しました" : "却下しました");
+    setShifts(prev => prev.map(s => (s.id === id ? { ...s, approval_status, ...(room !== undefined ? { room } : {}) } : s)));
+  };
+
+  const assignRoom = async (id: string, room: string) => {
+    const { error } = await supabase.from("shifts").update({ room }).eq("id", id);
+    if (error) { toast.error("ルームの更新に失敗しました"); return; }
+    setShifts(prev => prev.map(s => (s.id === id ? { ...s, room } : s)));
+  };
+
   const prevMonth = () => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1));
   const nextMonth = () => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1));
 
   const days = eachDayOfInterval({ start: startOfMonth(selectedMonth), end: endOfMonth(selectedMonth) });
+
+  // 承認待ちの申請
+  const pendingShifts = shifts
+    .filter(s => s.approval_status === "pending")
+    .sort((a, b) => (a.shift_date < b.shift_date ? -1 : a.shift_date > b.shift_date ? 1 : a.start_time.localeCompare(b.start_time)));
 
   // セラピスト×日付マトリクス用: シフトがある人だけ表示
   const activeCastIds = [...new Set(shifts.map(s => s.cast_id))];
@@ -176,6 +208,44 @@ export default function MonthlyShift() {
           </div>
         </div>
 
+        {/* ===== 承認待ちのシフト申請 ===== */}
+        {pendingShifts.length > 0 && (
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50/60 dark:bg-amber-950/10 overflow-hidden">
+            <div className="px-3 py-2 bg-amber-100/70 dark:bg-amber-900/20 text-sm font-semibold text-amber-800 dark:text-amber-300">
+              承認待ちのシフト申請（{pendingShifts.length}件）
+            </div>
+            <div className="divide-y divide-amber-200/70 dark:divide-amber-900/30">
+              {pendingShifts.map(s => (
+                <div key={s.id} className="px-3 py-2 flex flex-wrap items-center gap-2 text-sm">
+                  <span className="font-medium min-w-[60px]">{s.casts?.name}</span>
+                  <span className="text-muted-foreground">
+                    {format(new Date(s.shift_date), "M/d(E)", { locale: ja })}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {s.start_time.slice(0, 5)}〜{s.end_time.slice(0, 5)}
+                  </span>
+                  <Select value={s.room ?? ""} onValueChange={v => assignRoom(s.id, v)}>
+                    <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="ルーム選択" /></SelectTrigger>
+                    <SelectContent>
+                      {ROOMS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <div className="ml-auto flex gap-1.5">
+                    <Button size="sm" className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
+                      onClick={() => updateStatus(s.id, "approved", s.room ?? ROOMS[0])}>
+                      承認
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-rose-600 border-rose-300 hover:bg-rose-50"
+                      onClick={() => updateStatus(s.id, "rejected")}>
+                      却下
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center text-muted-foreground py-12">読み込み中...</div>
         ) : (
@@ -233,10 +303,21 @@ export default function MonthlyShift() {
                       {dayShifts.slice(0, 4).map(s => (
                         <div
                           key={s.id}
-                          className="group relative flex items-center gap-1 bg-primary/10 rounded px-1 py-0.5 text-[10px] leading-tight"
+                          className={cn(
+                            "group relative flex items-center gap-1 rounded px-1 py-0.5 text-[10px] leading-tight",
+                            s.approval_status === "pending" && "bg-amber-100 dark:bg-amber-900/30",
+                            s.approval_status === "rejected" && "bg-rose-100 dark:bg-rose-900/20 line-through opacity-60",
+                            s.approval_status === "approved" && "bg-primary/10"
+                          )}
                           onClick={e => e.stopPropagation()}
                         >
-                          <span className="font-medium text-primary truncate max-w-[50px] md:max-w-none">
+                          {s.approval_status === "pending" && (
+                            <span className="text-amber-600 shrink-0" title="承認待ち">●</span>
+                          )}
+                          <span className={cn(
+                            "font-medium truncate max-w-[50px] md:max-w-none",
+                            s.approval_status === "rejected" ? "text-rose-600" : "text-primary"
+                          )}>
                             {s.casts.name}
                           </span>
                           <span className="text-muted-foreground hidden md:inline shrink-0">
@@ -315,8 +396,17 @@ export default function MonthlyShift() {
                           }}
                         >
                           {cell.map(s => (
-                            <div key={s.id} className="group relative bg-primary/10 rounded px-1 py-0.5 mb-0.5">
-                              <div className="font-semibold text-primary leading-tight">
+                            <div key={s.id} className={cn(
+                              "group relative rounded px-1 py-0.5 mb-0.5",
+                              s.approval_status === "pending" && "bg-amber-100 dark:bg-amber-900/30",
+                              s.approval_status === "rejected" && "bg-rose-100 dark:bg-rose-900/20 line-through opacity-60",
+                              s.approval_status === "approved" && "bg-primary/10"
+                            )}>
+                              <div className={cn(
+                                "font-semibold leading-tight",
+                                s.approval_status === "rejected" ? "text-rose-600" : "text-primary"
+                              )}>
+                                {s.approval_status === "pending" && <span className="text-amber-600 mr-0.5" title="承認待ち">●</span>}
                                 {s.start_time.slice(0, 5)}
                               </div>
                               <div className="text-muted-foreground leading-tight">
@@ -375,8 +465,13 @@ export default function MonthlyShift() {
               </div>
             </div>
             <div>
-              <Label>ルーム（任意）</Label>
-              <Input value={form.room} onChange={e => setForm({ ...form, room: e.target.value })} placeholder="例：インroom" />
+              <Label>ルーム</Label>
+              <Select value={form.room} onValueChange={v => setForm({ ...form, room: v })}>
+                <SelectTrigger><SelectValue placeholder="ルームを選択" /></SelectTrigger>
+                <SelectContent>
+                  {ROOMS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex gap-2 pt-2">
               <Button className="flex-1" onClick={handleSave} disabled={saving}>{saving ? "保存中..." : "保存"}</Button>
