@@ -1154,10 +1154,12 @@ export default function Staff() {
                           <p className="text-xs text-muted-foreground">「プロパティを追加」で項目名と値を自由に登録できます（例: 媒体登録 / 派遣ステータス / 登録シートURL など）</p>
                         ) : (
                           mgmtProps.map((p, i) => (
-                            <div key={i} className="flex gap-2 items-center">
-                              <Input placeholder="項目名（例: 媒体登録）" value={p.key} onChange={(e) => updateMgmtProp(i, "key", e.target.value)} className="flex-1" />
-                              <Input placeholder="値" value={p.value} onChange={(e) => updateMgmtProp(i, "value", e.target.value)} className="flex-1" />
-                              <Button type="button" size="sm" variant="ghost" onClick={() => removeMgmtProp(i)}><X className="h-4 w-4" /></Button>
+                            <div key={i} className="rounded-md border p-2 space-y-2 bg-muted/20">
+                              <div className="flex gap-2 items-center">
+                                <Input placeholder="項目名（例: 媒体登録）" value={p.key} onChange={(e) => updateMgmtProp(i, "key", e.target.value)} className="flex-1" />
+                                <Button type="button" size="sm" variant="ghost" onClick={() => removeMgmtProp(i)}><X className="h-4 w-4" /></Button>
+                              </div>
+                              <Textarea placeholder="値（長文・複数行も入力できます）" value={p.value} onChange={(e) => updateMgmtProp(i, "value", e.target.value)} rows={3} className="resize-y min-h-[72px]" />
                             </div>
                           ))
                         )}
