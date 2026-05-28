@@ -27,6 +27,9 @@ const THERAPIST_FEATURES = [
 
 const MAX_FEATURES = 4;
 
+const CATEGORY_TAGS = ["在籍", "出稼ぎ", "入店手続き待ち"] as const;
+type CategoryTag = typeof CATEGORY_TAGS[number];
+
 const THERAPIST_EXPERIENCE_OPTIONS = ["1年未満", "1〜3年", "3〜5年", "5年以上"];
 const BLOOD_TYPES = ["A", "B", "O", "AB"];
 const BUST_SIZES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
@@ -93,6 +96,7 @@ interface Cast {
   skebiy_url: string | null;
   instagram_url: string | null;
   custom_fields: Record<string, string> | null;
+  tags: string[] | null;
 }
 
 export default function Staff() {
@@ -104,6 +108,7 @@ export default function Staff() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingCast, setEditingCast] = useState<Cast | null>(null);
   const [mgmtProps, setMgmtProps] = useState<{ key: string; value: string }[]>([]);
+  const [categoryTab, setCategoryTab] = useState<CategoryTag>("在籍");
   const [showProfileDetail, setShowProfileDetail] = useState(true);
   const [showProfileDetailAdd, setShowProfileDetailAdd] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -226,9 +231,19 @@ export default function Staff() {
     }
   };
 
+  const getCastCategory = (cast: Cast): CategoryTag => {
+    if (!cast.tags || cast.tags.length === 0) return "在籍";
+    for (const tag of CATEGORY_TAGS) {
+      if (cast.tags.includes(tag)) return tag;
+    }
+    return "在籍";
+  };
+
   const filteredCasts = casts.filter(cast =>
     cast.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const categoryFilteredCasts = filteredCasts.filter(cast => getCastCategory(cast) === categoryTab);
 
   const handleAddCast = async () => {
     if (!isAdmin) {
@@ -547,6 +562,19 @@ export default function Staff() {
     } catch (e) {
       console.error('reorder failed', e);
       toast({ title: '並び替えに失敗しました', variant: 'destructive' });
+      fetchCasts();
+    }
+  };
+
+  const handleSetCategoryTag = async (castId: string, category: CategoryTag) => {
+    const cast = casts.find(c => c.id === castId);
+    if (!cast) return;
+    const otherTags = (cast.tags || []).filter(t => !CATEGORY_TAGS.includes(t as CategoryTag));
+    const newTags = [...otherTags, category];
+    setCasts(prev => prev.map(c => c.id === castId ? { ...c, tags: newTags } : c));
+    const { error } = await supabase.from('casts').update({ tags: newTags }).eq('id', castId);
+    if (error) {
+      toast({ title: "エラー", description: "タグの更新に失敗しました", variant: "destructive" });
       fetchCasts();
     }
   };
@@ -1205,9 +1233,30 @@ export default function Staff() {
               </Dialog>
             )}
 
-            <TabsContent value="management" className="space-y-6">
+            <TabsContent value="management" className="space-y-4">
+              {/* Category Tabs */}
+              <div className="flex gap-1 border-b pb-0">
+                {CATEGORY_TAGS.map((cat) => {
+                  const count = casts.filter(c => getCastCategory(c) === cat).length;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryTab(cat)}
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                        categoryTab === cat
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {cat}
+                      <span className="ml-1.5 text-xs bg-muted text-muted-foreground rounded-full px-1.5 py-0.5">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* Search and Filter */}
-              <Card className="mb-6">
+              <Card>
               <CardContent className="p-4">
                 <div className="flex gap-4 flex-wrap">
                   <div className="relative flex-1 min-w-[200px]">
@@ -1225,7 +1274,7 @@ export default function Staff() {
 
             {/* Cast List */}
             <div className="space-y-1">
-              {filteredCasts.map((cast) => (
+              {categoryFilteredCasts.map((cast) => (
                 <div
                   key={cast.id}
                   draggable={isAdmin}
@@ -1270,6 +1319,23 @@ export default function Staff() {
                   {/* Actions */}
                   {isAdmin && (
                     <div className="flex items-center gap-1 flex-shrink-0">
+                      {/* Category tag selector */}
+                      <Select
+                        value={getCastCategory(cast)}
+                        onValueChange={(v) => handleSetCategoryTag(cast.id, v as CategoryTag)}
+                      >
+                        <SelectTrigger
+                          className="h-7 w-28 text-xs"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent onClick={(e) => e.stopPropagation()}>
+                          {CATEGORY_TAGS.map(cat => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       {cast.access_token ? (
                         <>
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="ポータルURLをコピー" onClick={(e) => { e.stopPropagation(); copyPortalLink(cast.access_token!); }}>
@@ -1303,11 +1369,11 @@ export default function Staff() {
               ))}
             </div>
 
-            {filteredCasts.length === 0 && (
+            {categoryFilteredCasts.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
-                {casts.length === 0 
-                  ? "キャストが登録されていません" 
-                  : "検索条件に一致するキャストが見つかりません"}
+                {casts.length === 0
+                  ? "キャストが登録されていません"
+                  : `「${categoryTab}」のキャストはいません`}
               </div>
             )}
             </TabsContent>
