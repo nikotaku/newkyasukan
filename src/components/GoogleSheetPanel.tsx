@@ -4,16 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { fetchSheetRows, getStoredUrl, saveUrl, GSheetSource } from "@/lib/googleSheet";
-import { RefreshCw, Settings, Table, AlertCircle, ExternalLink } from "lucide-react";
+import { RefreshCw, Settings, Table, AlertCircle, ExternalLink, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface GoogleSheetPanelProps {
   source: GSheetSource;
   onData?: (headers: string[], rows: string[][]) => void;
+  /** 指定すると「DBに取り込む」ボタンが表示され、取得した行をインポートする */
+  onImport?: (headers: string[], rows: string[][]) => Promise<number>;
   className?: string;
 }
 
-export function GoogleSheetPanel({ source, onData, className }: GoogleSheetPanelProps) {
+export function GoogleSheetPanel({ source, onData, onImport, className }: GoogleSheetPanelProps) {
   const [url, setUrl] = useState(getStoredUrl(source));
   const [draft, setDraft] = useState(getStoredUrl(source));
   const [loading, setLoading] = useState(false);
@@ -21,6 +24,21 @@ export function GoogleSheetPanel({ source, onData, className }: GoogleSheetPanel
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<string[][]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  const handleImport = async () => {
+    if (!onImport || rows.length === 0) return;
+    setImporting(true);
+    try {
+      const count = await onImport(headers, rows);
+      toast.success(`${count}件をDBに取り込みました`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message ? `取り込みに失敗しました: ${e.message}` : "取り込みに失敗しました");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const handleSaveUrl = () => {
     saveUrl(source, draft.trim());
@@ -105,6 +123,18 @@ export function GoogleSheetPanel({ source, onData, className }: GoogleSheetPanel
 
         {rows.length > 0 && (
           <span className="text-xs text-muted-foreground">{rows.length}行 × {headers.length}列</span>
+        )}
+
+        {onImport && rows.length > 0 && (
+          <Button
+            size="sm"
+            onClick={handleImport}
+            disabled={importing}
+            className="gap-1.5 ml-auto"
+          >
+            {importing ? <RefreshCw size={13} className="animate-spin" /> : <Download size={13} />}
+            {importing ? "取り込み中..." : "DBに取り込む"}
+          </Button>
         )}
       </div>
 

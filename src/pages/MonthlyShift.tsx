@@ -321,7 +321,7 @@ export default function MonthlyShift() {
                             {s.casts.name}
                           </span>
                           <span className="text-muted-foreground hidden md:inline shrink-0">
-                            {s.start_time.slice(0,5)}〜
+                            {s.start_time.slice(0,5)}〜{s.end_time.slice(0,5)}
                           </span>
                           <button
                             onClick={() => handleDelete(s.id)}

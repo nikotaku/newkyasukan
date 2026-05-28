@@ -17,6 +17,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { postToSheet } from "@/lib/sheetWebhook";
+import { GoogleSheetPanel } from "@/components/GoogleSheetPanel";
+import { mapReservationRows, batchInsert } from "@/lib/importMappers";
 
 interface Cast {
   id: string;
@@ -488,6 +490,28 @@ export default function Reservations() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Google Sheet Import */}
+            {isAdmin && (
+              <Card className="shadow-md">
+                <CardHeader className="border-b">
+                  <CardTitle className="text-lg">スプレッドシートから取り込み</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <GoogleSheetPanel
+                    source="reservations"
+                    onImport={async (headers, rows) => {
+                      const castMap = new Map<string, string>();
+                      casts.forEach((c) => castMap.set(c.name, c.id));
+                      const mapped = mapReservationRows(headers, rows, castMap);
+                      const count = await batchInsert("reservations", mapped);
+                      await fetchReservations();
+                      return count;
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            )}
 
             {/* Search and Filter */}
             <Card className="shadow-md">
