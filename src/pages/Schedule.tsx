@@ -764,6 +764,12 @@ export default function Schedule() {
                       <span className="font-medium">{detailRes.customer_phone}</span>
                       <span className="text-muted-foreground">コース</span>
                       <span className="font-medium">{detailRes.course_name}</span>
+                      {(detailRes.options ?? []).length > 0 && (
+                        <>
+                          <span className="text-muted-foreground">オプション</span>
+                          <span className="font-medium">{(detailRes.options ?? []).join("、")}</span>
+                        </>
+                      )}
                       {(detailRes.discount ?? 0) > 0 && (
                         <>
                           <span className="text-muted-foreground">割引</span>
@@ -825,6 +831,7 @@ export default function Schedule() {
                           `[予約情報]`,
                           `予約日時：${dateStr} ${d.start_time.slice(0, 5)}`,
                           `コース：${d.course_name}`,
+                          (d.options ?? []).length > 0 ? `オプション：${(d.options ?? []).join("、")}` : null,
                           `セラピスト：${therapist}`,
                           d.room ? `ルーム：${d.room}` : null,
                           `予約名：${d.customer_name}`,
