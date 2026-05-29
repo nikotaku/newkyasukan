@@ -14,6 +14,9 @@ interface BookingPayload {
   nomination_type?: string | null;
   options?: string[] | null;
   price: number;
+  payment_fee?: number | null;
+  payment_method?: string | null;
+  payment_link?: string | null;
   notes?: string | null;
 }
 
@@ -48,7 +51,17 @@ Deno.serve(async (req: Request) => {
     if (booking.options && booking.options.length > 0) {
       lines.push(`➕ オプション: ${booking.options.join(", ")}`);
     }
-    lines.push(`💴 料金: ¥${booking.price.toLocaleString()}`);
+    const paymentFee = booking.payment_fee ?? 0;
+    const grandTotal = booking.price + paymentFee;
+    if (booking.nomination_type) {
+      lines.push(`💴 料金: ¥${booking.price.toLocaleString()}（指名料込み）`);
+    } else {
+      lines.push(`💴 料金: ¥${booking.price.toLocaleString()}`);
+    }
+    if (paymentFee > 0) {
+      lines.push(`💳 決済手数料: ¥${paymentFee.toLocaleString()}`);
+      lines.push(`💰 総額: ¥${grandTotal.toLocaleString()}`);
+    }
     lines.push("");
     lines.push(`お客様: ${booking.customer_name} 様`);
     lines.push(`☎️ ${booking.customer_phone}`);
@@ -56,6 +69,35 @@ Deno.serve(async (req: Request) => {
       lines.push("");
       lines.push(`📝 備考: ${booking.notes}`);
     }
+
+    // そのままお客様へ送信できるSMS文面を下部に付加
+    const smsLines = [
+      `${booking.customer_name}様`,
+      "全力エステです。この度はご予約ありがとうございます。",
+      "下記内容で承りました。",
+      `■日付：${booking.reservation_date}`,
+      `■時間：${booking.start_time}〜`,
+      `■コース：${booking.course_name}`,
+      `■セラピスト：${booking.cast_name}`,
+    ];
+    if (booking.nomination_type) smsLines.push(`■指名：${booking.nomination_type}`);
+    if (booking.options && booking.options.length > 0) {
+      smsLines.push(`■オプション：${booking.options.join("、")}`);
+    }
+    smsLines.push(`■料金：¥${grandTotal.toLocaleString()}`);
+    if (paymentFee > 0 && booking.payment_link) {
+      smsLines.push("▼決済はこちら");
+      smsLines.push(booking.payment_link);
+    }
+    smsLines.push("本メッセージにご返信いただけましたらご予約確定となります。");
+
+    const smsText = smsLines.join("\n");
+
+    lines.push("");
+    lines.push("━━━━━━━━━━━━━");
+    lines.push("📲 そのまま送信できるSMS文面");
+    lines.push("━━━━━━━━━━━━━");
+    lines.push(smsText);
 
     const message = lines.join("\n");
 
