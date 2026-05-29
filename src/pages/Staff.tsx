@@ -695,6 +695,12 @@ export default function Staff() {
       }
     }
     const cut = (v: string | number | null | undefined, max: number) => String(v ?? "").slice(0, max);
+    // 写真（最大6枚）。Drive等を直URLに正規化し、CORS用に image-proxy 経由にする
+    const proxyBase = `${import.meta.env.VITE_SUPABASE_URL || ""}/functions/v1/image-proxy?url=`;
+    const rawPhotos = (cast.photos && cast.photos.length > 0 ? cast.photos : (cast.photo ? [cast.photo] : []))
+      .filter(Boolean)
+      .slice(0, 6)
+      .map((p) => proxyBase + encodeURIComponent(driveImgUrl(p, 800)));
     return {
       name: cut(cast.name, 10),
       description: cut(cast.shop_comment, 500),
@@ -717,6 +723,7 @@ export default function Staff() {
       twitter: cut(cast.x_account, 255),
       instagram: cut(cast.instagram_url, 255),
       types,
+      photos: rawPhotos,
     };
   };
 
@@ -739,7 +746,29 @@ export default function Staff() {
   setTimeout(function(){setSel('[name="size_cup"]',D.size_cup);},500);
   // 特徴チェックボックス（最大4つ）
   (D.types||[]).forEach(function(v){var c=document.getElementById('type_'+v);if(c&&!c.checked){c.checked=true;fire(c);}});
-  alert('エスたま転記: 「' + D.name + '」の入力が完了しました。\\n写真と内容を確認して「保存する」を押してください。');
+  // 写真（最大6枚）を image-proxy 経由で取得し file input に割当て
+  var photos = D.photos||[];
+  var fileInputs = Array.prototype.slice.call(document.querySelectorAll('input[type=file]'));
+  var done = 0, fail = 0;
+  function report(){
+    if(done+fail < photos.length) return;
+    var msg = 'エスたま転記:「'+D.name+'」テキスト入力完了。';
+    if(photos.length){ msg += '\\n写真: '+done+'/'+photos.length+'枚を設定'+(fail?'（'+fail+'枚は失敗）':'')+'。'; }
+    msg += '\\n内容を確認して「保存する」を押してください。';
+    alert(msg);
+  }
+  if(!photos.length){ report(); }
+  photos.forEach(function(u,i){
+    var input = fileInputs[i];
+    if(!input){ fail++; report(); return; }
+    fetch(u).then(function(r){ if(!r.ok) throw new Error('http '+r.status); return r.blob(); }).then(function(b){
+      var ext = (b.type&&b.type.indexOf('png')>=0)?'png':'jpg';
+      var file = new File([b], 'photo'+(i+1)+'.'+ext, {type: b.type||'image/jpeg'});
+      var dt = new DataTransfer(); dt.items.add(file);
+      input.files = dt.files; fire(input);
+      done++; report();
+    }).catch(function(e){ console.error('photo '+(i+1)+' failed', e); fail++; report(); });
+  });
 })();`;
   };
 
@@ -1718,7 +1747,7 @@ export default function Staff() {
                   {estamaCopied ? "コピー済" : "スクリプトをコピー"}
                 </Button>
               </li>
-              <li>各項目が自動入力されたら、写真をアップロードして「保存する」を押す</li>
+              <li>各項目と写真が自動入力されたら、内容を確認して「保存する」を押す</li>
             </ol>
             <Textarea
               readOnly
@@ -1727,7 +1756,7 @@ export default function Staff() {
               onClick={(e) => (e.target as HTMLTextAreaElement).select()}
             />
             <p className="text-xs text-muted-foreground">
-              ※名前・コメント・年齢・身長・3サイズ・血液型・特徴・SNS等を転記します。写真は手動アップロードが必要です。
+              ※名前・コメント・年齢・身長・3サイズ・血液型・特徴・SNS・写真（最大6枚）を転記します。写真の取得には数秒かかる場合があります。
             </p>
           </div>
         </DialogContent>
