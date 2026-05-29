@@ -13,10 +13,8 @@ interface Cast {
   name: string;
   age: number | null;
   height: number | null;
-  bust: number | null;
-  cup_size: string | null;
-  waist: number | null;
-  hip: number | null;
+  bust_size: string | null;
+  body_size: string | null;
   blood_type: string | null;
   therapist_years: number | null;
   type: string;
@@ -37,6 +35,7 @@ interface Cast {
   litlink_url: string | null;
   o2_url: string | null;
   tags: string[] | null;
+  shop_comment: string | null;
 }
 
 interface TherapistProfile {
@@ -147,9 +146,10 @@ const CastDetail = () => {
 
   const displayAge    = cast.age    ?? profileJson?.age    ?? null;
   const displayHeight = cast.height ?? profileJson?.height ?? null;
-  const displayBust   = cast.bust   ?? profileJson?.bust   ?? null;
-  const displayWaist  = cast.waist  ?? profileJson?.waist  ?? null;
-  const displayHip    = cast.hip    ?? profileJson?.hip    ?? null;
+  // body_size is stored as "T/W/H" (e.g. "158/58/84")
+  const bodySizeParts = cast.body_size ? cast.body_size.split(/[-–/／]/) : [];
+  const displayWaist  = bodySizeParts[1]?.replace(/[^0-9]/g, '') || null;
+  const displayHip    = bodySizeParts[2]?.replace(/[^0-9]/g, '') || null;
   const displayWeight = profileJson?.weight ?? null;
   const displayBlood  = cast.blood_type ?? profileJson?.blood_type ?? null;
 
@@ -177,8 +177,9 @@ const CastDetail = () => {
     displayBlood && { q: "血液型", a: `${displayBlood}型` },
   ].filter(Boolean) as { q: string; a: string }[];
 
+  const INTERNAL_TAGS = ["在籍", "出稼ぎ", "入店手続き待ち"];
   const therapistComment = cast.message ?? null;
-  const shopComment = profile?.comment ?? null;
+  const shopComment = cast.shop_comment ?? profile?.comment ?? null;
 
   // Average rating
   const avgRating = reviews.length > 0
@@ -237,9 +238,9 @@ const CastDetail = () => {
                   <span className="text-7xl font-bold text-white/60">{cast.name.charAt(0)}</span>
                 </div>
               )}
-              {cast.tags && cast.tags.length > 0 && (
+              {cast.tags && cast.tags.filter(t => !INTERNAL_TAGS.includes(t)).length > 0 && (
                 <div className="absolute top-3 left-3 flex flex-col gap-1">
-                  {cast.tags.map((tag, i) => (
+                  {cast.tags.filter(t => !INTERNAL_TAGS.includes(t)).map((tag, i) => (
                     <span key={i} className="text-white text-xs font-bold px-2 py-0.5 rounded shadow"
                       style={{ background: tag === "人気セラピスト" ? "#ef4444" : tag === "新人" ? "#ec4899" : "#3b82f6" }}>
                       {tag}
@@ -285,19 +286,19 @@ const CastDetail = () => {
             </div>
 
             {/* ── Stats grid ── */}
-            {(displayHeight || displayBust || displayWaist || displayHip || displayWeight || displayBlood) && (
+            {(displayHeight || cast.bust_size || displayWaist || displayHip || displayWeight || displayBlood) && (
               <div className="border-b border-[#f0e4df]">
-                <div className={`grid divide-x divide-[#f0e4df] ${[displayHeight, displayBust, displayWaist, displayHip].filter(Boolean).length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
+                <div className={`grid divide-x divide-[#f0e4df] ${[displayHeight, cast.bust_size, displayWaist, displayHip].filter(Boolean).length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
                   {displayHeight && (
                     <div className="py-3 text-center">
                       <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>身長</p>
                       <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayHeight}cm</p>
                     </div>
                   )}
-                  {displayBust && (
+                  {cast.bust_size && (
                     <div className="py-3 text-center">
-                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>バスト</p>
-                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayBust}{cast.cup_size ? `(${cast.cup_size})` : ""}</p>
+                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>カップ</p>
+                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{cast.bust_size}カップ</p>
                     </div>
                   )}
                   {displayWaist && (
