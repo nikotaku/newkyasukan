@@ -25,6 +25,7 @@ interface Shift {
   room: string | null;
   approval_status: string;
   approval_comment: string | null;
+  estama_registered: boolean;
   casts: { name: string };
 }
 
@@ -52,6 +53,7 @@ export default function MonthlyShift() {
     start_time: "12:00",
     end_time: "21:00",
     room: "",
+    estama_registered: false,
   });
   const [pendingAction, setPendingAction] = useState<{id: string; status: "approved" | "rejected"; room?: string | null} | null>(null);
   const [actionComment, setActionComment] = useState("");
@@ -64,6 +66,7 @@ export default function MonthlyShift() {
       start_time: "12:00",
       end_time: "21:00",
       room: "",
+      estama_registered: false,
       ...preset,
     });
     setShowDialog(true);
@@ -77,6 +80,7 @@ export default function MonthlyShift() {
       start_time: shift.start_time.slice(0, 5),
       end_time: shift.end_time.slice(0, 5),
       room: shift.room || "",
+      estama_registered: shift.estama_registered ?? false,
     });
     setShowDialog(true);
   };
@@ -138,6 +142,7 @@ export default function MonthlyShift() {
       start_time: form.start_time,
       end_time: form.end_time,
       room: form.room || null,
+      estama_registered: form.estama_registered,
     };
     const { error } = editingId
       ? await supabase.from("shifts").update(payload).eq("id", editingId)
@@ -349,6 +354,9 @@ export default function MonthlyShift() {
                           onClick={e => { e.stopPropagation(); openEdit(s); }}
                           title="クリックで編集"
                         >
+                          {s.estama_registered && (
+                            <span className="absolute -top-0.5 -left-0.5 w-2 h-2 bg-red-500 rounded-full z-10" title="エスたま登録済み" />
+                          )}
                           {s.approval_status === "pending" && (
                             <span className="text-amber-600 shrink-0" title="承認待ち">●</span>
                           )}
@@ -440,6 +448,9 @@ export default function MonthlyShift() {
                               s.approval_status === "rejected" && "bg-rose-100 dark:bg-rose-900/20 line-through opacity-60",
                               s.approval_status === "approved" && "bg-primary/10"
                             )}>
+                              {s.estama_registered && (
+                                <span className="absolute -top-0.5 -left-0.5 w-2 h-2 bg-red-500 rounded-full z-10" title="エスたま登録済み" />
+                              )}
                               <div className={cn(
                                 "font-semibold leading-tight",
                                 s.approval_status === "rejected" ? "text-rose-600" : "text-primary"
@@ -508,6 +519,19 @@ export default function MonthlyShift() {
                 <SelectTrigger><SelectValue placeholder="ルームを選択" /></SelectTrigger>
                 <SelectContent>
                   {ROOMS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>エスたまに登録</Label>
+              <Select
+                value={form.estama_registered ? "registered" : "unregistered"}
+                onValueChange={v => setForm({ ...form, estama_registered: v === "registered" })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unregistered">未登録</SelectItem>
+                  <SelectItem value="registered">登録済み</SelectItem>
                 </SelectContent>
               </Select>
             </div>
