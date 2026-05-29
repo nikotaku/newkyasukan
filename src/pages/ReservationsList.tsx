@@ -90,7 +90,7 @@ export default function ReservationsList() {
     course_type: "アロマオイル",
     course_name: "アロマオイル 80分",
     selectedOptions: [] as string[],
-    discount_id: "none",
+    discount_ids: [] as string[],
     discount: 0,
     price: 12000,
     payment_method: "cash",
@@ -192,7 +192,7 @@ export default function ReservationsList() {
         cast_id: "", customer_name: "", customer_phone: "", customer_email: "",
         nomination_type: "none", reservation_date: new Date(), start_time: "14:00", end_time: "15:00",
         duration: 80, room: "", course_type: "アロマオイル", course_name: "アロマオイル 80分",
-        selectedOptions: [], discount_id: "none", discount: 0, price: 12000,
+        selectedOptions: [], discount_ids: [] as string[], discount: 0, price: 12000,
         payment_method: "cash", reservation_method: "", notes: "",
       });
       fetchReservations();

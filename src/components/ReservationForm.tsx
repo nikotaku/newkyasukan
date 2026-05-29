@@ -63,7 +63,7 @@ interface FormData {
   course_type: string;
   course_name: string;
   selectedOptions: string[];
-  discount_id: string;
+  discount_ids: string[];
   discount: number;
   price: number;
   payment_method: string;
@@ -169,13 +169,13 @@ export function ReservationForm({
     }
 
     let discountAmount = 0;
-    if (formData.discount_id && formData.discount_id !== "none") {
-      const d = discounts.find((x) => x.id === formData.discount_id);
+    for (const discId of formData.discount_ids) {
+      const d = discounts.find(x => x.id === discId);
       if (d) {
-        discountAmount =
-          d.discount_type === "percentage"
-            ? Math.round((subtotal * d.discount_value) / 100)
-            : d.discount_value;
+        const amt = d.discount_type === "percentage"
+          ? Math.round((subtotal * d.discount_value) / 100)
+          : d.discount_value;
+        discountAmount += amt;
       }
     }
     discountAmount = Math.min(discountAmount, subtotal);
@@ -185,7 +185,7 @@ export function ReservationForm({
     if (totalPrice !== formData.price || discountAmount !== formData.discount || fee !== formData.payment_fee) {
       setFormData({ ...formData, price: totalPrice, discount: discountAmount, payment_fee: fee });
     }
-  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.discount_id, formData.payment_method, backRates, optionRates, nominationRates, discounts, paymentSettings]);
+  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.discount_ids, formData.payment_method, backRates, optionRates, nominationRates, discounts, paymentSettings]);
 
   // 開始時間とコース時間（分）から終了時間を自動計算
   useEffect(() => {
@@ -253,6 +253,29 @@ export function ReservationForm({
     }, 500);
     return () => clearTimeout(timer);
   }, [formData.customer_phone]);
+
+  // セラピスト選択後の「本指名」自動設定
+  useEffect(() => {
+    if (!formData.cast_id || !formData.customer_phone) return;
+    const phone = formData.customer_phone.replace(/[-\s]/g, "");
+    if (phone.length < 10) return;
+
+    supabase
+      .from("reservations")
+      .select("id")
+      .eq("cast_id", formData.cast_id)
+      .or(`customer_phone.eq.${phone},customer_phone.eq.${formData.customer_phone}`)
+      .neq("status", "cancelled")
+      .limit(1)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          const honshimei = nominationRates.find(r => r.nomination_type === "本指名");
+          if (honshimei) {
+            setFormData({ ...formData, nomination_type: "本指名" });
+          }
+        }
+      });
+  }, [formData.cast_id]);
 
   const handleToggleBan = async () => {
     if (!customerInfo) return;
@@ -336,28 +359,18 @@ export function ReservationForm({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="customer_name">予約者</Label>
-          <Input
-            id="customer_name"
-            placeholder="山田太郎"
-            value={formData.customer_name}
-            onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label htmlFor="customer_phone">電話番号</Label>
-          <Input
-            id="customer_phone"
-            placeholder="090-1234-5678"
-            value={formData.customer_phone}
-            onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
-          />
-        </div>
+      {/* 1. 電話番号 */}
+      <div>
+        <Label htmlFor="customer_phone">電話番号</Label>
+        <Input
+          id="customer_phone"
+          placeholder="090-1234-5678"
+          value={formData.customer_phone}
+          onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
+        />
       </div>
 
-      {/* 顧客情報パネル */}
+      {/* 2. 顧客情報パネル */}
       {searchingCustomer && (
         <p className="text-xs text-muted-foreground">検索中...</p>
       )}
@@ -499,109 +512,112 @@ export function ReservationForm({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="customer_email">メールアドレス</Label>
-          <Input
-            id="customer_email"
-            type="email"
-            placeholder="example@email.com"
-            value={formData.customer_email}
-            onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label>指名</Label>
-          <Select
-            value={formData.nomination_type}
-            onValueChange={(value) => setFormData({ ...formData, nomination_type: value })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">指名なし</SelectItem>
-              {nominationRates.map((rate) => (
-                <SelectItem key={rate.id} value={rate.nomination_type}>
-                  {rate.nomination_type} (+¥{rate.customer_price.toLocaleString()})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* 3. 予約者名 */}
+      <div>
+        <Label htmlFor="customer_name">予約者</Label>
+        <Input
+          id="customer_name"
+          placeholder="山田太郎"
+          value={formData.customer_name}
+          onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+        />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>セラピスト</Label>
-          <Select
-            value={formData.cast_id}
-            onValueChange={(value) => setFormData({ ...formData, cast_id: value })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="セラピストを選択" />
-            </SelectTrigger>
-            <SelectContent>
-              {casts.map((cast) => (
-                <SelectItem key={cast.id} value={cast.id}>
-                  {cast.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>予約日</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !formData.reservation_date && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {formData.reservation_date ? (
-                  format(formData.reservation_date, "PPP", { locale: ja })
-                ) : (
-                  <span>日付を選択</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={formData.reservation_date}
-                onSelect={(date) => date && setFormData({ ...formData, reservation_date: date })}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
+      {/* 4. セラピスト */}
+      <div>
+        <Label>セラピスト</Label>
+        <Select
+          value={formData.cast_id}
+          onValueChange={(value) => setFormData({ ...formData, cast_id: value })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="セラピストを選択" />
+          </SelectTrigger>
+          <SelectContent>
+            {casts.map((cast) => (
+              <SelectItem key={cast.id} value={cast.id}>
+                {cast.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="start_time">開始時間</Label>
-          <Input
-            id="start_time"
-            type="time"
-            value={formData.start_time}
-            onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label htmlFor="end_time">終了時間</Label>
-          <Input
-            id="end_time"
-            type="time"
-            value={formData.end_time}
-            onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-          />
-        </div>
+      {/* 5. 指名 */}
+      <div>
+        <Label>指名</Label>
+        <Select
+          value={formData.nomination_type}
+          onValueChange={(value) => setFormData({ ...formData, nomination_type: value })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">指名なし</SelectItem>
+            {nominationRates.map((rate) => (
+              <SelectItem key={rate.id} value={rate.nomination_type}>
+                {rate.nomination_type} (+¥{rate.customer_price.toLocaleString()})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
+      {/* 6. 予約日 */}
+      <div>
+        <Label>予約日</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full justify-start text-left font-normal",
+                !formData.reservation_date && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {formData.reservation_date ? (
+                format(formData.reservation_date, "PPP", { locale: ja })
+              ) : (
+                <span>日付を選択</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={formData.reservation_date}
+              onSelect={(date) => date && setFormData({ ...formData, reservation_date: date })}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* 7. 開始時間 */}
+      <div>
+        <Label htmlFor="start_time">開始時間</Label>
+        <Input
+          id="start_time"
+          type="time"
+          value={formData.start_time}
+          onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+        />
+      </div>
+
+      {/* 8. 終了時間 */}
+      <div>
+        <Label htmlFor="end_time">終了時間</Label>
+        <Input
+          id="end_time"
+          type="time"
+          value={formData.end_time}
+          onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+        />
+      </div>
+
+      {/* 9. ルーム */}
       <div>
         <Label htmlFor="room">ルーム</Label>
         <Select
@@ -622,52 +638,53 @@ export function ReservationForm({
         </Select>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>コースタイプ</Label>
-          <Select
-            value={formData.course_type}
-            onValueChange={(value) => setFormData({ ...formData, course_type: value })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {courseTypes.map((type) => (
-                <SelectItem key={type} value={type}>{type}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>時間</Label>
-          <Select
-            value={formData.duration.toString()}
-            onValueChange={(value) =>
-              setFormData({
-                ...formData,
-                duration: parseInt(value),
-                course_name: `${formData.course_type} ${value}分`,
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {backRates
-                .filter((rate) => rate.course_type === formData.course_type)
-                .map((rate) => (
-                  <SelectItem key={rate.id} value={rate.duration.toString()}>
-                    {rate.duration}分 (¥{rate.customer_price.toLocaleString()})
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* 10. コースタイプ */}
+      <div>
+        <Label>コースタイプ</Label>
+        <Select
+          value={formData.course_type}
+          onValueChange={(value) => setFormData({ ...formData, course_type: value })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {courseTypes.map((type) => (
+              <SelectItem key={type} value={type}>{type}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* DR Option - Select */}
+      {/* 11. 時間 */}
+      <div>
+        <Label>時間</Label>
+        <Select
+          value={formData.duration.toString()}
+          onValueChange={(value) =>
+            setFormData({
+              ...formData,
+              duration: parseInt(value),
+              course_name: `${formData.course_type} ${value}分`,
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {backRates
+              .filter((rate) => rate.course_type === formData.course_type)
+              .map((rate) => (
+                <SelectItem key={rate.id} value={rate.duration.toString()}>
+                  {rate.duration}分 (¥{rate.customer_price.toLocaleString()})
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* 12. DR Option - Select */}
       {drOptions.length > 0 && (
         <div>
           <Label>DR（ディープリンパ）</Label>
@@ -693,10 +710,10 @@ export function ReservationForm({
         </div>
       )}
 
-      {/* Other Options - Checkbox */}
+      {/* 13. Other Options - Checkbox */}
       <div>
         <Label>オプション</Label>
-        <div className="grid grid-cols-2 gap-2 mt-2">
+        <div className="space-y-2 mt-2">
           {availableOptions.map((optionName) => {
             const rate = optionRates.find((r) => r.option_name === optionName);
             return (
@@ -718,30 +735,28 @@ export function ReservationForm({
         </div>
       </div>
 
+      {/* 14. 割引 - チェックボックス複数選択 */}
       <div>
         <Label>割引</Label>
-        <Select
-          value={formData.discount_id || "none"}
-          onValueChange={(value) => setFormData({ ...formData, discount_id: value })}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="割引なし" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">割引なし</SelectItem>
-            {discounts.map((d) => (
-              <SelectItem key={d.id} value={d.id}>
-                {d.name}（
-                {d.discount_type === "percentage"
-                  ? `-${d.discount_value}%`
-                  : `-¥${d.discount_value.toLocaleString()}`}
-                ）
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="space-y-2 mt-2">
+          {discounts.map((d) => (
+            <label key={d.id} className="flex items-center gap-3 p-2 border rounded-lg cursor-pointer hover:bg-muted/30">
+              <Checkbox
+                checked={formData.discount_ids.includes(d.id)}
+                onCheckedChange={(checked) => {
+                  const next = checked
+                    ? [...formData.discount_ids, d.id]
+                    : formData.discount_ids.filter(id => id !== d.id);
+                  setFormData({ ...formData, discount_ids: next });
+                }}
+              />
+              <span className="text-sm">{d.name}（{d.discount_type === "percentage" ? `-${d.discount_value}%` : `-¥${d.discount_value.toLocaleString()}`}）</span>
+            </label>
+          ))}
+        </div>
       </div>
 
+      {/* 15. お支払い方法 */}
       <div>
         <Label>お支払い方法</Label>
         <Select
@@ -759,6 +774,19 @@ export function ReservationForm({
         </Select>
       </div>
 
+      {/* 16. メールアドレス */}
+      <div>
+        <Label htmlFor="customer_email">メールアドレス</Label>
+        <Input
+          id="customer_email"
+          type="email"
+          placeholder="example@email.com"
+          value={formData.customer_email}
+          onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
+        />
+      </div>
+
+      {/* 17. 備考 */}
       <div>
         <Label htmlFor="notes">備考</Label>
         <Textarea
@@ -769,6 +797,7 @@ export function ReservationForm({
         />
       </div>
 
+      {/* 18. 合計金額表示 */}
       <div className="pt-4 border-t space-y-1">
         {formData.discount > 0 && (
           <div className="flex justify-between text-sm text-muted-foreground">
@@ -794,6 +823,7 @@ export function ReservationForm({
         </div>
       </div>
 
+      {/* 19. 予約追加ボタン */}
       <Button onClick={onSubmit} className="w-full" size="lg">
         予約を追加
       </Button>
