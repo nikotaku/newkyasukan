@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Plus, MapPin, KeyRound, DoorOpen, Save } from "lucide-react";
+import { Trash2, Plus, MapPin, KeyRound, DoorOpen, Save, Upload, X } from "lucide-react";
 
 interface Room {
   id: string;
@@ -20,6 +20,7 @@ interface Room {
   entry_flow: string | null;
   key_number: string | null;
   key_info: string | null;
+  entry_photos: string[] | null;
 }
 
 interface EquipmentItem {
@@ -55,6 +56,8 @@ export default function FacilitiesRooms() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Room | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingEntryPhotos, setUploadingEntryPhotos] = useState(false);
+  const entryPhotoInputRef = useRef<HTMLInputElement>(null);
 
   const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
   const [supplies, setSupplies] = useState<SupplyItem[]>([]);
@@ -94,7 +97,7 @@ export default function FacilitiesRooms() {
     try {
       const { data, error } = await supabase
         .from("rooms" as any)
-        .select("id,name,room_type,address,entry_flow,key_number,key_info")
+        .select("id,name,room_type,address,entry_flow,key_number,key_info,entry_photos")
         .order("name");
       if (error && error.code !== "PGRST116") throw error;
       const list = (data || []) as unknown as Room[];
@@ -146,6 +149,7 @@ export default function FacilitiesRooms() {
           entry_flow: draft.entry_flow,
           key_number: draft.key_number,
           key_info: draft.key_info,
+          entry_photos: draft.entry_photos?.length ? draft.entry_photos : null,
         })
         .eq("id", draft.id);
       if (error) throw error;
@@ -156,6 +160,29 @@ export default function FacilitiesRooms() {
       toast.error("保存に失敗しました");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEntryPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!draft || !e.target.files?.length) return;
+    setUploadingEntryPhotos(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of Array.from(e.target.files)) {
+        const ext = file.name.split(".").pop();
+        const path = `${draft.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("entry-photos").upload(path, file, { upsert: true });
+        if (upErr) throw upErr;
+        const { data: urlData } = supabase.storage.from("entry-photos").getPublicUrl(path);
+        uploaded.push(urlData.publicUrl);
+      }
+      setDraft({ ...draft, entry_photos: [...(draft.entry_photos || []), ...uploaded] });
+    } catch (err) {
+      console.error(err);
+      toast.error("写真のアップロードに失敗しました");
+    } finally {
+      setUploadingEntryPhotos(false);
+      if (entryPhotoInputRef.current) entryPhotoInputRef.current.value = "";
     }
   };
 
@@ -325,6 +352,43 @@ export default function FacilitiesRooms() {
                         placeholder="鍵の種類・保管場所など"
                       />
                     </div>
+                  </div>
+                  <div>
+                    <Label className="flex items-center gap-1.5"><Upload size={14} />入室方法の写真</Label>
+                    <input
+                      ref={entryPhotoInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleEntryPhotoUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-1 gap-1.5"
+                      onClick={() => entryPhotoInputRef.current?.click()}
+                      disabled={uploadingEntryPhotos}
+                    >
+                      <Upload size={14} />{uploadingEntryPhotos ? "アップロード中..." : "写真を選択"}
+                    </Button>
+                    {(draft.entry_photos?.length ?? 0) > 0 && (
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        {draft.entry_photos!.map((photo, index) => (
+                          <div key={index} className="relative group">
+                            <img src={photo} alt="" className="w-full h-24 object-cover rounded-md border" />
+                            <button
+                              type="button"
+                              className="absolute top-1 right-1 bg-rose-600 text-white rounded-full h-5 w-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => setDraft({ ...draft, entry_photos: draft.entry_photos!.filter((_, i) => i !== index) })}
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <Button onClick={handleSaveRoom} disabled={saving} className="gap-1.5">
                     <Save size={15} />{saving ? "保存中..." : "基本情報を保存"}
