@@ -39,6 +39,8 @@ interface Reservation {
   price: number;
   payment_method: string;
   status: string;
+  nomination_type: string | null;
+  payment_fee: number | null;
 }
 
 interface BackRate {
@@ -61,12 +63,19 @@ interface DiscountItem {
   discount_value: number;
 }
 
+interface NominationRate {
+  id: string;
+  nomination_type: string;
+  customer_price: number;
+}
+
 interface EditState {
   course_type: string;
   duration: number;
   selectedOptions: string[];
   discount_id: string;
   payment_method: string;
+  nomination_type: string;
 }
 
 const PAYMENT_METHODS = [
@@ -98,6 +107,7 @@ export default function TherapistCheckout() {
   const [optionRates, setOptionRates] = useState<OptionRate[]>([]);
   const [discounts, setDiscounts] = useState<DiscountItem[]>([]);
   const [paymentSettings, setPaymentSettings] = useState<PaymentSetting[]>([]);
+  const [nominationRates, setNominationRates] = useState<NominationRate[]>([]);
 
   // インライン編集
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -148,11 +158,13 @@ export default function TherapistCheckout() {
       supabase.from("option_rates").select("id, option_name, customer_price, display_order").order("display_order"),
       supabase.from("discounts").select("id, name, discount_type, discount_value, is_active").eq("is_active", true).order("name"),
       supabase.from("payment_settings").select("id, payment_method, payment_link, fee_percentage"),
-    ]).then(([br, or, dc, ps]) => {
+      supabase.from("nomination_rates" as any).select("id, nomination_type, customer_price").order("customer_price"),
+    ]).then(([br, or, dc, ps, nr]) => {
       if (br.data) setBackRates(br.data as BackRate[]);
       if (or.data) setOptionRates(or.data as OptionRate[]);
       if (dc.data) setDiscounts(dc.data as DiscountItem[]);
       if (ps.data) setPaymentSettings(ps.data as PaymentSetting[]);
+      if (nr.data) setNominationRates(nr.data as NominationRate[]);
     });
   }, []);
 
@@ -170,7 +182,7 @@ export default function TherapistCheckout() {
     try {
       const { data, error } = await supabase
         .from("reservations")
-        .select("id, customer_name, start_time, course_name, course_type, duration, options, discount, price, payment_method, status")
+        .select("id, customer_name, start_time, course_name, course_type, duration, options, discount, price, payment_method, payment_fee, status, nomination_type")
         .eq("cast_id", cast.id)
         .eq("reservation_date", selectedDate)
         .order("start_time");
@@ -209,6 +221,7 @@ export default function TherapistCheckout() {
           selectedOptions: r.options ?? [],
           discount_id: "none",
           payment_method: r.payment_method || "cash",
+          nomination_type: r.nomination_type ?? "none",
         },
       }));
     }
@@ -219,13 +232,19 @@ export default function TherapistCheckout() {
   };
 
   // 価格計算
-  const calcPrice = useCallback((state: EditState): { subtotal: number; discount: number; fee: number; total: number } => {
+  const calcPrice = useCallback((state: EditState): { subtotal: number; nominationFee: number; discount: number; fee: number; total: number } => {
     const backRate = backRates.find(r => r.course_type === state.course_type && r.duration === state.duration);
     let subtotal = backRate?.customer_price ?? 0;
     state.selectedOptions.forEach(opt => {
       const or = optionRates.find(r => r.option_name === opt);
       if (or) subtotal += or.customer_price;
     });
+    let nominationFee = 0;
+    if (state.nomination_type && state.nomination_type !== "none") {
+      const nr = nominationRates.find(r => r.nomination_type === state.nomination_type);
+      if (nr) nominationFee = nr.customer_price;
+    }
+    subtotal += nominationFee;
     let discountAmt = 0;
     if (state.discount_id !== "none") {
       const d = discounts.find(x => x.id === state.discount_id);
@@ -238,8 +257,8 @@ export default function TherapistCheckout() {
     discountAmt = Math.min(discountAmt, subtotal);
     const price = subtotal - discountAmt;
     const fee = calcPaymentFee(price, paymentSettings, state.payment_method);
-    return { subtotal, discount: discountAmt, fee, total: price + fee };
-  }, [backRates, optionRates, discounts, paymentSettings]);
+    return { subtotal, nominationFee, discount: discountAmt, fee, total: price + fee };
+  }, [backRates, optionRates, discounts, paymentSettings, nominationRates]);
 
   const handleSaveEdit = async (r: Reservation) => {
     const state = editStates[r.id];
@@ -258,6 +277,7 @@ export default function TherapistCheckout() {
         price: total - fee,
         payment_fee: fee,
         payment_method: state.payment_method,
+        nomination_type: state.nomination_type === "none" ? null : state.nomination_type,
       }).eq("id", r.id);
       if (error) throw error;
       setReservations(prev => prev.map(res => res.id === r.id ? {
@@ -268,7 +288,9 @@ export default function TherapistCheckout() {
         options: state.selectedOptions,
         discount,
         price: total - fee,
+        payment_fee: fee,
         payment_method: state.payment_method,
+        nomination_type: state.nomination_type === "none" ? null : state.nomination_type,
       } : res));
       setPaymentEdits(prev => ({ ...prev, [r.id]: state.payment_method }));
       setExpandedId(null);
@@ -296,9 +318,21 @@ export default function TherapistCheckout() {
     {} as Record<string, number>
   );
 
+  const feesByMethod = reservations.reduce(
+    (acc, r) => {
+      if (r.status === "cancelled") return acc;
+      const method = paymentEdits[r.id] || r.payment_method || "cash";
+      acc[method] = (acc[method] || 0) + (r.payment_fee || 0);
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
   const cashTotal = totals["cash"] || 0;
   const cardTotal = totals["card"] || 0;
   const paypayTotal = totals["paypay"] || 0;
+  const cardFeeTotal = feesByMethod["card"] || 0;
+  const paypayFeeTotal = feesByMethod["paypay"] || 0;
   const grandTotal = cashTotal + cardTotal + paypayTotal + manualAdjustment;
   const completedCount = reservations.filter((r) => r.status !== "cancelled").length;
 
@@ -535,6 +569,9 @@ export default function TherapistCheckout() {
                                     <span className="font-semibold text-sm truncate">{r.customer_name}</span>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-0.5 ml-12 truncate">{r.course_name}</p>
+                                  {r.nomination_type && r.nomination_type !== "none" && (
+                                    <p className="text-xs text-blue-600 ml-12 truncate">{r.nomination_type}</p>
+                                  )}
                                   {(r.options ?? []).length > 0 && (
                                     <p className="text-xs text-muted-foreground ml-12 truncate">
                                       {(r.options ?? []).join(" / ")}
@@ -679,6 +716,27 @@ export default function TherapistCheckout() {
                                     </div>
                                   )}
 
+                                  {/* 指名 */}
+                                  <div>
+                                    <Label className="text-xs">指名</Label>
+                                    <Select
+                                      value={state.nomination_type}
+                                      onValueChange={(v) => updateEdit(r.id, { nomination_type: v })}
+                                    >
+                                      <SelectTrigger className="h-8 text-xs mt-1">
+                                        <SelectValue placeholder="指名なし" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none" className="text-xs">指名なし</SelectItem>
+                                        {nominationRates.map(nr => (
+                                          <SelectItem key={nr.id} value={nr.nomination_type} className="text-xs">
+                                            {nr.nomination_type}（+¥{nr.customer_price.toLocaleString()}）
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
                                   {/* 割引 */}
                                   <div>
                                     <Label className="text-xs">割引</Label>
@@ -721,6 +779,12 @@ export default function TherapistCheckout() {
                                   {/* 金額プレビュー */}
                                   {calc && (
                                     <div className="rounded bg-muted/50 p-2 text-xs space-y-0.5">
+                                      {calc.nominationFee > 0 && (
+                                        <div className="flex justify-between text-blue-600">
+                                          <span>指名料</span>
+                                          <span>+¥{calc.nominationFee.toLocaleString()}</span>
+                                        </div>
+                                      )}
                                       {calc.discount > 0 && (
                                         <div className="flex justify-between text-rose-600">
                                           <span>割引</span>
@@ -737,6 +801,12 @@ export default function TherapistCheckout() {
                                         <span>合計</span>
                                         <span>¥{calc.total.toLocaleString()}</span>
                                       </div>
+                                      {calc.fee > 0 && (
+                                        <div className="flex justify-between text-muted-foreground border-t pt-0.5">
+                                          <span>実際の受取額</span>
+                                          <span>¥{(calc.total - calc.fee).toLocaleString()}</span>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
 
@@ -767,16 +837,50 @@ export default function TherapistCheckout() {
                 {/* 集計 */}
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4 pb-4 space-y-2">
-                    {[
-                      { label: "現金", value: cashTotal },
-                      { label: "カード", value: cardTotal },
-                      { label: "PayPay", value: paypayTotal },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">{label}</span>
-                        <span className="font-semibold">¥{value.toLocaleString()}</span>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">現金</span>
+                      <span className="font-semibold">¥{cashTotal.toLocaleString()}</span>
+                    </div>
+                    {cardTotal > 0 && (
+                      <div className="space-y-0.5">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">カード（請求額）</span>
+                          <span className="font-semibold">¥{cardTotal.toLocaleString()}</span>
+                        </div>
+                        {cardFeeTotal > 0 && (
+                          <div className="flex justify-between text-xs text-muted-foreground pl-2">
+                            <span>手数料</span>
+                            <span>-¥{cardFeeTotal.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {cardFeeTotal > 0 && (
+                          <div className="flex justify-between text-xs pl-2">
+                            <span className="text-muted-foreground">実受取</span>
+                            <span className="font-medium">¥{(cardTotal - cardFeeTotal).toLocaleString()}</span>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    )}
+                    {paypayTotal > 0 && (
+                      <div className="space-y-0.5">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">PayPay（請求額）</span>
+                          <span className="font-semibold">¥{paypayTotal.toLocaleString()}</span>
+                        </div>
+                        {paypayFeeTotal > 0 && (
+                          <div className="flex justify-between text-xs text-muted-foreground pl-2">
+                            <span>手数料</span>
+                            <span>-¥{paypayFeeTotal.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {paypayFeeTotal > 0 && (
+                          <div className="flex justify-between text-xs pl-2">
+                            <span className="text-muted-foreground">実受取</span>
+                            <span className="font-medium">¥{(paypayTotal - paypayFeeTotal).toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {manualAdjustment !== 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">手動調整</span>
