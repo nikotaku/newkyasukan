@@ -245,6 +245,70 @@ export default function SalesDailySales() {
                 </div>
               )}
 
+              {/* ── 集計テーブル ── */}
+              <Card>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30">
+                          <th className="text-left px-3 py-2.5 font-semibold text-xs text-muted-foreground">セラピスト</th>
+                          <th className="text-right px-3 py-2.5 font-semibold text-xs text-muted-foreground">売上</th>
+                          <th className="text-right px-3 py-2.5 font-semibold text-xs text-muted-foreground">給与</th>
+                          <th className="text-right px-3 py-2.5 font-semibold text-xs text-muted-foreground">店舗</th>
+                          <th className="text-right px-3 py-2.5 font-semibold text-xs text-muted-foreground w-16">状態</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {castGroups.map((g) => {
+                          const input = clearanceInputs[g.castId] ?? { therapistBack: 0, miscExpenses: 0, accommodationFee: 0, payoutMethod: "", submitting: false };
+                          const cleared = clearances[g.castId];
+                          const salary = input.therapistBack - input.miscExpenses - input.accommodationFee;
+                          const storeShare = g.totalSales - salary;
+                          return (
+                            <tr key={g.castId} className="hover:bg-muted/20 transition-colors">
+                              <td className="px-3 py-2.5 font-medium">{g.castName}</td>
+                              <td className="px-3 py-2.5 text-right tabular-nums">{yen(g.totalSales)}</td>
+                              <td className="px-3 py-2.5 text-right tabular-nums text-blue-700 font-semibold">{yen(salary)}</td>
+                              <td className="px-3 py-2.5 text-right tabular-nums text-green-700 font-semibold">{yen(storeShare)}</td>
+                              <td className="px-3 py-2.5 text-right">
+                                {cleared
+                                  ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">済</span>
+                                  : <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">未</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t bg-muted/30 font-bold">
+                          <td className="px-3 py-2.5 text-xs">合計</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-xs">
+                            {yen(castGroups.reduce((s, g) => s + g.totalSales, 0))}
+                          </td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-xs text-blue-700">
+                            {yen(castGroups.reduce((s, g) => {
+                              const inp = clearanceInputs[g.castId];
+                              if (!inp) return s;
+                              return s + inp.therapistBack - inp.miscExpenses - inp.accommodationFee;
+                            }, 0))}
+                          </td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-xs text-green-700">
+                            {yen(castGroups.reduce((s, g) => {
+                              const inp = clearanceInputs[g.castId];
+                              const salary = inp ? inp.therapistBack - inp.miscExpenses - inp.accommodationFee : 0;
+                              return s + g.totalSales - salary;
+                            }, 0))}
+                          </td>
+                          <td />
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* ── 個別清算フォーム ── */}
               {castGroups.map((g) => {
                 const input = clearanceInputs[g.castId] ?? { therapistBack: 0, miscExpenses: 0, accommodationFee: 0, payoutMethod: "", submitting: false };
                 const cleared = clearances[g.castId];
@@ -296,7 +360,7 @@ export default function SalesDailySales() {
                       {/* Inputs */}
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label className="text-xs mb-1 block">バック（円）</Label>
+                          <Label className="text-xs mb-1 block">給与バック（円）</Label>
                           <Input
                             type="number"
                             min="0"
