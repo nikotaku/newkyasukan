@@ -1,14 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
-import { format, addDays, subDays, parse, addMinutes, startOfMonth, endOfMonth, startOfWeek } from "date-fns";
+import { format, addDays, subDays, addMonths, subMonths, parse, addMinutes, startOfMonth, endOfMonth, startOfWeek, eachDayOfInterval } from "date-fns";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Check, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Copy } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { TabMenu } from "@/components/TabMenu";
 import { DailyReservationTimeline } from "@/components/DailyReservationTimeline";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -43,11 +42,13 @@ interface Reservation {
   duration: number;
   customer_name: string;
   customer_phone: string;
+  customer_email: string | null;
   course_name: string;
   course_type: string | null;
   nomination_type: string | null;
   price: number;
   discount: number | null;
+  options: string[] | null;
   payment_method: string | null;
   payment_fee: number | null;
   status: string;
@@ -160,10 +161,7 @@ export default function Schedule() {
   // Detail/Edit sheet
   const [detailRes, setDetailRes] = useState<Reservation | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const [editFields, setEditFields] = useState<Partial<Reservation>>({});
-  const [editDiscountId, setEditDiscountId] = useState<string>("none");
-  // 割引適用前の小計（編集開始時に price + discount で算出）
-  const [editSubtotal, setEditSubtotal] = useState<number>(0);
+  const [editStatus, setEditStatus] = useState<string>("confirmed");
 
   const { user, loading: authLoading, isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -186,6 +184,29 @@ export default function Schedule() {
     discount_ids: [] as string[],
     discount: 0,
     price: 12000,
+    payment_method: "cash",
+    payment_fee: 0,
+    reservation_method: "",
+    notes: "",
+  });
+
+  const [editFormData, setEditFormData] = useState({
+    cast_id: "",
+    customer_name: "",
+    customer_phone: "",
+    customer_email: "",
+    nomination_type: "none",
+    reservation_date: new Date(),
+    start_time: "14:00",
+    end_time: "15:00",
+    duration: 80,
+    room: "",
+    course_type: "aroma",
+    course_name: "",
+    selectedOptions: [] as string[],
+    discount_ids: [] as string[],
+    discount: 0,
+    price: 0,
     payment_method: "cash",
     payment_fee: 0,
     reservation_method: "",
@@ -320,51 +341,62 @@ export default function Schedule() {
 
   const openDetail = (res: Reservation) => {
     setDetailRes(res);
-    setEditFields({
-      customer_name: res.customer_name,
-      customer_phone: res.customer_phone,
-      course_name: res.course_name,
-      start_time: res.start_time.slice(0, 5),
-      duration: res.duration,
-      price: res.price,
-      discount: res.discount ?? 0,
-      status: res.status,
-      notes: res.notes ?? "",
-    });
-    setEditSubtotal(res.price + (res.discount ?? 0));
-    setEditDiscountId("none");
+    setEditStatus(res.status);
     setEditMode(false);
   };
 
-  // 編集画面で割引を選択 → 割引額と料金を再計算
-  const applyEditDiscount = (discountId: string) => {
-    setEditDiscountId(discountId);
-    let discountAmount = 0;
-    if (discountId !== "none") {
-      const d = discounts.find((x) => x.id === discountId);
-      if (d) {
-        discountAmount = d.discount_type === "percentage"
-          ? Math.round((editSubtotal * d.discount_value) / 100)
-          : d.discount_value;
-      }
-    }
-    discountAmount = Math.min(discountAmount, editSubtotal);
-    setEditFields((f) => ({ ...f, discount: discountAmount, price: editSubtotal - discountAmount }));
+  // 編集モードに入るとき、予約データを ReservationForm の形に展開
+  const startEdit = () => {
+    if (!detailRes) return;
+    const res = detailRes;
+    setEditStatus(res.status);
+    setEditFormData({
+      cast_id: res.cast_id,
+      customer_name: res.customer_name,
+      customer_phone: res.customer_phone,
+      customer_email: res.customer_email ?? "",
+      nomination_type: res.nomination_type ?? "none",
+      reservation_date: new Date(res.reservation_date),
+      start_time: res.start_time.slice(0, 5),
+      end_time: "",
+      duration: res.duration,
+      room: res.room ?? "",
+      course_type: res.course_type ?? "aroma",
+      course_name: res.course_name,
+      selectedOptions: res.options ?? [],
+      discount_ids: [],
+      discount: res.discount ?? 0,
+      price: res.price,
+      payment_method: res.payment_method ?? "cash",
+      payment_fee: res.payment_fee ?? 0,
+      reservation_method: "",
+      notes: res.notes ?? "",
+    });
+    setEditMode(true);
   };
 
   const handleSaveEdit = async () => {
     if (!detailRes) return;
     try {
       const { error } = await supabase.from("reservations").update({
-        customer_name: editFields.customer_name,
-        customer_phone: editFields.customer_phone,
-        course_name: editFields.course_name,
-        start_time: editFields.start_time,
-        duration: Number(editFields.duration),
-        price: Number(editFields.price),
-        discount: Number(editFields.discount ?? 0),
-        status: editFields.status,
-        notes: editFields.notes || null,
+        cast_id: editFormData.cast_id,
+        customer_name: editFormData.customer_name,
+        customer_phone: editFormData.customer_phone,
+        customer_email: editFormData.customer_email || null,
+        reservation_date: format(editFormData.reservation_date, "yyyy-MM-dd"),
+        start_time: editFormData.start_time,
+        duration: Number(editFormData.duration),
+        course_type: editFormData.course_type,
+        course_name: editFormData.course_name,
+        options: editFormData.selectedOptions,
+        nomination_type: editFormData.nomination_type === "none" ? null : editFormData.nomination_type,
+        price: Number(editFormData.price),
+        discount: Number(editFormData.discount ?? 0),
+        payment_method: editFormData.payment_method || null,
+        payment_fee: editFormData.payment_fee || 0,
+        room: editFormData.room || null,
+        status: editStatus,
+        notes: editFormData.notes || null,
       }).eq("id", detailRes.id);
       if (error) throw error;
       toast({ title: "更新しました" });
@@ -408,15 +440,15 @@ export default function Schedule() {
         <div className="p-3 md:p-4">
           {/* Header */}
           <div className="space-y-2 mb-2">
-            {/* Row 1: week navigation */}
+            {/* Row 1: month navigation */}
             <div className="flex items-center justify-center gap-1 flex-wrap">
-              <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 7))} title="前の週">
+              <Button variant="outline" size="icon" onClick={() => setSelectedDate(startOfMonth(subMonths(selectedDate, 1)))} title="前の月">
                 <ChevronLeft size={18} />
               </Button>
               <h1 className="text-base font-bold px-2 min-w-[120px] text-center">
-                {format(selectedDate, "M月d日 (E)", { locale: ja })}
+                {format(selectedDate, "yyyy年M月", { locale: ja })}
               </h1>
-              <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 7))} title="次の週">
+              <Button variant="outline" size="icon" onClick={() => setSelectedDate(startOfMonth(addMonths(selectedDate, 1)))} title="次の月">
                 <ChevronRight size={18} />
               </Button>
               <Button variant="outline" size="sm" onClick={() => setSelectedDate(new Date())}>今日</Button>
@@ -453,14 +485,16 @@ export default function Schedule() {
             </div>
           </div>
 
-          {/* Week tabs - 選択中の日付を含む週（月曜始まり）を表示 */}
+          {/* Month tabs - 選択中の月の全日を横スクロールで表示 */}
           <TabMenu
             activeDate={format(selectedDate, "yyyy-MM-dd")}
-            dates={Array.from({ length: 7 }, (_, i) => {
-              const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-              const d = addDays(weekStart, i);
-              return { date: format(d, "yyyy-MM-dd"), label: format(d, "M/d(E)", { locale: ja }) };
-            })}
+            dates={eachDayOfInterval({
+              start: startOfMonth(selectedDate),
+              end: endOfMonth(selectedDate),
+            }).map((d) => ({
+              date: format(d, "yyyy-MM-dd"),
+              label: format(d, "d(E)", { locale: ja }),
+            }))}
             onDateChange={(dateStr) => setSelectedDate(new Date(dateStr))}
           />
 
@@ -675,7 +709,7 @@ export default function Schedule() {
             <div className="flex items-center justify-between">
               <SheetTitle>{editMode ? "予約を編集" : "予約詳細"}</SheetTitle>
               {isAdmin && !editMode && (
-                <Button size="sm" variant="outline" onClick={() => setEditMode(true)}>
+                <Button size="sm" variant="outline" onClick={startEdit}>
                   <Pencil size={14} className="mr-1" />編集
                 </Button>
               )}
@@ -686,76 +720,30 @@ export default function Schedule() {
             <div className="mt-4 space-y-4">
               {editMode ? (
                 <>
-                  <div className="space-y-3">
-                    <div>
-                      <Label>ステータス</Label>
-                      <Select value={editFields.status} onValueChange={(v) => setEditFields((f) => ({ ...f, status: v }))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>顧客名</Label>
-                      <Input value={editFields.customer_name ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, customer_name: e.target.value }))} />
-                    </div>
-                    <div>
-                      <Label>電話番号</Label>
-                      <Input value={editFields.customer_phone ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, customer_phone: e.target.value }))} />
-                    </div>
-                    <div>
-                      <Label>コース名</Label>
-                      <Input value={editFields.course_name ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, course_name: e.target.value }))} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label>開始時間</Label>
-                        <Input value={editFields.start_time ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, start_time: e.target.value }))} placeholder="HH:MM" />
-                      </div>
-                      <div>
-                        <Label>時間（分）</Label>
-                        <Input type="number" value={editFields.duration ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, duration: Number(e.target.value) }))} />
-                      </div>
-                    </div>
-                    <div>
-                      <Label>割引</Label>
-                      <Select value={editDiscountId} onValueChange={applyEditDiscount}>
-                        <SelectTrigger><SelectValue placeholder="割引なし" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">割引なし</SelectItem>
-                          {discounts.map((d) => (
-                            <SelectItem key={d.id} value={d.id}>
-                              {d.name}（{d.discount_type === "percentage" ? `-${d.discount_value}%` : `-¥${d.discount_value.toLocaleString()}`}）
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {(editFields.discount ?? 0) > 0 && (
-                        <p className="text-xs text-rose-600 mt-1">割引額：-¥{(editFields.discount ?? 0).toLocaleString()}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label>料金</Label>
-                      <Input type="number" value={editFields.price ?? ""} onChange={(e) => {
-                        const v = Number(e.target.value);
-                        // 手動で料金を変更した場合は小計を更新し割引をリセット
-                        setEditSubtotal(v);
-                        setEditDiscountId("none");
-                        setEditFields((f) => ({ ...f, price: v, discount: 0 }));
-                      }} />
-                    </div>
-                    <div>
-                      <Label>備考</Label>
-                      <Input value={editFields.notes ?? ""} onChange={(e) => setEditFields((f) => ({ ...f, notes: e.target.value }))} />
-                    </div>
+                  <div>
+                    <Label>ステータス</Label>
+                    <Select value={editStatus} onValueChange={setEditStatus}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                          <SelectItem key={k} value={k}>{v}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="flex gap-2 pt-2">
-                    <Button className="flex-1" onClick={handleSaveEdit}><Check size={14} className="mr-1" />保存</Button>
-                    <Button variant="outline" className="flex-1" onClick={() => setEditMode(false)}>キャンセル</Button>
-                  </div>
+                  <ReservationForm
+                    formData={editFormData}
+                    setFormData={setEditFormData}
+                    casts={casts}
+                    rooms={rooms}
+                    backRates={backRates}
+                    optionRates={optionRates}
+                    nominationRates={nominationRates}
+                    discounts={discounts}
+                    onSubmit={handleSaveEdit}
+                    submitLabel="変更を保存"
+                  />
+                  <Button variant="outline" className="w-full" onClick={() => setEditMode(false)}>編集をやめる</Button>
                 </>
               ) : (
                 <>

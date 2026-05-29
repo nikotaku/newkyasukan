@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { CalendarIcon, UserCheck, Clock } from "lucide-react";
@@ -82,6 +82,7 @@ interface ReservationFormProps {
   nominationRates: NominationRate[];
   discounts: DiscountItem[];
   onSubmit: () => void;
+  submitLabel?: string;
 }
 
 interface NgCast {
@@ -117,6 +118,7 @@ export function ReservationForm({
   nominationRates,
   discounts,
   onSubmit,
+  submitLabel = "予約を追加",
 }: ReservationFormProps) {
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [recentReservations, setRecentReservations] = useState<RecentReservation[]>([]);
@@ -255,7 +257,14 @@ export function ReservationForm({
   }, [formData.customer_phone]);
 
   // セラピスト選択後の「本指名」自動設定
+  // 初回マウント時（編集で既存予約を開いた直後など）は実行せず、
+  // ユーザーが実際にセラピストを変更したときだけ判定する
+  const castInitRef = useRef(false);
   useEffect(() => {
+    if (!castInitRef.current) {
+      castInitRef.current = true;
+      return;
+    }
     if (!formData.cast_id || !formData.customer_phone) return;
     const phone = formData.customer_phone.replace(/[-\s]/g, "");
     if (phone.length < 10) return;
@@ -825,7 +834,7 @@ export function ReservationForm({
 
       {/* 19. 予約追加ボタン */}
       <Button onClick={onSubmit} className="w-full" size="lg">
-        予約を追加
+        {submitLabel}
       </Button>
     </div>
   );
