@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { format, addDays, subDays, parse, addMinutes, startOfMonth, endOfMonth, startOfWeek } from "date-fns";
+import { format, addDays, subDays, addMonths, subMonths, parse, addMinutes, startOfMonth, endOfMonth, startOfWeek, eachDayOfInterval } from "date-fns";
 import { ja } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Check, Copy } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
@@ -408,15 +408,15 @@ export default function Schedule() {
         <div className="p-3 md:p-4">
           {/* Header */}
           <div className="space-y-2 mb-2">
-            {/* Row 1: week navigation */}
+            {/* Row 1: month navigation */}
             <div className="flex items-center justify-center gap-1 flex-wrap">
-              <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 7))} title="前の週">
+              <Button variant="outline" size="icon" onClick={() => setSelectedDate(startOfMonth(subMonths(selectedDate, 1)))} title="前の月">
                 <ChevronLeft size={18} />
               </Button>
               <h1 className="text-base font-bold px-2 min-w-[120px] text-center">
-                {format(selectedDate, "M月d日 (E)", { locale: ja })}
+                {format(selectedDate, "yyyy年M月", { locale: ja })}
               </h1>
-              <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 7))} title="次の週">
+              <Button variant="outline" size="icon" onClick={() => setSelectedDate(startOfMonth(addMonths(selectedDate, 1)))} title="次の月">
                 <ChevronRight size={18} />
               </Button>
               <Button variant="outline" size="sm" onClick={() => setSelectedDate(new Date())}>今日</Button>
@@ -453,14 +453,16 @@ export default function Schedule() {
             </div>
           </div>
 
-          {/* Week tabs - 選択中の日付を含む週（月曜始まり）を表示 */}
+          {/* Month tabs - 選択中の月の全日を横スクロールで表示 */}
           <TabMenu
             activeDate={format(selectedDate, "yyyy-MM-dd")}
-            dates={Array.from({ length: 7 }, (_, i) => {
-              const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-              const d = addDays(weekStart, i);
-              return { date: format(d, "yyyy-MM-dd"), label: format(d, "M/d(E)", { locale: ja }) };
-            })}
+            dates={eachDayOfInterval({
+              start: startOfMonth(selectedDate),
+              end: endOfMonth(selectedDate),
+            }).map((d) => ({
+              date: format(d, "yyyy-MM-dd"),
+              label: format(d, "d(E)", { locale: ja }),
+            }))}
             onDateChange={(dateStr) => setSelectedDate(new Date(dateStr))}
           />
 
