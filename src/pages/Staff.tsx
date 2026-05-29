@@ -37,6 +37,10 @@ const ESTAMA_FEATURE_MAP: Record<string, string> = {
   "モデル体型": "16", "小柄": "31", "色白肌": "18",
 };
 
+// 一度だけブックマークバーに登録する固定ブックマークレット。
+// クリップボードのキャストデータ(JSON)を読み取り、エステ魂のフォームへ自動入力する。
+const ESTAMA_BOOKMARKLET = `javascript:(function(){function go(D){function fire(el){el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));el.dispatchEvent(new Event('keyup',{bubbles:true}));}function setSel(sel,val){if(val==null||val==='')return;var el=document.querySelector(sel);if(el){el.value=val;fire(el);}}setSel('#Name',D.name);setSel('#Description',D.description);setSel('#CastPr',D.cast_pr);setSel('[name=experience]',D.experience);setSel('[name=age]',D.age);setSel('[name=tall]',D.tall);setSel('[name=size_w]',D.size_w);setSel('[name=size_h]',D.size_h);setSel('[name=blood]',D.blood);setSel('#ForteProcedure',D.forte_procedure);setSel('#Food',D.food);setSel('#ManLikeType',D.man_like_type);setSel('#LikeTalent',D.like_talent);setSel('#Holiday',D.holiday);setSel('#Vogue',D.vogue);setSel('#Blog',D.blog);setSel('#Twitter',D.twitter);setSel('#Instagram',D.instagram);setSel('[name=size_b]',D.size_b);setTimeout(function(){setSel('[name=size_cup]',D.size_cup);},500);(D.types||[]).forEach(function(v){var c=document.getElementById('type_'+v);if(c&&!c.checked){c.checked=true;fire(c);}});var photos=D.photos||[];var fi=[].slice.call(document.querySelectorAll('input[type=file]'));var done=0,fail=0;function rep(){if(done+fail<photos.length)return;alert('エスたま:「'+D.name+'」入力完了。写真'+done+'/'+photos.length+'枚。内容を確認して保存を押してください。');}if(!photos.length)rep();photos.forEach(function(u,i){var input=fi[i];if(!input){fail++;rep();return;}fetch(u).then(function(r){return r.blob();}).then(function(b){var ext=(b.type&&b.type.indexOf('png')>=0)?'png':'jpg';var f=new File([b],'photo'+(i+1)+'.'+ext,{type:b.type||'image/jpeg'});var dt=new DataTransfer();dt.items.add(f);input.files=dt.files;fire(input);done++;rep();}).catch(function(){fail++;rep();});});}if(location.hostname.indexOf('estama')<0){alert('エステ魂のセラピスト登録ページ(estama.jp/admin/cast_edit/)を開いてからクリックしてください。');return;}navigator.clipboard.readText().then(function(t){var D;try{D=JSON.parse(t);}catch(e){alert('クリップボードにデータがありません。先にキャスト管理で「エスたま」ボタンを押してください。');return;}if(!D||!D.__estama){alert('エスたまデータが見つかりません。先にキャスト管理で「エスたま」ボタンを押してください。');return;}go(D);}).catch(function(e){alert('クリップボードの読取りに失敗しました。ブラウザの許可ダイアログで「許可」を押してから、もう一度クリックしてください。');});})();`;
+
 const CATEGORY_TAGS = ["在籍", "出稼ぎ", "入店手続き待ち"] as const;
 type CategoryTag = typeof CATEGORY_TAGS[number];
 
@@ -191,8 +195,10 @@ export default function Staff() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [estamaDialogOpen, setEstamaDialogOpen] = useState(false);
   const [estamaScript, setEstamaScript] = useState("");
+  const [estamaData, setEstamaData] = useState("");
   const [estamaCastName, setEstamaCastName] = useState("");
   const [estamaCopied, setEstamaCopied] = useState(false);
+  const [estamaShowConsole, setEstamaShowConsole] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const dragCastId = useRef<string | null>(null);
@@ -779,10 +785,14 @@ export default function Staff() {
       return;
     }
     setEstamaScript(buildEstamaScript(cast));
+    setEstamaData(JSON.stringify({ __estama: true, ...data }));
     setEstamaCastName(data.name);
     setEstamaDialogOpen(true);
-    // 自動入力スクリプトをクリップボードにコピー
-    try { await navigator.clipboard.writeText(buildEstamaScript(cast)); } catch { /* 後でダイアログ内ボタンから再コピー可 */ }
+    // ブックマークレット方式用にキャストデータ(JSON)をクリップボードへコピー
+    try {
+      await navigator.clipboard.writeText(JSON.stringify({ __estama: true, ...data }));
+      toast({ title: `「${data.name}」のデータをコピーしました`, description: "エステ魂を開いてブックマークレットをクリックしてください" });
+    } catch { /* ダイアログ内ボタンから再コピー可 */ }
   };
 
   const copyShiftLink = (token: string) => {
@@ -1714,8 +1724,24 @@ export default function Staff() {
           </DialogHeader>
           <div className="space-y-4 text-sm">
             <p className="text-muted-foreground">
-              保存時に reCAPTCHA があるため、エステ魂の画面上で自動入力します。下記の手順で転記してください。
+              「{estamaCastName}」のデータをコピーしました。下記の手順で転記します（コンソール不要）。
             </p>
+
+            <div className="rounded-lg border border-pink-200 bg-pink-50/50 p-3 space-y-2">
+              <p className="font-semibold text-pink-700">① 初回だけ：ブックマークレットを登録</p>
+              <p className="text-xs text-muted-foreground">
+                下のボタンを<strong>ブックマークバーにドラッグ</strong>して登録してください（一度だけでOK）。
+              </p>
+              <a
+                ref={(el) => { if (el) el.setAttribute("href", ESTAMA_BOOKMARKLET); }}
+                onClick={(e) => { e.preventDefault(); toast({ title: "これはドラッグして登録するボタンです", description: "ブックマークバーにドラッグしてください" }); }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-pink-600 text-white text-sm font-medium cursor-move select-none no-underline"
+                draggable
+              >
+                <ExternalLink size={14} />★エスたま自動入力
+              </a>
+            </div>
+
             <ol className="list-decimal list-inside space-y-2 bg-muted/50 rounded-lg p-3">
               <li>
                 <Button
@@ -1724,40 +1750,67 @@ export default function Staff() {
                   className="gap-1.5 mx-1"
                   onClick={() => window.open("https://estama.jp/admin/cast_edit/", "_blank")}
                 >
-                  <ExternalLink size={14} />エステ魂のセラピスト登録ページを開く
+                  <ExternalLink size={14} />エステ魂の登録ページを開く
                 </Button>
-                <span className="text-muted-foreground text-xs">（未ログインの場合はログイン後にもう一度開く）</span>
+                <span className="text-muted-foreground text-xs">（要ログイン）</span>
               </li>
-              <li>そのページで <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">F12</kbd> →「コンソール」タブを開く</li>
-              <li>
-                下のスクリプトを貼り付けて <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">Enter</kbd>
+              <li>そのページで、登録した<strong>「★エスたま自動入力」ブックマークをクリック</strong></li>
+              <li>各項目と写真が自動入力されたら、内容を確認して「保存する」を押す</li>
+            </ol>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(estamaData);
+                    setEstamaCopied(true);
+                    setTimeout(() => setEstamaCopied(false), 2000);
+                  } catch { /* noop */ }
+                }}
+              >
+                {estamaCopied ? <Eye size={14} /> : <Copy size={14} />}
+                {estamaCopied ? "コピー済" : "データを再コピー"}
+              </Button>
+              <span className="text-xs text-muted-foreground">クリップボードが上書きされた場合はこちら</span>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              ※名前・コメント・年齢・身長・3サイズ・血液型・特徴・SNS・写真（最大6枚）を転記します。
+            </p>
+
+            {/* コンソール方式（上級者向けフォールバック） */}
+            <button
+              type="button"
+              className="text-xs text-muted-foreground underline"
+              onClick={() => setEstamaShowConsole((v) => !v)}
+            >
+              {estamaShowConsole ? "コンソール方式を隠す" : "うまくいかない場合：コンソール方式を使う"}
+            </button>
+            {estamaShowConsole && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  エステ魂ページで <kbd className="px-1 py-0.5 bg-background border rounded">F12</kbd> →「コンソール」を開き、下を貼り付けて Enter。
+                  初回は <code className="bg-muted px-1 rounded">allow pasting</code> と入力して Enter してから貼り付けてください。
+                </p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 ml-2"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(estamaScript);
-                      setEstamaCopied(true);
-                      setTimeout(() => setEstamaCopied(false), 2000);
-                    } catch { /* noop */ }
-                  }}
+                  className="gap-1.5"
+                  onClick={async () => { try { await navigator.clipboard.writeText(estamaScript); } catch { /* noop */ } }}
                 >
-                  {estamaCopied ? <Eye size={14} /> : <Copy size={14} />}
-                  {estamaCopied ? "コピー済" : "スクリプトをコピー"}
+                  <Copy size={14} />スクリプトをコピー
                 </Button>
-              </li>
-              <li>各項目と写真が自動入力されたら、内容を確認して「保存する」を押す</li>
-            </ol>
-            <Textarea
-              readOnly
-              value={estamaScript}
-              className="font-mono text-[11px] h-32"
-              onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-            />
-            <p className="text-xs text-muted-foreground">
-              ※名前・コメント・年齢・身長・3サイズ・血液型・特徴・SNS・写真（最大6枚）を転記します。写真の取得には数秒かかる場合があります。
-            </p>
+                <Textarea
+                  readOnly
+                  value={estamaScript}
+                  className="font-mono text-[11px] h-28"
+                  onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                />
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
