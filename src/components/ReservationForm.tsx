@@ -184,8 +184,16 @@ export function ReservationForm({
     const totalPrice = subtotal - discountAmount;
     const fee = calcPaymentFee(totalPrice, paymentSettings, formData.payment_method);
 
-    if (totalPrice !== formData.price || discountAmount !== formData.discount || fee !== formData.payment_fee) {
-      setFormData({ ...formData, price: totalPrice, discount: discountAmount, payment_fee: fee });
+    // コース名はコースタイプ＋時間から常に自動生成し、デフォルト値が残らないようにする
+    const courseName = `${formData.course_type} ${formData.duration}分`;
+
+    if (
+      totalPrice !== formData.price ||
+      discountAmount !== formData.discount ||
+      fee !== formData.payment_fee ||
+      courseName !== formData.course_name
+    ) {
+      setFormData({ ...formData, price: totalPrice, discount: discountAmount, payment_fee: fee, course_name: courseName });
     }
   }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.discount_ids, formData.payment_method, backRates, optionRates, nominationRates, discounts, paymentSettings]);
 
