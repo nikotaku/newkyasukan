@@ -462,11 +462,11 @@ const RoomSettings = () => {
             </div>
 
             <Tabs defaultValue="rooms">
-              <TabsList className="mb-6">
-                <TabsTrigger value="rooms">ルーム一覧</TabsTrigger>
-                <TabsTrigger value="reset">リセット手順</TabsTrigger>
-                <TabsTrigger value="cleaning">清掃マニュアル</TabsTrigger>
-                <TabsTrigger value="entry">入室方法</TabsTrigger>
+              <TabsList className="mb-6 flex w-full overflow-x-auto">
+                <TabsTrigger value="rooms" className="flex-1 whitespace-nowrap">ルーム一覧</TabsTrigger>
+                <TabsTrigger value="reset" className="flex-1 whitespace-nowrap">リセット手順</TabsTrigger>
+                <TabsTrigger value="cleaning" className="flex-1 whitespace-nowrap">清掃マニュアル</TabsTrigger>
+                <TabsTrigger value="entry" className="flex-1 whitespace-nowrap">入室方法</TabsTrigger>
               </TabsList>
 
               <TabsContent value="rooms">
