@@ -102,6 +102,7 @@ interface Cast {
   interview_sheet_url: string | null;
   referral_reward_id: string | null;
   profile_format: string | null;
+  management_photos: string[] | null;
 }
 
 interface ReferralReward {
@@ -184,6 +185,7 @@ export default function Staff() {
   const addPhotoInputRef = useRef<HTMLInputElement>(null);
   const editPhotoInputRef = useRef<HTMLInputElement>(null);
   const interviewSheetInputRef = useRef<HTMLInputElement>(null);
+  const managementPhotoInputRef = useRef<HTMLInputElement>(null);
   
   const { toast } = useToast();
   const { user, loading: authLoading, isAdmin } = useAuth();
@@ -433,6 +435,7 @@ export default function Staff() {
         referral_route: editingCast.referral_route || null,
         interview_sheet_url: editingCast.interview_sheet_url || null,
         referral_reward_id: editingCast.referral_reward_id || null,
+        management_photos: editingCast.management_photos || [],
         is_visible: editingCast.is_visible,
         custom_fields: Object.fromEntries(
           mgmtProps.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])
@@ -751,6 +754,37 @@ export default function Staff() {
       setUploadingPhoto(false);
       if (interviewSheetInputRef.current) interviewSheetInputRef.current.value = "";
     }
+  };
+
+  const handleManagementPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !editingCast) return;
+    setUploadingPhoto(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split(".").pop();
+        const fileName = `management-photos/${crypto.randomUUID()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from("cast-photos").upload(fileName, file);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(fileName);
+        uploaded.push(publicUrl);
+      }
+      setEditingCast({ ...editingCast, management_photos: [...(editingCast.management_photos || []), ...uploaded] });
+      toast({ title: "アップロード完了", description: "管理用写真をアップロードしました" });
+    } catch (error: any) {
+      console.error("Error uploading management photo:", error);
+      toast({ title: "エラー", description: "管理用写真のアップロードに失敗しました", variant: "destructive" });
+    } finally {
+      setUploadingPhoto(false);
+      if (managementPhotoInputRef.current) managementPhotoInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveManagementPhoto = (index: number) => {
+    if (!editingCast) return;
+    const updated = (editingCast.management_photos || []).filter((_, i) => i !== index);
+    setEditingCast({ ...editingCast, management_photos: updated });
   };
 
   const handleRemovePhoto = (index: number, isEdit: boolean = false) => {
@@ -1314,6 +1348,29 @@ export default function Staff() {
                               {uploadingPhoto ? "アップロード中..." : editingCast.interview_sheet_url ? "画像を変更" : "画像をアップロード"}
                             </Button>
                           </div>
+                        </div>
+                        <div>
+                          <Label>管理用写真（表に出さない）</Label>
+                          <input ref={managementPhotoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleManagementPhotoUpload} />
+                          <div className="mt-1 space-y-2">
+                            {(editingCast.management_photos || []).length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {(editingCast.management_photos || []).map((url, i) => (
+                                  <div key={i} className="relative inline-block">
+                                    <img src={url} alt={`管理用写真${i + 1}`} className="h-24 w-24 object-cover rounded border" />
+                                    <Button type="button" variant="destructive" size="sm" className="absolute top-1 right-1 h-6 w-6 p-0" onClick={() => handleRemoveManagementPhoto(i)}>
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <Button type="button" variant="outline" size="sm" onClick={() => managementPhotoInputRef.current?.click()} disabled={uploadingPhoto}>
+                              <Camera className="h-4 w-4 mr-1.5" />
+                              {uploadingPhoto ? "アップロード中..." : "写真を追加"}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">管理用の画像です。HPなど表側には表示されません（複数枚登録可）</p>
                         </div>
                       </div>
 
