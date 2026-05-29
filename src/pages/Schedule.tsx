@@ -183,7 +183,7 @@ export default function Schedule() {
     course_type: "aroma",
     course_name: "80分 アロマオイルコース",
     selectedOptions: [] as string[],
-    discount_id: "none",
+    discount_ids: [] as string[],
     discount: 0,
     price: 12000,
     payment_method: "cash",
