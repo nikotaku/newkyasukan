@@ -184,12 +184,8 @@ const BookingReservation = () => {
     }
   }, [shifts, reservations, duration, selectedDate, selectedCastId]);
 
-  // Calculate price when course, options, or nomination changes
-  useEffect(() => {
-    calculatePrice();
-  }, [courseType, duration, selectedOptions, nominationType, backRates, optionRates, nominationRates]);
-
-  const calculatePrice = () => {
+  // 指名タイプごとの料金を算出（指名なし=none / ネット指名 / 本指名）
+  const computePrice = (nomType: string) => {
     let price = 0;
 
     // Base course price
@@ -209,16 +205,53 @@ const BookingReservation = () => {
     });
 
     // Add nomination fee
-    if (nominationType && nominationType !== 'none') {
+    if (nomType && nomType !== 'none') {
       const matchingNomination = nominationRates.find(
-        nom => nom.nomination_type === nominationType
+        nom => nom.nomination_type === nomType
       );
       if (matchingNomination) {
         price += matchingNomination.customer_price;
       }
     }
 
-    setTotalPrice(price);
+    return price;
+  };
+
+  // セラピストを選んだら指名扱い（デフォルトはネット指名、電話番号入力後に本指名へ昇格）
+  useEffect(() => {
+    if (selectedCastId === "none" || selectedCastId === "") {
+      setNominationType("none");
+    } else {
+      setNominationType((prev) => (prev === "none" ? "ネット指名" : prev));
+    }
+  }, [selectedCastId]);
+
+  // Calculate price when course, options, or nomination changes
+  useEffect(() => {
+    setTotalPrice(computePrice(nominationType));
+  }, [courseType, duration, selectedOptions, nominationType, backRates, optionRates, nominationRates]);
+
+  // 顧客DBを参照して本指名/ネット指名を判定（電話番号＋セラピストで過去予約があれば本指名）
+  const resolveNominationType = async (phone: string): Promise<string> => {
+    if (selectedCastId === "none" || selectedCastId === "") return "none";
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 10) return "ネット指名";
+    try {
+      const { data: isRepeat } = await supabase.rpc("check_repeat_nomination" as any, {
+        p_phone: phone,
+        p_cast_id: selectedCastId,
+      });
+      return isRepeat ? "本指名" : "ネット指名";
+    } catch (e) {
+      console.error("nomination check failed:", e);
+      return "ネット指名";
+    }
+  };
+
+  // 電話番号が確定したら指名種別を更新（表示価格に反映）
+  const handlePhoneBlur = async () => {
+    const nom = await resolveNominationType(customerPhone);
+    setNominationType(nom);
   };
 
   const paymentFee = calcPaymentFee(totalPrice, paymentSettings, paymentMethod);
@@ -462,6 +495,14 @@ const BookingReservation = () => {
         return;
       }
 
+      // 顧客DBを参照して指名種別を確定（本指名 or ネット指名 or 指名なし）
+      const finalNominationType = await resolveNominationType(customerPhone);
+      const finalPrice = computePrice(finalNominationType);
+      const finalPaymentFee = calcPaymentFee(finalPrice, paymentSettings, paymentMethod);
+      const finalGrandTotal = finalPrice + finalPaymentFee;
+      // 表示にも反映
+      setNominationType(finalNominationType);
+
       const { error } = await supabase
         .from("reservations")
         .insert([{
@@ -475,10 +516,10 @@ const BookingReservation = () => {
           course_type: courseType,
           course_name: courseName,
           options: selectedOptions.length > 0 ? selectedOptions : null,
-          nomination_type: nominationType !== 'none' ? nominationType : null,
-          price: totalPrice,
+          nomination_type: finalNominationType !== 'none' ? finalNominationType : null,
+          price: finalPrice,
           payment_method: paymentMethod || null,
-          payment_fee: paymentFee || 0,
+          payment_fee: finalPaymentFee || 0,
           notes: notes.trim() || null,
           status: "pending",
           payment_status: "unpaid",
@@ -491,6 +532,8 @@ const BookingReservation = () => {
       const castName = selectedCastId === "none" ? "指名なし" : (selectedCast?.name || "");
       const dateStr = format(selectedDate, "yyyy年M月d日(E)", { locale: ja });
 
+      const paymentLink = findPaymentSetting(paymentSettings, paymentMethod)?.payment_link || null;
+
       // LINE通知（失敗しても予約完了表示は継続）
       try {
         await supabase.functions.invoke("notify-line-booking", {
@@ -501,9 +544,12 @@ const BookingReservation = () => {
             reservation_date: dateStr,
             start_time: startTime,
             course_name: `${courseType} ${duration}分`,
-            nomination_type: nominationType !== "none" ? nominationType : null,
+            nomination_type: finalNominationType !== "none" ? finalNominationType : null,
             options: selectedOptions.length > 0 ? selectedOptions : null,
-            price: totalPrice,
+            price: finalPrice,
+            payment_fee: finalPaymentFee || 0,
+            payment_method: paymentMethod || null,
+            payment_link: paymentLink,
             notes: notes.trim() || null,
           },
         });
@@ -516,12 +562,12 @@ const BookingReservation = () => {
         `時間: ${startTime}〜`,
         `コース: ${courseType} ${duration}分`,
         `セラピスト: ${castName}`,
-        ...(nominationType && nominationType !== 'none' ? [`指名: ${nominationType}`] : []),
+        ...(finalNominationType && finalNominationType !== 'none' ? [`指名: ${finalNominationType}`] : []),
         ...(selectedOptions.length > 0 ? [`オプション: ${selectedOptions.join(', ')}`] : []),
-        `料金: ¥${totalPrice.toLocaleString()}`,
-        ...(paymentFee > 0 ? [`決済手数料: ¥${paymentFee.toLocaleString()}`, `総額: ¥${grandTotal.toLocaleString()}`] : []),
-        ...(paymentFee > 0 && findPaymentSetting(paymentSettings, paymentMethod)?.payment_link
-          ? [``, `▼決済はこちら`, findPaymentSetting(paymentSettings, paymentMethod)!.payment_link as string]
+        `料金: ¥${finalPrice.toLocaleString()}`,
+        ...(finalPaymentFee > 0 ? [`決済手数料: ¥${finalPaymentFee.toLocaleString()}`, `総額: ¥${finalGrandTotal.toLocaleString()}`] : []),
+        ...(finalPaymentFee > 0 && paymentLink
+          ? [``, `▼決済はこちら`, paymentLink]
           : []),
         ``,
         `お名前: ${customerName}`,
@@ -1105,6 +1151,16 @@ const BookingReservation = () => {
 
                     {/* 合計金額 */}
                     <div className="bg-muted p-4 rounded-lg">
+                      {nominationType !== "none" && (() => {
+                        const nr = nominationRates.find(n => n.nomination_type === nominationType);
+                        if (!nr) return null;
+                        return (
+                          <div className="flex justify-between items-center text-sm text-muted-foreground">
+                            <span>指名料（{nominationType}）:</span>
+                            <span>+¥{nr.customer_price.toLocaleString()}</span>
+                          </div>
+                        );
+                      })()}
                       {paymentFee > 0 && (
                         <>
                           <div className="flex justify-between items-center text-sm text-muted-foreground">
@@ -1191,9 +1247,15 @@ const BookingReservation = () => {
                         placeholder="090-1234-5678"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
+                        onBlur={handlePhoneBlur}
                         required
                         maxLength={20}
                       />
+                      {selectedCastId !== "none" && selectedCastId !== "" && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          ※セラピストご指名のため指名料が加算されます{nominationType === "本指名" ? "（本指名）" : "（ネット指名）"}
+                        </p>
+                      )}
                     </div>
 
                     <div>

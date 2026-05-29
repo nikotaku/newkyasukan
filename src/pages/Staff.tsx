@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Link as LinkIcon, Copy, Eye, EyeOff, CalendarPlus, GripVertical, FileUp, X, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Link as LinkIcon, Copy, Eye, EyeOff, CalendarPlus, GripVertical, FileUp, X, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
 import { ImportModal } from "@/components/ImportModal";
 import { DashboardHeader } from "@/components/DashboardHeader";
@@ -26,6 +26,16 @@ const THERAPIST_FEATURES = [
 ];
 
 const MAX_FEATURES = 4;
+
+// エステ魂の「特徴」チェックボックス: ラベル → value(id) マップ
+const ESTAMA_FEATURE_MAP: Record<string, string> = {
+  "新人": "1", "経験豊富": "2", "業界未経験": "3", "施術上手": "28", "上品": "25",
+  "甘えん坊": "4", "おとなしい": "5", "おっとり": "7", "明るい": "8", "優しい": "32",
+  "努力家": "30", "礼儀正しい": "27", "清楚系": "9", "天然系": "10", "セクシー系": "11",
+  "お姉様系": "12", "お嬢様系": "29", "ギャル系": "19", "美人系": "20", "熟女系": "21",
+  "かわいい系": "22", "アイドル系": "24", "癒し系": "23", "妹系": "26",
+  "モデル体型": "16", "小柄": "31", "色白肌": "18",
+};
 
 const CATEGORY_TAGS = ["在籍", "出稼ぎ", "入店手続き待ち"] as const;
 type CategoryTag = typeof CATEGORY_TAGS[number];
@@ -179,6 +189,10 @@ export default function Staff() {
   // フォーム用の状態
   const [formData, setFormData] = useState({ ...emptyForm });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [estamaDialogOpen, setEstamaDialogOpen] = useState(false);
+  const [estamaScript, setEstamaScript] = useState("");
+  const [estamaCastName, setEstamaCastName] = useState("");
+  const [estamaCopied, setEstamaCopied] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const dragCastId = useRef<string | null>(null);
@@ -651,6 +665,124 @@ export default function Staff() {
       title: "リンクをコピーしました",
       description: "専用ページのリンクがクリップボードにコピーされました",
     });
+  };
+
+  // キャスト情報をエステ魂フォームの各フィールド値へマッピング
+  const buildEstamaData = (cast: Cast) => {
+    // バストサイズ "85B" / "B85" → cm + cup
+    let sizeB = "", sizeCup = "";
+    if (cast.bust_size) {
+      const bs = String(cast.bust_size).trim();
+      const m1 = bs.match(/^(\d+)\s*([A-La-l])$/);
+      const m2 = bs.match(/^([A-La-l])\s*(\d+)$/);
+      if (m1) { sizeB = m1[1]; sizeCup = m1[2].toUpperCase(); }
+      else if (m2) { sizeCup = m2[1].toUpperCase(); sizeB = m2[2]; }
+      else if (/^[A-La-l]$/.test(bs)) { sizeCup = bs.toUpperCase(); }
+      else sizeB = bs.replace(/[^0-9]/g, "").slice(0, 3);
+    }
+    // ボディサイズ "58-85" → ウエスト / ヒップ
+    let sizeW = "", sizeH = "";
+    if (cast.body_size) {
+      const parts = String(cast.body_size).split(/[-–/／]/);
+      if (parts.length >= 2) { sizeW = parts[0].replace(/[^0-9]/g, ""); sizeH = parts[1].replace(/[^0-9]/g, ""); }
+    }
+    // 特徴 → type id（最大4つ）
+    const types: string[] = [];
+    if (Array.isArray(cast.features)) {
+      for (const f of cast.features) {
+        const id = ESTAMA_FEATURE_MAP[f];
+        if (id && types.length < MAX_FEATURES) types.push(id);
+      }
+    }
+    const cut = (v: string | number | null | undefined, max: number) => String(v ?? "").slice(0, max);
+    // 写真（最大6枚）。Drive等を直URLに正規化し、CORS用に image-proxy 経由にする
+    const proxyBase = `${import.meta.env.VITE_SUPABASE_URL || ""}/functions/v1/image-proxy?url=`;
+    const rawPhotos = (cast.photos && cast.photos.length > 0 ? cast.photos : (cast.photo ? [cast.photo] : []))
+      .filter(Boolean)
+      .slice(0, 6)
+      .map((p) => proxyBase + encodeURIComponent(driveImgUrl(p, 800)));
+    return {
+      name: cut(cast.name, 10),
+      description: cut(cast.shop_comment, 500),
+      cast_pr: cut(cast.therapist_comment, 500),
+      experience: String(cast.therapist_years ?? "").replace(/[^0-9]/g, "").slice(0, 2),
+      age: cut(cast.age, 2),
+      tall: cut(cast.height, 3),
+      size_b: sizeB.slice(0, 3),
+      size_cup: sizeCup,
+      size_w: sizeW.slice(0, 3),
+      size_h: sizeH.slice(0, 3),
+      blood: cast.blood_type && BLOOD_TYPES.includes(cast.blood_type) ? cast.blood_type : "",
+      forte_procedure: cut(cast.favorite_techniques, 20),
+      food: cut(cast.favorite_food, 20),
+      man_like_type: cut(cast.ideal_type, 20),
+      like_talent: cut(cast.celebrity_lookalike ?? cast.celebrity_like, 20),
+      holiday: cut(cast.day_off_activities, 20),
+      vogue: cut(cast.hobby ?? cast.hobbies, 20),
+      blog: cut(cast.blog_url, 255),
+      twitter: cut(cast.x_account, 255),
+      instagram: cut(cast.instagram_url, 255),
+      types,
+      photos: rawPhotos,
+    };
+  };
+
+  // エステ魂 cast_edit ページ上で実行する自動入力スクリプトを生成
+  const buildEstamaScript = (cast: Cast): string => {
+    const D = buildEstamaData(cast);
+    return `(function(){
+  var D = ${JSON.stringify(D)};
+  function fire(el){el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));el.dispatchEvent(new Event('keyup',{bubbles:true}));}
+  function setSel(sel,val){if(val==null||val==='')return;var el=document.querySelector(sel);if(el){el.value=val;fire(el);}}
+  setSel('#Name',D.name);setSel('#Description',D.description);setSel('#CastPr',D.cast_pr);
+  setSel('[name="experience"]',D.experience);setSel('[name="age"]',D.age);setSel('[name="tall"]',D.tall);
+  setSel('[name="size_w"]',D.size_w);setSel('[name="size_h"]',D.size_h);
+  setSel('[name="blood"]',D.blood);
+  setSel('#ForteProcedure',D.forte_procedure);setSel('#Food',D.food);setSel('#ManLikeType',D.man_like_type);
+  setSel('#LikeTalent',D.like_talent);setSel('#Holiday',D.holiday);setSel('#Vogue',D.vogue);
+  setSel('#Blog',D.blog);setSel('#Twitter',D.twitter);setSel('#Instagram',D.instagram);
+  // バストcm入力後にカップ数セレクトが出るため遅延設定
+  setSel('[name="size_b"]',D.size_b);
+  setTimeout(function(){setSel('[name="size_cup"]',D.size_cup);},500);
+  // 特徴チェックボックス（最大4つ）
+  (D.types||[]).forEach(function(v){var c=document.getElementById('type_'+v);if(c&&!c.checked){c.checked=true;fire(c);}});
+  // 写真（最大6枚）を image-proxy 経由で取得し file input に割当て
+  var photos = D.photos||[];
+  var fileInputs = Array.prototype.slice.call(document.querySelectorAll('input[type=file]'));
+  var done = 0, fail = 0;
+  function report(){
+    if(done+fail < photos.length) return;
+    var msg = 'エスたま転記:「'+D.name+'」テキスト入力完了。';
+    if(photos.length){ msg += '\\n写真: '+done+'/'+photos.length+'枚を設定'+(fail?'（'+fail+'枚は失敗）':'')+'。'; }
+    msg += '\\n内容を確認して「保存する」を押してください。';
+    alert(msg);
+  }
+  if(!photos.length){ report(); }
+  photos.forEach(function(u,i){
+    var input = fileInputs[i];
+    if(!input){ fail++; report(); return; }
+    fetch(u).then(function(r){ if(!r.ok) throw new Error('http '+r.status); return r.blob(); }).then(function(b){
+      var ext = (b.type&&b.type.indexOf('png')>=0)?'png':'jpg';
+      var file = new File([b], 'photo'+(i+1)+'.'+ext, {type: b.type||'image/jpeg'});
+      var dt = new DataTransfer(); dt.items.add(file);
+      input.files = dt.files; fire(input);
+      done++; report();
+    }).catch(function(e){ console.error('photo '+(i+1)+' failed', e); fail++; report(); });
+  });
+})();`;
+  };
+
+  const handleSyncEstama = async (cast: Cast) => {
+    const data = buildEstamaData(cast);
+    if (!data.name) {
+      toast({ title: "転記できません", description: "キャスト名が未設定です", variant: "destructive" });
+      return;
+    }
+    setEstamaScript(buildEstamaScript(cast));
+    setEstamaCastName(data.name);
+    setEstamaDialogOpen(true);
+    // 自動入力スクリプトをクリップボードにコピー
+    try { await navigator.clipboard.writeText(buildEstamaScript(cast)); } catch { /* 後でダイアログ内ボタンから再コピー可 */ }
   };
 
   const copyShiftLink = (token: string) => {
@@ -1522,6 +1654,16 @@ export default function Staff() {
                           <LinkIcon size={14} />
                         </Button>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-1.5 text-xs gap-1 text-pink-600 hover:bg-pink-50 hover:text-pink-700"
+                        title="エスたまに転記"
+                        onClick={(e) => { e.stopPropagation(); handleSyncEstama(cast); }}
+                      >
+                        <ExternalLink size={13} />
+                        <span>エスたま</span>
+                      </Button>
                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); handleEditCast(cast); }}>
                         <Edit size={14} />
                       </Button>
@@ -1560,6 +1702,65 @@ export default function Staff() {
         type="casts"
         onSuccess={fetchCasts}
       />
+
+      {/* エスたま転記ダイアログ */}
+      <Dialog open={estamaDialogOpen} onOpenChange={setEstamaDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ExternalLink size={18} className="text-pink-600" />
+              「{estamaCastName}」をエスたまに転記
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <p className="text-muted-foreground">
+              保存時に reCAPTCHA があるため、エステ魂の画面上で自動入力します。下記の手順で転記してください。
+            </p>
+            <ol className="list-decimal list-inside space-y-2 bg-muted/50 rounded-lg p-3">
+              <li>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 mx-1"
+                  onClick={() => window.open("https://estama.jp/admin/cast_edit/", "_blank")}
+                >
+                  <ExternalLink size={14} />エステ魂のセラピスト登録ページを開く
+                </Button>
+                <span className="text-muted-foreground text-xs">（未ログインの場合はログイン後にもう一度開く）</span>
+              </li>
+              <li>そのページで <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">F12</kbd> →「コンソール」タブを開く</li>
+              <li>
+                下のスクリプトを貼り付けて <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">Enter</kbd>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 ml-2"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(estamaScript);
+                      setEstamaCopied(true);
+                      setTimeout(() => setEstamaCopied(false), 2000);
+                    } catch { /* noop */ }
+                  }}
+                >
+                  {estamaCopied ? <Eye size={14} /> : <Copy size={14} />}
+                  {estamaCopied ? "コピー済" : "スクリプトをコピー"}
+                </Button>
+              </li>
+              <li>各項目と写真が自動入力されたら、内容を確認して「保存する」を押す</li>
+            </ol>
+            <Textarea
+              readOnly
+              value={estamaScript}
+              className="font-mono text-[11px] h-32"
+              onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+            />
+            <p className="text-xs text-muted-foreground">
+              ※名前・コメント・年齢・身長・3サイズ・血液型・特徴・SNS・写真（最大6枚）を転記します。写真の取得には数秒かかる場合があります。
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
