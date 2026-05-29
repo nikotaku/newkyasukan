@@ -18,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Plus, Trash2, Edit2 } from "lucide-react";
+import { Plus, Trash2, Edit2, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface Article {
@@ -40,9 +40,15 @@ export default function ArticleCreation() {
     title: "",
     slug: "",
     content: "",
-    category: "news",
+    category: "coupon",
     is_published: false,
   });
+  const [aiInputs, setAiInputs] = useState({
+    couponName: "", couponDiscount: "", couponExpiry: "", couponConditions: "",
+    castName: "", scheduleDate: "", scheduleNote: "",
+    staffName: "", staffProfile: "", staffMessage: "",
+  });
+  const [aiLoading, setAiLoading] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -74,6 +80,49 @@ export default function ArticleCreation() {
       toast.error("記事の読み込みに失敗しました");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const AI_CATEGORIES = ["coupon", "schedule", "newstaff"];
+
+  const handleAiGenerate = async () => {
+    const category = formData.category;
+    if (category === "coupon" && !aiInputs.couponName) {
+      toast.error("クーポン名を入力してください");
+      return;
+    }
+    if (category === "schedule" && !aiInputs.castName) {
+      toast.error("キャスト名を入力してください");
+      return;
+    }
+    if (category === "newstaff" && !aiInputs.staffName) {
+      toast.error("スタッフ名を入力してください");
+      return;
+    }
+
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-cast-content", {
+        body: { type: category, ...aiInputs },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Auto-fill title if empty
+      const autoTitle =
+        category === "coupon" ? `${aiInputs.couponName}クーポン案内` :
+        category === "schedule" ? `${aiInputs.castName}出勤情報` :
+        `${aiInputs.staffName}入店のお知らせ`;
+      setFormData((prev) => ({
+        ...prev,
+        content: data.content,
+        title: prev.title || autoTitle,
+      }));
+      toast.success("AI生成が完了しました");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "AI生成に失敗しました");
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -191,6 +240,9 @@ export default function ArticleCreation() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="coupon">クーポン案内</SelectItem>
+                      <SelectItem value="schedule">出勤情報</SelectItem>
+                      <SelectItem value="newstaff">新人入店情報</SelectItem>
                       <SelectItem value="news">ニュース</SelectItem>
                       <SelectItem value="tips">ノウハウ</SelectItem>
                       <SelectItem value="campaign">キャンペーン</SelectItem>
@@ -198,6 +250,125 @@ export default function ArticleCreation() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* AI生成フォーム */}
+                {AI_CATEGORIES.includes(formData.category) && (
+                  <div className="rounded-lg border border-pink-200 bg-pink-50 p-4 space-y-3">
+                    <p className="text-sm font-medium text-pink-700 flex items-center gap-1">
+                      <Sparkles size={14} /> AI生成 — 情報を入力してください
+                    </p>
+
+                    {formData.category === "coupon" && (
+                      <>
+                        <div>
+                          <Label>クーポン名 *</Label>
+                          <Input
+                            value={aiInputs.couponName}
+                            onChange={(e) => setAiInputs({ ...aiInputs, couponName: e.target.value })}
+                            placeholder="例：初回限定60分コース"
+                          />
+                        </div>
+                        <div>
+                          <Label>割引・特典内容 *</Label>
+                          <Input
+                            value={aiInputs.couponDiscount}
+                            onChange={(e) => setAiInputs({ ...aiInputs, couponDiscount: e.target.value })}
+                            placeholder="例：通常¥12,000 → ¥9,000（25%OFF）"
+                          />
+                        </div>
+                        <div>
+                          <Label>有効期限</Label>
+                          <Input
+                            value={aiInputs.couponExpiry}
+                            onChange={(e) => setAiInputs({ ...aiInputs, couponExpiry: e.target.value })}
+                            placeholder="例：〜2026年6月30日"
+                          />
+                        </div>
+                        <div>
+                          <Label>利用条件</Label>
+                          <Input
+                            value={aiInputs.couponConditions}
+                            onChange={(e) => setAiInputs({ ...aiInputs, couponConditions: e.target.value })}
+                            placeholder="例：初回ご来店限定・1回のみ利用可"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {formData.category === "schedule" && (
+                      <>
+                        <div>
+                          <Label>キャスト名 *</Label>
+                          <Input
+                            value={aiInputs.castName}
+                            onChange={(e) => setAiInputs({ ...aiInputs, castName: e.target.value })}
+                            placeholder="例：さくら"
+                          />
+                        </div>
+                        <div>
+                          <Label>出勤日時 *</Label>
+                          <Input
+                            value={aiInputs.scheduleDate}
+                            onChange={(e) => setAiInputs({ ...aiInputs, scheduleDate: e.target.value })}
+                            placeholder="例：6/15（日）12:00〜22:00"
+                          />
+                        </div>
+                        <div>
+                          <Label>コメント・備考</Label>
+                          <Input
+                            value={aiInputs.scheduleNote}
+                            onChange={(e) => setAiInputs({ ...aiInputs, scheduleNote: e.target.value })}
+                            placeholder="例：久しぶりの出勤です！お気軽にご予約ください"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {formData.category === "newstaff" && (
+                      <>
+                        <div>
+                          <Label>スタッフ名 *</Label>
+                          <Input
+                            value={aiInputs.staffName}
+                            onChange={(e) => setAiInputs({ ...aiInputs, staffName: e.target.value })}
+                            placeholder="例：あおい"
+                          />
+                        </div>
+                        <div>
+                          <Label>プロフィール（特徴・スペック等）</Label>
+                          <Textarea
+                            value={aiInputs.staffProfile}
+                            onChange={(e) => setAiInputs({ ...aiInputs, staffProfile: e.target.value })}
+                            placeholder="例：20歳・T163・明るく癒し系・マッサージ得意"
+                            rows={2}
+                          />
+                        </div>
+                        <div>
+                          <Label>本人からのメッセージ</Label>
+                          <Input
+                            value={aiInputs.staffMessage}
+                            onChange={(e) => setAiInputs({ ...aiInputs, staffMessage: e.target.value })}
+                            placeholder="例：緊張していますが精一杯頑張ります！"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <Button
+                      type="button"
+                      onClick={handleAiGenerate}
+                      disabled={aiLoading}
+                      className="bg-pink-600 hover:bg-pink-700 text-white"
+                    >
+                      {aiLoading ? (
+                        <><Loader2 size={14} className="mr-2 animate-spin" />生成中...</>
+                      ) : (
+                        <><Sparkles size={14} className="mr-2" />AI生成</>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
                 <div>
                   <Label htmlFor="content">内容</Label>
                   <Textarea
@@ -206,7 +377,7 @@ export default function ArticleCreation() {
                     onChange={(e) =>
                       setFormData({ ...formData, content: e.target.value })
                     }
-                    placeholder="記事の内容"
+                    placeholder="記事の内容（AI生成後に編集できます）"
                     rows={8}
                   />
                 </div>

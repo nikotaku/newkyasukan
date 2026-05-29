@@ -11,7 +11,15 @@ serve(async (req) => {
   }
 
   try {
-    const { type, castName, castType, existingProfile, newsTitle } = await req.json();
+    const {
+      type, castName, castType, existingProfile, newsTitle,
+      // coupon
+      couponName, couponDiscount, couponExpiry, couponConditions,
+      // schedule
+      scheduleDate, scheduleNote,
+      // newstaff
+      staffName, staffProfile, staffMessage,
+    } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -44,6 +52,21 @@ serve(async (req) => {
           : `メンズエステの新着ニュース記事を300-500文字程度で作成してください。店舗の魅力やサービスの特徴、お得な情報などを含めてください。`;
         break;
       
+      case "coupon":
+        systemPrompt = "あなたはメンズエステのクーポン案内記事を作成する専門のライターです。お客様の来店意欲を高める魅力的なクーポン案内を日本語で作成してください。";
+        userPrompt = `クーポン名: ${couponName}\n割引・特典内容: ${couponDiscount}\n有効期限: ${couponExpiry || "記載なし"}\n利用条件: ${couponConditions || "特になし"}\n\n上記の情報を元に、お客様向けのクーポン案内記事を200〜400文字で作成してください。お得感と限定感を演出し、来店を促す内容にしてください。`;
+        break;
+
+      case "schedule":
+        systemPrompt = "あなたはメンズエステの出勤情報記事を作成する専門のライターです。キャストの魅力を引き出し、お客様の来店を促す出勤案内を日本語で作成してください。";
+        userPrompt = `キャスト名: ${castName}\n出勤日時: ${scheduleDate}\n${scheduleNote ? `コメント・備考: ${scheduleNote}\n` : ""}上記の情報を元に、出勤案内記事を150〜250文字で作成してください。キャストの魅力が伝わるような文体にしてください。`;
+        break;
+
+      case "newstaff":
+        systemPrompt = "あなたはメンズエステの新人入店情報記事を作成する専門のライターです。新人スタッフの魅力を伝え、お客様の期待感を高める入店案内を日本語で作成してください。";
+        userPrompt = `スタッフ名: ${staffName}\n${staffProfile ? `プロフィール: ${staffProfile}\n` : ""}${staffMessage ? `本人からのメッセージ: ${staffMessage}\n` : ""}上記の情報を元に、新人入店のお知らせ記事を250〜400文字で作成してください。スタッフの個性と魅力を引き出した内容にしてください。`;
+        break;
+
       default:
         throw new Error("Invalid content type");
     }
