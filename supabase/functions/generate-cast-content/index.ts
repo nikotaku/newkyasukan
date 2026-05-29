@@ -12,7 +12,7 @@ serve(async (req) => {
 
   try {
     const {
-      type, castName, castType, existingProfile, newsTitle,
+      type, castName, castType, existingProfile, newsTitle, features,
       // coupon
       couponName, couponDiscount, couponExpiry, couponConditions,
       // schedule
@@ -60,6 +60,11 @@ serve(async (req) => {
       case "schedule":
         systemPrompt = "あなたはメンズエステの出勤情報記事を作成する専門のライターです。キャストの魅力を引き出し、お客様の来店を促す出勤案内を日本語で作成してください。";
         userPrompt = `キャスト名: ${castName}\n出勤日時: ${scheduleDate}\n${scheduleNote ? `コメント・備考: ${scheduleNote}\n` : ""}上記の情報を元に、出勤案内記事を150〜250文字で作成してください。キャストの魅力が伝わるような文体にしてください。`;
+        break;
+
+      case "shop_comment":
+        systemPrompt = "あなたはメンズエステのショップコメント（スタッフがお客様に向けてキャストを紹介する文章）を作成する専門のライターです。三人称で、お客様の来店意欲を高める魅力的な紹介文を日本語で作成してください。";
+        userPrompt = `キャスト名: ${castName}\nタイプ: ${castType}${features ? `\n特徴: ${features}` : ""}${existingProfile ? `\nプロフィール参考: ${existingProfile}` : ""}\n\n上記の情報を元に、店舗スタッフ視点のショップコメントを100〜200文字で作成してください。三人称（「${castName}ちゃん」「彼女は」等）で書き、キャストの個性と魅力を引き出してください。`;
         break;
 
       case "newstaff":
