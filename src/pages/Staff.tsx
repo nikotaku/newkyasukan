@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Link as LinkIcon, Copy, Eye, EyeOff, CalendarPlus, GripVertical, FileUp, X, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Loader2, Link as LinkIcon, Copy, Eye, EyeOff, CalendarPlus, GripVertical, FileUp, X, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
 import { ImportModal } from "@/components/ImportModal";
 import { DashboardHeader } from "@/components/DashboardHeader";
@@ -140,6 +140,7 @@ export default function Staff() {
   const [showProfileDetailAdd, setShowProfileDetailAdd] = useState(true);
   const [loading, setLoading] = useState(true);
   const [generatingContent, setGeneratingContent] = useState(false);
+  const [generatingShopComment, setGeneratingShopComment] = useState(false);
   
   const emptyForm = {
     name: "",
@@ -514,6 +515,36 @@ export default function Staff() {
         description: error?.message || "キャストの更新に失敗しました",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleGenerateShopComment = async (mode: 'add' | 'edit') => {
+    const castName = mode === 'add' ? formData.name : editingCast?.name;
+    const castType = mode === 'add' ? formData.type : editingCast?.type;
+    const existingProfile = mode === 'add' ? formData.profile : editingCast?.profile;
+    const features = mode === 'add' ? formData.features : editingCast?.features;
+    if (!castName) {
+      toast({ title: "エラー", description: "名前を先に入力してください", variant: "destructive" });
+      return;
+    }
+    setGeneratingShopComment(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-cast-content', {
+        body: { type: 'shop_comment', castName, castType, existingProfile, features: (features || []).join('、') }
+      });
+      if (error) throw error;
+      if (data?.content) {
+        if (mode === 'add') {
+          setFormData((prev) => ({ ...prev, shop_comment: data.content }));
+        } else if (editingCast) {
+          setEditingCast({ ...editingCast, shop_comment: data.content });
+        }
+        toast({ title: "AI生成完了", description: "ショップコメントを生成しました" });
+      }
+    } catch {
+      toast({ title: "エラー", description: "ショップコメントの生成に失敗しました", variant: "destructive" });
+    } finally {
+      setGeneratingShopComment(false);
     }
   };
 
@@ -1052,8 +1083,13 @@ export default function Staff() {
 
                       {/* ショップコメント */}
                       <div>
-                        <Label htmlFor="add-shop-comment" className="font-semibold">ショップコメント</Label>
-                        <Textarea id="add-shop-comment" rows={3} className="mt-1" value={formData.shop_comment} onChange={(e) => setFormData({...formData, shop_comment: e.target.value})} />
+                        <div className="flex items-center justify-between mb-1">
+                          <Label htmlFor="add-shop-comment" className="font-semibold">ショップコメント</Label>
+                          <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateShopComment('add')} disabled={generatingShopComment} className="h-7 px-2 text-xs text-pink-600 border-pink-300 hover:bg-pink-50">
+                            {generatingShopComment ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Sparkles size={12} className="mr-1" />}AI生成
+                          </Button>
+                        </div>
+                        <Textarea id="add-shop-comment" rows={3} value={formData.shop_comment} onChange={(e) => setFormData({...formData, shop_comment: e.target.value})} />
                       </div>
 
                       {/* 基本情報 */}
@@ -1263,8 +1299,13 @@ export default function Staff() {
 
                       {/* ショップコメント */}
                       <div>
-                        <Label htmlFor="e-shop-comment" className="font-semibold">ショップコメント</Label>
-                        <Textarea id="e-shop-comment" rows={3} className="mt-1" value={editingCast.shop_comment || ""} onChange={(e) => setEditingCast({...editingCast, shop_comment: e.target.value})} />
+                        <div className="flex items-center justify-between mb-1">
+                          <Label htmlFor="e-shop-comment" className="font-semibold">ショップコメント</Label>
+                          <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateShopComment('edit')} disabled={generatingShopComment} className="h-7 px-2 text-xs text-pink-600 border-pink-300 hover:bg-pink-50">
+                            {generatingShopComment ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Sparkles size={12} className="mr-1" />}AI生成
+                          </Button>
+                        </div>
+                        <Textarea id="e-shop-comment" rows={3} value={editingCast.shop_comment || ""} onChange={(e) => setEditingCast({...editingCast, shop_comment: e.target.value})} />
                       </div>
 
                       {/* 基本情報 */}
