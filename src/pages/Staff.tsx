@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Link as LinkIcon, Copy, Eye, EyeOff, CalendarPlus, GripVertical, FileUp, X, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Link as LinkIcon, Copy, Eye, EyeOff, CalendarPlus, GripVertical, FileUp, X, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
 import { ImportModal } from "@/components/ImportModal";
 import { DashboardHeader } from "@/components/DashboardHeader";
@@ -179,6 +179,7 @@ export default function Staff() {
   // フォーム用の状態
   const [formData, setFormData] = useState({ ...emptyForm });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [syncingEstama, setSyncingEstama] = useState<string | null>(null);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const dragCastId = useRef<string | null>(null);
@@ -651,6 +652,33 @@ export default function Staff() {
       title: "リンクをコピーしました",
       description: "専用ページのリンクがクリップボードにコピーされました",
     });
+  };
+
+  const handleSyncEstama = async (cast: Cast) => {
+    setSyncingEstama(cast.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("estama-cast-create", {
+        body: { cast_id: cast.id },
+      });
+      if (error || !data?.success) {
+        const msg = data?.error || error?.message || "不明なエラー";
+        toast({ title: "エスたま転記失敗", description: msg, variant: "destructive" });
+        return;
+      }
+      toast({
+        title: "エスたまに転記しました",
+        description: `${data.cast_name} をエステ魂に登録しました`,
+        action: data.url ? (
+          <a href={data.url} target="_blank" rel="noopener noreferrer" className="text-xs underline">
+            管理画面で確認
+          </a>
+        ) : undefined,
+      } as any);
+    } catch (e: any) {
+      toast({ title: "エスたま転記失敗", description: e.message, variant: "destructive" });
+    } finally {
+      setSyncingEstama(null);
+    }
   };
 
   const copyShiftLink = (token: string) => {
@@ -1522,6 +1550,21 @@ export default function Staff() {
                           <LinkIcon size={14} />
                         </Button>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-1.5 text-xs gap-1 text-pink-600 hover:bg-pink-50 hover:text-pink-700"
+                        title="エスたまに転記"
+                        disabled={syncingEstama === cast.id}
+                        onClick={(e) => { e.stopPropagation(); handleSyncEstama(cast); }}
+                      >
+                        {syncingEstama === cast.id ? (
+                          <span className="animate-spin inline-block w-3 h-3 border border-pink-600 border-t-transparent rounded-full" />
+                        ) : (
+                          <ExternalLink size={13} />
+                        )}
+                        <span>エスたま</span>
+                      </Button>
                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); handleEditCast(cast); }}>
                         <Edit size={14} />
                       </Button>
