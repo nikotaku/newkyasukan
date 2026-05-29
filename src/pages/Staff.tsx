@@ -101,6 +101,7 @@ interface Cast {
   referral_route: string | null;
   interview_sheet_url: string | null;
   referral_reward_id: string | null;
+  profile_format: string | null;
 }
 
 interface ReferralReward {
@@ -468,6 +469,7 @@ export default function Staff() {
         blog_url: editingCast.blog_url || null,
         skebiy_url: editingCast.skebiy_url || null,
         instagram_url: editingCast.instagram_url || null,
+        profile_format: editingCast.profile_format || null,
       };
       const { error: profileError } = await supabase.from('casts').update(profilePayload).eq('id', editingCast.id);
       if (profileError) {
@@ -1251,6 +1253,18 @@ export default function Staff() {
 
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">管理情報</Label>
+                        <div>
+                          <Label htmlFor="e-profile-format">プロフィールフォーマット</Label>
+                          <Textarea
+                            id="e-profile-format"
+                            rows={8}
+                            className="mt-1 font-mono text-sm whitespace-pre leading-relaxed"
+                            placeholder={"名前：\n年齢：\n身長：\nスリーサイズ：\n出身：\n趣味：\n..."}
+                            value={editingCast.profile_format || ""}
+                            onChange={(e) => setEditingCast({...editingCast, profile_format: e.target.value})}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">縦に改行されたプロフィール文章をそのまま貼り付け・編集できます</p>
+                        </div>
                         <div>
                           <Label htmlFor="e-customer-base">客層メモ</Label>
                           <Textarea id="e-customer-base" rows={2} className="mt-1" value={editingCast.customer_base_memo || ""} onChange={(e) => setEditingCast({...editingCast, customer_base_memo: e.target.value})} />
