@@ -890,9 +890,16 @@ export default function TherapistCheckout() {
                       </div>
                     )}
                     <div className="flex justify-between border-t pt-2 mt-1">
-                      <span className="font-bold">合計</span>
+                      <span className="font-bold">総売上</span>
                       <span className="font-bold text-lg">¥{grandTotal.toLocaleString()}</span>
                     </div>
+                    <div className="flex justify-between items-center rounded-lg bg-primary/10 px-3 py-2 mt-1">
+                      <span className="font-bold text-primary">うち現金預かり額</span>
+                      <span className="font-bold text-lg text-primary">¥{cashTotal.toLocaleString()}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      カード・PayPayは現金で受け取っていないため、実際に預かる現金は上記の額です。
+                    </p>
                   </CardContent>
                 </Card>
 
