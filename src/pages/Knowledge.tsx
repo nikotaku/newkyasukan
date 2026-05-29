@@ -95,7 +95,7 @@ export default function Knowledge() {
     if (!form.title.trim()) { toast.error("タイトルを入力してください"); return; }
     setSaving(true);
     const tags = form.tags.split(",").map(t => t.trim()).filter(Boolean);
-    const payload = { title: form.title, content: form.content, category: form.category, tags, created_by: user?.id };
+    const payload = { title: form.title, content: form.content, category: form.category, tags };
     let error;
     if (selected) {
       ({ error } = await supabase.from("knowledge_articles").update(payload).eq("id", selected.id));
