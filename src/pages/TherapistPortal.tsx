@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit, Banknote, ClipboardCheck } from "lucide-react";
+import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import backRatesImage from "@/assets/back-rates-table.jpg";
@@ -54,9 +54,19 @@ interface ShiftRow {
   room: string | null;
   notes: string | null;
   approval_status: string;
+  approval_comment: string | null;
 }
 
-type View = "menu" | "settlement" | "transport" | "shift";
+interface Room {
+  id: string;
+  name: string;
+  entry_flow: string | null;
+  key_info: string | null;
+  key_number: string | null;
+  entry_photos: string[] | null;
+}
+
+type View = "menu" | "settlement" | "transport" | "shift" | "entry";
 
 const now = new Date();
 
@@ -77,6 +87,9 @@ export default function TherapistPortal() {
   // Shifts
   const [shiftRows, setShiftRows] = useState<ShiftRow[]>([]);
   const [shiftsLoading, setShiftsLoading] = useState(false);
+
+  // Rooms
+  const [rooms, setRooms] = useState<Room[]>([]);
 
   // Clearance notification
   const [pendingClearance, setPendingClearance] = useState<PendingClearance | null>(null);
@@ -123,6 +136,11 @@ export default function TherapistPortal() {
     if (view === "transport" && cast) fetchExpenses();
     if (view === "shift" && cast) fetchShifts();
   }, [view, year, month, cast]);
+
+  useEffect(() => {
+    supabase.from("rooms").select("id, name, entry_flow, key_info, key_number, entry_photos").eq("is_active", true).order("name")
+      .then(({ data }) => { if (data) setRooms(data as Room[]); });
+  }, []);
 
   // シフトのステータス変更をリアルタイム反映
   useEffect(() => {
@@ -238,6 +256,8 @@ export default function TherapistPortal() {
     { title: "バック表", description: "コース別・オプション別のバック率を確認", icon: Receipt, action: () => setShowBackRates(true) },
     { title: "交通費申請", description: "交通費の申請・申請履歴を確認", icon: Plane, action: () => setView("transport") },
     { title: "退勤フォーム", description: "売上入力・清掃チェック・フィードバック", icon: LogOut, action: () => navigate(`/therapist/${token}/checkout`) },
+    { title: "入室方法", description: "各ルームへの入室手順・鍵の場所を確認", icon: DoorOpen, action: () => setView("entry") },
+    { title: "振り込み申請", description: "報酬の振り込み申請フォーム", icon: ExternalLink, action: () => window.open("https://yoom.fun/5eee42a7-b4ff-49a8-8373-606c66495142/forms/shared/Cu2K735X9qaSAdMs45x6Bw", "_blank") },
   ];
 
   return (
@@ -256,7 +276,7 @@ export default function TherapistPortal() {
           <div className="min-w-0">
             <p className="font-bold text-base leading-tight truncate">{cast.name}様</p>
             <p className="text-xs text-muted-foreground">
-              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : "交通費申請"}
+              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : "交通費申請"}
             </p>
           </div>
         </div>
@@ -363,6 +383,11 @@ export default function TherapistPortal() {
                       )}
                       {s.notes && (
                         <p className="text-xs text-muted-foreground truncate mt-0.5">{s.notes}</p>
+                      )}
+                      {s.approval_comment && (
+                        <p className={`text-xs mt-0.5 ${s.approval_status === 'rejected' ? 'text-rose-600' : 'text-muted-foreground'}`}>
+                          💬 {s.approval_comment}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -535,6 +560,55 @@ export default function TherapistPortal() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+        {/* ── ENTRY ── */}
+        {view === "entry" && (
+          <div className="space-y-4">
+            {rooms.length === 0 ? (
+              <p className="text-center text-muted-foreground text-sm py-12">入室方法の情報がありません</p>
+            ) : (
+              rooms.map(room => (
+                <div key={room.id} className="rounded-xl border bg-card overflow-hidden">
+                  <div className="px-4 py-3 bg-muted/30 border-b">
+                    <p className="font-bold text-base">{room.name}</p>
+                  </div>
+                  <div className="px-4 py-4 space-y-4">
+                    {room.key_number && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">暗証番号</p>
+                        <p className="text-2xl font-mono font-bold tracking-widest text-primary">{room.key_number}</p>
+                      </div>
+                    )}
+                    {room.entry_flow && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">入室手順</p>
+                        <p className="text-sm whitespace-pre-wrap">{room.entry_flow}</p>
+                      </div>
+                    )}
+                    {room.key_info && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">鍵の場所・補足</p>
+                        <p className="text-sm whitespace-pre-wrap">{room.key_info}</p>
+                      </div>
+                    )}
+                    {room.entry_photos && room.entry_photos.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground mb-2">写真</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {room.entry_photos.map((url, i) => (
+                            <img key={i} src={url} alt={`入室方法 ${i+1}`} className="w-full rounded-lg object-cover aspect-square" />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {!room.key_number && !room.entry_flow && !room.key_info && (!room.entry_photos || room.entry_photos.length === 0) && (
+                      <p className="text-sm text-muted-foreground">入室方法の情報が登録されていません</p>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
       </main>

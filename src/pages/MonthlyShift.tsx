@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,6 +24,7 @@ interface Shift {
   end_time: string;
   room: string | null;
   approval_status: string;
+  approval_comment: string | null;
   casts: { name: string };
 }
 
@@ -51,6 +53,8 @@ export default function MonthlyShift() {
     end_time: "21:00",
     room: "",
   });
+  const [pendingAction, setPendingAction] = useState<{id: string; status: "approved" | "rejected"; room?: string | null} | null>(null);
+  const [actionComment, setActionComment] = useState("");
 
   const openAdd = (preset?: Partial<typeof form>) => {
     setEditingId(null);
@@ -151,13 +155,14 @@ export default function MonthlyShift() {
     setShifts(prev => prev.filter(s => s.id !== id));
   };
 
-  const updateStatus = async (id: string, approval_status: "approved" | "rejected", room?: string | null) => {
-    const patch: { approval_status: string; room?: string | null } = { approval_status };
+  const updateStatus = async (id: string, approval_status: "approved" | "rejected", room?: string | null, comment?: string) => {
+    const patch: { approval_status: string; room?: string | null; approval_comment?: string | null } = { approval_status };
     if (room !== undefined) patch.room = room;
+    patch.approval_comment = comment || null;
     const { error } = await supabase.from("shifts").update(patch).eq("id", id);
     if (error) { toast.error("更新に失敗しました"); return; }
     toast.success(approval_status === "approved" ? "承認しました" : "却下しました");
-    setShifts(prev => prev.map(s => (s.id === id ? { ...s, approval_status, ...(room !== undefined ? { room } : {}) } : s)));
+    setShifts(prev => prev.map(s => (s.id === id ? { ...s, approval_status, approval_comment: comment || null, ...(room !== undefined ? { room } : {}) } : s)));
   };
 
   const assignRoom = async (id: string, room: string) => {
@@ -262,14 +267,17 @@ export default function MonthlyShift() {
                   </Select>
                   <div className="ml-auto flex gap-1.5">
                     <Button size="sm" className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
-                      onClick={() => updateStatus(s.id, "approved", s.room ?? ROOMS[0])}>
+                      onClick={() => { setPendingAction({id: s.id, status: "approved", room: s.room ?? ROOMS[0]}); setActionComment(""); }}>
                       承認
                     </Button>
                     <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-rose-600 border-rose-300 hover:bg-rose-50"
-                      onClick={() => updateStatus(s.id, "rejected")}>
+                      onClick={() => { setPendingAction({id: s.id, status: "rejected"}); setActionComment(""); }}>
                       却下
                     </Button>
                   </div>
+                  {s.approval_status === "rejected" && s.approval_comment && (
+                    <p className="text-xs text-rose-600 mt-0.5 w-full">{s.approval_comment}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -514,6 +522,37 @@ export default function MonthlyShift() {
                 </Button>
               )}
               <Button variant="outline" className="flex-1" onClick={() => { setShowDialog(false); setEditingId(null); }}>キャンセル</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!pendingAction} onOpenChange={o => { if (!o) setPendingAction(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{pendingAction?.status === "approved" ? "シフトを承認しますか？" : "シフトを却下しますか？"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <Textarea
+              placeholder="コメント（任意）"
+              value={actionComment}
+              onChange={e => setActionComment(e.target.value)}
+              rows={3}
+              className="text-sm"
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setPendingAction(null)}>キャンセル</Button>
+              <Button
+                className={`flex-1 ${pendingAction?.status === "approved" ? "bg-green-600 hover:bg-green-700" : "bg-rose-600 hover:bg-rose-700"}`}
+                onClick={() => {
+                  if (pendingAction) {
+                    updateStatus(pendingAction.id, pendingAction.status, pendingAction.room, actionComment);
+                    setPendingAction(null);
+                  }
+                }}
+              >
+                {pendingAction?.status === "approved" ? "承認する" : "却下する"}
+              </Button>
             </div>
           </div>
         </DialogContent>

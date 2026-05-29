@@ -52,6 +52,10 @@ interface Room {
   room_photos: string[] | null;
   reset_procedure: string | null;
   cleaning_manual: string | null;
+  entry_flow: string | null;
+  key_info: string | null;
+  key_number: string | null;
+  entry_photos: string[] | null;
 }
 
 const RoomSettings = () => {
@@ -80,6 +84,7 @@ const RoomSettings = () => {
     garbage_disposal: string;
     equipment_placement: string;
     room_photos: string[];
+    entry_photos: string[];
   }>({
     name: "",
     display_name: "",
@@ -99,10 +104,16 @@ const RoomSettings = () => {
     garbage_disposal: "",
     equipment_placement: "",
     room_photos: [],
+    entry_photos: [],
   });
   const [manualRoom, setManualRoom] = useState<Room | null>(null);
   const [manualDraft, setManualDraft] = useState({ reset_procedure: "", cleaning_manual: "" });
   const [savingManual, setSavingManual] = useState(false);
+  const [entryRoom, setEntryRoom] = useState<Room | null>(null);
+  const [entryDraft, setEntryDraft] = useState({ entry_flow: "", key_info: "", key_number: "", entry_photos: [] as string[] });
+  const [savingEntry, setSavingEntry] = useState(false);
+  const [uploadingEntryPhotos, setUploadingEntryPhotos] = useState(false);
+  const entryPhotoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -178,6 +189,7 @@ const RoomSettings = () => {
         garbage_disposal: room.garbage_disposal || "",
         equipment_placement: room.equipment_placement || "",
         room_photos: room.room_photos || [],
+        entry_photos: room.entry_photos || [],
       });
     } else {
       setEditingRoom(null);
@@ -200,6 +212,7 @@ const RoomSettings = () => {
         garbage_disposal: "",
         equipment_placement: "",
         room_photos: [],
+        entry_photos: [],
       });
     }
     setIsDialogOpen(true);
@@ -239,6 +252,7 @@ const RoomSettings = () => {
       garbage_disposal: formData.garbage_disposal || null,
       equipment_placement: formData.equipment_placement || null,
       room_photos: formData.room_photos.length > 0 ? formData.room_photos : null,
+      entry_photos: formData.entry_photos.length > 0 ? formData.entry_photos : null,
     };
 
     if (editingRoom) {
@@ -369,6 +383,71 @@ const RoomSettings = () => {
     }));
   };
 
+  const handleEntryRoomSelect = (room: Room) => {
+    setEntryRoom(room);
+    setEntryDraft({
+      entry_flow: room.entry_flow || "",
+      key_info: room.key_info || "",
+      key_number: room.key_number || "",
+      entry_photos: room.entry_photos || [],
+    });
+  };
+
+  const handleEntryPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingEntryPhotos(true);
+    try {
+      const uploadedUrls: string[] = [];
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('entry-photos')
+          .upload(fileName, file);
+        if (uploadError) {
+          toast({ title: "エラー", description: `${file.name}のアップロードに失敗しました`, variant: "destructive" });
+          continue;
+        }
+        const { data: { publicUrl } } = supabase.storage.from('entry-photos').getPublicUrl(fileName);
+        uploadedUrls.push(publicUrl);
+      }
+      if (uploadedUrls.length > 0) {
+        setEntryDraft(prev => ({ ...prev, entry_photos: [...prev.entry_photos, ...uploadedUrls] }));
+        toast({ title: "成功", description: `${uploadedUrls.length}枚の写真をアップロードしました` });
+      }
+    } catch {
+      toast({ title: "エラー", description: "写真のアップロードに失敗しました", variant: "destructive" });
+    } finally {
+      setUploadingEntryPhotos(false);
+      if (entryPhotoInputRef.current) entryPhotoInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveEntryPhoto = (index: number) => {
+    setEntryDraft(prev => ({ ...prev, entry_photos: prev.entry_photos.filter((_, i) => i !== index) }));
+  };
+
+  const handleSaveEntry = async () => {
+    if (!entryRoom) return;
+    setSavingEntry(true);
+    try {
+      const { error } = await supabase.from("rooms").update({
+        entry_flow: entryDraft.entry_flow || null,
+        key_info: entryDraft.key_info || null,
+        key_number: entryDraft.key_number || null,
+        entry_photos: entryDraft.entry_photos.length > 0 ? entryDraft.entry_photos : null,
+      }).eq("id", entryRoom.id);
+      if (error) throw error;
+      await fetchRooms();
+      toast({ title: "保存しました", description: `${entryRoom.name}の入室方法を保存しました` });
+    } catch {
+      toast({ title: "エラー", description: "保存に失敗しました", variant: "destructive" });
+    } finally {
+      setSavingEntry(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
@@ -387,6 +466,7 @@ const RoomSettings = () => {
                 <TabsTrigger value="rooms">ルーム一覧</TabsTrigger>
                 <TabsTrigger value="reset">リセット手順</TabsTrigger>
                 <TabsTrigger value="cleaning">清掃マニュアル</TabsTrigger>
+                <TabsTrigger value="entry">入室方法</TabsTrigger>
               </TabsList>
 
               <TabsContent value="rooms">
@@ -879,6 +959,131 @@ const RoomSettings = () => {
                           <Button onClick={handleSaveManual} disabled={savingManual} className="w-full">
                             <Save size={15} className="mr-2" />
                             {savingManual ? "保存中..." : "保存する"}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card>
+                        <CardContent className="py-16 text-center text-muted-foreground">
+                          左のリストからルームを選んでください
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* ─── 入室方法 ─── */}
+              <TabsContent value="entry">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-muted-foreground mb-3">ルームを選択</p>
+                    {rooms.map((r) => (
+                      <button
+                        key={r.id}
+                        onClick={() => handleEntryRoomSelect(r)}
+                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                          entryRoom?.id === r.id
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        {r.name}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="md:col-span-3">
+                    {entryRoom ? (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">{entryRoom.name} — 入室方法</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div>
+                            <Label htmlFor="entry_key_number">暗証番号</Label>
+                            <Input
+                              id="entry_key_number"
+                              value={entryDraft.key_number}
+                              onChange={(e) => setEntryDraft({ ...entryDraft, key_number: e.target.value })}
+                              placeholder="例: 1234"
+                              className="font-mono"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="entry_flow">入室手順</Label>
+                            <Textarea
+                              id="entry_flow"
+                              value={entryDraft.entry_flow}
+                              onChange={(e) => setEntryDraft({ ...entryDraft, entry_flow: e.target.value })}
+                              placeholder={`例:\n1. 建物の正面入口から入る\n2. エレベーターで3階へ\n3. 302号室のドアを暗証番号で開ける`}
+                              rows={8}
+                              className="text-sm"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="entry_key_info">鍵の場所・補足</Label>
+                            <Textarea
+                              id="entry_key_info"
+                              value={entryDraft.key_info}
+                              onChange={(e) => setEntryDraft({ ...entryDraft, key_info: e.target.value })}
+                              placeholder="例: 鍵はドア横のキーボックス内。暗証番号は上記と同じ。"
+                              rows={4}
+                              className="text-sm"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>入室方法の写真</Label>
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  ref={entryPhotoInputRef}
+                                  type="file"
+                                  accept="image/*"
+                                  multiple
+                                  onChange={handleEntryPhotoUpload}
+                                  className="hidden"
+                                  id="entry-photo-upload"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => entryPhotoInputRef.current?.click()}
+                                  disabled={uploadingEntryPhotos}
+                                >
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  {uploadingEntryPhotos ? 'アップロード中...' : '写真を選択'}
+                                </Button>
+                                <span className="text-sm text-muted-foreground">
+                                  複数の写真を選択できます
+                                </span>
+                              </div>
+                              {entryDraft.entry_photos.length > 0 && (
+                                <div className="grid grid-cols-3 gap-4">
+                                  {entryDraft.entry_photos.map((photo, index) => (
+                                    <div key={index} className="relative group">
+                                      <img
+                                        src={photo}
+                                        alt={`入室方法写真 ${index + 1}`}
+                                        className="w-full h-32 object-cover rounded-lg"
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="icon"
+                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                                        onClick={() => handleRemoveEntryPhoto(index)}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <Button onClick={handleSaveEntry} disabled={savingEntry} className="w-full">
+                            <Save size={15} className="mr-2" />
+                            {savingEntry ? "保存中..." : "保存する"}
                           </Button>
                         </CardContent>
                       </Card>
