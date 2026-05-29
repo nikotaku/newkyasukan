@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,6 +24,8 @@ interface Shift {
   end_time: string;
   room: string | null;
   approval_status: string;
+  approval_comment: string | null;
+  estama_registered: boolean;
   casts: { name: string };
 }
 
@@ -50,7 +53,10 @@ export default function MonthlyShift() {
     start_time: "12:00",
     end_time: "21:00",
     room: "",
+    estama_registered: false,
   });
+  const [pendingAction, setPendingAction] = useState<{id: string; status: "approved" | "rejected"; room?: string | null} | null>(null);
+  const [actionComment, setActionComment] = useState("");
 
   const openAdd = (preset?: Partial<typeof form>) => {
     setEditingId(null);
@@ -60,6 +66,7 @@ export default function MonthlyShift() {
       start_time: "12:00",
       end_time: "21:00",
       room: "",
+      estama_registered: false,
       ...preset,
     });
     setShowDialog(true);
@@ -73,6 +80,7 @@ export default function MonthlyShift() {
       start_time: shift.start_time.slice(0, 5),
       end_time: shift.end_time.slice(0, 5),
       room: shift.room || "",
+      estama_registered: shift.estama_registered ?? false,
     });
     setShowDialog(true);
   };
@@ -134,6 +142,7 @@ export default function MonthlyShift() {
       start_time: form.start_time,
       end_time: form.end_time,
       room: form.room || null,
+      estama_registered: form.estama_registered,
     };
     const { error } = editingId
       ? await supabase.from("shifts").update(payload).eq("id", editingId)
@@ -151,13 +160,14 @@ export default function MonthlyShift() {
     setShifts(prev => prev.filter(s => s.id !== id));
   };
 
-  const updateStatus = async (id: string, approval_status: "approved" | "rejected", room?: string | null) => {
-    const patch: { approval_status: string; room?: string | null } = { approval_status };
+  const updateStatus = async (id: string, approval_status: "approved" | "rejected", room?: string | null, comment?: string) => {
+    const patch: { approval_status: string; room?: string | null; approval_comment?: string | null } = { approval_status };
     if (room !== undefined) patch.room = room;
+    patch.approval_comment = comment || null;
     const { error } = await supabase.from("shifts").update(patch).eq("id", id);
     if (error) { toast.error("更新に失敗しました"); return; }
     toast.success(approval_status === "approved" ? "承認しました" : "却下しました");
-    setShifts(prev => prev.map(s => (s.id === id ? { ...s, approval_status, ...(room !== undefined ? { room } : {}) } : s)));
+    setShifts(prev => prev.map(s => (s.id === id ? { ...s, approval_status, approval_comment: comment || null, ...(room !== undefined ? { room } : {}) } : s)));
   };
 
   const assignRoom = async (id: string, room: string) => {
@@ -262,14 +272,17 @@ export default function MonthlyShift() {
                   </Select>
                   <div className="ml-auto flex gap-1.5">
                     <Button size="sm" className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
-                      onClick={() => updateStatus(s.id, "approved", s.room ?? ROOMS[0])}>
+                      onClick={() => { setPendingAction({id: s.id, status: "approved", room: s.room ?? ROOMS[0]}); setActionComment(""); }}>
                       承認
                     </Button>
                     <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-rose-600 border-rose-300 hover:bg-rose-50"
-                      onClick={() => updateStatus(s.id, "rejected")}>
+                      onClick={() => { setPendingAction({id: s.id, status: "rejected"}); setActionComment(""); }}>
                       却下
                     </Button>
                   </div>
+                  {s.approval_status === "rejected" && s.approval_comment && (
+                    <p className="text-xs text-rose-600 mt-0.5 w-full">{s.approval_comment}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -341,6 +354,9 @@ export default function MonthlyShift() {
                           onClick={e => { e.stopPropagation(); openEdit(s); }}
                           title="クリックで編集"
                         >
+                          {s.estama_registered && (
+                            <span className="absolute -top-0.5 -left-0.5 w-2 h-2 bg-red-500 rounded-full z-10" title="エスたま登録済み" />
+                          )}
                           {s.approval_status === "pending" && (
                             <span className="text-amber-600 shrink-0" title="承認待ち">●</span>
                           )}
@@ -432,6 +448,9 @@ export default function MonthlyShift() {
                               s.approval_status === "rejected" && "bg-rose-100 dark:bg-rose-900/20 line-through opacity-60",
                               s.approval_status === "approved" && "bg-primary/10"
                             )}>
+                              {s.estama_registered && (
+                                <span className="absolute -top-0.5 -left-0.5 w-2 h-2 bg-red-500 rounded-full z-10" title="エスたま登録済み" />
+                              )}
                               <div className={cn(
                                 "font-semibold leading-tight",
                                 s.approval_status === "rejected" ? "text-rose-600" : "text-primary"
@@ -503,6 +522,19 @@ export default function MonthlyShift() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label>エスたまに登録</Label>
+              <Select
+                value={form.estama_registered ? "registered" : "unregistered"}
+                onValueChange={v => setForm({ ...form, estama_registered: v === "registered" })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unregistered">未登録</SelectItem>
+                  <SelectItem value="registered">登録済み</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex gap-2 pt-2">
               <Button className="flex-1" onClick={handleSave} disabled={saving}>{saving ? "保存中..." : "保存"}</Button>
               {editingId && (
@@ -514,6 +546,37 @@ export default function MonthlyShift() {
                 </Button>
               )}
               <Button variant="outline" className="flex-1" onClick={() => { setShowDialog(false); setEditingId(null); }}>キャンセル</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!pendingAction} onOpenChange={o => { if (!o) setPendingAction(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{pendingAction?.status === "approved" ? "シフトを承認しますか？" : "シフトを却下しますか？"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <Textarea
+              placeholder="コメント（任意）"
+              value={actionComment}
+              onChange={e => setActionComment(e.target.value)}
+              rows={3}
+              className="text-sm"
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setPendingAction(null)}>キャンセル</Button>
+              <Button
+                className={`flex-1 ${pendingAction?.status === "approved" ? "bg-green-600 hover:bg-green-700" : "bg-rose-600 hover:bg-rose-700"}`}
+                onClick={() => {
+                  if (pendingAction) {
+                    updateStatus(pendingAction.id, pendingAction.status, pendingAction.room, actionComment);
+                    setPendingAction(null);
+                  }
+                }}
+              >
+                {pendingAction?.status === "approved" ? "承認する" : "却下する"}
+              </Button>
             </div>
           </div>
         </DialogContent>
