@@ -30,6 +30,8 @@ interface Cast {
   instagram_url: string | null;
 }
 
+const INTERNAL_TAGS = ["在籍", "出稼ぎ", "入店手続き待ち"];
+
 const Casts = () => {
   const [casts, setCasts] = useState<Cast[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,7 +143,7 @@ const Casts = () => {
                   <Link to={`/casts/${cast.id}`} className="block group">
                     <figure className="bg-white rounded overflow-hidden shadow hover:shadow-lg transition-shadow relative">
                       <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-                        {cast.tags?.map((tag, idx) => (
+                        {cast.tags?.filter(t => !INTERNAL_TAGS.includes(t)).map((tag, idx) => (
                           <span key={idx} className={`text-white text-xs font-bold px-2 py-1 rounded shadow-md ${tag === '人気セラピスト' ? 'bg-red-500' : tag === '新人' ? 'bg-pink-500' : 'bg-blue-500'}`}>{tag}</span>
                         ))}
                       </div>
