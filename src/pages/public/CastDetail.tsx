@@ -7,6 +7,7 @@ import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { ArrowLeft, Phone, Calendar, Star } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import { driveImgUrl } from "@/lib/drive";
+import { getPublicCastTags } from "@/lib/castTags";
 
 interface Cast {
   id: string;
@@ -237,9 +238,9 @@ const CastDetail = () => {
                   <span className="text-7xl font-bold text-white/60">{cast.name.charAt(0)}</span>
                 </div>
               )}
-              {cast.tags && cast.tags.length > 0 && (
+              {getPublicCastTags(cast.tags).length > 0 && (
                 <div className="absolute top-3 left-3 flex flex-col gap-1">
-                  {cast.tags.map((tag, i) => (
+                  {getPublicCastTags(cast.tags).map((tag, i) => (
                     <span key={i} className="text-white text-xs font-bold px-2 py-0.5 rounded shadow"
                       style={{ background: tag === "人気セラピスト" ? "#ef4444" : tag === "新人" ? "#ec4899" : "#3b82f6" }}>
                       {tag}

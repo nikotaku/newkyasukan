@@ -6,6 +6,7 @@ import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { driveImgUrl } from "@/lib/drive";
+import { getPublicCastTags } from "@/lib/castTags";
 
 interface Cast {
   id: string;
@@ -141,7 +142,7 @@ const Casts = () => {
                   <Link to={`/casts/${cast.id}`} className="block group">
                     <figure className="bg-white rounded overflow-hidden shadow hover:shadow-lg transition-shadow relative">
                       <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-                        {cast.tags?.map((tag, idx) => (
+                        {getPublicCastTags(cast.tags).map((tag, idx) => (
                           <span key={idx} className={`text-white text-xs font-bold px-2 py-1 rounded shadow-md ${tag === '人気セラピスト' ? 'bg-red-500' : tag === '新人' ? 'bg-pink-500' : 'bg-blue-500'}`}>{tag}</span>
                         ))}
                       </div>
