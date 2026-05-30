@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Pencil, Check, X, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, ChevronUp, ChevronDown, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface OptionRate {
@@ -18,6 +18,7 @@ interface OptionRate {
   therapist_back?: number;
   extension_minutes?: number;
   display_order?: number;
+  is_visible: boolean;
 }
 
 export default function SystemOptions() {
@@ -135,6 +136,20 @@ export default function SystemOptions() {
     } catch (error) {
       console.error("Error deleting option:", error);
       toast.error("削除に失敗しました");
+    }
+  };
+
+  const handleToggleVisible = async (opt: OptionRate) => {
+    try {
+      const { error } = await supabase
+        .from("option_rates")
+        .update({ is_visible: !opt.is_visible })
+        .eq("id", opt.id);
+      if (error) throw error;
+      setOptions(options.map((o) => o.id === opt.id ? { ...o, is_visible: !opt.is_visible } : o));
+    } catch (error) {
+      console.error("Error toggling visibility:", error);
+      toast.error("更新に失敗しました");
     }
   };
 
@@ -325,8 +340,12 @@ export default function SystemOptions() {
                             </button>
                           </div>
                           <div className="flex gap-6 text-sm">
-                            <span className="font-semibold">{opt.option_name}</span>
-                            <span>¥{opt.customer_price.toLocaleString()}</span>
+                            <span className={`font-semibold ${!opt.is_visible ? "text-muted-foreground line-through" : ""}`}>
+                              {opt.option_name}
+                            </span>
+                            <span className={!opt.is_visible ? "text-muted-foreground" : ""}>
+                              ¥{opt.customer_price.toLocaleString()}
+                            </span>
                             {opt.therapist_back !== undefined && opt.therapist_back > 0 && (
                               <span className="text-muted-foreground">
                                 バック ¥{opt.therapist_back.toLocaleString()}
@@ -337,9 +356,20 @@ export default function SystemOptions() {
                                 延長 {opt.extension_minutes}分
                               </span>
                             )}
+                            {!opt.is_visible && (
+                              <span className="text-xs text-muted-foreground">(非表示)</span>
+                            )}
                           </div>
                         </div>
                         <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleToggleVisible(opt)}
+                            title={opt.is_visible ? "フロントに表示中（クリックで非表示）" : "非表示（クリックで表示）"}
+                          >
+                            {opt.is_visible ? <Eye size={14} className="text-green-500" /> : <EyeOff size={14} className="text-muted-foreground" />}
+                          </Button>
                           <Button size="sm" variant="ghost" onClick={() => startEdit(opt)}>
                             <Pencil size={14} />
                           </Button>

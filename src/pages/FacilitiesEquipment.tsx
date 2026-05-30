@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Pencil, X } from "lucide-react";
+import { Plus, Trash2, Pencil, X, ImagePlus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface EquipmentItem {
@@ -20,6 +20,7 @@ interface EquipmentItem {
   unit: string | null;
   notes: string | null;
   custom_fields: Record<string, string> | null;
+  manual_images: string[];
 }
 
 interface CustomField {
@@ -33,7 +34,7 @@ const ITEM_TYPES = [
   { key: "furniture", label: "家具家電" },
 ];
 
-const emptyForm = () => ({ name: "", quantity: 1, unit: "個", notes: "", customFields: [] as CustomField[] });
+const emptyForm = () => ({ name: "", quantity: 1, unit: "個", notes: "", customFields: [] as CustomField[], manualImages: [] as string[] });
 
 export default function FacilitiesEquipment() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -42,6 +43,7 @@ export default function FacilitiesEquipment() {
   const [formType, setFormType] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [formData, setFormData] = useState(emptyForm());
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get("type") || "consumables";
@@ -84,6 +86,7 @@ export default function FacilitiesEquipment() {
       unit: item.unit || "個",
       notes: item.notes || "",
       customFields: Object.entries(item.custom_fields || {}).map(([key, value]) => ({ key, value: String(value) })),
+      manualImages: item.manual_images || [],
     });
     setFormType(item.item_type);
   };
@@ -95,6 +98,25 @@ export default function FacilitiesEquipment() {
     setFormData((f) => ({ ...f, customFields: f.customFields.map((p, idx) => (idx === i ? { ...p, [field]: val } : p)) }));
   const removeProperty = (i: number) =>
     setFormData((f) => ({ ...f, customFields: f.customFields.filter((_, idx) => idx !== i) }));
+
+  const handleManualImageUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadingImages(true);
+    const uploaded: string[] = [];
+    for (const file of Array.from(files)) {
+      const ext = file.name.split(".").pop();
+      const path = `equipment/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await supabase.storage.from("facility-manuals").upload(path, file);
+      if (error) { toast.error(`アップロード失敗: ${file.name}`); continue; }
+      const { data: { publicUrl } } = supabase.storage.from("facility-manuals").getPublicUrl(path);
+      uploaded.push(publicUrl);
+    }
+    setFormData((f) => ({ ...f, manualImages: [...f.manualImages, ...uploaded] }));
+    setUploadingImages(false);
+  };
+
+  const removeManualImage = (url: string) =>
+    setFormData((f) => ({ ...f, manualImages: f.manualImages.filter((u) => u !== url) }));
 
   const handleSave = async (itemType: string) => {
     if (!formData.name.trim()) { toast.error("名称を入力してください"); return; }
@@ -109,6 +131,7 @@ export default function FacilitiesEquipment() {
       unit: formData.unit || null,
       notes: formData.notes || null,
       custom_fields,
+      manual_images: formData.manualImages,
     };
     const { error } = editingId
       ? await supabase.from("facility_equipment").update(payload).eq("id", editingId)
@@ -165,8 +188,45 @@ export default function FacilitiesEquipment() {
           ))}
         </div>
 
+        {/* マニュアル画像 */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>使い方マニュアル画像</Label>
+            <label className="cursor-pointer">
+              <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border rounded-md bg-background hover:bg-muted transition-colors">
+                {uploadingImages ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}
+                {uploadingImages ? "アップロード中..." : "画像を追加"}
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                disabled={uploadingImages}
+                onChange={(e) => handleManualImageUpload(e.target.files)}
+              />
+            </label>
+          </div>
+          {formData.manualImages.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {formData.manualImages.map((url) => (
+                <div key={url} className="relative group">
+                  <img src={url} alt="マニュアル" className="w-24 h-24 object-cover rounded border" />
+                  <button
+                    type="button"
+                    onClick={() => removeManualImage(url)}
+                    className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-2 pt-1">
-          <Button onClick={() => handleSave(itemType)} disabled={saving}>{saving ? "保存中..." : editingId ? "更新" : "追加"}</Button>
+          <Button onClick={() => handleSave(itemType)} disabled={saving || uploadingImages}>{saving ? "保存中..." : editingId ? "更新" : "追加"}</Button>
           <Button variant="outline" onClick={closeForm}>キャンセル</Button>
         </div>
       </CardContent>
@@ -226,6 +286,15 @@ export default function FacilitiesEquipment() {
                                       <span key={k} className="text-xs text-muted-foreground">
                                         <span className="font-medium">{k}:</span> {String(v)}
                                       </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {item.manual_images && item.manual_images.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {item.manual_images.map((url) => (
+                                      <a key={url} href={url} target="_blank" rel="noopener noreferrer">
+                                        <img src={url} alt="マニュアル" className="w-16 h-16 object-cover rounded border hover:opacity-80 transition-opacity" />
+                                      </a>
                                     ))}
                                   </div>
                                 )}
