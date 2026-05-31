@@ -299,9 +299,9 @@ const Schedule = () => {
                       {shift.casts.cup_size && ` (${shift.casts.cup_size})`}
                     </p>
 
-                    {shift.casts.tags && shift.casts.tags.length > 0 && (
+                    {shift.casts.tags && shift.casts.tags.filter(t => !["在籍","出稼ぎ","入店手続き待ち"].includes(t)).length > 0 && (
                       <div className="flex flex-wrap justify-center gap-1">
-                        {shift.casts.tags.slice(0, 4).map((t) => (
+                        {shift.casts.tags.filter(t => !["在籍","出稼ぎ","入店手続き待ち"].includes(t)).slice(0, 4).map((t) => (
                           <span
                             key={t}
                             className="text-[9px] px-1.5 py-0.5 border border-[#c49480]/50 text-[#7a706c] rounded bg-[#fdf6f1]"
