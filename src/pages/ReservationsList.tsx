@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { postToSheet } from "@/lib/sheetWebhook";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Search, FileUp, Table2, Plus } from "lucide-react";
+import { Search, FileUp, Table2, Plus, Pencil } from "lucide-react";
 import { ImportModal } from "@/components/ImportModal";
 import { GoogleSheetPanel } from "@/components/GoogleSheetPanel";
 import { mapReservationRows, batchInsert } from "@/lib/importMappers";
@@ -29,13 +29,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Reservation {
   id: string;
+  cast_id: string | null;
   customer_name: string;
   customer_phone: string;
+  customer_email: string | null;
   reservation_date: string;
   start_time: string;
   duration: number;
+  course_type: string | null;
   course_name: string;
+  options: string[] | null;
+  nomination_type: string | null;
   price: number;
+  discount: number | null;
+  discount_ids: string[] | null;
+  payment_method: string | null;
+  payment_fee: number | null;
+  reservation_method: string | null;
+  notes: string | null;
+  room: string | null;
   status: string;
   casts: { name: string } | null;
 }
@@ -77,6 +89,30 @@ export default function ReservationsList() {
   const [nominationRates, setNominationRates] = useState<NominationRate[]>([]);
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    cast_id: "",
+    customer_name: "",
+    customer_phone: "",
+    customer_email: "",
+    nomination_type: "none",
+    reservation_date: new Date(),
+    start_time: "14:00",
+    end_time: "15:00",
+    duration: 80,
+    room: "",
+    course_type: "アロマオイル",
+    course_name: "アロマオイル 80分",
+    selectedOptions: [] as string[],
+    discount_ids: [] as string[],
+    discount: 0,
+    price: 12000,
+    payment_method: "cash",
+    payment_fee: 0,
+    reservation_method: "",
+    notes: "",
+  });
   const [formData, setFormData] = useState({
     cast_id: "",
     customer_name: "",
@@ -200,6 +236,71 @@ export default function ReservationsList() {
     } catch (error) {
       console.error("Error adding reservation:", error);
       toast({ title: "エラー", description: "予約の追加に失敗しました", variant: "destructive" });
+    }
+  };
+
+  const openEditSheet = (res: Reservation) => {
+    setEditingReservation(res);
+    const [h, m] = res.start_time.slice(0, 5).split(":").map(Number);
+    const endMin = (h < 6 ? h + 24 : h) * 60 + m + res.duration;
+    const eh = Math.floor(endMin / 60) % 24;
+    const em = endMin % 60;
+    setEditFormData({
+      cast_id: res.cast_id || "",
+      customer_name: res.customer_name,
+      customer_phone: res.customer_phone,
+      customer_email: res.customer_email || "",
+      nomination_type: res.nomination_type || "none",
+      reservation_date: new Date(`${res.reservation_date}T00:00:00`),
+      start_time: res.start_time.slice(0, 5),
+      end_time: `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`,
+      duration: res.duration,
+      room: res.room || "",
+      course_type: res.course_type || "アロマオイル",
+      course_name: res.course_name,
+      selectedOptions: res.options || [],
+      discount_ids: res.discount_ids || [],
+      discount: res.discount || 0,
+      price: res.price,
+      payment_method: res.payment_method || "cash",
+      payment_fee: res.payment_fee || 0,
+      reservation_method: res.reservation_method || "",
+      notes: res.notes || "",
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleUpdateReservation = async () => {
+    if (!editingReservation) return;
+    try {
+      const { error } = await supabase.from("reservations").update({
+        cast_id: editFormData.cast_id || null,
+        customer_name: editFormData.customer_name,
+        customer_phone: editFormData.customer_phone,
+        customer_email: editFormData.customer_email || null,
+        reservation_date: format(editFormData.reservation_date, "yyyy-MM-dd"),
+        start_time: editFormData.start_time,
+        duration: editFormData.duration,
+        course_type: editFormData.course_type,
+        course_name: editFormData.course_name,
+        options: editFormData.selectedOptions,
+        nomination_type: editFormData.nomination_type === "none" ? null : editFormData.nomination_type,
+        price: editFormData.price,
+        discount: editFormData.discount,
+        discount_ids: editFormData.discount_ids,
+        payment_method: editFormData.payment_method || null,
+        payment_fee: editFormData.payment_fee || 0,
+        reservation_method: editFormData.reservation_method || null,
+        notes: editFormData.notes || null,
+        room: editFormData.room || null,
+      }).eq("id", editingReservation.id);
+      if (error) throw error;
+      toast({ title: "更新完了", description: "予約情報を更新しました" });
+      setIsEditOpen(false);
+      fetchReservations();
+    } catch (error) {
+      console.error("Error updating reservation:", error);
+      toast({ title: "エラー", description: "予約の更新に失敗しました", variant: "destructive" });
     }
   };
 
@@ -354,6 +455,7 @@ export default function ReservationsList() {
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">コース</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">料金</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">ステータス</th>
+                      <th className="px-4 py-3"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -375,6 +477,16 @@ export default function ReservationsList() {
                             {STATUS_LABELS[res.status] ?? res.status}
                           </span>
                         </td>
+                        <td className="px-4 py-3">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => openEditSheet(res)}
+                          >
+                            <Pencil size={14} />
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -386,6 +498,27 @@ export default function ReservationsList() {
           </Tabs>
         </div>
       </main>
+      <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>予約情報を編集</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            <ReservationForm
+              formData={editFormData}
+              setFormData={setEditFormData}
+              casts={casts}
+              rooms={rooms}
+              backRates={backRates}
+              optionRates={optionRates}
+              nominationRates={nominationRates}
+              discounts={discounts}
+              onSubmit={handleUpdateReservation}
+              submitLabel="更新する"
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
       <ImportModal
         open={isImportOpen}
         onClose={() => setIsImportOpen(false)}
