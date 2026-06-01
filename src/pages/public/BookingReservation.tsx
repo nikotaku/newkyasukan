@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { User, Copy, Check, Zap, Users, LayoutGrid } from "lucide-react";
@@ -102,7 +102,21 @@ const BookingReservation = () => {
   const [copied, setCopied] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(1);
   
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [searchParams] = useSearchParams();
+  // Schedule などから渡される ?date=YYYY-MM-DD を初期日付に反映（無ければ今日）
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const d = searchParams.get("date");
+    if (d) {
+      const parsed = new Date(`${d}T00:00:00`);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    return new Date();
+  });
+  // ?castId / ?time はキャスト一覧の取得完了後に適用する（日付変更でリセットされるため）
+  const pendingParams = useRef<{ castId: string | null; time: string | null }>({
+    castId: searchParams.get("castId"),
+    time: searchParams.get("time"),
+  });
   const [selectedCastId, setSelectedCastId] = useState<string>("");
   const [courseType, setCourseType] = useState<string>("アロマオイル");
   const [startTime, setStartTime] = useState<string>("");
@@ -167,6 +181,17 @@ const BookingReservation = () => {
       setSelectedCastId(""); // 日付変更時にセラピスト選択をリセット
     }
   }, [selectedDate]);
+
+  // URL の castId / time を、その日のキャスト一覧が揃ったタイミングで一度だけ適用
+  useEffect(() => {
+    const { castId, time } = pendingParams.current;
+    if (castId && casts.some((c) => c.id === castId)) {
+      setSelectedCastId(castId);
+      if (time) setStartTime(time);
+      setCurrentStep(2);
+      pendingParams.current = { castId: null, time: null };
+    }
+  }, [casts]);
 
   // Fetch shifts and reservations when date or cast changes
   useEffect(() => {
