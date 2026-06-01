@@ -91,7 +91,8 @@ export const DailyReservationTimeline = () => {
 
   const getTimePosition = (time: string) => {
     const [hours, minutes] = time.split(":").map(Number);
-    const totalMinutes = hours * 60 + minutes;
+    // 深夜またぎ（06:00 未満）は翌日扱いで +24h
+    const totalMinutes = (hours < 6 ? hours + 24 : hours) * 60 + minutes;
     const startMinutes = TIME_START * 60;
     const endMinutes = TIME_END * 60;
     return ((totalMinutes - startMinutes) / (endMinutes - startMinutes)) * 100;
