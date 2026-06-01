@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { toExtTime } from "@/lib/timeFormat";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -565,7 +566,7 @@ export default function TherapistCheckout() {
                               <div className="flex items-center gap-3 p-3">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-xs text-muted-foreground w-10 shrink-0">{r.start_time?.slice(0, 5)}</span>
+                                    <span className="text-xs text-muted-foreground w-12 shrink-0">{r.start_time ? toExtTime(r.start_time) : ""}</span>
                                     <span className="font-semibold text-sm truncate">{r.customer_name}</span>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-0.5 ml-12 truncate">{r.course_name}</p>

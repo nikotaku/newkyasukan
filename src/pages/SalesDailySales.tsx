@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, addDays, isToday } from "date-fns";
+import { toExtTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, CheckCircle, Loader2, CreditCard } from "lucide-react";
 import { toast } from "sonner";
@@ -81,12 +82,21 @@ export default function SalesDailySales() {
   const fetchDay = useCallback(async () => {
     setLoading(true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
+    const nextDateStr = format(addDays(selectedDate, 1), "yyyy-MM-dd");
     try {
-      const [resResult, backRatesResult, optionRatesResult, clearResult] = await Promise.all([
+      const [resResult, nextResResult, backRatesResult, optionRatesResult, clearResult] = await Promise.all([
         supabase
           .from("reservations")
           .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, casts(id, name)")
           .eq("reservation_date", dateStr)
+          .in("status", ["confirmed", "completed"])
+          .order("start_time"),
+        // 深夜またぎ分：翌日日付で保存されているが 06:00 未満の予約も当日扱い
+        supabase
+          .from("reservations")
+          .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, casts(id, name)")
+          .eq("reservation_date", nextDateStr)
+          .lt("start_time", "06:00:00")
           .in("status", ["confirmed", "completed"])
           .order("start_time"),
         supabase.from("back_rates").select("course_type, duration, therapist_back"),
@@ -106,8 +116,20 @@ export default function SalesDailySales() {
         optMap[or.option_name] = or.therapist_back ?? 0;
       }
 
+      // 当日 + 翌日早朝（深夜またぎ）を結合し start_time 昇順にソート
+      const allRes = [
+        ...((resResult.data as Reservation[]) || []),
+        ...((nextResResult.data as Reservation[]) || []),
+      ].sort((a, b) => {
+        const toMin = (t: string) => {
+          const [h, m] = t.slice(0, 5).split(":").map(Number);
+          return (h < 6 ? h + 24 : h) * 60 + m;
+        };
+        return toMin(a.start_time) - toMin(b.start_time);
+      });
+
       const groups: Record<string, CastGroup> = {};
-      for (const r of (resResult.data as Reservation[]) || []) {
+      for (const r of allRes) {
         if (!r.cast_id) continue;
         const castId = r.cast_id;
         const castName = r.casts?.name ?? "未設定";
@@ -339,7 +361,7 @@ export default function SalesDailySales() {
                         {g.reservations.map((r) => (
                           <div key={r.id} className="flex items-center justify-between px-3 py-2">
                             <div className="flex items-center gap-3">
-                              <span className="font-medium tabular-nums text-xs w-10">{r.start_time.slice(11, 16)}</span>
+                              <span className="font-medium tabular-nums text-xs w-12">{toExtTime(r.start_time)}</span>
                               <span>{r.customer_name}</span>
                               <span className="text-muted-foreground text-xs">{r.course_name}</span>
                             </div>

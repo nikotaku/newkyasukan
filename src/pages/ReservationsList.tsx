@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toExtTime } from "@/lib/timeFormat";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -362,7 +363,7 @@ export default function ReservationsList() {
                           {format(new Date(res.reservation_date), "yyyy/MM/dd", { locale: ja })}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          {res.start_time.slice(0, 5)}<span className="text-muted-foreground ml-1">({res.duration}分)</span>
+                          {toExtTime(res.start_time)}<span className="text-muted-foreground ml-1">({res.duration}分)</span>
                         </td>
                         <td className="px-4 py-3 font-medium whitespace-nowrap">{res.customer_name}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">{res.customer_phone}</td>

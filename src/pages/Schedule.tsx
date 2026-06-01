@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { format, addDays, subDays, addMonths, subMonths, parse, addMinutes, startOfMonth, endOfMonth, startOfWeek, eachDayOfInterval } from "date-fns";
+import { toExtTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Copy } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
@@ -125,7 +126,7 @@ function StatusBox({
             <div key={res.id} className="bg-gray-50 rounded-md p-2 text-xs border border-gray-100">
               <div className="font-semibold mb-0.5">{res.customer_name}</div>
               <div className="text-muted-foreground space-y-0.5">
-                <div>{res.start_time.slice(0, 5)}（{res.duration}分）</div>
+                <div>{toExtTime(res.start_time)}（{res.duration}分）</div>
                 <div>{castNameMap.get(res.cast_id) ?? "未設定"} / {res.course_name}</div>
                 <div>{res.customer_phone}</div>
               </div>
@@ -652,7 +653,7 @@ export default function Schedule() {
                                     }}
                                   >
                                     <div className="text-[10px] font-bold leading-tight">
-                                      {res.start_time.slice(0, 5)}~{endTime}
+                                      {toExtTime(res.start_time)}~{endTime}
                                     </div>
                                     <div className="text-xs font-semibold truncate leading-tight">
                                       {res.customer_name}
@@ -756,7 +757,7 @@ export default function Schedule() {
                     <div className="grid grid-cols-2 gap-y-2 text-sm">
                       <span className="text-muted-foreground">日時</span>
                       <span className="font-medium">
-                        {format(new Date(detailRes.reservation_date), "M月d日", { locale: ja })} {detailRes.start_time.slice(0, 5)} ({detailRes.duration}分)
+                        {format(new Date(detailRes.reservation_date), "M月d日", { locale: ja })} {toExtTime(detailRes.start_time)} ({detailRes.duration}分)
                       </span>
                       <span className="text-muted-foreground">顧客名</span>
                       <span className="font-medium">{detailRes.customer_name}</span>
@@ -846,7 +847,7 @@ export default function Schedule() {
                           `ご予約ありがとうございます。`,
                           ``,
                           `[予約情報]`,
-                          `予約日時：${dateStr} ${d.start_time.slice(0, 5)}`,
+                          `予約日時：${dateStr} ${toExtTime(d.start_time)}`,
                           `コース：${d.course_name}`,
                           (d.options ?? []).length > 0 ? `オプション：${(d.options ?? []).join("、")}` : null,
                           `セラピスト：${therapist}`,
