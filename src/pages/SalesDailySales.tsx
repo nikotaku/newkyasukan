@@ -178,10 +178,12 @@ export default function SalesDailySales() {
       if (error) throw error;
 
       if (!clearances[group.castId]) {
-        await supabase.rpc("increment_cast_points" as any, {
+        // ポイント加算（RPC が無い/失敗してもエラーで止めない）
+        const { error: ptErr } = await supabase.rpc("increment_cast_points" as any, {
           p_cast_id: group.castId,
           p_points: 0.5,
-        }).catch(() => {});
+        });
+        if (ptErr) console.warn("ポイント加算に失敗:", ptErr.message);
       }
 
       toast.success(`${group.castName} の清算が完了しました`);
