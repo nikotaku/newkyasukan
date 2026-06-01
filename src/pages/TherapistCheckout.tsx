@@ -844,19 +844,13 @@ export default function TherapistCheckout() {
                     {cardTotal > 0 && (
                       <div className="space-y-0.5">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">カード（請求額）</span>
-                          <span className="font-semibold">¥{cardTotal.toLocaleString()}</span>
+                          <span className="text-muted-foreground">カード</span>
+                          <span className="font-semibold">¥{(cardTotal + cardFeeTotal).toLocaleString()}</span>
                         </div>
                         {cardFeeTotal > 0 && (
                           <div className="flex justify-between text-xs text-muted-foreground pl-2">
-                            <span>手数料</span>
-                            <span>-¥{cardFeeTotal.toLocaleString()}</span>
-                          </div>
-                        )}
-                        {cardFeeTotal > 0 && (
-                          <div className="flex justify-between text-xs pl-2">
-                            <span className="text-muted-foreground">実受取</span>
-                            <span className="font-medium">¥{(cardTotal - cardFeeTotal).toLocaleString()}</span>
+                            <span>内決済手数料</span>
+                            <span>¥{cardFeeTotal.toLocaleString()}</span>
                           </div>
                         )}
                       </div>
@@ -864,19 +858,13 @@ export default function TherapistCheckout() {
                     {paypayTotal > 0 && (
                       <div className="space-y-0.5">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">PayPay（請求額）</span>
-                          <span className="font-semibold">¥{paypayTotal.toLocaleString()}</span>
+                          <span className="text-muted-foreground">PayPay</span>
+                          <span className="font-semibold">¥{(paypayTotal + paypayFeeTotal).toLocaleString()}</span>
                         </div>
                         {paypayFeeTotal > 0 && (
                           <div className="flex justify-between text-xs text-muted-foreground pl-2">
-                            <span>手数料</span>
-                            <span>-¥{paypayFeeTotal.toLocaleString()}</span>
-                          </div>
-                        )}
-                        {paypayFeeTotal > 0 && (
-                          <div className="flex justify-between text-xs pl-2">
-                            <span className="text-muted-foreground">実受取</span>
-                            <span className="font-medium">¥{(paypayTotal - paypayFeeTotal).toLocaleString()}</span>
+                            <span>内決済手数料</span>
+                            <span>¥{paypayFeeTotal.toLocaleString()}</span>
                           </div>
                         )}
                       </div>
