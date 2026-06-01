@@ -214,7 +214,7 @@ export default function Schedule() {
   });
 
   const [casts, setCasts] = useState<{ id: string; name: string }[]>([]);
-  const [rooms, setRooms] = useState<{ id: string; name: string; address: string | null }[]>([]);
+  const [rooms, setRooms] = useState<{ id: string; name: string; address: string | null; sms_text: string | null }[]>([]);
   const [backRates, setBackRates] = useState<any[]>([]);
   const [optionRates, setOptionRates] = useState<any[]>([]);
   const [nominationRates, setNominationRates] = useState<any[]>([]);
@@ -235,7 +235,7 @@ export default function Schedule() {
   const fetchFormData = async () => {
     const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }, { data: p }] = await Promise.all([
       supabase.from("casts").select("id, name").order("name"),
-      supabase.from("rooms").select("id, name, address").eq("is_active", true).order("name"),
+      supabase.from("rooms").select("id, name, address, sms_text").eq("is_active", true).order("name"),
       supabase.from("back_rates").select("*").order("display_order"),
       supabase.from("option_rates").select("*").order("display_order"),
       supabase.from("nomination_rates").select("*"),
@@ -824,6 +824,8 @@ export default function Schedule() {
                         const grandTotal = d.price + fee;
                         const paySetting = findPaymentSetting(paymentSettings, d.payment_method || "");
                         const payLink = fee > 0 && paySetting?.payment_link ? paySetting.payment_link : null;
+                        const roomRecord = rooms.find((r) => r.name === d.room);
+                        const roomSmsText = roomRecord?.sms_text ?? null;
                         const text = [
                           `${d.customer_name} 様`,
                           `ご予約ありがとうございます。`,
@@ -843,25 +845,7 @@ export default function Schedule() {
                           `決済手数料：${fee.toLocaleString()}円`,
                           `総額：${grandTotal.toLocaleString()}円`,
                           ...(payLink ? [``, `▼${paySetting?.payment_method ?? "カード"}決済はこちら`, payLink] : []),
-                          ``,
-                          `【住所】`,
-                          `仙台市 青葉区 春日町11-12`,
-                          `L'AZURE SENDAI(ラジュール仙台) 1107号室`,
-                          `※11階にお部屋がございます。1階とお間違い無いようにご注意ください。`,
-                          ``,
-                          `▼Googleマップ`,
-                          `https://x.gd/gQgmq`,
-                          ``,
-                          `【注意事項】`,
-                          `※必ずお読みください`,
-                          ``,
-                          `◆お時間"丁度"にインターホンを押してください。防犯上、予約時間以外のインターホンには応答しません。`,
-                          ``,
-                          `◇予約変更・キャンセルの場合は必ず`,
-                          `【TEL】090-8126-4042`,
-                          `まで"お電話"`,
-                          `にてご連絡お願い致します。`,
-                          `※メッセージでのキャンセル不可`,
+                          roomSmsText ? `\n${roomSmsText}` : null,
                         ].filter((l) => l !== null).join("\n");
                         navigator.clipboard.writeText(text);
                         toast({ title: "SMSをコピーしました" });
