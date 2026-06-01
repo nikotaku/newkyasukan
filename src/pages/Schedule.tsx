@@ -826,6 +826,21 @@ export default function Schedule() {
                         const payLink = fee > 0 && paySetting?.payment_link ? paySetting.payment_link : null;
                         const roomRecord = rooms.find((r) => r.name === d.room);
                         const roomSmsText = roomRecord?.sms_text ?? null;
+
+                        // 料金内訳を再構成（d.price はコース＋オプション＋指名料−割引の合計）
+                        const backRate = backRates.find(
+                          (r) => r.course_type === d.course_type && r.duration === d.duration
+                        );
+                        const coursePrice = backRate?.customer_price ?? 0;
+                        const optionsTotal = (d.options ?? []).reduce((sum, optName) => {
+                          const opt = optionRates.find((r) => r.option_name === optName);
+                          return sum + (opt?.customer_price ?? 0);
+                        }, 0);
+                        const nominationFee = d.nomination_type && d.nomination_type !== "none"
+                          ? (nominationRates.find((r) => r.nomination_type === d.nomination_type)?.customer_price ?? 0)
+                          : 0;
+                        const discountAmount = d.discount ?? 0;
+
                         const text = [
                           `${d.customer_name} 様`,
                           `ご予約ありがとうございます。`,
@@ -840,8 +855,10 @@ export default function Schedule() {
                           `ご要望など：${d.notes ?? ""}`,
                           ``,
                           `[料金]`,
-                          `コース料金：${d.price.toLocaleString()}円`,
-                          `指名料：0円`,
+                          `コース料金：${coursePrice.toLocaleString()}円`,
+                          optionsTotal > 0 ? `オプション料金：${optionsTotal.toLocaleString()}円` : null,
+                          `指名料：${nominationFee.toLocaleString()}円`,
+                          discountAmount > 0 ? `割引：-${discountAmount.toLocaleString()}円` : null,
                           `決済手数料：${fee.toLocaleString()}円`,
                           `総額：${grandTotal.toLocaleString()}円`,
                           ...(payLink ? [``, `▼${paySetting?.payment_method ?? "カード"}決済はこちら`, payLink] : []),
