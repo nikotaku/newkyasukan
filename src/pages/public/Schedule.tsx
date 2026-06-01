@@ -113,17 +113,24 @@ const Schedule = () => {
     const [sh, sm] = shift.start_time.split(":").map(Number);
     const [eh, em] = shift.end_time.split(":").map(Number);
     let cursor = sh * 60 + sm;
-    const end = eh * 60 + em;
+    const startMin = sh * 60 + sm;
+    const endRaw = eh * 60 + em;
+    // overnight shift: end time is next day (e.g. 13:00〜01:00)
+    const end = endRaw <= startMin ? endRaw + 24 * 60 : endRaw;
     if (isToday) {
       const cur = now.getHours() * 60 + now.getMinutes();
-      if (cur > cursor) cursor = Math.ceil(cur / 30) * 30;
+      // also handle overnight: if current time is past midnight, add 24h offset
+      const curAdj = cur < startMin ? cur + 24 * 60 : cur;
+      if (curAdj > cursor) cursor = Math.ceil(curAdj / 30) * 30;
     }
     // skip over reserved blocks (60m + 30m buffer)
     const reserved = reservations
       .filter((r) => r.cast_id === shift.cast_id)
       .map((r) => {
         const [h, m] = r.start_time.split(":").map(Number);
-        const start = h * 60 + m;
+        const rawStart = h * 60 + m;
+        // if reservation start is before shift start, it's past midnight → add 24h
+        const start = rawStart < startMin ? rawStart + 24 * 60 : rawStart;
         return { start, end: start + r.duration + 30 };
       });
     while (cursor + 60 <= end) {
@@ -131,8 +138,9 @@ const Schedule = () => {
         (b) => cursor < b.end && cursor + 60 > b.start
       );
       if (!conflict) {
-        const hh = String(Math.floor(cursor / 60)).padStart(2, "0");
-        const mm = String(cursor % 60).padStart(2, "0");
+        const totalMin = cursor % (24 * 60);
+        const hh = String(Math.floor(totalMin / 60)).padStart(2, "0");
+        const mm = String(totalMin % 60).padStart(2, "0");
         return `${hh}:${mm}`;
       }
       cursor = conflict.end;
