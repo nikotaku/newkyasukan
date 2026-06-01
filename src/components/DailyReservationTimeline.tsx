@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { format, addDays, parse } from "date-fns";
+import { format, addDays } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Card } from "@/components/ui/card";
+import { toExtTime } from "@/lib/timeFormat";
 
 interface Cast {
   id: string;
@@ -124,17 +125,21 @@ export const DailyReservationTimeline = () => {
                 </div>
                 <div className="relative" style={{ height: "800px" }}>
                   {/* Time grid lines */}
-                  {Array.from({ length: TIME_END - TIME_START + 1 }, (_, i) => (
-                    <div
-                      key={i}
-                      className="absolute w-full border-t border-border/30"
-                      style={{ top: `${(i / (TIME_END - TIME_START)) * 100}%` }}
-                    >
-                      <span className="text-xs text-muted-foreground ml-1">
-                        {TIME_START + i}:00
-                      </span>
-                    </div>
-                  ))}
+                  {Array.from({ length: TIME_END - TIME_START + 1 }, (_, i) => {
+                    const h = TIME_START + i;
+                    const label = h >= 24 ? `${h - 24}:00` : `${h}:00`;
+                    return (
+                      <div
+                        key={i}
+                        className="absolute w-full border-t border-border/30"
+                        style={{ top: `${(i / (TIME_END - TIME_START)) * 100}%` }}
+                      >
+                        <span className="text-xs text-muted-foreground ml-1">
+                          {label}
+                        </span>
+                      </div>
+                    );
+                  })}
 
                   {/* Shifts and Reservations */}
                   {roomShifts.map((shift) => {
@@ -201,14 +206,15 @@ export const DailyReservationTimeline = () => {
                                 }}
                               >
                                 <div className="font-semibold">
-                                  {reservation.start_time.slice(0, 5)}~
-                                  {format(
-                                    addDays(
-                                      parse(reservation.start_time, "HH:mm:ss", new Date()),
-                                      0
-                                    ).getTime() + reservation.duration * 60000,
-                                    "HH:mm"
-                                  )}
+                                  {(() => {
+                                    const [h, m] = reservation.start_time.slice(0, 5).split(":").map(Number);
+                                    const startMin = (h < 6 ? h + 24 : h) * 60 + m;
+                                    const endMin = startMin + reservation.duration;
+                                    const eh = Math.floor(endMin / 60);
+                                    const em = endMin % 60;
+                                    const endLabel = `${eh >= 24 ? eh - 24 : eh}:${String(em).padStart(2, "0")}`;
+                                    return `${toExtTime(reservation.start_time)}~${endLabel}`;
+                                  })()}
                                 </div>
                                 <div className="font-medium">{reservation.customer_name}</div>
                                 <div>{reservation.duration}分</div>
