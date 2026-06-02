@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { format, addDays } from "date-fns";
+import { format, addDays, subDays } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Card } from "@/components/ui/card";
 import { toExtTime } from "@/lib/timeFormat";
@@ -51,7 +51,9 @@ export const DailyReservationTimeline = () => {
   }, []);
 
   const fetchData = async () => {
-    const today = new Date();
+    const now = new Date();
+    // Before 6 AM is still the previous business night
+    const today = now.getHours() < 6 ? subDays(now, 1) : now;
     const tomorrow = addDays(today, 1);
 
     const todayStr = format(today, "yyyy-MM-dd");
@@ -74,8 +76,14 @@ export const DailyReservationTimeline = () => {
 
     const todayShifts = shiftsData?.filter(s => s.shift_date === todayStr) || [];
     const tomorrowShifts = shiftsData?.filter(s => s.shift_date === tomorrowStr) || [];
-    const todayReservations = reservationsData?.filter(r => r.reservation_date === todayStr) || [];
-    const tomorrowReservations = reservationsData?.filter(r => r.reservation_date === tomorrowStr) || [];
+    // 深夜またぎ：翌日日付で保存されている 06:00 未満の予約は当日扱い
+    const todayReservations = (reservationsData || []).filter(
+      r => r.reservation_date === todayStr ||
+           (r.reservation_date === tomorrowStr && r.start_time < "06:00:00")
+    );
+    const tomorrowReservations = (reservationsData || []).filter(
+      r => r.reservation_date === tomorrowStr && r.start_time >= "06:00:00"
+    );
 
     setTodayData({
       date: today,
