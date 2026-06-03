@@ -110,6 +110,7 @@ export default function ReservationsList() {
     price: 12000,
     payment_method: "cash",
     payment_fee: 0,
+    payment_details: null as { method: string; amount: number }[] | null,
     reservation_method: "",
     notes: "",
   });
@@ -132,6 +133,7 @@ export default function ReservationsList() {
     price: 12000,
     payment_method: "cash",
     payment_fee: 0,
+    payment_details: null as { method: string; amount: number }[] | null,
     reservation_method: "",
     notes: "",
   });
@@ -202,8 +204,9 @@ export default function ReservationsList() {
         nomination_type: formData.nomination_type === "none" ? null : formData.nomination_type,
         price: formData.price,
         discount: formData.discount,
-        payment_method: formData.payment_method || null,
+        payment_method: formData.payment_details ? null : (formData.payment_method || null),
         payment_fee: formData.payment_fee || 0,
+        payment_details: formData.payment_details || null,
         notes: formData.notes || null,
         room: formData.room || null,
         created_by: user!.id,
@@ -230,7 +233,7 @@ export default function ReservationsList() {
         nomination_type: "none", reservation_date: new Date(), start_time: "14:00", end_time: "15:00",
         duration: 80, room: "", course_type: "アロマオイル", course_name: "アロマオイル 80分",
         selectedOptions: [], discount_ids: [] as string[], discount: 0, price: 12000,
-        payment_method: "cash", reservation_method: "", notes: "",
+        payment_method: "cash", payment_fee: 0, payment_details: null, reservation_method: "", notes: "",
       });
       fetchReservations();
     } catch (error) {
@@ -264,6 +267,7 @@ export default function ReservationsList() {
       price: res.price,
       payment_method: res.payment_method || "cash",
       payment_fee: res.payment_fee || 0,
+      payment_details: (res as any).payment_details || null,
       reservation_method: res.reservation_method || "",
       notes: res.notes || "",
     });
@@ -288,8 +292,9 @@ export default function ReservationsList() {
         price: editFormData.price,
         discount: editFormData.discount,
         discount_ids: editFormData.discount_ids,
-        payment_method: editFormData.payment_method || null,
+        payment_method: editFormData.payment_details ? null : (editFormData.payment_method || null),
         payment_fee: editFormData.payment_fee || 0,
+        payment_details: editFormData.payment_details || null,
         reservation_method: editFormData.reservation_method || null,
         notes: editFormData.notes || null,
         room: editFormData.room || null,
