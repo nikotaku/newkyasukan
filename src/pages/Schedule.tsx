@@ -83,7 +83,8 @@ const TOTAL_HEIGHT = (TIME_END - TIME_START) * HOUR_HEIGHT;
 
 function timeToMinutes(time: string) {
   const [h, m] = time.split(":").map(Number);
-  return h * 60 + m;
+  // 深夜またぎ（06:00 未満）は +24h で翌枠に配置
+  return (h < 6 ? h + 24 : h) * 60 + m;
 }
 
 function minutesToPx(minutes: number) {
@@ -255,17 +256,20 @@ export default function Schedule() {
   const fetchData = async () => {
     setLoading(true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
+    const nextDateStr = format(addDays(selectedDate, 1), "yyyy-MM-dd");
     const monthStart = format(startOfMonth(selectedDate), "yyyy-MM-dd");
     const monthEnd = format(endOfMonth(selectedDate), "yyyy-MM-dd");
 
-    const [{ data: shiftsData }, { data: reservationsData }, { data: monthData }] = await Promise.all([
+    const [{ data: shiftsData }, { data: reservationsData }, { data: nextResData }, { data: monthData }] = await Promise.all([
       supabase.from("shifts").select("*, cast:casts(id, name, photo)").eq("shift_date", dateStr),
       supabase.from("reservations").select("*").eq("reservation_date", dateStr).neq("status", "cancelled"),
+      // 深夜またぎ：翌日日付で保存されているが 06:00 未満の予約も当日扱い
+      supabase.from("reservations").select("*").eq("reservation_date", nextDateStr).lt("start_time", "06:00:00").neq("status", "cancelled"),
       supabase.from("reservations").select("price").gte("reservation_date", monthStart).lte("reservation_date", monthEnd).neq("status", "cancelled"),
     ]);
 
     setShifts((shiftsData as any) || []);
-    setReservations(reservationsData || []);
+    setReservations([...(reservationsData || []), ...(nextResData || [])]);
     setMonthlyTotal((monthData || []).reduce((sum, r: any) => sum + (r.price || 0), 0));
     setLoading(false);
   };

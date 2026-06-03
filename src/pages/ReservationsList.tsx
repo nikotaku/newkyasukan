@@ -21,7 +21,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { postToSheet } from "@/lib/sheetWebhook";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Search, FileUp, Table2, Plus, Pencil } from "lucide-react";
+import { Search, FileUp, Table2, Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ImportModal } from "@/components/ImportModal";
 import { GoogleSheetPanel } from "@/components/GoogleSheetPanel";
 import { mapReservationRows, batchInsert } from "@/lib/importMappers";
@@ -89,6 +99,7 @@ export default function ReservationsList() {
   const [nominationRates, setNominationRates] = useState<NominationRate[]>([]);
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
   const [editFormData, setEditFormData] = useState({
@@ -309,6 +320,26 @@ export default function ReservationsList() {
     }
   };
 
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    const { error } = await supabase.from("reservations").update({ status: newStatus }).eq("id", id);
+    if (error) {
+      toast({ title: "エラー", description: "ステータス変更に失敗しました", variant: "destructive" });
+    } else {
+      setReservations((prev) => prev.map((r) => r.id === id ? { ...r, status: newStatus } : r));
+    }
+  };
+
+  const handleDeleteReservation = async (id: string) => {
+    const { error } = await supabase.from("reservations").delete().eq("id", id);
+    if (error) {
+      toast({ title: "エラー", description: "予約の削除に失敗しました", variant: "destructive" });
+    } else {
+      toast({ title: "削除完了", description: "予約を削除しました" });
+      setReservations((prev) => prev.filter((r) => r.id !== id));
+      setDeleteConfirmId(null);
+    }
+  };
+
   const fetchReservations = async () => {
     setLoading(true);
     try {
@@ -478,19 +509,39 @@ export default function ReservationsList() {
                         <td className="px-4 py-3">{res.course_name}</td>
                         <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">¥{res.price.toLocaleString()}</td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`text-xs px-2 py-1 rounded ${STATUS_COLORS[res.status] ?? "bg-gray-100 text-gray-700"}`}>
-                            {STATUS_LABELS[res.status] ?? res.status}
-                          </span>
+                          <Select
+                            value={res.status}
+                            onValueChange={(v) => handleStatusChange(res.id, v)}
+                          >
+                            <SelectTrigger className={`h-7 text-xs border-0 px-2 w-auto ${STATUS_COLORS[res.status] ?? "bg-gray-100 text-gray-700"}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(STATUS_LABELS).map(([val, label]) => (
+                                <SelectItem key={val} value={val} className="text-xs">{label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </td>
                         <td className="px-4 py-3">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => openEditSheet(res)}
-                          >
-                            <Pencil size={14} />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => openEditSheet(res)}
+                            >
+                              <Pencil size={14} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={() => setDeleteConfirmId(res.id)}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -530,6 +581,25 @@ export default function ReservationsList() {
         type="reservations"
         onSuccess={fetchReservations}
       />
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(o) => !o && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>予約を削除しますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              この操作は取り消せません。予約データが完全に削除されます。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteConfirmId && handleDeleteReservation(deleteConfirmId)}
+            >
+              削除する
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
