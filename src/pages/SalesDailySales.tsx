@@ -28,6 +28,10 @@ interface Reservation {
   cast_id: string | null;
   options: string[] | null;
   casts: { id: string; name: string } | null;
+  // 計算済みバック内訳
+  courseBack?: number;
+  optionBacks?: { name: string; back: number }[];
+  totalBack?: number;
 }
 
 interface CastGroup {
@@ -116,6 +120,27 @@ export default function SalesDailySales() {
         optMap[or.option_name] = or.therapist_back ?? 0;
       }
 
+      // 予約の course_type は null や旧表記（「全力コース」等）が多く、
+      // バック表（course_type = 「アロマオイルトリートメント」「全力」）と一致しないため、
+      // course_name からコース種別を推定してバック額を照合する
+      const findCourseBack = (
+        courseType: string | null,
+        courseName: string | null,
+        duration: number | null
+      ): number => {
+        const direct = brMap[`${courseType}_${duration}`];
+        if (direct !== undefined) return direct;
+        const name = courseName ?? "";
+        let inferred: string | null = null;
+        if (name.includes("アロマ")) inferred = "アロマオイルトリートメント";
+        else if (name.includes("全力")) inferred = "全力";
+        if (inferred) {
+          const byName = brMap[`${inferred}_${duration}`];
+          if (byName !== undefined) return byName;
+        }
+        return 0;
+      };
+
       // 当日 + 翌日早朝（深夜またぎ）を結合し start_time 昇順にソート
       const allRes = [
         ...((resResult.data as Reservation[]) || []),
@@ -136,12 +161,21 @@ export default function SalesDailySales() {
         if (!groups[castId]) {
           groups[castId] = { castId, castName, reservations: [], totalSales: 0, autoBack: 0 };
         }
+        // 予約ごとのバック内訳を計算
+        const courseBack = findCourseBack(r.course_type, r.course_name, r.duration);
+        const optionBacks = (r.options ?? []).map((opt) => ({
+          name: opt,
+          back: optMap[opt] ?? 0,
+        }));
+        const optionBackSum = optionBacks.reduce((s, o) => s + o.back, 0);
+        const totalBack = courseBack + optionBackSum;
+        r.courseBack = courseBack;
+        r.optionBacks = optionBacks;
+        r.totalBack = totalBack;
+
         groups[castId].reservations.push(r);
         groups[castId].totalSales += r.price ?? 0;
-        groups[castId].autoBack += brMap[`${r.course_type}_${r.duration}`] ?? 0;
-        for (const opt of r.options ?? []) {
-          groups[castId].autoBack += optMap[opt] ?? 0;
-        }
+        groups[castId].autoBack += totalBack;
       }
 
       const groupList = Object.values(groups).sort((a, b) => a.castName.localeCompare(b.castName));
@@ -179,7 +213,10 @@ export default function SalesDailySales() {
     if (!input) return;
     updateInput(group.castId, "submitting", true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
-    const payout = input.therapistBack - input.miscExpenses - input.accommodationFee;
+    // セラピスト給与 = バック - 雑費 - 宿泊費
+    const salary = input.therapistBack - input.miscExpenses - input.accommodationFee;
+    // 投函金額 = 店舗取り分 = 売上 - セラピスト給与
+    const payout = group.totalSales - salary;
     try {
       const { error } = await supabase.from("daily_clearances" as any).upsert(
         {
@@ -336,7 +373,10 @@ export default function SalesDailySales() {
               {castGroups.map((g) => {
                 const input = clearanceInputs[g.castId] ?? { therapistBack: 0, miscExpenses: 0, accommodationFee: 0, payoutMethod: "", submitting: false };
                 const cleared = clearances[g.castId];
-                const payout = input.therapistBack - input.miscExpenses - input.accommodationFee;
+                // セラピスト給与 = バック - 雑費 - 宿泊費
+                const salary = input.therapistBack - input.miscExpenses - input.accommodationFee;
+                // 投函金額 = 店舗取り分 = 売上 - セラピスト給与
+                const payout = g.totalSales - salary;
 
                 return (
                   <Card key={g.castId} className={cleared ? "border-green-200" : "border-primary/20"}>
@@ -359,25 +399,56 @@ export default function SalesDailySales() {
                       {/* Reservations */}
                       <div className="border rounded-md divide-y text-sm">
                         {g.reservations.map((r) => (
-                          <div key={r.id} className="flex items-center justify-between px-3 py-2">
-                            <div className="flex items-center gap-3">
-                              <span className="font-medium tabular-nums text-xs w-12">{toExtTime(r.start_time)}</span>
-                              <span>{r.customer_name}</span>
-                              <span className="text-muted-foreground text-xs">{r.course_name}</span>
+                          <div key={r.id} className="px-3 py-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span className="font-medium tabular-nums text-xs w-12">{toExtTime(r.start_time)}</span>
+                                <span>{r.customer_name}</span>
+                                <span className="text-muted-foreground text-xs">{r.course_name}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                  r.status === "completed" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                                }`}>
+                                  {r.status === "completed" ? "完了" : "確定"}
+                                </span>
+                                <span className="font-semibold tabular-nums text-xs">¥{r.price.toLocaleString()}</span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-                                r.status === "completed" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
-                              }`}>
-                                {r.status === "completed" ? "完了" : "確定"}
-                              </span>
-                              <span className="font-semibold tabular-nums text-xs">¥{r.price.toLocaleString()}</span>
+                            {/* バック内訳 */}
+                            <div className="mt-1 ml-12 space-y-0.5 text-[11px] text-muted-foreground">
+                              <div className="flex justify-between">
+                                <span>
+                                  コースバック（{r.course_name}）
+                                  {(r.courseBack ?? 0) === 0 && (
+                                    <span className="text-orange-500 ml-1">※バック表未設定</span>
+                                  )}
+                                </span>
+                                <span className="tabular-nums">{yen(r.courseBack ?? 0)}</span>
+                              </div>
+                              {(r.optionBacks ?? []).map((o, i) => (
+                                <div key={i} className="flex justify-between">
+                                  <span>
+                                    OP: {o.name}
+                                    {o.back === 0 && <span className="text-orange-500 ml-1">※未設定</span>}
+                                  </span>
+                                  <span className="tabular-nums">{yen(o.back)}</span>
+                                </div>
+                              ))}
+                              <div className="flex justify-between font-medium text-foreground/70 border-t border-dashed pt-0.5">
+                                <span>バック小計</span>
+                                <span className="tabular-nums">{yen(r.totalBack ?? 0)}</span>
+                              </div>
                             </div>
                           </div>
                         ))}
                         <div className="flex justify-between px-3 py-2 bg-muted/30 font-semibold text-sm">
                           <span>売上合計</span>
                           <span>{yen(g.totalSales)}</span>
+                        </div>
+                        <div className="flex justify-between px-3 py-2 bg-blue-50 font-semibold text-sm text-blue-800">
+                          <span>給与バック合計（自動計算）</span>
+                          <span className="tabular-nums">{yen(g.autoBack)}</span>
                         </div>
                       </div>
 
@@ -421,9 +492,28 @@ export default function SalesDailySales() {
                         </div>
                         <div className="flex items-end">
                           <div className="w-full p-3 bg-primary/5 rounded-md text-center">
-                            <p className="text-xs text-muted-foreground">投函金額</p>
+                            <p className="text-xs text-muted-foreground">投函金額（店舗取り分）</p>
                             <p className="text-lg font-bold text-primary">{yen(payout)}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              セラピスト給与 {yen(salary)}
+                            </p>
                           </div>
+                        </div>
+                      </div>
+
+                      {/* 計算内訳 */}
+                      <div className="rounded-md border bg-muted/20 px-3 py-2 text-xs space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">売上合計</span>
+                          <span className="tabular-nums">{yen(g.totalSales)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">− セラピスト給与（バック {yen(input.therapistBack)} − 雑費 {yen(input.miscExpenses)} − 宿泊費 {yen(input.accommodationFee)}）</span>
+                          <span className="tabular-nums text-blue-700">{yen(salary)}</span>
+                        </div>
+                        <div className="flex justify-between font-semibold border-t pt-1">
+                          <span>＝ 投函金額（店舗取り分）</span>
+                          <span className="tabular-nums text-primary">{yen(payout)}</span>
                         </div>
                       </div>
 
