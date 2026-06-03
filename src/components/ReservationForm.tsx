@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CalendarIcon, UserCheck, Clock } from "lucide-react";
+import { CalendarIcon, UserCheck, Clock, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,6 +68,7 @@ interface FormData {
   price: number;
   payment_method: string;
   payment_fee: number;
+  payment_details: { method: string; amount: number }[] | null;
   reservation_method: string;
   notes: string;
 }
@@ -182,7 +183,15 @@ export function ReservationForm({
     }
     discountAmount = Math.min(discountAmount, subtotal);
     const totalPrice = subtotal - discountAmount;
-    const fee = calcPaymentFee(totalPrice, paymentSettings, formData.payment_method);
+
+    // payment_details がある場合は各エントリの手数料を合算、ない場合は従来通り
+    let fee: number;
+    if (formData.payment_details && formData.payment_details.length > 0) {
+      fee = formData.payment_details.reduce((sum, d) =>
+        sum + calcPaymentFee(d.amount, paymentSettings, d.method), 0);
+    } else {
+      fee = calcPaymentFee(totalPrice, paymentSettings, formData.payment_method);
+    }
 
     // コース名はコースタイプ＋時間から常に自動生成し、デフォルト値が残らないようにする
     const courseName = `${formData.course_type} ${formData.duration}分`;
@@ -195,7 +204,7 @@ export function ReservationForm({
     ) {
       setFormData({ ...formData, price: totalPrice, discount: discountAmount, payment_fee: fee, course_name: courseName });
     }
-  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.discount_ids, formData.payment_method, backRates, optionRates, nominationRates, discounts, paymentSettings]);
+  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.discount_ids, formData.payment_method, formData.payment_details, backRates, optionRates, nominationRates, discounts, paymentSettings]);
 
   // 開始時間とコース時間（分）から終了時間を自動計算
   useEffect(() => {
@@ -775,20 +784,143 @@ export function ReservationForm({
 
       {/* 15. お支払い方法 */}
       <div>
-        <Label>お支払い方法</Label>
-        <Select
-          value={formData.payment_method || "cash"}
-          onValueChange={(value) => setFormData({ ...formData, payment_method: value })}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="cash">現金</SelectItem>
-            <SelectItem value="card">カード{cardFeePct > 0 ? `（手数料${cardFeePct}%）` : ""}</SelectItem>
-            <SelectItem value="paypay">PayPay{paypayFeePct > 0 ? `（手数料${paypayFeePct}%）` : ""}</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center justify-between mb-2">
+          <Label>お支払い方法</Label>
+          {!formData.payment_details && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => {
+                // 分割払いモードへ移行：現在の合計額を最初の行に設定
+                setFormData({
+                  ...formData,
+                  payment_details: [{ method: formData.payment_method || "cash", amount: formData.price }],
+                });
+              }}
+            >
+              <Plus size={12} className="mr-1" />支払いを分割
+            </Button>
+          )}
+          {formData.payment_details && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-muted-foreground"
+              onClick={() => setFormData({ ...formData, payment_details: null })}
+            >
+              分割をやめる
+            </Button>
+          )}
+        </div>
+
+        {/* 通常（単一支払い）モード */}
+        {!formData.payment_details && (
+          <Select
+            value={formData.payment_method || "cash"}
+            onValueChange={(value) => setFormData({ ...formData, payment_method: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cash">現金</SelectItem>
+              <SelectItem value="card">カード{cardFeePct > 0 ? `（手数料${cardFeePct}%）` : ""}</SelectItem>
+              <SelectItem value="paypay">PayPay{paypayFeePct > 0 ? `（手数料${paypayFeePct}%）` : ""}</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* 分割払いモード */}
+        {formData.payment_details && (
+          <div className="space-y-2">
+            {formData.payment_details.map((d, i) => {
+              const rowFee = calcPaymentFee(d.amount, paymentSettings, d.method);
+              return (
+                <div key={i} className="flex items-center gap-2">
+                  <Select
+                    value={d.method}
+                    onValueChange={(v) => {
+                      const updated = formData.payment_details!.map((x, j) => j === i ? { ...x, method: v } : x);
+                      setFormData({ ...formData, payment_details: updated });
+                    }}
+                  >
+                    <SelectTrigger className="w-28 h-9 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">現金</SelectItem>
+                      <SelectItem value="card">カード</SelectItem>
+                      <SelectItem value="paypay">PayPay</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex-1 relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      className="pl-7 h-9 text-sm"
+                      value={d.amount === 0 ? "" : d.amount}
+                      onChange={(e) => {
+                        const updated = formData.payment_details!.map((x, j) =>
+                          j === i ? { ...x, amount: Number(e.target.value) || 0 } : x
+                        );
+                        setFormData({ ...formData, payment_details: updated });
+                      }}
+                    />
+                  </div>
+                  {rowFee > 0 && (
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">手数料¥{rowFee.toLocaleString()}</span>
+                  )}
+                  {formData.payment_details!.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 text-muted-foreground"
+                      onClick={() => {
+                        const updated = formData.payment_details!.filter((_, j) => j !== i);
+                        setFormData({ ...formData, payment_details: updated });
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-xs border-dashed"
+              onClick={() => {
+                setFormData({
+                  ...formData,
+                  payment_details: [...formData.payment_details!, { method: "cash", amount: 0 }],
+                });
+              }}
+            >
+              <Plus size={12} className="mr-1" />支払い行を追加
+            </Button>
+            {/* 合計チェック */}
+            {(() => {
+              const detailSum = formData.payment_details!.reduce((s, d) => s + d.amount, 0);
+              const diff = formData.price - detailSum;
+              return diff !== 0 ? (
+                <p className={`text-xs ${diff > 0 ? "text-orange-500" : "text-rose-500"}`}>
+                  {diff > 0
+                    ? `残り ¥${diff.toLocaleString()} 未割当`
+                    : `¥${Math.abs(diff).toLocaleString()} 超過しています`}
+                </p>
+              ) : (
+                <p className="text-xs text-green-600">✓ 合計が一致しています</p>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {/* 16. メールアドレス */}
@@ -822,17 +954,34 @@ export function ReservationForm({
             <span className="text-rose-600">-¥{formData.discount.toLocaleString()}</span>
           </div>
         )}
-        {formData.payment_fee > 0 && (
-          <>
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>小計</span>
-              <span>¥{formData.price.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>決済手数料</span>
-              <span>+¥{formData.payment_fee.toLocaleString()}</span>
-            </div>
-          </>
+        {formData.payment_details ? (
+          // 分割払い内訳
+          formData.payment_details.map((d, i) => {
+            const rowFee = calcPaymentFee(d.amount, paymentSettings, d.method);
+            const label = d.method === "cash" ? "現金" : d.method === "paypay" ? "PayPay" : "カード";
+            return (
+              <div key={i} className="flex justify-between text-sm text-muted-foreground">
+                <span>{label}</span>
+                <span>
+                  ¥{d.amount.toLocaleString()}
+                  {rowFee > 0 && <span className="text-xs ml-1">（内手数料¥{rowFee.toLocaleString()}）</span>}
+                </span>
+              </div>
+            );
+          })
+        ) : (
+          formData.payment_fee > 0 && (
+            <>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>小計</span>
+                <span>¥{formData.price.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>決済手数料</span>
+                <span>+¥{formData.payment_fee.toLocaleString()}</span>
+              </div>
+            </>
+          )
         )}
         <div className="text-right">
           <p className="text-sm text-muted-foreground mb-1">合計金額</p>

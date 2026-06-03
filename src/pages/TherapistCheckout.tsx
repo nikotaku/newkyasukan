@@ -28,6 +28,11 @@ interface Cast {
   photo: string | null;
 }
 
+interface PaymentDetail {
+  method: string;
+  amount: number;
+}
+
 interface Reservation {
   id: string;
   customer_name: string;
@@ -39,6 +44,7 @@ interface Reservation {
   discount: number | null;
   price: number;
   payment_method: string;
+  payment_details: PaymentDetail[] | null;
   status: string;
   nomination_type: string | null;
   payment_fee: number | null;
@@ -183,7 +189,7 @@ export default function TherapistCheckout() {
     try {
       const { data, error } = await supabase
         .from("reservations")
-        .select("id, customer_name, start_time, course_name, course_type, duration, options, discount, price, payment_method, payment_fee, status, nomination_type")
+        .select("id, customer_name, start_time, course_name, course_type, duration, options, discount, price, payment_method, payment_details, payment_fee, status, nomination_type")
         .eq("cast_id", cast.id)
         .eq("reservation_date", selectedDate)
         .order("start_time");
@@ -308,12 +314,18 @@ export default function TherapistCheckout() {
     await supabase.from("reservations").update({ payment_method: method }).eq("id", reservationId);
   };
 
-  // 支払い方法別合計
+  // 支払い方法別合計（payment_details がある場合は各エントリで集計）
   const totals = reservations.reduce(
     (acc, r) => {
       if (r.status === "cancelled") return acc;
-      const method = paymentEdits[r.id] || r.payment_method || "cash";
-      acc[method] = (acc[method] || 0) + (r.price || 0);
+      if (r.payment_details && r.payment_details.length > 0) {
+        for (const d of r.payment_details) {
+          acc[d.method] = (acc[d.method] || 0) + (d.amount || 0);
+        }
+      } else {
+        const method = paymentEdits[r.id] || r.payment_method || "cash";
+        acc[method] = (acc[method] || 0) + (r.price || 0);
+      }
       return acc;
     },
     {} as Record<string, number>
@@ -322,8 +334,15 @@ export default function TherapistCheckout() {
   const feesByMethod = reservations.reduce(
     (acc, r) => {
       if (r.status === "cancelled") return acc;
-      const method = paymentEdits[r.id] || r.payment_method || "cash";
-      acc[method] = (acc[method] || 0) + (r.payment_fee || 0);
+      if (r.payment_details && r.payment_details.length > 0) {
+        for (const d of r.payment_details) {
+          const f = calcPaymentFee(d.amount, paymentSettings, d.method);
+          if (f > 0) acc[d.method] = (acc[d.method] || 0) + f;
+        }
+      } else {
+        const method = paymentEdits[r.id] || r.payment_method || "cash";
+        acc[method] = (acc[method] || 0) + (r.payment_fee || 0);
+      }
       return acc;
     },
     {} as Record<string, number>
@@ -584,7 +603,17 @@ export default function TherapistCheckout() {
                                 </div>
                                 <div className="text-right shrink-0">
                                   <div className="font-bold text-sm">¥{(r.price || 0).toLocaleString()}</div>
-                                  {r.status !== "cancelled" && (
+                                  {r.status !== "cancelled" && r.payment_details && r.payment_details.length > 0 ? (
+                                    // 分割払いの場合は内訳を表示
+                                    <div className="text-xs text-muted-foreground mt-0.5 space-y-0.5">
+                                      {r.payment_details.map((d, i) => (
+                                        <div key={i} className="flex items-center justify-end gap-1">
+                                          <span>{PAYMENT_METHODS.find(m => m.value === d.method)?.label ?? d.method}</span>
+                                          <span>¥{d.amount.toLocaleString()}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : r.status !== "cancelled" ? (
                                     <Select
                                       value={paymentEdits[r.id] || "cash"}
                                       onValueChange={(v) => handlePaymentChange(r.id, v)}
@@ -600,8 +629,7 @@ export default function TherapistCheckout() {
                                         ))}
                                       </SelectContent>
                                     </Select>
-                                  )}
-                                  {r.status === "cancelled" && (
+                                  ) : (
                                     <span className="text-xs text-muted-foreground">キャンセル</span>
                                   )}
                                 </div>
