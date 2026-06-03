@@ -13,8 +13,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, addDays, isToday } from "date-fns";
 import { toExtTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CheckCircle, Loader2, CreditCard } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle, Loader2, CreditCard, Download } from "lucide-react";
 import { toast } from "sonner";
+import { downloadClearanceReceipt } from "@/lib/clearanceReceipt";
 
 interface Reservation {
   id: string;
@@ -206,6 +207,32 @@ export default function SalesDailySales() {
 
   const updateInput = (castId: string, field: keyof ClearanceInput, value: any) => {
     setClearanceInputs((prev) => ({ ...prev, [castId]: { ...prev[castId], [field]: value } }));
+  };
+
+  const handleDownloadReceipt = (group: CastGroup) => {
+    const input = clearanceInputs[group.castId];
+    if (!input) return;
+    const salary = input.therapistBack - input.miscExpenses - input.accommodationFee;
+    const payout = group.totalSales - salary;
+    downloadClearanceReceipt({
+      date: selectedDate,
+      castName: group.castName,
+      reservations: group.reservations.map((r) => ({
+        start_time: r.start_time,
+        customer_name: r.customer_name,
+        course_name: r.course_name,
+        price: r.price ?? 0,
+        totalBack: r.totalBack ?? 0,
+      })),
+      totalSales: group.totalSales,
+      therapistBack: input.therapistBack,
+      miscExpenses: input.miscExpenses,
+      accommodationFee: input.accommodationFee,
+      salary,
+      payout,
+      payoutMethod: input.payoutMethod,
+    });
+    toast.success(`${group.castName} の清算明細をダウンロードしました`);
   };
 
   const handleClear = async (group: CastGroup) => {
@@ -527,19 +554,28 @@ export default function SalesDailySales() {
                         />
                       </div>
 
-                      <Button
-                        className="w-full"
-                        onClick={() => handleClear(g)}
-                        disabled={input.submitting}
-                      >
-                        {input.submitting ? (
-                          <><Loader2 size={14} className="mr-2 animate-spin" />処理中...</>
-                        ) : cleared ? (
-                          <><CheckCircle size={14} className="mr-2" />再清算（上書き）</>
-                        ) : (
-                          <><CreditCard size={14} className="mr-2" />{g.castName} を清算する</>
-                        )}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1"
+                          onClick={() => handleClear(g)}
+                          disabled={input.submitting}
+                        >
+                          {input.submitting ? (
+                            <><Loader2 size={14} className="mr-2 animate-spin" />処理中...</>
+                          ) : cleared ? (
+                            <><CheckCircle size={14} className="mr-2" />再清算（上書き）</>
+                          ) : (
+                            <><CreditCard size={14} className="mr-2" />{g.castName} を清算する</>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleDownloadReceipt(g)}
+                          title="清算明細をダウンロード（セラピスト送付用）"
+                        >
+                          <Download size={14} className="mr-2" />明細
+                        </Button>
+                      </div>
 
                       {cleared && (
                         <p className="text-xs text-center text-muted-foreground">
