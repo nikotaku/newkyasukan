@@ -91,6 +91,7 @@ export default function ReservationsList() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState("all");
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [casts, setCasts] = useState<Cast[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -347,7 +348,7 @@ export default function ReservationsList() {
         .from("reservations")
         .select("*, casts(name)")
         .order("reservation_date", { ascending: false })
-        .limit(500);
+        .limit(5000);
 
       if (error) throw error;
       setReservations(data || []);
@@ -358,13 +359,19 @@ export default function ReservationsList() {
     }
   };
 
+  // データに存在する月（yyyy-MM）を新しい順で列挙
+  const availableMonths = Array.from(
+    new Set(reservations.map((r) => r.reservation_date.slice(0, 7)))
+  ).sort((a, b) => b.localeCompare(a));
+
   const filteredReservations = reservations.filter((res) => {
     const matchesSearch =
       res.customer_name.includes(searchQuery) ||
       res.customer_phone.includes(searchQuery) ||
       res.course_name.includes(searchQuery);
     const matchesStatus = statusFilter === "all" || res.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesMonth = monthFilter === "all" || res.reservation_date.slice(0, 7) === monthFilter;
+    return matchesSearch && matchesStatus && matchesMonth;
   });
 
   return (
@@ -453,6 +460,20 @@ export default function ReservationsList() {
                     />
                   </div>
                 </div>
+                <Select value={monthFilter} onValueChange={setMonthFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全期間</SelectItem>
+                    {availableMonths.map((m) => {
+                      const [y, mo] = m.split("-");
+                      return (
+                        <SelectItem key={m} value={m}>{`${y}年${Number(mo)}月`}</SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-[170px]">
                     <SelectValue />
