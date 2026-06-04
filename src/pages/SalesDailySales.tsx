@@ -28,10 +28,13 @@ interface Reservation {
   duration: number | null;
   cast_id: string | null;
   options: string[] | null;
+  nomination_type: string | null;
   casts: { id: string; name: string } | null;
   // 計算済みバック内訳
   courseBack?: number;
   optionBacks?: { name: string; back: number }[];
+  nominationBack?: number;
+  nominationType?: string | null;
   totalBack?: number;
 }
 
@@ -89,23 +92,24 @@ export default function SalesDailySales() {
     const dateStr = format(selectedDate, "yyyy-MM-dd");
     const nextDateStr = format(addDays(selectedDate, 1), "yyyy-MM-dd");
     try {
-      const [resResult, nextResResult, backRatesResult, optionRatesResult, clearResult] = await Promise.all([
+      const [resResult, nextResResult, backRatesResult, optionRatesResult, nominationRatesResult, clearResult] = await Promise.all([
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, casts(id, name)")
+          .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, nomination_type, casts(id, name)")
           .eq("reservation_date", dateStr)
           .in("status", ["confirmed", "completed"])
           .order("start_time"),
         // 深夜またぎ分：翌日日付で保存されているが 06:00 未満の予約も当日扱い
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, casts(id, name)")
+          .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, nomination_type, casts(id, name)")
           .eq("reservation_date", nextDateStr)
           .lt("start_time", "06:00:00")
           .in("status", ["confirmed", "completed"])
           .order("start_time"),
         supabase.from("back_rates").select("course_type, duration, therapist_back"),
         supabase.from("option_rates").select("option_name, therapist_back"),
+        supabase.from("nomination_rates").select("nomination_type, therapist_back"),
         supabase
           .from("daily_clearances" as any)
           .select("*")
@@ -119,6 +123,10 @@ export default function SalesDailySales() {
       const optMap: Record<string, number> = {};
       for (const or of optionRatesResult.data || []) {
         optMap[or.option_name] = or.therapist_back ?? 0;
+      }
+      const nomMap: Record<string, number> = {};
+      for (const nr of nominationRatesResult.data || []) {
+        nomMap[nr.nomination_type] = nr.therapist_back ?? 0;
       }
 
       // 予約の course_type は null や旧表記（「全力コース」等）が多く、
@@ -169,9 +177,13 @@ export default function SalesDailySales() {
           back: optMap[opt] ?? 0,
         }));
         const optionBackSum = optionBacks.reduce((s, o) => s + o.back, 0);
-        const totalBack = courseBack + optionBackSum;
+        // 指名バック（本指名・姫予約など）
+        const nominationBack = r.nomination_type ? (nomMap[r.nomination_type] ?? 0) : 0;
+        const totalBack = courseBack + optionBackSum + nominationBack;
         r.courseBack = courseBack;
         r.optionBacks = optionBacks;
+        r.nominationBack = nominationBack;
+        r.nominationType = r.nomination_type;
         r.totalBack = totalBack;
 
         groups[castId].reservations.push(r);
@@ -462,6 +474,12 @@ export default function SalesDailySales() {
                                   <span className="tabular-nums">{yen(o.back)}</span>
                                 </div>
                               ))}
+                              {(r.nominationBack ?? 0) > 0 && (
+                                <div className="flex justify-between">
+                                  <span>指名バック（{r.nominationType}）</span>
+                                  <span className="tabular-nums">{yen(r.nominationBack ?? 0)}</span>
+                                </div>
+                              )}
                               <div className="flex justify-between font-medium text-foreground/70 border-t border-dashed pt-0.5">
                                 <span>バック小計</span>
                                 <span className="tabular-nums">{yen(r.totalBack ?? 0)}</span>
