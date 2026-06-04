@@ -865,7 +865,6 @@ export default function Schedule() {
                           (d.options ?? []).length > 0 ? `オプション：${(d.options ?? []).join("、")}` : null,
                           `セラピスト：${castName ? `${castName}（${nominationLabel}）` : nominationLabel}`,
                           d.room ? `ルーム：${d.room}` : null,
-                          roomAddress ? `住所：${roomAddress}` : null,
                           `予約名：${d.customer_name}`,
                           `ご要望など：${d.notes ?? ""}`,
                           ``,
@@ -877,7 +876,10 @@ export default function Schedule() {
                           `決済手数料：${fee.toLocaleString()}円`,
                           `総額：${grandTotal.toLocaleString()}円`,
                           ...(payLink ? [``, `▼${paySetting?.payment_method ?? "カード"}決済はこちら`, payLink] : []),
-                          roomSmsText ? `\n${roomSmsText}` : null,
+                          // ルームのSMSテキストがあれば使用、無ければルーム設定の住所を自動反映
+                          roomSmsText
+                            ? `\n${roomSmsText}`
+                            : roomAddress ? `\n【住所】\n${roomAddress}` : null,
                         ].filter((l) => l !== null).join("\n");
                         navigator.clipboard.writeText(text);
                         toast({ title: "SMSをコピーしました" });
