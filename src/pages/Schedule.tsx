@@ -827,15 +827,19 @@ export default function Schedule() {
                         const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
                         const dayOfWeek = dayNames[date.getDay()];
                         const dateStr = `${format(date, "M月d日", { locale: ja })}(${dayOfWeek})`;
-                        const therapist = d.nomination_type && d.nomination_type !== "none"
+                        // 担当セラピスト名
+                        const castName = castNameMap.get(d.cast_id) ?? "";
+                        // 指名種別ラベル
+                        const nominationLabel = d.nomination_type && d.nomination_type !== "none"
                           ? d.nomination_type
-                          : "フリー（フリー）";
+                          : "フリー";
                         const fee = d.payment_fee || 0;
                         const grandTotal = d.price + fee;
                         const paySetting = findPaymentSetting(paymentSettings, d.payment_method || "");
                         const payLink = fee > 0 && paySetting?.payment_link ? paySetting.payment_link : null;
                         const roomRecord = rooms.find((r) => r.name === d.room);
                         const roomSmsText = roomRecord?.sms_text ?? null;
+                        const roomAddress = roomRecord?.address ?? null;
 
                         // 料金内訳を再構成（d.price はコース＋オプション＋指名料−割引の合計）
                         const backRate = backRates.find(
@@ -859,8 +863,9 @@ export default function Schedule() {
                           `予約日時：${dateStr} ${toExtTime(d.start_time)}`,
                           `コース：${d.course_name}`,
                           (d.options ?? []).length > 0 ? `オプション：${(d.options ?? []).join("、")}` : null,
-                          `セラピスト：${therapist}`,
+                          `セラピスト：${castName ? `${castName}（${nominationLabel}）` : nominationLabel}`,
                           d.room ? `ルーム：${d.room}` : null,
+                          roomAddress ? `住所：${roomAddress}` : null,
                           `予約名：${d.customer_name}`,
                           `ご要望など：${d.notes ?? ""}`,
                           ``,
