@@ -237,7 +237,7 @@ export function ReservationForm({
           .maybeSingle(),
         supabase
           .from("reservations")
-          .select("reservation_date, course_name, price, status")
+          .select("reservation_date, course_name, price, status, customer_name")
           .or(`customer_phone.eq.${phone},customer_phone.eq.${formData.customer_phone}`)
           .neq("status", "cancelled")
           .order("reservation_date", { ascending: false })
@@ -267,6 +267,11 @@ export function ReservationForm({
         }
       } else {
         setCustomerInfo(null);
+        // 顧客マスタに無い場合は過去予約の名前を自動入力
+        const pastName = (resRes.data as any[])?.find((r) => r.customer_name)?.customer_name;
+        if (!formData.customer_name && pastName) {
+          setFormData({ ...formData, customer_name: pastName });
+        }
       }
       setRecentReservations((resRes.data || []) as RecentReservation[]);
     }, 500);
