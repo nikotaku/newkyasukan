@@ -865,6 +865,7 @@ export default function Schedule() {
                           (d.options ?? []).length > 0 ? `オプション：${(d.options ?? []).join("、")}` : null,
                           `セラピスト：${castName ? `${castName}（${nominationLabel}）` : nominationLabel}`,
                           d.room ? `ルーム：${d.room}` : null,
+                          roomAddress ? `住所：${roomAddress}` : null,
                           `予約名：${d.customer_name}`,
                           `ご要望など：${d.notes ?? ""}`,
                           ``,
