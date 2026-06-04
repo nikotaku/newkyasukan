@@ -307,7 +307,6 @@ export default function ReservationsList() {
         payment_method: editFormData.payment_details ? null : (editFormData.payment_method || null),
         payment_fee: editFormData.payment_fee || 0,
         payment_details: editFormData.payment_details || null,
-        reservation_method: editFormData.reservation_method || null,
         notes: editFormData.notes || null,
         room: editFormData.room || null,
       }).eq("id", editingReservation.id);
