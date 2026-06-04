@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, subDays } from "date-fns";
+import { useShopSettings } from "@/hooks/useShopSettings";
 import { ja } from "date-fns/locale";
 import { Card } from "@/components/ui/card";
 import { toExtTime } from "@/lib/timeFormat";
@@ -45,15 +46,17 @@ const TIME_END = 25;
 export const DailyReservationTimeline = () => {
   const [todayData, setTodayData] = useState<DayData | null>(null);
   const [tomorrowData, setTomorrowData] = useState<DayData | null>(null);
+  const { dayStartTime } = useShopSettings();
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [dayStartTime]);
 
   const fetchData = async () => {
     const now = new Date();
-    // Before 6 AM is still the previous business night
-    const today = now.getHours() < 6 ? subDays(now, 1) : now;
+    const dayStartHour = parseInt(dayStartTime.split(":")[0], 10);
+    // Before business start hour is still the previous business night
+    const today = now.getHours() < dayStartHour ? subDays(now, 1) : now;
     const tomorrow = addDays(today, 1);
 
     const todayStr = format(today, "yyyy-MM-dd");
@@ -76,13 +79,13 @@ export const DailyReservationTimeline = () => {
 
     const todayShifts = shiftsData?.filter(s => s.shift_date === todayStr) || [];
     const tomorrowShifts = shiftsData?.filter(s => s.shift_date === tomorrowStr) || [];
-    // 深夜またぎ：翌日日付で保存されている 06:00 未満の予約は当日扱い
+    // 深夜またぎ：翌日日付で保存されているが営業開始前の予約は当日扱い
     const todayReservations = (reservationsData || []).filter(
-      r => r.reservation_date === todayStr ||
-           (r.reservation_date === tomorrowStr && r.start_time < "06:00:00")
+      r => (r.reservation_date === todayStr && r.start_time >= dayStartTime) ||
+           (r.reservation_date === tomorrowStr && r.start_time < dayStartTime)
     );
     const tomorrowReservations = (reservationsData || []).filter(
-      r => r.reservation_date === tomorrowStr && r.start_time >= "06:00:00"
+      r => r.reservation_date === tomorrowStr && r.start_time >= dayStartTime
     );
 
     setTodayData({
@@ -99,9 +102,10 @@ export const DailyReservationTimeline = () => {
   };
 
   const getTimePosition = (time: string) => {
+    const dayStartHour = parseInt(dayStartTime.split(":")[0], 10);
     const [hours, minutes] = time.split(":").map(Number);
-    // 深夜またぎ（06:00 未満）は翌日扱いで +24h
-    const totalMinutes = (hours < 6 ? hours + 24 : hours) * 60 + minutes;
+    // 深夜またぎ（営業開始時刻未満）は翌日扱いで +24h
+    const totalMinutes = (hours < dayStartHour ? hours + 24 : hours) * 60 + minutes;
     const startMinutes = TIME_START * 60;
     const endMinutes = TIME_END * 60;
     return ((totalMinutes - startMinutes) / (endMinutes - startMinutes)) * 100;

@@ -14,6 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ReservationForm } from "@/components/ReservationForm";
 import { useAuth } from "@/hooks/useAuth";
+import { useShopSettings } from "@/hooks/useShopSettings";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -166,6 +167,7 @@ export default function Schedule() {
   const [editStatus, setEditStatus] = useState<string>("confirmed");
 
   const { user, loading: authLoading, isAdmin } = useAuth();
+  const { dayStartTime } = useShopSettings();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -264,9 +266,9 @@ export default function Schedule() {
 
     const [{ data: shiftsData }, { data: reservationsData }, { data: nextResData }, { data: monthData }] = await Promise.all([
       supabase.from("shifts").select("*, cast:casts(id, name, photo)").eq("shift_date", dateStr),
-      supabase.from("reservations").select("*").eq("reservation_date", dateStr).neq("status", "cancelled"),
-      // 深夜またぎ：翌日日付で保存されているが 06:00 未満の予約も当日扱い
-      supabase.from("reservations").select("*").eq("reservation_date", nextDateStr).lt("start_time", "06:00:00").neq("status", "cancelled"),
+      supabase.from("reservations").select("*").eq("reservation_date", dateStr).gte("start_time", dayStartTime).neq("status", "cancelled"),
+      // 深夜またぎ：翌日日付で保存されているが営業開始前の予約は当日扱い
+      supabase.from("reservations").select("*").eq("reservation_date", nextDateStr).lt("start_time", dayStartTime).neq("status", "cancelled"),
       supabase.from("reservations").select("price").gte("reservation_date", monthStart).lte("reservation_date", monthEnd).neq("status", "cancelled"),
     ]);
 

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import { useShopSettings } from "@/hooks/useShopSettings";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, addDays, isToday } from "date-fns";
@@ -53,6 +54,7 @@ interface Clearance {
   therapist_back: number;
   misc_expenses: number;
   accommodation_fee: number;
+  transportation_fee: number;
   payout_amount: number;
   payout_method: string | null;
   status: string;
@@ -63,6 +65,7 @@ interface ClearanceInput {
   therapistBack: number;
   miscExpenses: number;
   accommodationFee: number;
+  transportationFee: number;
   payoutMethod: string;
   submitting: boolean;
 }
@@ -78,6 +81,7 @@ export default function SalesDailySales() {
   const [loading, setLoading] = useState(true);
 
   const { user, loading: authLoading } = useAuth();
+  const { dayStartTime } = useShopSettings();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -98,14 +102,15 @@ export default function SalesDailySales() {
           .from("reservations")
           .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name)")
           .eq("reservation_date", dateStr)
+          .gte("start_time", dayStartTime) // 営業開始時刻以前は前日の深夜またぎ分なので除外
           .in("status", ["confirmed", "completed"])
           .order("start_time"),
-        // 深夜またぎ分：翌日日付で保存されているが 06:00 未満の予約も当日扱い
+        // 深夜またぎ分：翌日日付で保存されているが営業開始前の予約は当日扱い
         supabase
           .from("reservations")
           .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name)")
           .eq("reservation_date", nextDateStr)
-          .lt("start_time", "06:00:00")
+          .lt("start_time", dayStartTime)
           .in("status", ["confirmed", "completed"])
           .order("start_time"),
         supabase.from("back_rates").select("course_type, duration, therapist_back"),
@@ -207,6 +212,7 @@ export default function SalesDailySales() {
           therapistBack: ex?.therapist_back ?? g.autoBack,
           miscExpenses: ex?.misc_expenses ?? 0,
           accommodationFee: ex?.accommodation_fee ?? 0,
+          transportationFee: ex?.transportation_fee ?? 0,
           payoutMethod: ex?.payout_method ?? "",
           submitting: false,
         };
@@ -226,7 +232,7 @@ export default function SalesDailySales() {
   const handleDownloadReceipt = (group: CastGroup) => {
     const input = clearanceInputs[group.castId];
     if (!input) return;
-    const salary = input.therapistBack - input.miscExpenses - input.accommodationFee;
+    const salary = input.therapistBack - input.miscExpenses - input.accommodationFee + input.transportationFee;
     const payout = group.totalSales - salary;
     downloadClearanceReceipt({
       date: selectedDate,
@@ -242,6 +248,7 @@ export default function SalesDailySales() {
       therapistBack: input.therapistBack,
       miscExpenses: input.miscExpenses,
       accommodationFee: input.accommodationFee,
+      transportationFee: input.transportationFee,
       salary,
       payout,
       payoutMethod: input.payoutMethod,
@@ -254,8 +261,8 @@ export default function SalesDailySales() {
     if (!input) return;
     updateInput(group.castId, "submitting", true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
-    // セラピスト給与 = バック - 雑費 - 宿泊費
-    const salary = input.therapistBack - input.miscExpenses - input.accommodationFee;
+    // セラピスト給与 = バック - 雑費 - 宿泊費 + 交通費
+    const salary = input.therapistBack - input.miscExpenses - input.accommodationFee + input.transportationFee;
     // 投函金額 = 店舗取り分 = 売上 - セラピスト給与
     const payout = group.totalSales - salary;
     try {
@@ -267,6 +274,7 @@ export default function SalesDailySales() {
           therapist_back: input.therapistBack,
           misc_expenses: input.miscExpenses,
           accommodation_fee: input.accommodationFee,
+          transportation_fee: input.transportationFee,
           payout_amount: payout,
           payout_method: input.payoutMethod || null,
           status: "pending",
@@ -284,6 +292,25 @@ export default function SalesDailySales() {
           p_points: 0.5,
         });
         if (ptErr) console.warn("ポイント加算に失敗:", ptErr.message);
+      }
+
+      // 交通費を経費管理テーブルに連携（既存レコード削除→再挿入）
+      await supabase
+        .from("expenses" as any)
+        .delete()
+        .eq("cast_id", group.castId)
+        .eq("expense_date", dateStr)
+        .eq("expense_type", "交通費")
+        .ilike("description", "日別清算より%");
+      if (input.transportationFee > 0) {
+        await supabase.from("expenses" as any).insert({
+          expense_date: dateStr,
+          expense_type: "交通費",
+          amount: input.transportationFee,
+          cast_id: group.castId,
+          description: `日別清算より（${group.castName}）`,
+          payment_method: "現金",
+        });
       }
 
       toast.success(`${group.castName} の清算が完了しました`);
@@ -363,9 +390,9 @@ export default function SalesDailySales() {
                       </thead>
                       <tbody className="divide-y">
                         {castGroups.map((g) => {
-                          const input = clearanceInputs[g.castId] ?? { therapistBack: 0, miscExpenses: 0, accommodationFee: 0, payoutMethod: "", submitting: false };
+                          const input = clearanceInputs[g.castId] ?? { therapistBack: 0, miscExpenses: 0, accommodationFee: 0, transportationFee: 0, payoutMethod: "", submitting: false };
                           const cleared = clearances[g.castId];
-                          const salary = input.therapistBack - input.miscExpenses - input.accommodationFee;
+                          const salary = input.therapistBack - input.miscExpenses - input.accommodationFee + input.transportationFee;
                           const storeShare = g.totalSales - salary;
                           return (
                             <tr key={g.castId} className="hover:bg-muted/20 transition-colors">
@@ -392,13 +419,13 @@ export default function SalesDailySales() {
                             {yen(castGroups.reduce((s, g) => {
                               const inp = clearanceInputs[g.castId];
                               if (!inp) return s;
-                              return s + inp.therapistBack - inp.miscExpenses - inp.accommodationFee;
+                              return s + inp.therapistBack - inp.miscExpenses - inp.accommodationFee + inp.transportationFee;
                             }, 0))}
                           </td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-xs text-green-700">
                             {yen(castGroups.reduce((s, g) => {
                               const inp = clearanceInputs[g.castId];
-                              const salary = inp ? inp.therapistBack - inp.miscExpenses - inp.accommodationFee : 0;
+                              const salary = inp ? inp.therapistBack - inp.miscExpenses - inp.accommodationFee + inp.transportationFee : 0;
                               return s + g.totalSales - salary;
                             }, 0))}
                           </td>
@@ -412,10 +439,10 @@ export default function SalesDailySales() {
 
               {/* ── 個別清算フォーム ── */}
               {castGroups.map((g) => {
-                const input = clearanceInputs[g.castId] ?? { therapistBack: 0, miscExpenses: 0, accommodationFee: 0, payoutMethod: "", submitting: false };
+                const input = clearanceInputs[g.castId] ?? { therapistBack: 0, miscExpenses: 0, accommodationFee: 0, transportationFee: 0, payoutMethod: "", submitting: false };
                 const cleared = clearances[g.castId];
-                // セラピスト給与 = バック - 雑費 - 宿泊費
-                const salary = input.therapistBack - input.miscExpenses - input.accommodationFee;
+                // セラピスト給与 = バック - 雑費 - 宿泊費 + 交通費
+                const salary = input.therapistBack - input.miscExpenses - input.accommodationFee + input.transportationFee;
                 // 投函金額 = 店舗取り分 = 売上 - セラピスト給与
                 const payout = g.totalSales - salary;
 
@@ -542,7 +569,19 @@ export default function SalesDailySales() {
                             onChange={(e) => updateInput(g.castId, "accommodationFee", Number(e.target.value) || 0)}
                           />
                         </div>
-                        <div className="flex items-end">
+                        <div>
+                          <Label className="text-xs mb-1 block">交通費（円）</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            inputMode="numeric"
+                            placeholder="0"
+                            value={input.transportationFee === 0 ? "" : input.transportationFee}
+                            onChange={(e) => updateInput(g.castId, "transportationFee", Number(e.target.value) || 0)}
+                          />
+                          <p className="text-[10px] text-muted-foreground mt-0.5">給与に加算・経費計上</p>
+                        </div>
+                        <div className="col-span-2 flex items-center">
                           <div className="w-full p-3 bg-primary/5 rounded-md text-center">
                             <p className="text-xs text-muted-foreground">投函金額（店舗取り分）</p>
                             <p className="text-lg font-bold text-primary">{yen(payout)}</p>
@@ -560,7 +599,9 @@ export default function SalesDailySales() {
                           <span className="tabular-nums">{yen(g.totalSales)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">− セラピスト給与（バック {yen(input.therapistBack)} − 雑費 {yen(input.miscExpenses)} − 宿泊費 {yen(input.accommodationFee)}）</span>
+                          <span className="text-muted-foreground">
+                            − セラピスト給与（バック {yen(input.therapistBack)} − 雑費 {yen(input.miscExpenses)} − 宿泊費 {yen(input.accommodationFee)}{input.transportationFee > 0 && ` + 交通費 ${yen(input.transportationFee)}`}）
+                          </span>
                           <span className="tabular-nums text-blue-700">{yen(salary)}</span>
                         </div>
                         <div className="flex justify-between font-semibold border-t pt-1">

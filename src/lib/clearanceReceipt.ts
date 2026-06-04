@@ -18,6 +18,7 @@ export interface ClearanceReceiptData {
   therapistBack: number;
   miscExpenses: number;
   accommodationFee: number;
+  transportationFee: number;
   salary: number;
   payout: number;
   payoutMethod: string;
@@ -75,7 +76,7 @@ export function downloadClearanceReceipt(data: ClearanceReceiptData): void {
   H += 24; // テーブルヘッダ
   H += data.reservations.length * 46; // 予約行
   H += 16; // 区切り
-  H += 5 * 26; // 売上・バック・雑費・宿泊費・給与
+  H += 6 * 26; // 売上・バック・雑費・宿泊費・交通費・給与
   H += 12; // 区切り
   H += 44; // 投函金額（大）
   if (methodLines.length > 0) {
@@ -198,6 +199,9 @@ export function downloadClearanceReceipt(data: ClearanceReceiptData): void {
   summaryRow("給与バック", yen(data.therapistBack));
   summaryRow("雑費", `- ${yen(data.miscExpenses)}`);
   summaryRow("宿泊費", `- ${yen(data.accommodationFee)}`);
+  if (data.transportationFee > 0) {
+    summaryRow("交通費", `+ ${yen(data.transportationFee)}`);
+  }
   summaryRow("セラピスト給与", yen(data.salary), { color: primary, bold: true });
 
   // 投函金額（強調）
