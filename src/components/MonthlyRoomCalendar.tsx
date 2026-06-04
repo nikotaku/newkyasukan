@@ -38,6 +38,17 @@ interface MonthlyRoomCalendarProps {
   casts: Cast[];
 }
 
+// ルーム別の色分け（インルーム=緑 / ラズ(ラス)ルーム=紫）
+const getRoomStyle = (room: string | null) => {
+  if (room?.includes("イン")) {
+    return { block: "bg-green-100 border-l-2 border-green-500", dot: "bg-green-500", text: "text-green-900" };
+  }
+  if (room?.includes("ラ")) {
+    return { block: "bg-purple-100 border-l-2 border-purple-500", dot: "bg-purple-500", text: "text-purple-900" };
+  }
+  return { block: "bg-primary/10 border-l-2 border-primary", dot: "bg-primary", text: "text-foreground" };
+};
+
 export const MonthlyRoomCalendar = ({ shifts, reservations, casts }: MonthlyRoomCalendarProps) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
@@ -221,6 +232,17 @@ export const MonthlyRoomCalendar = ({ shifts, reservations, casts }: MonthlyRoom
         <TabsContent value={selectedRoom} className="mt-4">
           <Card>
             <CardContent className="p-4">
+              {/* 色の凡例 */}
+              <div className="flex items-center gap-4 mb-3 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm bg-green-100 border-l-2 border-green-500" />
+                  <span>インルーム</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm bg-purple-100 border-l-2 border-purple-500" />
+                  <span>ラズルーム</span>
+                </div>
+              </div>
               <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
                 {["日", "月", "火", "水", "木", "金", "土"].map((day) => (
                   <div key={day} className="text-center text-[10px] sm:text-xs font-medium p-1 sm:p-2 border-b">
@@ -244,14 +266,15 @@ export const MonthlyRoomCalendar = ({ shifts, reservations, casts }: MonthlyRoom
                         <div className="space-y-0.5">
                           {dayShifts.map((shift) => {
                             const cast = casts.find(c => c.id === shift.cast_id);
+                            const roomStyle = getRoomStyle(shift.room);
                             return (
-                              <div key={shift.id} className="bg-primary/10 rounded px-0.5 sm:px-1 py-px sm:py-0.5">
-                                <div className="font-medium truncate text-[8px] sm:text-[10px] leading-tight">{cast?.name}</div>
+                              <div key={shift.id} className={`rounded px-0.5 sm:px-1 py-px sm:py-0.5 ${roomStyle.block}`}>
+                                <div className={`font-medium truncate text-[8px] sm:text-[10px] leading-tight ${roomStyle.text}`}>{cast?.name}</div>
                                 <div className="text-[7px] sm:text-[10px] text-muted-foreground leading-tight">
                                   {shift.start_time.slice(0, 5)}-{shift.end_time.slice(0, 5)}
                                 </div>
                                 {selectedRoom === "all" && shift.room && (
-                                  <div className="text-[7px] sm:text-[10px] text-muted-foreground leading-tight">
+                                  <div className={`text-[7px] sm:text-[10px] leading-tight font-medium ${roomStyle.text}`}>
                                     {shift.room}
                                   </div>
                                 )}
