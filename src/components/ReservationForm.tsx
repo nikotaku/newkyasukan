@@ -107,6 +107,7 @@ interface RecentReservation {
   course_name: string;
   price: number;
   status: string;
+  cast_id: string | null;
 }
 
 export function ReservationForm({
@@ -237,7 +238,7 @@ export function ReservationForm({
           .maybeSingle(),
         supabase
           .from("reservations")
-          .select("reservation_date, course_name, price, status, customer_name")
+          .select("reservation_date, course_name, price, status, customer_name, cast_id")
           .or(`customer_phone.eq.${phone},customer_phone.eq.${formData.customer_phone}`)
           .neq("status", "cancelled")
           .order("reservation_date", { ascending: false })
@@ -474,14 +475,18 @@ export function ReservationForm({
                 <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                   <Clock size={11} />直近の来店
                 </p>
-                {recentReservations.map((r, i) => (
-                  <div key={i} className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      {format(new Date(r.reservation_date), "M/d(E)", { locale: ja })}　{r.course_name}
-                    </span>
-                    <span className="font-medium">¥{r.price.toLocaleString()}</span>
-                  </div>
-                ))}
+                {recentReservations.map((r, i) => {
+                  const castName = r.cast_id ? casts.find((c) => c.id === r.cast_id)?.name : null;
+                  return (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        {format(new Date(r.reservation_date), "M/d(E)", { locale: ja })}　{r.course_name}
+                        {castName && <span className="ml-1">／{castName}</span>}
+                      </span>
+                      <span className="font-medium">¥{r.price.toLocaleString()}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
