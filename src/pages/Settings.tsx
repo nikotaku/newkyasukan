@@ -56,6 +56,7 @@ interface ShopSettings {
   shop_email: string | null;
   shop_address: string | null;
   business_hours: string | null;
+  business_day_start: string;
   description: string | null;
   logo_url: string | null;
 }
@@ -129,6 +130,7 @@ export default function Settings() {
           shop_email: settings.shop_email,
           shop_address: settings.shop_address,
           business_hours: settings.business_hours,
+          business_day_start: settings.business_day_start,
           description: settings.description,
           logo_url: settings.logo_url,
           updated_by: user!.id,
@@ -250,7 +252,7 @@ export default function Settings() {
                   <div>
                     <Label htmlFor="business_hours" className="flex items-center gap-2">
                       <Clock size={14} />
-                      営業時間
+                      営業時間（表示用）
                     </Label>
                     <Input
                       id="business_hours"
@@ -259,6 +261,23 @@ export default function Settings() {
                       placeholder="13:00 - 25:00"
                       disabled={!isAdmin}
                     />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="business_day_start" className="flex items-center gap-2">
+                      <Clock size={14} />
+                      営業日の切替時刻
+                    </Label>
+                    <Input
+                      id="business_day_start"
+                      value={settings.business_day_start ?? "10:00"}
+                      onChange={(e) => setSettings({...settings, business_day_start: e.target.value})}
+                      placeholder="10:00"
+                      disabled={!isAdmin}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      この時刻以前の予約は前日扱いになります（例: 10:00 → 深夜01:00の予約は前日として集計）
+                    </p>
                   </div>
                   
                   <div>
