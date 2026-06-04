@@ -29,6 +29,7 @@ interface Reservation {
   cast_id: string | null;
   options: string[] | null;
   nomination_type: string | null;
+  payment_fee: number | null;
   casts: { id: string; name: string } | null;
   // 計算済みバック内訳
   courseBack?: number;
@@ -95,14 +96,14 @@ export default function SalesDailySales() {
       const [resResult, nextResResult, backRatesResult, optionRatesResult, nominationRatesResult, clearResult] = await Promise.all([
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, nomination_type, casts(id, name)")
+          .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name)")
           .eq("reservation_date", dateStr)
           .in("status", ["confirmed", "completed"])
           .order("start_time"),
         // 深夜またぎ分：翌日日付で保存されているが 06:00 未満の予約も当日扱い
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, nomination_type, casts(id, name)")
+          .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name)")
           .eq("reservation_date", nextDateStr)
           .lt("start_time", "06:00:00")
           .in("status", ["confirmed", "completed"])
@@ -187,7 +188,8 @@ export default function SalesDailySales() {
         r.totalBack = totalBack;
 
         groups[castId].reservations.push(r);
-        groups[castId].totalSales += r.price ?? 0;
+        // 売上は決済手数料込みの金額で集計
+        groups[castId].totalSales += (r.price ?? 0) + (r.payment_fee ?? 0);
         groups[castId].autoBack += totalBack;
       }
 
@@ -233,7 +235,7 @@ export default function SalesDailySales() {
         start_time: r.start_time,
         customer_name: r.customer_name,
         course_name: r.course_name,
-        price: r.price ?? 0,
+        price: (r.price ?? 0) + (r.payment_fee ?? 0),
         totalBack: r.totalBack ?? 0,
       })),
       totalSales: group.totalSales,
@@ -451,9 +453,14 @@ export default function SalesDailySales() {
                                 }`}>
                                   {r.status === "completed" ? "完了" : "確定"}
                                 </span>
-                                <span className="font-semibold tabular-nums text-xs">¥{r.price.toLocaleString()}</span>
+                                <span className="font-semibold tabular-nums text-xs">¥{(r.price + (r.payment_fee ?? 0)).toLocaleString()}</span>
                               </div>
                             </div>
+                            {(r.payment_fee ?? 0) > 0 && (
+                              <div className="text-[10px] text-muted-foreground text-right">
+                                （内 決済手数料 {yen(r.payment_fee ?? 0)}）
+                              </div>
+                            )}
                             {/* バック内訳 */}
                             <div className="mt-1 ml-12 space-y-0.5 text-[11px] text-muted-foreground">
                               <div className="flex justify-between">
