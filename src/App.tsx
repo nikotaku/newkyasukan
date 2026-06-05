@@ -101,6 +101,7 @@ import SalesClosing from "./pages/SalesClosing";
 import TextTemplates from "./pages/TextTemplates";
 import CastPostManagement from "./pages/CastPostManagement";
 import TherapistPostPage from "./pages/TherapistPostPage";
+import RecommendedMenu from "./pages/RecommendedMenu";
 
 const queryClient = new QueryClient();
 
@@ -141,6 +142,7 @@ const App = () => (
           <Route path="/hp/article-creation" element={<ArticleCreation />} />
           <Route path="/hp/store-info" element={<StoreInfo />} />
           <Route path="/hp/sns-links" element={<HpSnsLinks />} />
+          <Route path="/hp/recommended-menu" element={<RecommendedMenu />} />
           <Route path="/report" element={<Report />} />
           <Route path="/salary" element={<Salary />} />
           <Route path="/pricing-management" element={<Pricing />} />

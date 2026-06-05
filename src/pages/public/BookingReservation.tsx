@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -156,8 +156,23 @@ const BookingReservation = () => {
     setBanners((data || []) as Banner[]);
   };
 
-  // 今すぐ案内できるセラピスト（本日出勤・待機中）
-  const nowCasts = casts.filter((c) => c.status === "waiting");
+  // 今すぐ案内できるセラピスト：現在時刻がシフト時間内のキャストを自動検出
+  const nowCasts = useMemo(() => {
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    return casts.filter(cast =>
+      allShifts.some(shift => {
+        if (shift.cast_id !== cast.id) return false;
+        const [sh, sm] = shift.start_time.split(':').map(Number);
+        const [eh, em] = shift.end_time.split(':').map(Number);
+        const shiftStart = sh * 60 + sm;
+        let shiftEnd = eh * 60 + em;
+        if (shiftEnd <= shiftStart) shiftEnd += 24 * 60; // 深夜またぎ
+        const adjusted = currentMinutes < shiftStart ? currentMinutes + 24 * 60 : currentMinutes;
+        return adjusted >= shiftStart && adjusted <= shiftEnd;
+      })
+    );
+  }, [casts, allShifts]);
 
   const goBookCast = (castId: string) => {
     setSelectedCastId(castId);
