@@ -14,6 +14,7 @@ import {
   BookOpen,
   Users,
   UserCircle,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -147,6 +148,18 @@ const menuItems: MenuItem[] = [
       { href: "/knowledge", label: "ナレッジDB" },
       { href: "/knowledge/passwords", label: "PW管理" },
       { href: "/templates", label: "文章テンプレート" },
+    ],
+  },
+  {
+    label: "引き継ぎ",
+    icon: ClipboardList,
+    children: [
+      { href: "/business-continuity", label: "引き継ぎセンター" },
+      { href: "/business-continuity/vendors", label: "業者一覧" },
+      { href: "/business-continuity/logins", label: "ログイン情報" },
+      { href: "/business-continuity/fixed-costs", label: "固定費管理" },
+      { href: "/business-continuity/bank-accounts", label: "銀行口座" },
+      { href: "/business-continuity/contracts", label: "契約書管理" },
     ],
   },
   {
