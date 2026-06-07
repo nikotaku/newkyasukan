@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, GripVertical } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useSortable } from "@/hooks/useSortable";
+import { useDragReorder } from "@/hooks/useDragReorder";
+import { SortableTh } from "@/components/SortableTh";
 
 interface Vendor {
   id: string;
@@ -27,6 +30,7 @@ interface Vendor {
   payment_method: string | null;
   contract_status: string | null;
   notes: string | null;
+  sort_order: number | null;
   created_at: string;
 }
 
@@ -72,7 +76,7 @@ export default function BusinessVendors() {
     const { data, error } = await supabase
       .from("business_vendors" as any)
       .select("*")
-      .order("name");
+      .order("sort_order", { ascending: true, nullsFirst: false });
     if (!error && data) setVendors(data as any);
     setLoading(false);
   };
@@ -152,6 +156,26 @@ export default function BusinessVendors() {
     return matchSearch && matchIndustry;
   });
 
+  const sort = useSortable<Vendor>(filtered, {
+    name: (v) => v.name,
+    industry: (v) => v.industry,
+    contact_name: (v) => v.contact_name,
+    phone: (v) => v.phone,
+    email: (v) => v.email,
+    contract_status: (v) => v.contract_status,
+  });
+  const displayed = sort.sorted;
+
+  const persistOrder = async (ordered: Vendor[]) => {
+    const orderMap = new Map(ordered.map((v, i) => [v.id, i]));
+    setVendors((prev) => [...prev].sort((a, b) => (orderMap.get(a.id) ?? 1e9) - (orderMap.get(b.id) ?? 1e9)));
+    sort.reset();
+    await Promise.all(ordered.map((v, i) => supabase.from("business_vendors" as any).update({ sort_order: i + 1 }).eq("id", v.id)));
+    fetchVendors();
+  };
+
+  const { rowProps } = useDragReorder<Vendor>(displayed, persistOrder);
+
   if (authLoading || loading) {
     return <div className="min-h-screen flex items-center justify-center"><div>読み込み中...</div></div>;
   }
@@ -200,21 +224,23 @@ export default function BusinessVendors() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">
-                      <th className="text-left px-4 py-3 font-medium">業者名</th>
-                      <th className="text-left px-4 py-3 font-medium">業種</th>
-                      <th className="text-left px-4 py-3 font-medium">担当者</th>
-                      <th className="text-left px-4 py-3 font-medium">電話番号</th>
-                      <th className="text-left px-4 py-3 font-medium">メール</th>
-                      <th className="text-left px-4 py-3 font-medium">契約状況</th>
+                      <th className="w-8 px-2 py-3"></th>
+                      <SortableTh label="業者名" sortKey="name" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="業種" sortKey="industry" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="担当者" sortKey="contact_name" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="電話番号" sortKey="phone" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="メール" sortKey="email" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="契約状況" sortKey="contract_status" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
                       <th className="text-right px-4 py-3 font-medium">操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {filtered.length === 0 ? (
-                      <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">業者が見つかりません</td></tr>
+                    {displayed.length === 0 ? (
+                      <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">業者が見つかりません</td></tr>
                     ) : (
-                      filtered.map((v) => (
-                        <tr key={v.id} className="hover:bg-accent/20 transition-colors">
+                      displayed.map((v, index) => (
+                        <tr key={v.id} {...rowProps(index)} className="hover:bg-accent/20 transition-colors data-[over=true]:border-t-2 data-[over=true]:border-primary data-[dragging=true]:opacity-40">
+                          <td className="px-2 py-3 text-muted-foreground cursor-grab active:cursor-grabbing"><GripVertical size={14} /></td>
                           <td className="px-4 py-3 font-medium">{v.name}</td>
                           <td className="px-4 py-3 text-muted-foreground">{v.industry || "—"}</td>
                           <td className="px-4 py-3">{v.contact_name || "—"}</td>

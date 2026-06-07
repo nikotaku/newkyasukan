@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, GripVertical } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useSortable } from "@/hooks/useSortable";
+import { useDragReorder } from "@/hooks/useDragReorder";
+import { SortableTh } from "@/components/SortableTh";
 
 interface FixedCost {
   id: string;
@@ -34,6 +37,7 @@ interface FixedCost {
   vendor?: { id: string; name: string } | null;
   debit_account?: { id: string; account_name: string } | null;
   transfer_account?: { id: string; account_name: string } | null;
+  sort_order: number | null;
   created_at: string;
 }
 
@@ -116,7 +120,7 @@ export default function BusinessFixedCosts() {
     const { data, error } = await supabase
       .from("business_fixed_costs" as any)
       .select("*, vendor:business_vendors(id,name), debit_account:business_bank_accounts!debit_account_id(id,account_name), transfer_account:business_bank_accounts!transfer_account_id(id,account_name)")
-      .order("payment_day", { ascending: true, nullsFirst: false });
+      .order("sort_order", { ascending: true, nullsFirst: false });
     if (!error && data) setFixedCosts(data as any);
     setLoading(false);
   };
@@ -224,6 +228,28 @@ export default function BusinessFixedCosts() {
   const monthlyTotal = filtered.reduce((sum, c) => sum + c.amount, 0);
   const yearlyTotal = monthlyTotal * 12;
 
+  const sort = useSortable<FixedCost>(filtered, {
+    label: (c) => c.label,
+    item_name: (c) => c.item_name,
+    amount: (c) => c.amount,
+    payment_day: (c) => c.payment_day,
+    payment_method: (c) => c.payment_method,
+    contract_holder: (c) => c.contract_holder,
+    vendor: (c) => (c.vendor as any)?.name,
+    renewal_date: (c) => c.renewal_date,
+  });
+  const displayed = sort.sorted;
+
+  const persistOrder = async (ordered: FixedCost[]) => {
+    const orderMap = new Map(ordered.map((c, i) => [c.id, i]));
+    setFixedCosts((prev) => [...prev].sort((a, b) => (orderMap.get(a.id) ?? 1e9) - (orderMap.get(b.id) ?? 1e9)));
+    sort.reset();
+    await Promise.all(ordered.map((c, i) => supabase.from("business_fixed_costs" as any).update({ sort_order: i + 1 }).eq("id", c.id)));
+    fetchFixedCosts();
+  };
+
+  const { rowProps } = useDragReorder<FixedCost>(displayed, persistOrder);
+
   if (authLoading || loading) {
     return <div className="min-h-screen flex items-center justify-center"><div>読み込み中...</div></div>;
   }
@@ -288,23 +314,25 @@ export default function BusinessFixedCosts() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">
-                      <th className="text-left px-4 py-3 font-medium">ラベル</th>
-                      <th className="text-left px-4 py-3 font-medium">項目名</th>
-                      <th className="text-right px-4 py-3 font-medium">金額</th>
-                      <th className="text-left px-4 py-3 font-medium">支払日</th>
-                      <th className="text-left px-4 py-3 font-medium">支払方法</th>
-                      <th className="text-left px-4 py-3 font-medium">契約名義人</th>
-                      <th className="text-left px-4 py-3 font-medium">業者</th>
-                      <th className="text-left px-4 py-3 font-medium">更新日</th>
+                      <th className="w-8 px-2 py-3"></th>
+                      <SortableTh label="ラベル" sortKey="label" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="項目名" sortKey="item_name" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="金額" sortKey="amount" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} align="right" />
+                      <SortableTh label="支払日" sortKey="payment_day" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="支払方法" sortKey="payment_method" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="契約名義人" sortKey="contract_holder" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="業者" sortKey="vendor" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="更新日" sortKey="renewal_date" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
                       <th className="text-right px-4 py-3 font-medium">操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {filtered.length === 0 ? (
-                      <tr><td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">固定費が見つかりません</td></tr>
+                    {displayed.length === 0 ? (
+                      <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">固定費が見つかりません</td></tr>
                     ) : (
-                      filtered.map((c) => (
-                        <tr key={c.id} className="hover:bg-accent/20 transition-colors">
+                      displayed.map((c, index) => (
+                        <tr key={c.id} {...rowProps(index)} className="hover:bg-accent/20 transition-colors data-[over=true]:border-t-2 data-[over=true]:border-primary data-[dragging=true]:opacity-40">
+                          <td className="px-2 py-3 text-muted-foreground cursor-grab active:cursor-grabbing"><GripVertical size={14} /></td>
                           <td className="px-4 py-3">
                             {c.label ? (
                               <Badge variant="outline" className={labelColorClass(c.label_color)}>{c.label}</Badge>
@@ -336,7 +364,7 @@ export default function BusinessFixedCosts() {
                   {filtered.length > 0 && (
                     <tfoot>
                       <tr className="border-t bg-muted/20 font-semibold">
-                        <td className="px-4 py-3" colSpan={2}>合計 ({filtered.length}件)</td>
+                        <td className="px-4 py-3" colSpan={3}>合計 ({filtered.length}件)</td>
                         <td className="px-4 py-3 text-right text-primary">¥{monthlyTotal.toLocaleString()}<span className="text-xs font-normal text-muted-foreground ml-1">/月</span></td>
                         <td className="px-4 py-3 text-muted-foreground text-xs" colSpan={6}>年換算: ¥{yearlyTotal.toLocaleString()}</td>
                       </tr>
