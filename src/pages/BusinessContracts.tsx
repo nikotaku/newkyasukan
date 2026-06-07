@@ -309,10 +309,10 @@ export default function BusinessContracts() {
               </div>
               <div>
                 <Label>関連業者</Label>
-                <Select value={form.vendor_id} onValueChange={(v) => setForm({ ...form, vendor_id: v })}>
+                <Select value={form.vendor_id || "__none__"} onValueChange={(v) => setForm({ ...form, vendor_id: v === "__none__" ? "" : v })}>
                   <SelectTrigger><SelectValue placeholder="なし" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">なし</SelectItem>
+                    <SelectItem value="__none__">なし</SelectItem>
                     {vendors.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
