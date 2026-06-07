@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Pencil, Trash2, ExternalLink, AlertTriangle } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, ExternalLink, AlertTriangle, GripVertical } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useSortable } from "@/hooks/useSortable";
+import { useDragReorder } from "@/hooks/useDragReorder";
+import { SortableTh } from "@/components/SortableTh";
 
 interface Contract {
   id: string;
@@ -26,6 +29,7 @@ interface Contract {
   notes: string | null;
   vendor_id: string | null;
   vendor?: { id: string; name: string } | null;
+  sort_order: number | null;
   created_at: string;
 }
 
@@ -87,7 +91,7 @@ export default function BusinessContracts() {
     const { data, error } = await supabase
       .from("business_contracts" as any)
       .select("*, vendor:business_vendors(id,name)")
-      .order("renewal_date", { ascending: true, nullsFirst: false });
+      .order("sort_order", { ascending: true, nullsFirst: false });
     if (!error && data) setContracts(data as any);
     setLoading(false);
   };
@@ -171,6 +175,25 @@ export default function BusinessContracts() {
     return matchSearch && matchUrgency;
   });
 
+  const sort = useSortable<Contract>(filtered, {
+    contract_name: (c) => c.contract_name,
+    counterparty: (c) => c.counterparty,
+    start_date: (c) => c.start_date,
+    renewal_date: (c) => c.renewal_date,
+    cancellation_deadline: (c) => c.cancellation_deadline,
+  });
+  const displayed = sort.sorted;
+
+  const persistOrder = async (ordered: Contract[]) => {
+    const orderMap = new Map(ordered.map((c, i) => [c.id, i]));
+    setContracts((prev) => [...prev].sort((a, b) => (orderMap.get(a.id) ?? 1e9) - (orderMap.get(b.id) ?? 1e9)));
+    sort.reset();
+    await Promise.all(ordered.map((c, i) => supabase.from("business_contracts" as any).update({ sort_order: i + 1 }).eq("id", c.id)));
+    fetchContracts();
+  };
+
+  const { rowProps } = useDragReorder<Contract>(displayed, persistOrder);
+
   const renderDateBadge = (dateStr: string | null) => {
     if (!dateStr) return <span className="text-muted-foreground">—</span>;
     const urgency = getDateUrgency(dateStr);
@@ -239,25 +262,27 @@ export default function BusinessContracts() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">
-                      <th className="text-left px-4 py-3 font-medium">契約名</th>
-                      <th className="text-left px-4 py-3 font-medium">契約先</th>
-                      <th className="text-left px-4 py-3 font-medium">開始日</th>
-                      <th className="text-left px-4 py-3 font-medium">更新日</th>
-                      <th className="text-left px-4 py-3 font-medium">解約期限</th>
+                      <th className="w-8 px-2 py-3"></th>
+                      <SortableTh label="契約名" sortKey="contract_name" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="契約先" sortKey="counterparty" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="開始日" sortKey="start_date" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="更新日" sortKey="renewal_date" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="解約期限" sortKey="cancellation_deadline" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
                       <th className="text-left px-4 py-3 font-medium">ファイル</th>
                       <th className="text-right px-4 py-3 font-medium">操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {filtered.length === 0 ? (
-                      <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">契約書が見つかりません</td></tr>
+                    {displayed.length === 0 ? (
+                      <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">契約書が見つかりません</td></tr>
                     ) : (
-                      filtered.map((c) => {
+                      displayed.map((c, index) => {
                         const renewalUrgency = getDateUrgency(c.renewal_date);
                         const deadlineUrgency = getDateUrgency(c.cancellation_deadline);
                         const rowHighlight = renewalUrgency === "danger" || deadlineUrgency === "danger";
                         return (
-                          <tr key={c.id} className={`hover:bg-accent/20 transition-colors ${rowHighlight ? "bg-red-50/50" : ""}`}>
+                          <tr key={c.id} {...rowProps(index)} className={`hover:bg-accent/20 transition-colors data-[over=true]:border-t-2 data-[over=true]:border-primary data-[dragging=true]:opacity-40 ${rowHighlight ? "bg-red-50/50" : ""}`}>
+                            <td className="px-2 py-3 text-muted-foreground cursor-grab active:cursor-grabbing"><GripVertical size={14} /></td>
                             <td className="px-4 py-3 font-medium">{c.contract_name}</td>
                             <td className="px-4 py-3">{c.counterparty || "—"}</td>
                             <td className="px-4 py-3">{c.start_date ? new Date(c.start_date).toLocaleDateString("ja-JP") : "—"}</td>

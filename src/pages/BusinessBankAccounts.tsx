@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, GripVertical } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useSortable } from "@/hooks/useSortable";
+import { useDragReorder } from "@/hooks/useDragReorder";
+import { SortableTh } from "@/components/SortableTh";
 
 interface BankAccount {
   id: string;
@@ -22,6 +25,7 @@ interface BankAccount {
   account_holder: string | null;
   purpose: string | null;
   notes: string | null;
+  sort_order: number | null;
   created_at: string;
 }
 
@@ -61,7 +65,7 @@ export default function BusinessBankAccounts() {
     const { data, error } = await supabase
       .from("business_bank_accounts" as any)
       .select("*")
-      .order("account_name");
+      .order("sort_order", { ascending: true, nullsFirst: false });
     if (!error && data) setAccounts(data as any);
     setLoading(false);
   };
@@ -137,6 +141,26 @@ export default function BusinessBankAccounts() {
     );
   });
 
+  const sort = useSortable<BankAccount>(filtered, {
+    account_name: (a) => a.account_name,
+    bank_name: (a) => a.bank_name,
+    branch_name: (a) => a.branch_name,
+    account_number: (a) => a.account_number,
+    account_holder: (a) => a.account_holder,
+    purpose: (a) => a.purpose,
+  });
+  const displayed = sort.sorted;
+
+  const persistOrder = async (ordered: BankAccount[]) => {
+    const orderMap = new Map(ordered.map((a, i) => [a.id, i]));
+    setAccounts((prev) => [...prev].sort((a, b) => (orderMap.get(a.id) ?? 1e9) - (orderMap.get(b.id) ?? 1e9)));
+    sort.reset();
+    await Promise.all(ordered.map((a, i) => supabase.from("business_bank_accounts" as any).update({ sort_order: i + 1 }).eq("id", a.id)));
+    fetchAccounts();
+  };
+
+  const { rowProps } = useDragReorder<BankAccount>(displayed, persistOrder);
+
   if (authLoading || loading) {
     return <div className="min-h-screen flex items-center justify-center"><div>読み込み中...</div></div>;
   }
@@ -176,21 +200,23 @@ export default function BusinessBankAccounts() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">
-                      <th className="text-left px-4 py-3 font-medium">口座名</th>
-                      <th className="text-left px-4 py-3 font-medium">銀行名</th>
-                      <th className="text-left px-4 py-3 font-medium">支店名</th>
-                      <th className="text-left px-4 py-3 font-medium">口座番号</th>
-                      <th className="text-left px-4 py-3 font-medium">名義</th>
-                      <th className="text-left px-4 py-3 font-medium">用途</th>
+                      <th className="w-8 px-2 py-3"></th>
+                      <SortableTh label="口座名" sortKey="account_name" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="銀行名" sortKey="bank_name" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="支店名" sortKey="branch_name" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="口座番号" sortKey="account_number" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="名義" sortKey="account_holder" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
+                      <SortableTh label="用途" sortKey="purpose" activeKey={sort.sortKey} dir={sort.sortDir} onSort={sort.toggle} />
                       <th className="text-right px-4 py-3 font-medium">操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {filtered.length === 0 ? (
-                      <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">銀行口座が見つかりません</td></tr>
+                    {displayed.length === 0 ? (
+                      <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">銀行口座が見つかりません</td></tr>
                     ) : (
-                      filtered.map((a) => (
-                        <tr key={a.id} className="hover:bg-accent/20 transition-colors">
+                      displayed.map((a, index) => (
+                        <tr key={a.id} {...rowProps(index)} className="hover:bg-accent/20 transition-colors data-[over=true]:border-t-2 data-[over=true]:border-primary data-[dragging=true]:opacity-40">
+                          <td className="px-2 py-3 text-muted-foreground cursor-grab active:cursor-grabbing"><GripVertical size={14} /></td>
                           <td className="px-4 py-3 font-medium">{a.account_name}</td>
                           <td className="px-4 py-3">{a.bank_name || "—"}</td>
                           <td className="px-4 py-3">{a.branch_name || "—"}</td>
