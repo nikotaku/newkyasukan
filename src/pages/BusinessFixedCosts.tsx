@@ -295,20 +295,20 @@ export default function BusinessFixedCosts() {
             </div>
             <div>
               <Label>引落口座</Label>
-              <Select value={form.debit_account_id} onValueChange={(v) => setForm({ ...form, debit_account_id: v })}>
+              <Select value={form.debit_account_id || "__none__"} onValueChange={(v) => setForm({ ...form, debit_account_id: v === "__none__" ? "" : v })}>
                 <SelectTrigger><SelectValue placeholder="なし" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">なし</SelectItem>
+                  <SelectItem value="__none__">なし</SelectItem>
                   {bankAccounts.map((b) => <SelectItem key={b.id} value={b.id}>{b.account_name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label>関連業者</Label>
-              <Select value={form.vendor_id} onValueChange={(v) => setForm({ ...form, vendor_id: v })}>
+              <Select value={form.vendor_id || "__none__"} onValueChange={(v) => setForm({ ...form, vendor_id: v === "__none__" ? "" : v })}>
                 <SelectTrigger><SelectValue placeholder="なし" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">なし</SelectItem>
+                  <SelectItem value="__none__">なし</SelectItem>
                   {vendors.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
                 </SelectContent>
               </Select>
