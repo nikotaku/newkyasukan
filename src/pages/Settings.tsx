@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BannerManagement } from "@/components/BannerManagement";
+import { PaymentReminderSettings } from "@/components/PaymentReminderSettings";
 import { getWebhookUrl, saveWebhookUrl } from "@/lib/sheetWebhook";
 
 function SheetWebhookSettings() {
@@ -300,6 +301,8 @@ export default function Settings() {
             )}
 
             {isAdmin && <SheetWebhookSettings />}
+
+            {isAdmin && <PaymentReminderSettings />}
 
             {isAdmin && <BannerManagement />}
           </div>
