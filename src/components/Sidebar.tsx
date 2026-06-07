@@ -49,6 +49,7 @@ const menuItems: MenuItem[] = [
     label: "スケジュール",
     icon: Calendar,
     children: [
+      { href: "/schedule-dashboard", label: "ダッシュボード" },
       { href: "/admin-schedule", label: "日別予約情報" },
       { href: "/schedule/monthly-shift", label: "月別シフト" },
       { href: "/schedule/reservations-list", label: "予約一覧" },
@@ -71,6 +72,12 @@ const menuItems: MenuItem[] = [
     label: "売上管理",
     icon: TrendingUp,
     subGroups: [
+      {
+        groupLabel: "ダッシュボード",
+        items: [
+          { href: "/sales", label: "売上ダッシュボード" },
+        ],
+      },
       {
         groupLabel: "レポート",
         items: [
