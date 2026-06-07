@@ -104,6 +104,8 @@ import CastPostManagement from "./pages/CastPostManagement";
 import TherapistPostPage from "./pages/TherapistPostPage";
 import RecommendedMenu from "./pages/RecommendedMenu";
 import BusinessContinuity from "./pages/BusinessContinuity";
+import SalesDashboard from "./pages/SalesDashboard";
+import ScheduleDashboard from "./pages/ScheduleDashboard";
 import BusinessVendors from "./pages/BusinessVendors";
 import BusinessLogins from "./pages/BusinessLogins";
 import BusinessFixedCosts from "./pages/BusinessFixedCosts";
@@ -136,6 +138,7 @@ const App = () => {
           {/* Admin/Staff Pages */}
           <Route path="/login" element={<Auth />} />
           <Route path="/dashboard" element={<Navigate to="/admin-schedule" replace />} />
+          <Route path="/schedule-dashboard" element={<ScheduleDashboard />} />
           <Route path="/admin-schedule" element={<SchedulePage />} />
           <Route path="/schedule/monthly-shift" element={<MonthlyShift />} />
           <Route path="/schedule/reservations-list" element={<ReservationsList />} />
@@ -161,6 +164,7 @@ const App = () => {
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/knowledge/passwords" element={<PasswordDatabase />} />
           <Route path="/templates" element={<TextTemplates />} />
+          <Route path="/sales" element={<SalesDashboard />} />
           <Route path="/sales/customer-info" element={<SalesCustomerInfo />} />
           <Route path="/sales/closing" element={<SalesClosing />} />
           <Route path="/sales/therapist-breakdown" element={<SalesTherapistBreakdown />} />
