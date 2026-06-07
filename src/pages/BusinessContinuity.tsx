@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Building2, KeyRound, Receipt, Landmark, FileText, AlertTriangle } from "lucide-react";
+import { Building2, KeyRound, Receipt, Landmark, FileText, AlertTriangle, DoorOpen, Package, BookOpen, Lock, FileSignature } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,12 +85,41 @@ export default function BusinessContinuity() {
     return <div className="min-h-screen flex items-center justify-center"><div>読み込み中...</div></div>;
   }
 
-  const modules = [
-    { href: "/business-continuity/vendors", label: "業者管理", icon: Building2, description: "取引業者・連絡先の管理" },
-    { href: "/business-continuity/logins", label: "ログイン管理", icon: KeyRound, description: "各サービスのID/パスワード" },
-    { href: "/business-continuity/fixed-costs", label: "固定費管理", icon: Receipt, description: "月次固定費の一覧" },
-    { href: "/business-continuity/bank-accounts", label: "銀行口座管理", icon: Landmark, description: "口座情報の管理" },
-    { href: "/business-continuity/contracts", label: "契約書管理", icon: FileText, description: "契約書・更新日の管理" },
+  const moduleGroups: {
+    title: string;
+    modules: { href: string; label: string; icon: any; description: string }[];
+  }[] = [
+    {
+      title: "事業引き継ぎ",
+      modules: [
+        { href: "/business-continuity/vendors", label: "業者管理", icon: Building2, description: "取引業者・連絡先の管理" },
+        { href: "/business-continuity/logins", label: "ログイン管理", icon: KeyRound, description: "各サービスのID/パスワード" },
+        { href: "/business-continuity/fixed-costs", label: "固定費管理", icon: Receipt, description: "月次固定費の一覧" },
+        { href: "/business-continuity/bank-accounts", label: "銀行口座管理", icon: Landmark, description: "口座情報の管理" },
+        { href: "/business-continuity/contracts", label: "契約書管理", icon: FileText, description: "契約書・更新日の管理" },
+      ],
+    },
+    {
+      title: "ルーム・設備",
+      modules: [
+        { href: "/facilities/rooms", label: "ルーム管理", icon: DoorOpen, description: "ルーム・備品の管理" },
+        { href: "/facilities/equipment", label: "設備・消耗品", icon: Package, description: "消耗品・衣装・家具家電" },
+      ],
+    },
+    {
+      title: "契約・取引先",
+      modules: [
+        { href: "/facilities/contracts", label: "施設契約一覧", icon: FileSignature, description: "賃貸・光熱費・通信・取引先" },
+      ],
+    },
+    {
+      title: "ナレッジ",
+      modules: [
+        { href: "/knowledge", label: "ナレッジDB", icon: BookOpen, description: "業務ナレッジの蓄積" },
+        { href: "/knowledge/passwords", label: "PW管理", icon: Lock, description: "パスワードの一元管理" },
+        { href: "/templates", label: "文章テンプレート", icon: FileText, description: "定型文・テンプレート" },
+      ],
+    },
   ];
 
   return (
@@ -102,7 +131,7 @@ export default function BusinessContinuity() {
         <div className="max-w-5xl mx-auto space-y-6">
           <div>
             <h1 className="text-2xl font-bold">事業引き継ぎセンター</h1>
-            <p className="text-sm text-muted-foreground mt-1">業者・ログイン・固定費・銀行口座・契約書の一元管理</p>
+            <p className="text-sm text-muted-foreground mt-1">業者・ログイン・固定費・銀行口座・契約書・設備・ナレッジの一元管理</p>
           </div>
 
           {/* Summary Cards */}
@@ -208,28 +237,32 @@ export default function BusinessContinuity() {
           )}
 
           {/* Module Links */}
-          <div>
-            <h2 className="text-base font-semibold mb-3">各管理モジュール</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {modules.map((m) => {
-                const Icon = m.icon;
-                return (
-                  <Link key={m.href} to={m.href}>
-                    <Card className="hover:bg-accent/30 transition-colors cursor-pointer h-full">
-                      <CardContent className="p-4 flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-primary/10 mt-0.5">
-                          <Icon size={18} className="text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-sm">{m.label}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{m.description}</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                );
-              })}
-            </div>
+          <div className="space-y-6">
+            {moduleGroups.map((group) => (
+              <div key={group.title}>
+                <h2 className="text-base font-semibold mb-3">{group.title}</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {group.modules.map((m) => {
+                    const Icon = m.icon;
+                    return (
+                      <Link key={m.href} to={m.href}>
+                        <Card className="hover:bg-accent/30 transition-colors cursor-pointer h-full">
+                          <CardContent className="p-4 flex items-start gap-3">
+                            <div className="p-2 rounded-lg bg-primary/10 mt-0.5">
+                              <Icon size={18} className="text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-sm">{m.label}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{m.description}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
