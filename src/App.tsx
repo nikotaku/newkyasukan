@@ -102,6 +102,12 @@ import TextTemplates from "./pages/TextTemplates";
 import CastPostManagement from "./pages/CastPostManagement";
 import TherapistPostPage from "./pages/TherapistPostPage";
 import RecommendedMenu from "./pages/RecommendedMenu";
+import BusinessContinuity from "./pages/BusinessContinuity";
+import BusinessVendors from "./pages/BusinessVendors";
+import BusinessLogins from "./pages/BusinessLogins";
+import BusinessFixedCosts from "./pages/BusinessFixedCosts";
+import BusinessBankAccounts from "./pages/BusinessBankAccounts";
+import BusinessContracts from "./pages/BusinessContracts";
 
 const queryClient = new QueryClient();
 
@@ -195,6 +201,13 @@ const App = () => (
           <Route path="/therapist/:token/posts" element={<TherapistPostPage />} />
           <Route path="/post-management" element={<CastPostManagement />} />
           
+          <Route path="/business-continuity" element={<BusinessContinuity />} />
+          <Route path="/business-continuity/vendors" element={<BusinessVendors />} />
+          <Route path="/business-continuity/logins" element={<BusinessLogins />} />
+          <Route path="/business-continuity/fixed-costs" element={<BusinessFixedCosts />} />
+          <Route path="/business-continuity/bank-accounts" element={<BusinessBankAccounts />} />
+          <Route path="/business-continuity/contracts" element={<BusinessContracts />} />
+
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
