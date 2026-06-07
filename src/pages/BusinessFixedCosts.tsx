@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { BankTransferFields, decodeBankTransfer, encodeBankTransfer } from "@/components/BankTransferFields";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -283,15 +284,16 @@ export default function BusinessFixedCosts() {
                 <Input type="number" min={1} max={31} value={form.payment_day} onChange={(e) => setForm({ ...form, payment_day: e.target.value })} placeholder="25" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>支払方法</Label>
-                <Input value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value })} placeholder="口座振替 / カード / 振込" />
-              </div>
-              <div>
-                <Label>振込先</Label>
-                <Input value={form.transfer_destination} onChange={(e) => setForm({ ...form, transfer_destination: e.target.value })} />
-              </div>
+            <div>
+              <Label>支払方法</Label>
+              <Input value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value })} placeholder="口座振替 / カード / 振込" />
+            </div>
+            <div>
+              <Label>振込先</Label>
+              <BankTransferFields
+                value={decodeBankTransfer(form.transfer_destination)}
+                onChange={(v) => setForm({ ...form, transfer_destination: encodeBankTransfer(v) })}
+              />
             </div>
             <div>
               <Label>引落口座</Label>
