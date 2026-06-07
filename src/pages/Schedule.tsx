@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
+import { PaymentReminderPopup } from "@/components/PaymentReminderPopup";
 
 interface Cast {
   id: string;
@@ -445,6 +446,7 @@ export default function Schedule() {
 
   return (
     <div className="min-h-screen bg-background">
+      <PaymentReminderPopup />
       <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
