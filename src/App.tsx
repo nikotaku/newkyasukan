@@ -213,7 +213,7 @@ const App = () => {
           <Route path="/panel-manual" element={<PanelPhotoManual />} />
           <Route path="/service-manual" element={<CustomerServiceManual />} />
           <Route path="/recruitment-criteria" element={<RecruitmentCriteria />} />
-          
+
           <Route path="/business-continuity" element={<BusinessContinuity />} />
           <Route path="/business-continuity/vendors" element={<BusinessVendors />} />
           <Route path="/business-continuity/logins" element={<BusinessLogins />} />
