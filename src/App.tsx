@@ -106,6 +106,8 @@ import RecommendedMenu from "./pages/RecommendedMenu";
 import BusinessContinuity from "./pages/BusinessContinuity";
 import SalesDashboard from "./pages/SalesDashboard";
 import ScheduleDashboard from "./pages/ScheduleDashboard";
+import PanelPhotoManual from "./pages/PanelPhotoManual";
+import CustomerServiceManual from "./pages/CustomerServiceManual";
 import BusinessVendors from "./pages/BusinessVendors";
 import BusinessLogins from "./pages/BusinessLogins";
 import BusinessFixedCosts from "./pages/BusinessFixedCosts";
@@ -207,6 +209,8 @@ const App = () => {
           <Route path="/therapist/:token/checkout" element={<TherapistCheckout />} />
           <Route path="/therapist/:token/posts" element={<TherapistPostPage />} />
           <Route path="/post-management" element={<CastPostManagement />} />
+          <Route path="/panel-manual" element={<PanelPhotoManual />} />
+          <Route path="/service-manual" element={<CustomerServiceManual />} />
           
           <Route path="/business-continuity" element={<BusinessContinuity />} />
           <Route path="/business-continuity/vendors" element={<BusinessVendors />} />
