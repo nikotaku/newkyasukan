@@ -1511,17 +1511,17 @@ export default function Staff() {
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">セラピストレベル</Label>
                         <Select
-                          value={getCastLevel(editingCast) || ""}
+                          value={getCastLevel(editingCast) ?? "__none__"}
                           onValueChange={(v) => {
                             const otherTags = (editingCast.tags || []).filter(t => !LEVEL_TAGS.includes(t as LevelTag));
-                            setEditingCast({...editingCast, tags: v ? [...otherTags, v] : otherTags});
+                            setEditingCast({...editingCast, tags: v !== "__none__" ? [...otherTags, v] : otherTags});
                           }}
                         >
                           <SelectTrigger className="h-9">
                             <SelectValue placeholder="レベル未設定" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">未設定</SelectItem>
+                            <SelectItem value="__none__">未設定</SelectItem>
                             {LEVEL_TAGS.map(lv => (
                               <SelectItem key={lv} value={lv}>{lv}</SelectItem>
                             ))}
@@ -1818,8 +1818,8 @@ export default function Staff() {
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {/* Level tag selector */}
                       <Select
-                        value={getCastLevel(cast) || ""}
-                        onValueChange={(v) => handleSetLevelTag(cast.id, v as LevelTag | "")}
+                        value={getCastLevel(cast) ?? "__none__"}
+                        onValueChange={(v) => handleSetLevelTag(cast.id, v === "__none__" ? "" : v as LevelTag)}
                       >
                         <SelectTrigger
                           className="h-7 w-24 text-xs"
@@ -1828,7 +1828,7 @@ export default function Staff() {
                           <SelectValue placeholder="レベル" />
                         </SelectTrigger>
                         <SelectContent onClick={(e) => e.stopPropagation()}>
-                          <SelectItem value="">未設定</SelectItem>
+                          <SelectItem value="__none__">未設定</SelectItem>
                           {LEVEL_TAGS.map(lv => (
                             <SelectItem key={lv} value={lv}>{lv}</SelectItem>
                           ))}
