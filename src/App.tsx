@@ -108,6 +108,7 @@ import SalesDashboard from "./pages/SalesDashboard";
 import ScheduleDashboard from "./pages/ScheduleDashboard";
 import PanelPhotoManual from "./pages/PanelPhotoManual";
 import CustomerServiceManual from "./pages/CustomerServiceManual";
+import RecruitmentCriteria from "./pages/RecruitmentCriteria";
 import BusinessVendors from "./pages/BusinessVendors";
 import BusinessLogins from "./pages/BusinessLogins";
 import BusinessFixedCosts from "./pages/BusinessFixedCosts";
@@ -211,7 +212,8 @@ const App = () => {
           <Route path="/post-management" element={<CastPostManagement />} />
           <Route path="/panel-manual" element={<PanelPhotoManual />} />
           <Route path="/service-manual" element={<CustomerServiceManual />} />
-          
+          <Route path="/recruitment-criteria" element={<RecruitmentCriteria />} />
+
           <Route path="/business-continuity" element={<BusinessContinuity />} />
           <Route path="/business-continuity/vendors" element={<BusinessVendors />} />
           <Route path="/business-continuity/logins" element={<BusinessLogins />} />

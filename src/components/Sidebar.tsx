@@ -202,6 +202,7 @@ const menuItems: MenuItem[] = [
       { href: "/post-management", label: "投稿管理" },
       { href: "/panel-manual", label: "パネル撮影マニュアル" },
       { href: "/service-manual", label: "接客マニュアル" },
+      { href: "/recruitment-criteria", label: "採用基準確認シート" },
     ],
   },
   {
