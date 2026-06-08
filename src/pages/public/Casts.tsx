@@ -6,6 +6,7 @@ import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { driveImgUrl } from "@/lib/drive";
+import o2LogoUrl from "@/assets/o2-logo.png";
 
 interface Cast {
   id: string;
@@ -214,8 +215,8 @@ const Casts = () => {
                                     onClick={(e) => e.stopPropagation()} aria-label="口コミO2"
                                     className="flex flex-col items-center gap-0.5 group/sns"
                                   >
-                                    <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-md group-hover/sns:scale-110 transition-transform" style={{ backgroundColor: "#e85298" }}>
-                                      O2
+                                    <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-md group-hover/sns:scale-110 transition-transform overflow-hidden">
+                                      <img src={o2LogoUrl} alt="O2" className="w-6 h-6 object-contain" />
                                     </span>
                                     <span className="text-[9px] text-white/80 leading-none">O2</span>
                                   </a>
