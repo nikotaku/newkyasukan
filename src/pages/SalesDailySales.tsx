@@ -24,6 +24,7 @@ interface Reservation {
   start_time: string;
   course_name: string;
   price: number;
+  discount: number | null;
   status: string;
   course_type: string | null;
   duration: number | null;
@@ -100,7 +101,7 @@ export default function SalesDailySales() {
       const [resResult, nextResResult, backRatesResult, optionRatesResult, nominationRatesResult, clearResult] = await Promise.all([
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name)")
+          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name)")
           .eq("reservation_date", dateStr)
           .gte("start_time", dayStartTime) // 営業開始時刻以前は前日の深夜またぎ分なので除外
           .in("status", ["confirmed", "completed"])
@@ -108,7 +109,7 @@ export default function SalesDailySales() {
         // 深夜またぎ分：翌日日付で保存されているが営業開始前の予約は当日扱い
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name)")
+          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name)")
           .eq("reservation_date", nextDateStr)
           .lt("start_time", dayStartTime)
           .in("status", ["confirmed", "completed"])
@@ -483,6 +484,11 @@ export default function SalesDailySales() {
                                 <span className="font-semibold tabular-nums text-xs">¥{(r.price + (r.payment_fee ?? 0)).toLocaleString()}</span>
                               </div>
                             </div>
+                            {(r.discount ?? 0) > 0 && (
+                              <div className="text-[10px] text-rose-500 text-right">
+                                割引 −{yen(r.discount ?? 0)}（定価 {yen((r.price ?? 0) + (r.discount ?? 0) + (r.payment_fee ?? 0))}）
+                              </div>
+                            )}
                             {(r.payment_fee ?? 0) > 0 && (
                               <div className="text-[10px] text-muted-foreground text-right">
                                 （内 決済手数料 {yen(r.payment_fee ?? 0)}）
@@ -521,6 +527,12 @@ export default function SalesDailySales() {
                             </div>
                           </div>
                         ))}
+                        {g.reservations.reduce((s, r) => s + (r.discount ?? 0), 0) > 0 && (
+                          <div className="flex justify-between px-3 py-2 text-xs text-rose-600">
+                            <span>割引合計</span>
+                            <span>−{yen(g.reservations.reduce((s, r) => s + (r.discount ?? 0), 0))}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between px-3 py-2 bg-muted/30 font-semibold text-sm">
                           <span>売上合計</span>
                           <span>{yen(g.totalSales)}</span>
