@@ -119,8 +119,10 @@ const Schedule = () => {
     const end = endRaw <= startMin ? endRaw + 24 * 60 : endRaw;
     if (isToday) {
       const cur = now.getHours() * 60 + now.getMinutes();
-      // also handle overnight: if current time is past midnight, add 24h offset
-      const curAdj = cur < startMin ? cur + 24 * 60 : cur;
+      // overnight shift: only add 24h when we're past midnight (cur < endRaw)
+      // NOT when we're simply before the shift start
+      const isOvernight = endRaw <= startMin;
+      const curAdj = (isOvernight && cur < endRaw) ? cur + 24 * 60 : cur;
       if (curAdj > cursor) cursor = Math.ceil(curAdj / 30) * 30;
     }
     // skip over reserved blocks (60m + 30m buffer)
