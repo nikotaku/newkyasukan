@@ -41,8 +41,20 @@ const ESTAMA_FEATURE_MAP: Record<string, string> = {
 // クリップボードのキャストデータ(JSON)を読み取り、エステ魂のフォームへ自動入力する。
 const ESTAMA_BOOKMARKLET = `javascript:(function(){function go(D){function fire(el){el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));el.dispatchEvent(new Event('keyup',{bubbles:true}));}function setSel(sel,val){if(val==null||val==='')return;var el=document.querySelector(sel);if(el){el.value=val;fire(el);}}setSel('#Name',D.name);setSel('#Description',D.description);setSel('#CastPr',D.cast_pr);setSel('[name=experience]',D.experience);setSel('[name=age]',D.age);setSel('[name=tall]',D.tall);setSel('[name=size_w]',D.size_w);setSel('[name=size_h]',D.size_h);setSel('[name=blood]',D.blood);setSel('#ForteProcedure',D.forte_procedure);setSel('#Food',D.food);setSel('#ManLikeType',D.man_like_type);setSel('#LikeTalent',D.like_talent);setSel('#Holiday',D.holiday);setSel('#Vogue',D.vogue);setSel('#Blog',D.blog);setSel('#Twitter',D.twitter);setSel('#Instagram',D.instagram);setSel('[name=size_b]',D.size_b);setTimeout(function(){setSel('[name=size_cup]',D.size_cup);},500);(D.types||[]).forEach(function(v){var c=document.getElementById('type_'+v);if(c&&!c.checked){c.checked=true;fire(c);}});var photos=D.photos||[];var fi=[].slice.call(document.querySelectorAll('input[type=file]'));var done=0,fail=0;function rep(){if(done+fail<photos.length)return;alert('エスたま:「'+D.name+'」入力完了。写真'+done+'/'+photos.length+'枚。内容を確認して保存を押してください。');}if(!photos.length)rep();photos.forEach(function(u,i){var input=fi[i];if(!input){fail++;rep();return;}fetch(u).then(function(r){return r.blob();}).then(function(b){var ext=(b.type&&b.type.indexOf('png')>=0)?'png':'jpg';var f=new File([b],'photo'+(i+1)+'.'+ext,{type:b.type||'image/jpeg'});var dt=new DataTransfer();dt.items.add(f);input.files=dt.files;fire(input);done++;rep();}).catch(function(){fail++;rep();});});}if(location.hostname.indexOf('estama')<0){alert('エステ魂のセラピスト登録ページ(estama.jp/admin/cast_edit/)を開いてからクリックしてください。');return;}navigator.clipboard.readText().then(function(t){var D;try{D=JSON.parse(t);}catch(e){alert('クリップボードにデータがありません。先にキャスト管理で「エスたま」ボタンを押してください。');return;}if(!D||!D.__estama){alert('エスたまデータが見つかりません。先にキャスト管理で「エスたま」ボタンを押してください。');return;}go(D);}).catch(function(e){alert('クリップボードの読取りに失敗しました。ブラウザの許可ダイアログで「許可」を押してから、もう一度クリックしてください。');});})();`;
 
-const CATEGORY_TAGS = ["在籍", "出稼ぎ", "入店手続き待ち"] as const;
+const CATEGORY_TAGS = ["ノーステータス", "入店手続き---面談予定", "入店手続き---講習予定", "在籍", "出稼ぎ"] as const;
 type CategoryTag = typeof CATEGORY_TAGS[number];
+
+const LEVEL_TAGS = ["ビギナーズ", "スタンダード", "ソルジャー", "マスター"] as const;
+type LevelTag = typeof LEVEL_TAGS[number];
+
+const LEVEL_COLORS: Record<LevelTag, string> = {
+  "ビギナーズ": "bg-gray-400",
+  "スタンダード": "bg-blue-400",
+  "ソルジャー": "bg-orange-500",
+  "マスター": "bg-purple-600",
+};
+
+const ALL_SYSTEM_TAGS = [...CATEGORY_TAGS, ...LEVEL_TAGS] as readonly string[];
 
 const THERAPIST_EXPERIENCE_OPTIONS = ["1年未満", "1〜3年", "3〜5年", "5年以上"];
 const BLOOD_TYPES = ["A", "B", "O", "AB"];
@@ -135,7 +147,7 @@ export default function Staff() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingCast, setEditingCast] = useState<Cast | null>(null);
   const [mgmtProps, setMgmtProps] = useState<{ key: string; value: string }[]>([]);
-  const [categoryTab, setCategoryTab] = useState<CategoryTag>("在籍");
+  const [categoryTab, setCategoryTab] = useState<CategoryTag>("ノーステータス");
   const [showProfileDetail, setShowProfileDetail] = useState(true);
   const [showProfileDetailAdd, setShowProfileDetailAdd] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -281,11 +293,32 @@ export default function Staff() {
   };
 
   const getCastCategory = (cast: Cast): CategoryTag => {
-    if (!cast.tags || cast.tags.length === 0) return "在籍";
+    if (!cast.tags || cast.tags.length === 0) return "ノーステータス";
     for (const tag of CATEGORY_TAGS) {
       if (cast.tags.includes(tag)) return tag;
     }
-    return "在籍";
+    return "ノーステータス";
+  };
+
+  const getCastLevel = (cast: Cast): LevelTag | null => {
+    if (!cast.tags) return null;
+    for (const tag of LEVEL_TAGS) {
+      if (cast.tags.includes(tag)) return tag;
+    }
+    return null;
+  };
+
+  const handleSetLevelTag = async (castId: string, level: LevelTag | "") => {
+    const cast = casts.find(c => c.id === castId);
+    if (!cast) return;
+    const otherTags = (cast.tags || []).filter(t => !LEVEL_TAGS.includes(t as LevelTag));
+    const newTags = level ? [...otherTags, level] : otherTags;
+    setCasts(prev => prev.map(c => c.id === castId ? { ...c, tags: newTags } : c));
+    const { error } = await supabase.from('casts').update({ tags: newTags }).eq('id', castId);
+    if (error) {
+      toast({ title: "エラー", description: "レベルの更新に失敗しました", variant: "destructive" });
+      fetchCasts();
+    }
   };
 
   const filteredCasts = casts.filter(cast =>
@@ -1474,6 +1507,34 @@ export default function Staff() {
                         </div>
                       </div>
 
+                      {/* セラピストレベル */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">セラピストレベル</Label>
+                        <Select
+                          value={getCastLevel(editingCast) || ""}
+                          onValueChange={(v) => {
+                            const otherTags = (editingCast.tags || []).filter(t => !LEVEL_TAGS.includes(t as LevelTag));
+                            setEditingCast({...editingCast, tags: v ? [...otherTags, v] : otherTags});
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="レベル未設定" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">未設定</SelectItem>
+                            {LEVEL_TAGS.map(lv => (
+                              <SelectItem key={lv} value={lv}>{lv}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <p>1.ビギナーズ — 講習中・デビュー前</p>
+                          <p>2.スタンダード — 初出勤済み・SNS教育中</p>
+                          <p>3.ソルジャー — SNS投稿こなし、日7〜8万水準</p>
+                          <p>4.マスター — 本指名率30%以上・皆勤・クレームなし達成</p>
+                        </div>
+                      </div>
+
                       {/* カスタムタグ */}
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">カスタムタグ</Label>
@@ -1509,7 +1570,7 @@ export default function Staff() {
                           </Button>
                         </div>
                         <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                          {(editingCast.tags || []).filter(t => !CATEGORY_TAGS.includes(t as CategoryTag)).map((tag) => (
+                          {(editingCast.tags || []).filter(t => !ALL_SYSTEM_TAGS.includes(t)).map((tag) => (
                             <span key={tag} className="flex items-center gap-1 bg-[#f5e6e0] text-[#7a706c] text-xs px-2 py-1 rounded-full">
                               {tag}
                               <button
@@ -1521,7 +1582,7 @@ export default function Staff() {
                               </button>
                             </span>
                           ))}
-                          {(editingCast.tags || []).filter(t => !CATEGORY_TAGS.includes(t as CategoryTag)).length === 0 && (
+                          {(editingCast.tags || []).filter(t => !ALL_SYSTEM_TAGS.includes(t)).length === 0 && (
                             <p className="text-xs text-muted-foreground">タグなし</p>
                           )}
                         </div>
@@ -1737,8 +1798,13 @@ export default function Staff() {
 
                   {/* Name */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm truncate">{cast.name}</span>
+                      {getCastLevel(cast) && (
+                        <span className={`text-[10px] text-white px-1.5 py-0.5 rounded-full font-medium ${LEVEL_COLORS[getCastLevel(cast)!]}`}>
+                          {getCastLevel(cast)}
+                        </span>
+                      )}
                       {!cast.is_visible && (
                         <Badge variant="secondary" className="text-[10px] px-1 py-0">
                           <EyeOff size={10} className="mr-0.5" />非表示
@@ -1750,13 +1816,31 @@ export default function Staff() {
                   {/* Actions */}
                   {isAdmin && (
                     <div className="flex items-center gap-1 flex-shrink-0">
+                      {/* Level tag selector */}
+                      <Select
+                        value={getCastLevel(cast) || ""}
+                        onValueChange={(v) => handleSetLevelTag(cast.id, v as LevelTag | "")}
+                      >
+                        <SelectTrigger
+                          className="h-7 w-24 text-xs"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <SelectValue placeholder="レベル" />
+                        </SelectTrigger>
+                        <SelectContent onClick={(e) => e.stopPropagation()}>
+                          <SelectItem value="">未設定</SelectItem>
+                          {LEVEL_TAGS.map(lv => (
+                            <SelectItem key={lv} value={lv}>{lv}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       {/* Category tag selector */}
                       <Select
                         value={getCastCategory(cast)}
                         onValueChange={(v) => handleSetCategoryTag(cast.id, v as CategoryTag)}
                       >
                         <SelectTrigger
-                          className="h-7 w-28 text-xs"
+                          className="h-7 w-32 text-xs"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <SelectValue />
