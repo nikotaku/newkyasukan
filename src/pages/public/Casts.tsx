@@ -29,6 +29,9 @@ interface Cast {
   litlink_url: string | null;
   o2_url: string | null;
   instagram_url: string | null;
+  blog_url: string | null;
+  skebiy_url: string | null;
+  custom_fields: Record<string, string> | null;
 }
 
 const INTERNAL_TAGS = ["在籍", "出稼ぎ", "入店手続き待ち"];
@@ -130,7 +133,7 @@ const Casts = () => {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {filteredCasts.map((cast) => {
-                const hasSns = !!(cast.x_account || cast.line_url || cast.litlink_url || cast.instagram_url || cast.o2_url);
+                const hasSns = !!(cast.x_account || cast.line_url || cast.litlink_url || cast.instagram_url || cast.o2_url || cast.blog_url || cast.skebiy_url);
                 return (
                   <div key={cast.id} className="relative">
                     <Link to={`/casts/${cast.id}`} className="block group">
@@ -219,6 +222,38 @@ const Casts = () => {
                                       <img src={o2LogoUrl} alt="O2" className="w-6 h-6 object-contain" />
                                     </span>
                                     <span className="text-[9px] text-white/80 leading-none">O2</span>
+                                  </a>
+                                )}
+                                {cast.blog_url && (
+                                  <a
+                                    href={cast.blog_url}
+                                    target="_blank" rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()} aria-label="ブログ"
+                                    className="flex flex-col items-center gap-0.5 group/sns"
+                                  >
+                                    <span className="w-8 h-8 rounded-full flex items-center justify-center shadow-md group-hover/sns:scale-110 transition-transform overflow-hidden" style={{ backgroundColor: "#f59e0b" }}>
+                                      {cast.custom_fields?.blog_icon ? (
+                                        <img src={cast.custom_fields.blog_icon} alt="Blog" className="w-6 h-6 object-contain" />
+                                      ) : (
+                                        <span className="text-white text-[8px] font-bold">BLOG</span>
+                                      )}
+                                    </span>
+                                    <span className="text-[9px] text-white/80 leading-none">ブログ</span>
+                                  </a>
+                                )}
+                                {cast.skebiy_url && (
+                                  <a
+                                    href={cast.skebiy_url}
+                                    target="_blank" rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()} aria-label="Skebiy"
+                                    className="flex flex-col items-center gap-0.5 group/sns"
+                                  >
+                                    <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[9px] font-bold shadow-md group-hover/sns:scale-110 transition-transform overflow-hidden" style={{ backgroundColor: "#7c3aed" }}>
+                                      {cast.custom_fields?.skebiy_icon ? (
+                                        <img src={cast.custom_fields.skebiy_icon} alt="Sk" className="w-6 h-6 object-contain" />
+                                      ) : "Sk"}
+                                    </span>
+                                    <span className="text-[9px] text-white/80 leading-none">Skebiy</span>
                                   </a>
                                 )}
                               </div>

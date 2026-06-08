@@ -141,6 +141,9 @@ export default function Staff() {
   const [loading, setLoading] = useState(true);
   const [generatingContent, setGeneratingContent] = useState(false);
   const [generatingShopComment, setGeneratingShopComment] = useState(false);
+  const [customTagInput, setCustomTagInput] = useState("");
+  const [blogIconUrl, setBlogIconUrl] = useState("");
+  const [skebiyIconUrl, setSkebiyIconUrl] = useState("");
   
   const emptyForm = {
     name: "",
@@ -393,14 +396,21 @@ export default function Staff() {
       if (error) throw error;
 
       setEditingCast(data as Cast);
-      setMgmtProps(Object.entries((data as Cast).custom_fields || {}).map(([key, value]) => ({ key, value: String(value) })));
+      const cf = (data as Cast).custom_fields || {};
+      setBlogIconUrl(cf.blog_icon || "");
+      setSkebiyIconUrl(cf.skebiy_icon || "");
+      setCustomTagInput("");
+      setMgmtProps(Object.entries(cf).filter(([k]) => !['blog_icon','skebiy_icon'].includes(k)).map(([key, value]) => ({ key, value: String(value) })));
       setIsEditDialogOpen(true);
       console.log('Dialog opened with latest data:', data);
     } catch (error) {
       console.error('Error fetching latest cast data:', error);
-      // エラーの場合は渡されたcastデータを使用
+      const cf = cast.custom_fields || {};
+      setBlogIconUrl(cf.blog_icon || "");
+      setSkebiyIconUrl(cf.skebiy_icon || "");
+      setCustomTagInput("");
       setEditingCast(cast);
-      setMgmtProps(Object.entries(cast.custom_fields || {}).map(([key, value]) => ({ key, value: String(value) })));
+      setMgmtProps(Object.entries(cf).filter(([k]) => !['blog_icon','skebiy_icon'].includes(k)).map(([key, value]) => ({ key, value: String(value) })));
       setIsEditDialogOpen(true);
     }
   };
@@ -458,9 +468,14 @@ export default function Staff() {
         referral_reward_id: editingCast.referral_reward_id || null,
         management_photos: editingCast.management_photos || [],
         is_visible: editingCast.is_visible,
-        custom_fields: Object.fromEntries(
-          mgmtProps.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])
-        ),
+        tags: editingCast.tags || [],
+        custom_fields: {
+          ...Object.fromEntries(
+            mgmtProps.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])
+          ),
+          ...(blogIconUrl ? { blog_icon: blogIconUrl } : {}),
+          ...(skebiyIconUrl ? { skebiy_icon: skebiyIconUrl } : {}),
+        },
       };
       const { error: baseError } = await supabase.from('casts').update(basePayload).eq('id', editingCast.id);
       if (baseError) throw baseError;
@@ -1428,6 +1443,10 @@ export default function Staff() {
                         <div>
                           <Label htmlFor="e-blog">外部ブログ</Label>
                           <Input id="e-blog" placeholder="https://..." value={editingCast.blog_url || ""} onChange={(e) => setEditingCast({...editingCast, blog_url: e.target.value})} />
+                          <div className="mt-1 flex items-center gap-2">
+                            <Input placeholder="ブログアイコン画像URL（任意）" value={blogIconUrl} onChange={(e) => setBlogIconUrl(e.target.value)} className="h-7 text-xs" />
+                            {blogIconUrl && <img src={blogIconUrl} alt="preview" className="w-6 h-6 rounded object-contain shrink-0 border" />}
+                          </div>
                         </div>
                         <div>
                           <Label htmlFor="e-x">X (Twitter)</Label>
@@ -1436,6 +1455,10 @@ export default function Staff() {
                         <div>
                           <Label htmlFor="e-skebiy">Skebiy</Label>
                           <Input id="e-skebiy" placeholder="https://..." value={editingCast.skebiy_url || ""} onChange={(e) => setEditingCast({...editingCast, skebiy_url: e.target.value})} />
+                          <div className="mt-1 flex items-center gap-2">
+                            <Input placeholder="Skebiyアイコン画像URL（任意）" value={skebiyIconUrl} onChange={(e) => setSkebiyIconUrl(e.target.value)} className="h-7 text-xs" />
+                            {skebiyIconUrl && <img src={skebiyIconUrl} alt="preview" className="w-6 h-6 rounded object-contain shrink-0 border" />}
+                          </div>
                         </div>
                         <div>
                           <Label htmlFor="e-instagram">Instagram</Label>
@@ -1448,6 +1471,59 @@ export default function Staff() {
                         <div>
                           <Label htmlFor="e-litlink">リットリンク URL</Label>
                           <Input id="e-litlink" placeholder="https://lit.link/..." value={editingCast.litlink_url || ""} onChange={(e) => setEditingCast({...editingCast, litlink_url: e.target.value})} />
+                        </div>
+                      </div>
+
+                      {/* カスタムタグ */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">カスタムタグ</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="タグ名を入力してEnter"
+                            value={customTagInput}
+                            onChange={(e) => setCustomTagInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const t = customTagInput.trim();
+                                if (t && !(editingCast.tags || []).includes(t)) {
+                                  setEditingCast({...editingCast, tags: [...(editingCast.tags || []), t]});
+                                  setCustomTagInput("");
+                                }
+                              }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const t = customTagInput.trim();
+                              if (t && !(editingCast.tags || []).includes(t)) {
+                                setEditingCast({...editingCast, tags: [...(editingCast.tags || []), t]});
+                                setCustomTagInput("");
+                              }
+                            }}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                          {(editingCast.tags || []).filter(t => !CATEGORY_TAGS.includes(t as CategoryTag)).map((tag) => (
+                            <span key={tag} className="flex items-center gap-1 bg-[#f5e6e0] text-[#7a706c] text-xs px-2 py-1 rounded-full">
+                              {tag}
+                              <button
+                                type="button"
+                                onClick={() => setEditingCast({...editingCast, tags: (editingCast.tags || []).filter(t => t !== tag)})}
+                                className="text-[#c49480] hover:text-[#a87b65] leading-none"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                          {(editingCast.tags || []).filter(t => !CATEGORY_TAGS.includes(t as CategoryTag)).length === 0 && (
+                            <p className="text-xs text-muted-foreground">タグなし</p>
+                          )}
                         </div>
                       </div>
                     </TabsContent>
