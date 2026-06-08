@@ -190,10 +190,13 @@ export default function Expenses() {
                     </div>
                     <div>
                       <Label>キャスト（任意）</Label>
-                      <Select value={form.cast_id} onValueChange={(v) => setForm({ ...form, cast_id: v })}>
+                      <Select
+                        value={form.cast_id || "__none__"}
+                        onValueChange={(v) => setForm({ ...form, cast_id: v === "__none__" ? "" : v })}
+                      >
                         <SelectTrigger><SelectValue placeholder="なし" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">なし</SelectItem>
+                          <SelectItem value="__none__">なし</SelectItem>
                           {casts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                         </SelectContent>
                       </Select>

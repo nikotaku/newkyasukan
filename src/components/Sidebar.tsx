@@ -102,6 +102,7 @@ const menuItems: MenuItem[] = [
       {
         groupLabel: "経費",
         items: [
+          { href: "/expenses", label: "経費管理" },
           { href: "/sales/advertising-cost", label: "広告費管理" },
           { href: "/sales/deduction-summary", label: "控除集計" },
           { href: "/sales/referral-fees", label: "紹介報酬管理" },
