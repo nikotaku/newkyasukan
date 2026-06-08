@@ -80,16 +80,6 @@ const Casts = () => {
     return true;
   });
 
-  const getProfileText = (profile: string | null): string => {
-    if (!profile) return '';
-    try {
-      const p = JSON.parse(profile);
-      return p.self_introduction || p.comment || '';
-    } catch {
-      return profile;
-    }
-  };
-
   const formatSize = (cast: Cast) => {
     if (!cast.height) return '';
     let s = `T.${cast.height}`;
@@ -138,66 +128,113 @@ const Casts = () => {
             <div className="text-center py-12"><p className="text-muted-foreground">該当するセラピストが見つかりませんでした</p></div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {filteredCasts.map((cast) => (
-                <div key={cast.id} className="relative">
-                  <Link to={`/casts/${cast.id}`} className="block group">
-                    <figure className="bg-white rounded overflow-hidden shadow hover:shadow-lg transition-shadow relative">
-                      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-                        {cast.tags?.filter(t => !INTERNAL_TAGS.includes(t)).map((tag, idx) => (
-                          <span key={idx} className={`text-white text-xs font-bold px-2 py-1 rounded shadow-md ${tag === '人気セラピスト' ? 'bg-red-500' : tag === '新人' ? 'bg-pink-500' : 'bg-blue-500'}`}>{tag}</span>
-                        ))}
-                      </div>
-                      {cast.photo ? (
-                        <img src={driveImgUrl(cast.photo)} alt={cast.name} className="w-full aspect-[3/4] object-cover" />
-                      ) : (
-                        <div className="w-full aspect-[3/4] bg-gradient-to-br from-[#d4b5a8] to-[#c5a89b] flex items-center justify-center">
-                          <span className="text-4xl text-white">{cast.name.charAt(0)}</span>
+              {filteredCasts.map((cast) => {
+                const hasSns = !!(cast.x_account || cast.line_url || cast.litlink_url || cast.instagram_url || cast.o2_url);
+                return (
+                  <div key={cast.id} className="relative">
+                    <Link to={`/casts/${cast.id}`} className="block group">
+                      <figure className="bg-white rounded overflow-hidden shadow hover:shadow-lg transition-shadow">
+                        {/* tag badges */}
+                        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+                          {cast.tags?.filter(t => !INTERNAL_TAGS.includes(t)).map((tag, idx) => (
+                            <span key={idx} className={`text-white text-xs font-bold px-2 py-1 rounded shadow-md ${tag === '人気セラピスト' ? 'bg-red-500' : tag === '新人' ? 'bg-pink-500' : 'bg-blue-500'}`}>{tag}</span>
+                          ))}
                         </div>
-                      )}
-                      {(cast.x_account || cast.line_url || cast.litlink_url || cast.instagram_url || cast.o2_url) && (
-                        <div className="absolute bottom-12 right-2 flex items-center gap-1.5">
-                          {cast.x_account && (
-                            <a href={cast.x_account.startsWith("http") ? cast.x_account : `https://twitter.com/${cast.x_account}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="X">
-                              <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-6 h-6 rounded shadow" />
-                            </a>
+
+                        {/* photo */}
+                        <div className="relative">
+                          {cast.photo ? (
+                            <img src={driveImgUrl(cast.photo)} alt={cast.name} className="w-full aspect-[3/4] object-cover group-hover:scale-105 transition-transform duration-500" />
+                          ) : (
+                            <div className="w-full aspect-[3/4] bg-gradient-to-br from-[#d4b5a8] to-[#c5a89b] flex items-center justify-center">
+                              <span className="text-4xl text-white">{cast.name.charAt(0)}</span>
+                            </div>
                           )}
-                          {cast.line_url && (
-                            <a href={cast.line_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="LINE">
-                              <img src="https://storage.googleapis.com/caskan/asset/line_icon.png" alt="LINE" className="w-6 h-6 rounded shadow" />
-                            </a>
-                          )}
-                          {cast.instagram_url && (
-                            <a href={cast.instagram_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="Instagram"
-                              className="w-6 h-6 rounded shadow flex items-center justify-center text-white text-[10px] font-bold" style={{ background: "linear-gradient(45deg,#feda75,#d62976,#4f5bd5)" }}>
-                              IG
-                            </a>
-                          )}
-                          {cast.litlink_url && (
-                            <a href={cast.litlink_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="リットリンク"
-                              className="w-6 h-6 rounded shadow flex items-center justify-center bg-white text-[#c49480] text-[10px] font-bold">
-                              lit
-                            </a>
-                          )}
-                          {cast.o2_url && (
-                            <a href={cast.o2_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="口コミO2"
-                              className="w-6 h-6 rounded shadow flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: "#e85298" }}>
-                              O2
-                            </a>
+
+                          {/* SNS icon overlay — always visible at photo bottom */}
+                          {hasSns && (
+                            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-8 pb-2 px-2">
+                              <div className="flex items-center justify-center gap-2 flex-wrap">
+                                {cast.x_account && (
+                                  <a
+                                    href={cast.x_account.startsWith("http") ? cast.x_account : `https://twitter.com/${cast.x_account}`}
+                                    target="_blank" rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()} aria-label="X"
+                                    className="flex flex-col items-center gap-0.5 group/sns"
+                                  >
+                                    <span className="w-8 h-8 rounded-full bg-black flex items-center justify-center shadow-md group-hover/sns:scale-110 transition-transform">
+                                      <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-4 h-4" />
+                                    </span>
+                                    <span className="text-[9px] text-white/80 leading-none">X</span>
+                                  </a>
+                                )}
+                                {cast.line_url && (
+                                  <a
+                                    href={cast.line_url}
+                                    target="_blank" rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()} aria-label="LINE"
+                                    className="flex flex-col items-center gap-0.5 group/sns"
+                                  >
+                                    <span className="w-8 h-8 rounded-full flex items-center justify-center shadow-md group-hover/sns:scale-110 transition-transform" style={{ backgroundColor: "#06c755" }}>
+                                      <img src="https://storage.googleapis.com/caskan/asset/line_icon.png" alt="LINE" className="w-4 h-4" />
+                                    </span>
+                                    <span className="text-[9px] text-white/80 leading-none">LINE</span>
+                                  </a>
+                                )}
+                                {cast.instagram_url && (
+                                  <a
+                                    href={cast.instagram_url}
+                                    target="_blank" rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()} aria-label="Instagram"
+                                    className="flex flex-col items-center gap-0.5 group/sns"
+                                  >
+                                    <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md group-hover/sns:scale-110 transition-transform" style={{ background: "linear-gradient(45deg,#feda75,#d62976,#4f5bd5)" }}>
+                                      IG
+                                    </span>
+                                    <span className="text-[9px] text-white/80 leading-none">Insta</span>
+                                  </a>
+                                )}
+                                {cast.litlink_url && (
+                                  <a
+                                    href={cast.litlink_url}
+                                    target="_blank" rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()} aria-label="リットリンク"
+                                    className="flex flex-col items-center gap-0.5 group/sns"
+                                  >
+                                    <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#c49480] text-[10px] font-bold shadow-md group-hover/sns:scale-110 transition-transform">
+                                      lit
+                                    </span>
+                                    <span className="text-[9px] text-white/80 leading-none">lit.link</span>
+                                  </a>
+                                )}
+                                {cast.o2_url && (
+                                  <a
+                                    href={cast.o2_url}
+                                    target="_blank" rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()} aria-label="口コミO2"
+                                    className="flex flex-col items-center gap-0.5 group/sns"
+                                  >
+                                    <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-md group-hover/sns:scale-110 transition-transform" style={{ backgroundColor: "#e85298" }}>
+                                      O2
+                                    </span>
+                                    <span className="text-[9px] text-white/80 leading-none">O2</span>
+                                  </a>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
-                      )}
-                      <div className="p-3">
-                        <small className="block text-xs text-[#a89586] mb-1 line-clamp-2">{getProfileText(cast.profile) || '\u00A0'}</small>
-                        <h4 className="font-bold text-[#7a706c] mb-1">{cast.name}{cast.age ? `(${cast.age})` : ''}</h4>
-                        {formatSize(cast) && <p className="text-xs text-[#a89586]">{formatSize(cast)}</p>}
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="text-white text-sm flex items-center justify-center gap-1">VIEW DETAIL →</span>
-                      </div>
-                    </figure>
-                  </Link>
-                </div>
-              ))}
+
+                        {/* info below photo */}
+                        <div className="p-2 md:p-3">
+                          <h4 className="font-bold text-[#7a706c] text-sm leading-tight">{cast.name}{cast.age ? `(${cast.age})` : ''}</h4>
+                          {formatSize(cast) && <p className="text-xs text-[#a89586] mt-0.5 leading-tight">{formatSize(cast)}</p>}
+                        </div>
+                      </figure>
+                    </Link>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
