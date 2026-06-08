@@ -1,32 +1,13 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
-import { ExternalLink, Clock, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
-import { driveImgUrl } from "@/lib/drive";
+import { WeeklyScheduleWidget } from "@/components/public/WeeklyScheduleWidget";
+import { ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-
-interface TodayShift {
-  id: string;
-  cast_id: string;
-  start_time: string;
-  end_time: string;
-  casts: {
-    id: string;
-    name: string;
-    photo: string | null;
-    age: number | null;
-    height: number | null;
-    cup_size: string | null;
-    message: string | null;
-    tags: string[] | null;
-    x_account: string | null;
-  };
-}
 
 const STORE_SNS_DEFS = [
   { key: "store_sns_x", label: "店舗公式 X (旧Twitter)", short: "X", color: "#000000" },
@@ -42,10 +23,8 @@ const FALLBACK_BANNERS = [
 ];
 
 const Top = () => {
-  const [todayShifts, setTodayShifts] = useState<TodayShift[]>([]);
   const [bannerSlides, setBannerSlides] = useState<string[]>(FALLBACK_BANNERS);
   const [snsContent, setSnsContent] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
   const navigate = useNavigate();
 
@@ -66,13 +45,7 @@ const Top = () => {
   }, []);
 
   const fetchAll = async () => {
-    const today = format(new Date(), "yyyy-MM-dd");
-    const [s, b, content] = await Promise.all([
-      supabase
-        .from("shifts")
-        .select("id,cast_id,start_time,end_time,casts(id,name,photo,age,height,cup_size,message,tags,x_account)")
-        .eq("shift_date", today)
-        .order("start_time", { ascending: true }),
+    const [b, content] = await Promise.all([
       supabase
         .from("banners")
         .select("image_url")
@@ -86,22 +59,10 @@ const Top = () => {
       content.data.forEach((r: { key: string; value: string }) => { map[r.key] = r.value; });
       setSnsContent(map);
     }
-    if (s.data) {
-      const seen = new Set<string>();
-      const unique = (s.data as any[]).filter(sh => {
-        if (seen.has(sh.cast_id)) return false;
-        seen.add(sh.cast_id);
-        return sh.casts?.is_visible !== false;
-      });
-      setTodayShifts(unique as TodayShift[]);
-    }
     if (b.data && b.data.length > 0) {
       setBannerSlides(b.data.map((r: any) => r.image_url));
     }
-    setLoading(false);
   };
-
-  const todayLabel = format(new Date(), "M月d日(E)", { locale: ja });
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
@@ -148,108 +109,24 @@ const Top = () => {
         </div>
       </div>
 
-      {/* ===== 本日の出勤 HERO ===== */}
-      <section className="py-5 md:py-10" style={{ background: "linear-gradient(180deg, #2e2b29 0%, #3a3330 100%)" }}>
-        <div className="container mx-auto max-w-6xl px-3 md:px-6">
-          {/* header */}
-          <div className="flex items-center justify-between mb-4 md:mb-6">
-            <div>
-              <div className="flex items-center gap-2 text-[#c49480] text-xs tracking-widest mb-0.5">
-                <Calendar size={13} />
-                <span>{todayLabel} 本日の出勤</span>
-              </div>
-              <h2 className="text-lg md:text-2xl font-bold tracking-wider text-white">TODAY'S SCHEDULE</h2>
-            </div>
-            <Link
-              to="/schedule"
-              className="text-xs md:text-sm text-[#c49480] border border-[#c49480]/50 px-3 py-1.5 rounded hover:bg-[#c49480]/10 transition"
-            >
-              全員を見る →
-            </Link>
-          </div>
+      {/* ===== 週間出勤スケジュール ===== */}
+      <WeeklyScheduleWidget />
 
-          {loading ? (
-            <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide">
-              {[1,2,3].map(i => (
-                <div key={i} className="shrink-0 w-[130px] md:w-[160px] h-[200px] md:h-[240px] bg-white/10 rounded-lg animate-pulse" />
-              ))}
-            </div>
-          ) : todayShifts.length === 0 ? (
-            <div className="text-center py-10 text-[#9a8c88]">
-              <p className="text-sm">本日の出勤情報はまだありません</p>
-              <Link to="/schedule" className="mt-3 inline-block text-[#c49480] text-xs underline">出勤スケジュールを確認する</Link>
-            </div>
-          ) : (
-            <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide snap-x snap-mandatory">
-              {todayShifts.map((shift) => {
-                const c = shift.casts;
-                return (
-                  <Link
-                    to={`/casts/${c.id}`}
-                    key={shift.id}
-                    className="shrink-0 w-[130px] md:w-[160px] snap-start group"
-                  >
-                    <div className="relative rounded-lg overflow-hidden bg-[#2a2320] shadow-lg">
-                      <div className="aspect-[3/4] bg-gradient-to-br from-[#3a3634] to-[#2a2320]">
-                        {c.photo ? (
-                          <img
-                            src={driveImgUrl(c.photo, 400)}
-                            alt={c.name}
-                            className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-3xl text-[#c49480]/50">
-                            {c.name.charAt(0)}
-                          </div>
-                        )}
-                      </div>
-                      {/* time badge */}
-                      <div className="absolute top-1.5 left-1.5 bg-black/60 backdrop-blur-sm rounded px-1.5 py-0.5 flex items-center gap-1">
-                        <Clock size={9} className="text-[#c49480]" />
-                        <span className="text-[10px] text-white font-medium">
-                          {shift.start_time.slice(0,5)}〜{shift.end_time.slice(0,5)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="pt-1.5 pb-1 px-0.5">
-                      <p className="text-sm font-bold text-white truncate">{c.name}</p>
-                      <p className="text-[10px] text-[#9a8c88]">
-                        {c.age && `${c.age}歳`}{c.height && ` ${c.height}㎝`}
-                        {c.cup_size && ` (${c.cup_size})`}
-                      </p>
-                    </div>
-                  </Link>
-                );
-              })}
-              {/* more card */}
-              <Link
-                to="/schedule"
-                className="shrink-0 w-[100px] md:w-[120px] snap-start flex flex-col items-center justify-center text-center text-[#c49480] border border-[#c49480]/30 rounded-lg hover:bg-[#c49480]/10 transition-colors gap-2 py-6"
-              >
-                <span className="text-2xl font-light">+</span>
-                <span className="text-xs">全員</span>
-              </Link>
-            </div>
-          )}
-
-          {/* quick book CTA */}
-          <div className="mt-4 md:mt-6 flex gap-2 justify-center flex-wrap">
-            <Link
-              to="/booking"
-              className="inline-block bg-[#c49480] hover:bg-[#b08370] text-white font-bold text-sm px-6 py-2.5 rounded shadow transition"
-            >
-              Web予約はこちら
-            </Link>
-            <Link
-              to="/schedule"
-              className="inline-block border border-[#c49480] text-[#c49480] hover:bg-[#c49480]/10 font-semibold text-sm px-6 py-2.5 rounded transition"
-            >
-              出勤カレンダー
-            </Link>
-          </div>
-        </div>
-      </section>
+      {/* ===== Web予約 CTA ===== */}
+      <div className="py-4 flex gap-2 justify-center flex-wrap" style={{ background: "#2e2b29" }}>
+        <Link
+          to="/booking"
+          className="inline-block bg-[#c49480] hover:bg-[#b08370] text-white font-bold text-sm px-6 py-2.5 rounded shadow transition"
+        >
+          Web予約はこちら
+        </Link>
+        <Link
+          to="/schedule"
+          className="inline-block border border-[#c49480] text-[#c49480] hover:bg-[#c49480]/10 font-semibold text-sm px-6 py-2.5 rounded transition"
+        >
+          出勤カレンダー
+        </Link>
+      </div>
 
       {/* ===== 店舗公式SNS ===== */}
       <section
