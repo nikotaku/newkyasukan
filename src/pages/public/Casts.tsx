@@ -34,7 +34,11 @@ interface Cast {
   custom_fields: Record<string, string> | null;
 }
 
-const INTERNAL_TAGS = ["在籍", "出稼ぎ", "入店手続き待ち"];
+const INTERNAL_TAGS = [
+  "在籍", "出稼ぎ", "入店手続き待ち",
+  "ノーステータス", "入店手続き---面談予定", "入店手続き---講習予定",
+  "ビギナーズ", "スタンダード", "ソルジャー", "マスター",
+];
 
 const Casts = () => {
   const [casts, setCasts] = useState<Cast[]>([]);
