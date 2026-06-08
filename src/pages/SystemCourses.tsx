@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, ChevronDown, ChevronUp, Pencil, Check, X } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp, Pencil, Check, X, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface BackRate {
@@ -19,6 +19,7 @@ interface BackRate {
   therapist_back?: number;
   shop_back?: number;
   display_order?: number;
+  is_visible?: boolean;
 }
 
 export default function SystemCourses() {
@@ -118,6 +119,30 @@ export default function SystemCourses() {
     } catch (error) {
       console.error("Error updating rate:", error);
       toast.error("更新に失敗しました");
+    }
+  };
+
+  const toggleVisible = async (rate: BackRate) => {
+    const next = !(rate.is_visible ?? true);
+    setRates((prev) => prev.map((r) => (r.id === rate.id ? { ...r, is_visible: next } : r)));
+    const { error } = await supabase.from("back_rates").update({ is_visible: next }).eq("id", rate.id);
+    if (error) {
+      toast.error("表示設定の変更に失敗しました");
+      fetchRates();
+    } else {
+      toast.success(next ? "フロントに表示します" : "フロント非表示にしました");
+    }
+  };
+
+  // グループ（コースタイプ）単位で一括表示/非表示
+  const toggleGroupVisible = async (type: string, visible: boolean) => {
+    setRates((prev) => prev.map((r) => (r.course_type === type ? { ...r, is_visible: visible } : r)));
+    const { error } = await supabase.from("back_rates").update({ is_visible: visible }).eq("course_type", type);
+    if (error) {
+      toast.error("表示設定の変更に失敗しました");
+      fetchRates();
+    } else {
+      toast.success(visible ? "コースをフロントに表示します" : "コースをフロント非表示にしました");
     }
   };
 
@@ -369,11 +394,28 @@ export default function SystemCourses() {
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleType(type)}>
-                          <span className="text-sm text-muted-foreground">
-                            {typeRates.length}プラン
-                          </span>
-                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const allVisible = typeRates.every((r) => r.is_visible ?? true);
+                            return (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className={allVisible ? "text-emerald-600" : "text-muted-foreground"}
+                                onClick={(e) => { e.stopPropagation(); toggleGroupVisible(type, !allVisible); }}
+                                title={allVisible ? "コースをフロント非表示にする" : "コースをフロント表示にする"}
+                              >
+                                {allVisible ? <Eye size={14} /> : <EyeOff size={14} />}
+                                <span className="ml-1 text-xs">{allVisible ? "表示中" : "非表示"}</span>
+                              </Button>
+                            );
+                          })()}
+                          <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleType(type)}>
+                            <span className="text-sm text-muted-foreground">
+                              {typeRates.length}プラン
+                            </span>
+                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </div>
                         </div>
                       </div>
                     </CardHeader>
@@ -383,7 +425,7 @@ export default function SystemCourses() {
                           {typeRates.map((rate, index) => (
                             <div
                               key={rate.id}
-                              className="py-2 border-b border-border last:border-0"
+                              className={`py-2 border-b border-border last:border-0 ${(rate.is_visible ?? true) ? "" : "opacity-50"}`}
                             >
                               {editingId === rate.id ? (
                                 <div className="space-y-3">
@@ -464,7 +506,16 @@ export default function SystemCourses() {
                                       )}
                                     </div>
                                   </div>
-                                  <div className="flex gap-1">
+                                  <div className="flex gap-1 items-center">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className={(rate.is_visible ?? true) ? "text-emerald-600" : "text-muted-foreground"}
+                                      onClick={() => toggleVisible(rate)}
+                                      title={(rate.is_visible ?? true) ? "フロント非表示にする" : "フロント表示にする"}
+                                    >
+                                      {(rate.is_visible ?? true) ? <Eye size={14} /> : <EyeOff size={14} />}
+                                    </Button>
                                     <Button size="sm" variant="ghost" onClick={() => startEdit(rate)}>
                                       <Pencil size={14} />
                                     </Button>

@@ -110,11 +110,20 @@ const Top = () => {
       {/* ===== Banner Slider ===== */}
       <div className="relative overflow-hidden">
         <AspectRatio ratio={16 / 9}>
-          <img
-            src={bannerSlides[currentSlide]}
-            alt="トップバナー | 全力エステ 仙台"
-            className="w-full h-full object-cover transition-opacity duration-1000"
-          />
+          <div className="relative w-full h-full bg-black">
+            {bannerSlides.map((src, i) => (
+              <img
+                key={i}
+                src={src}
+                alt="トップバナー | 全力エステ 仙台"
+                className={`absolute inset-0 w-full h-full object-cover transition-all duration-[1200ms] ease-out ${
+                  i === currentSlide
+                    ? "opacity-100 scale-105 z-10"
+                    : "opacity-0 scale-100 z-0"
+                }`}
+              />
+            ))}
+          </div>
         </AspectRatio>
         <button
           onClick={() => setCurrentSlide((prev) => (prev - 1 + bannerSlides.length) % bannerSlides.length)}
