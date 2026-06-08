@@ -13,6 +13,7 @@ interface BackRate {
   course_type: string;
   duration: number;
   customer_price: number;
+  description?: string;
 }
 
 interface OptionRate {
@@ -96,9 +97,14 @@ export default function Pricing() {
                 </div>
                 <div className="space-y-3">
                   {rates.map((rate) => (
-                    <div key={rate.id} className="flex justify-between items-center py-2 border-b border-gray-200">
-                      <span className="text-gray-700 font-medium">{rate.duration}min</span>
-                      <span className="text-gray-700 font-bold">¥{rate.customer_price.toLocaleString()}</span>
+                    <div key={rate.id} className="py-2 border-b border-gray-200">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-700 font-medium">{rate.duration}min</span>
+                        <span className="text-gray-700 font-bold">¥{rate.customer_price.toLocaleString()}</span>
+                      </div>
+                      {rate.description && (
+                        <p className="text-xs text-gray-500 mt-0.5 leading-snug">{rate.description}</p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -114,9 +120,14 @@ export default function Pricing() {
               </div>
               <div className="space-y-3">
                 {backRates.filter(r => r.course_type === 'DR').sort((a, b) => a.duration - b.duration).map((rate) => (
-                  <div key={rate.id} className="flex justify-between items-center py-2 border-b border-gray-200">
-                    <span className="text-gray-700 font-medium">{rate.duration}min</span>
-                    <span className="text-gray-700 font-bold">¥{rate.customer_price.toLocaleString()}</span>
+                  <div key={rate.id} className="py-2 border-b border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-700 font-medium">{rate.duration}min</span>
+                      <span className="text-gray-700 font-bold">¥{rate.customer_price.toLocaleString()}</span>
+                    </div>
+                    {rate.description && (
+                      <p className="text-xs text-gray-500 mt-0.5 leading-snug">{rate.description}</p>
+                    )}
                   </div>
                 ))}
               </div>

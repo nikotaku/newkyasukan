@@ -20,6 +20,7 @@ interface BackRate {
   shop_back?: number;
   display_order?: number;
   is_visible?: boolean;
+  description?: string;
 }
 
 export default function SystemCourses() {
@@ -29,7 +30,7 @@ export default function SystemCourses() {
   const [showForm, setShowForm] = useState(false);
   const [expandedTypes, setExpandedTypes] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editData, setEditData] = useState({ duration: 0, customer_price: 0, therapist_back: 0, shop_back: 0 });
+  const [editData, setEditData] = useState({ duration: 0, customer_price: 0, therapist_back: 0, shop_back: 0, description: "" });
   const [renamingType, setRenamingType] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [formData, setFormData] = useState({
@@ -38,6 +39,7 @@ export default function SystemCourses() {
     customer_price: 0,
     therapist_back: 0,
     shop_back: 0,
+    description: "",
   });
 
   const { user, loading: authLoading } = useAuth();
@@ -82,7 +84,7 @@ export default function SystemCourses() {
       const { error } = await supabase.from("back_rates").insert([{ ...formData, display_order: nextOrder }]);
       if (error) throw error;
       toast.success("追加しました");
-      setFormData({ course_type: "", duration: 60, customer_price: 0, therapist_back: 0, shop_back: 0 });
+      setFormData({ course_type: "", duration: 60, customer_price: 0, therapist_back: 0, shop_back: 0, description: "" });
       setShowForm(false);
       fetchRates();
     } catch (error) {
@@ -98,6 +100,7 @@ export default function SystemCourses() {
       customer_price: rate.customer_price,
       therapist_back: rate.therapist_back ?? 0,
       shop_back: rate.shop_back ?? 0,
+      description: rate.description ?? "",
     });
   };
 
@@ -110,6 +113,7 @@ export default function SystemCourses() {
           customer_price: editData.customer_price,
           therapist_back: editData.therapist_back,
           shop_back: editData.shop_back,
+          description: editData.description || null,
         })
         .eq("id", id);
       if (error) throw error;
@@ -314,6 +318,16 @@ export default function SystemCourses() {
                         onChange={(e) => setFormData({ ...formData, shop_back: Number(e.target.value) })}
                       />
                     </div>
+                    <div className="md:col-span-2">
+                      <Label>説明文（任意）</Label>
+                      <textarea
+                        className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                        rows={2}
+                        placeholder="コースの説明や特徴など"
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      />
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit">保存</Button>
@@ -466,6 +480,16 @@ export default function SystemCourses() {
                                         onChange={(e) => setEditData({ ...editData, shop_back: Number(e.target.value) || 0 })}
                                       />
                                     </div>
+                                    <div className="col-span-2 md:col-span-4">
+                                      <Label className="text-xs">説明文</Label>
+                                      <textarea
+                                        className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                                        rows={2}
+                                        placeholder="コースの説明や特徴など"
+                                        value={editData.description}
+                                        onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                                      />
+                                    </div>
                                   </div>
                                   <div className="flex gap-2">
                                     <Button size="sm" onClick={() => handleUpdate(rate.id)}>
@@ -496,13 +520,18 @@ export default function SystemCourses() {
                                         <ChevronDown size={14} />
                                       </button>
                                     </div>
-                                    <div className="flex gap-6 text-sm">
-                                      <span className="font-medium">{rate.duration}分</span>
-                                      <span>¥{rate.customer_price.toLocaleString()}</span>
-                                      {rate.therapist_back !== undefined && rate.therapist_back > 0 && (
-                                        <span className="text-muted-foreground">
-                                          バック ¥{rate.therapist_back.toLocaleString()}
-                                        </span>
+                                    <div>
+                                      <div className="flex gap-6 text-sm">
+                                        <span className="font-medium">{rate.duration}分</span>
+                                        <span>¥{rate.customer_price.toLocaleString()}</span>
+                                        {rate.therapist_back !== undefined && rate.therapist_back > 0 && (
+                                          <span className="text-muted-foreground">
+                                            バック ¥{rate.therapist_back.toLocaleString()}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {rate.description && (
+                                        <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{rate.description}</p>
                                       )}
                                     </div>
                                   </div>
