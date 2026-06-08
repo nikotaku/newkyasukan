@@ -177,7 +177,11 @@ const CastDetail = () => {
     displayBlood && { q: "血液型", a: `${displayBlood}型` },
   ].filter(Boolean) as { q: string; a: string }[];
 
-  const INTERNAL_TAGS = ["在籍", "出稼ぎ", "入店手続き待ち"];
+  const INTERNAL_TAGS = [
+    "在籍", "出稼ぎ", "入店手続き待ち",
+    "ノーステータス", "入店手続き---面談予定", "入店手続き---講習予定",
+    "ビギナーズ", "スタンダード", "ソルジャー", "マスター",
+  ];
   const therapistComment = cast.message ?? null;
   const shopComment = cast.shop_comment ?? profile?.comment ?? null;
 
