@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, addDays, isToday } from "date-fns";
 import { toExtTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CheckCircle, Loader2, CreditCard, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle, Loader2, CreditCard, Download, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { downloadClearanceReceipt } from "@/lib/clearanceReceipt";
 
@@ -32,7 +32,7 @@ interface Reservation {
   options: string[] | null;
   nomination_type: string | null;
   payment_fee: number | null;
-  casts: { id: string; name: string } | null;
+  casts: { id: string; name: string; access_token: string | null } | null;
   // 計算済みバック内訳
   courseBack?: number;
   optionBacks?: { name: string; back: number }[];
@@ -44,6 +44,7 @@ interface Reservation {
 interface CastGroup {
   castId: string;
   castName: string;
+  accessToken: string | null;
   reservations: Reservation[];
   totalSales: number;
   autoBack: number;
@@ -101,7 +102,7 @@ export default function SalesDailySales() {
       const [resResult, nextResResult, backRatesResult, optionRatesResult, nominationRatesResult, clearResult] = await Promise.all([
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name)")
+          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name, access_token)")
           .eq("reservation_date", dateStr)
           .gte("start_time", dayStartTime) // 営業開始時刻以前は前日の深夜またぎ分なので除外
           .in("status", ["confirmed", "completed"])
@@ -109,7 +110,7 @@ export default function SalesDailySales() {
         // 深夜またぎ分：翌日日付で保存されているが営業開始前の予約は当日扱い
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name)")
+          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name, access_token)")
           .eq("reservation_date", nextDateStr)
           .lt("start_time", dayStartTime)
           .in("status", ["confirmed", "completed"])
@@ -175,7 +176,8 @@ export default function SalesDailySales() {
         const castId = r.cast_id;
         const castName = r.casts?.name ?? "未設定";
         if (!groups[castId]) {
-          groups[castId] = { castId, castName, reservations: [], totalSales: 0, autoBack: 0 };
+          const accessToken = r.casts?.access_token ?? null;
+          groups[castId] = { castId, castName, accessToken, reservations: [], totalSales: 0, autoBack: 0 };
         }
         // 予約ごとのバック内訳を計算
         const courseBack = findCourseBack(r.course_type, r.course_name, r.duration);
@@ -228,6 +230,31 @@ export default function SalesDailySales() {
 
   const updateInput = (castId: string, field: keyof ClearanceInput, value: any) => {
     setClearanceInputs((prev) => ({ ...prev, [castId]: { ...prev[castId], [field]: value } }));
+  };
+
+  const handleCopySettlementFlow = (group: CastGroup) => {
+    const portalUrl = group.accessToken
+      ? `${window.location.origin}/therapist/${group.accessToken}`
+      : "（マイページURLは未設定です）";
+    const text = `---------精算フロー---------
+
+❶封筒に
+・源氏名
+・日付
+・金額
+を記載
+
+❷金庫に投函
+※必ず動画を撮る事
+
+❸下記のフォームより、投函報告及び清掃チェックシートの記載
+
+${portalUrl}
+
+以上になります！
+退出時にご報告をお願い致します🙇‍♂️`;
+    navigator.clipboard.writeText(text);
+    toast.success("精算フローをコピーしました");
   };
 
   const handleDownloadReceipt = (group: CastGroup) => {
@@ -652,6 +679,13 @@ export default function SalesDailySales() {
                           title="清算明細をダウンロード（セラピスト送付用）"
                         >
                           <Download size={14} className="mr-2" />明細
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleCopySettlementFlow(g)}
+                          title="精算フローをクリップボードにコピー"
+                        >
+                          <Copy size={14} className="mr-2" />精算フロー
                         </Button>
                       </div>
 
