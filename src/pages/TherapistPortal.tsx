@@ -77,6 +77,10 @@ export default function TherapistPortal() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>("menu");
   const [showBackRates, setShowBackRates] = useState(false);
+  const [guideSite, setGuideSite] = useState<"o2" | "x" | null>(null);
+  const [linkSite, setLinkSite] = useState<"o2" | "x" | null>(null);
+  const [linkForm, setLinkForm] = useState({ login_id: "", password: "" });
+  const [linkSaving, setLinkSaving] = useState(false);
 
   // Settlement
   const [settlements, setSettlements] = useState<Settlement[]>([]);
@@ -275,6 +279,36 @@ export default function TherapistPortal() {
     { title: "振り込み申請", description: "報酬の振り込み申請フォーム", icon: ExternalLink, action: () => window.open("https://yoom.fun/5eee42a7-b4ff-49a8-8373-606c66495142/forms/shared/Cu2K735X9qaSAdMs45x6Bw", "_blank") },
   ];
 
+  const REGISTER_URLS: Record<"o2" | "x", string> = {
+    o2: "https://m-sns.net/cast-register/",
+    x: "https://x.com/i/flow/signup",
+  };
+  const SITE_LABEL: Record<"o2" | "x", string> = { o2: "O2（ゼロツー）", x: "X（旧Twitter）" };
+
+  const openLink = (site: "o2" | "x") => {
+    setLinkSite(site);
+    setLinkForm({ login_id: "", password: "" });
+  };
+
+  const saveLink = async () => {
+    if (!cast || !linkSite) return;
+    if (!linkForm.login_id || !linkForm.password) { toast.error("IDとパスワードを入力してください"); return; }
+    setLinkSaving(true);
+    try {
+      const { error } = await supabase
+        .from("cast_site_credentials")
+        .upsert({ cast_id: cast.id, site: linkSite, login_id: linkForm.login_id, password: linkForm.password }, { onConflict: "cast_id,site" });
+      if (error) throw error;
+      toast.success(`${SITE_LABEL[linkSite]}のログイン情報を登録しました`);
+      setLinkSite(null);
+    } catch (e) {
+      console.error(e);
+      toast.error("登録に失敗しました");
+    } finally {
+      setLinkSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -416,6 +450,32 @@ export default function TherapistPortal() {
                 </button>
               );
             })}
+          </div>
+
+          {/* 外部サイト連携（O2・X） */}
+          <div className="rounded-xl border bg-card overflow-hidden">
+            <div className="px-4 py-3 bg-muted/30 flex items-center gap-2">
+              <ExternalLink size={15} className="text-primary" />
+              <p className="font-semibold text-sm">外部サイト登録・連携</p>
+            </div>
+            <div className="p-4 space-y-4">
+              {(["o2", "x"] as const).map((site) => (
+                <div key={site}>
+                  <p className="text-sm font-medium mb-2">{SITE_LABEL[site]}</p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => setGuideSite(site)}>
+                      <FileText size={15} className="mr-1.5" />登録URLはこちら
+                    </Button>
+                    <Button variant="outline" className="flex-1" onClick={() => openLink(site)}>
+                      <Send size={15} className="mr-1.5" />既に登録済みで連携
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground">
+                「登録URLはこちら」で新規登録方法を確認、「連携」でログイン情報を登録すると自動投稿が使えます。
+              </p>
+            </div>
           </div>
           </div>
         )}
@@ -698,6 +758,55 @@ export default function TherapistPortal() {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>バック表</DialogTitle></DialogHeader>
           <img src={backRatesImage} alt="バック表" className="w-full h-auto mt-2" />
+        </DialogContent>
+      </Dialog>
+
+      {/* 登録ガイド（PDF）ポップアップ */}
+      <Dialog open={!!guideSite} onOpenChange={(o) => !o && setGuideSite(null)}>
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{guideSite ? `${SITE_LABEL[guideSite]} 登録方法` : ""}</DialogTitle>
+          </DialogHeader>
+          {guideSite === "o2" ? (
+            <iframe src="/o2-register-guide.pdf" title="O2登録ガイド" className="w-full h-[70vh] rounded border" />
+          ) : (
+            <div className="py-6 text-center space-y-3">
+              <p className="text-sm text-muted-foreground">X（旧Twitter）の新規登録は公式サイトから行えます。</p>
+            </div>
+          )}
+          <div className="flex justify-end pt-2">
+            <a href={guideSite ? REGISTER_URLS[guideSite] : "#"} target="_blank" rel="noopener noreferrer">
+              <Button>
+                <ExternalLink size={15} className="mr-1.5" />登録ページを開く
+              </Button>
+            </a>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 連携（ログイン情報登録）ダイアログ */}
+      <Dialog open={!!linkSite} onOpenChange={(o) => !o && setLinkSite(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{linkSite ? `${SITE_LABEL[linkSite]} と連携` : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-1">
+            <p className="text-xs text-muted-foreground">
+              登録済みのアカウントのログイン情報を入力してください。投稿時に自動でログインして投稿します。
+            </p>
+            <div>
+              <Label className="text-xs">ログインID</Label>
+              <Input value={linkForm.login_id} onChange={(e) => setLinkForm({ ...linkForm, login_id: e.target.value })} placeholder="ID" />
+            </div>
+            <div>
+              <Label className="text-xs">パスワード</Label>
+              <Input type="password" value={linkForm.password} onChange={(e) => setLinkForm({ ...linkForm, password: e.target.value })} placeholder="password" />
+            </div>
+            <Button className="w-full" onClick={saveLink} disabled={linkSaving}>
+              {linkSaving ? <Loader2 size={14} className="mr-1.5 animate-spin" /> : <Send size={14} className="mr-1.5" />}
+              連携する
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

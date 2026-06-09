@@ -60,6 +60,7 @@ import MonthlyShift from "./pages/MonthlyShift";
 import ReservationsList from "./pages/ReservationsList";
 import AvailableSlots from "./pages/AvailableSlots";
 import ArticleCreation from "./pages/ArticleCreation";
+import BusinessFlow from "./pages/BusinessFlow";
 import StoreInfo from "./pages/StoreInfo";
 import HpSnsLinks from "./pages/HpSnsLinks";
 import SalesCustomerInfo from "./pages/SalesCustomerInfo";
@@ -155,6 +156,7 @@ const App = () => {
           <Route path="/rooms" element={<RoomSettings />} />
           <Route path="/design" element={<Design />} />
           <Route path="/hp/article-creation" element={<ArticleCreation />} />
+          <Route path="/hp/business-flow" element={<BusinessFlow />} />
           <Route path="/hp/store-info" element={<StoreInfo />} />
           <Route path="/hp/sns-links" element={<HpSnsLinks />} />
           <Route path="/hp/recommended-menu" element={<RecommendedMenu />} />
