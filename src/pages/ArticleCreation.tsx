@@ -18,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Plus, Trash2, Edit2, Sparkles, Loader2, Globe, EyeOff } from "lucide-react";
+import { Plus, Trash2, Edit2, Sparkles, Loader2, Globe, EyeOff, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface Article {
@@ -29,6 +29,7 @@ interface Article {
   category: string;
   created_at: string;
   is_published: boolean;
+  image_urls: string[] | null;
 }
 
 export default function ArticleCreation() {
@@ -42,7 +43,10 @@ export default function ArticleCreation() {
     content: "",
     category: "coupon",
     is_published: false,
+    image_urls: [] as string[],
   });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [newImageUrl, setNewImageUrl] = useState("");
   const [aiInputs, setAiInputs] = useState({
     couponName: "", couponDiscount: "", couponExpiry: "", couponConditions: "",
     castName: "", scheduleDate: "", scheduleNote: "",
@@ -150,6 +154,7 @@ export default function ArticleCreation() {
           content: data.content,
           category: "news",
           is_published: true,
+          image_urls: Array.isArray(data.images) ? data.images : [],
         },
       ]);
       if (insertError) throw insertError;
@@ -162,6 +167,50 @@ export default function ArticleCreation() {
     } finally {
       setAutoNewsLoading(false);
     }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingImage(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of Array.from(files)) {
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error } = await supabase.storage.from("article-images").upload(path, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+        if (error) throw error;
+        const { data: pub } = supabase.storage.from("article-images").getPublicUrl(path);
+        uploaded.push(pub.publicUrl);
+      }
+      setFormData((prev) => ({ ...prev, image_urls: [...prev.image_urls, ...uploaded] }));
+      toast.success(`${uploaded.length}枚アップロードしました`);
+    } catch (error) {
+      console.error("Image upload error:", error);
+      toast.error("画像のアップロードに失敗しました");
+    } finally {
+      setUploadingImage(false);
+      e.target.value = "";
+    }
+  };
+
+  const addImageUrl = () => {
+    const url = newImageUrl.trim();
+    if (!url) return;
+    setFormData((prev) => ({ ...prev, image_urls: [...prev.image_urls, url] }));
+    setNewImageUrl("");
+  };
+
+  const removeImage = (idx: number) => {
+    setFormData((prev) => ({ ...prev, image_urls: prev.image_urls.filter((_, i) => i !== idx) }));
+  };
+
+  const resetForm = () => {
+    setFormData({ title: "", slug: "", content: "", category: "news", is_published: false, image_urls: [] });
+    setNewImageUrl("");
   };
 
   const handleAdd = async () => {
@@ -180,18 +229,13 @@ export default function ArticleCreation() {
           content: formData.content,
           category: formData.category,
           is_published: formData.is_published,
+          image_urls: formData.image_urls,
         },
       ]);
 
       if (error) throw error;
       toast.success("記事を作成しました");
-      setFormData({
-        title: "",
-        slug: "",
-        content: "",
-        category: "news",
-        is_published: false,
-      });
+      resetForm();
       setIsAdding(false);
       fetchArticles();
     } catch (error) {
@@ -469,6 +513,47 @@ export default function ArticleCreation() {
                     rows={8}
                   />
                 </div>
+                {/* 画像 */}
+                <div>
+                  <Label>画像</Label>
+                  <div className="mt-2 space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-dashed cursor-pointer text-sm hover:bg-accent transition-colors">
+                        {uploadingImage ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
+                        {uploadingImage ? "アップロード中..." : "画像をアップロード"}
+                        <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
+                      </label>
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        value={newImageUrl}
+                        onChange={(e) => setNewImageUrl(e.target.value)}
+                        placeholder="または画像URLを貼り付け"
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addImageUrl(); } }}
+                      />
+                      <Button type="button" variant="outline" onClick={addImageUrl} disabled={!newImageUrl.trim()}>
+                        <Plus size={16} />
+                      </Button>
+                    </div>
+                    {formData.image_urls.length > 0 && (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {formData.image_urls.map((url, idx) => (
+                          <div key={idx} className="relative aspect-square rounded-md overflow-hidden border bg-muted">
+                            <img src={url} alt={`画像${idx + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => removeImage(idx)}
+                              className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -487,7 +572,7 @@ export default function ArticleCreation() {
                   <Button onClick={handleAdd}>作成</Button>
                   <Button
                     variant="outline"
-                    onClick={() => setIsAdding(false)}
+                    onClick={() => { setIsAdding(false); resetForm(); }}
                   >
                     キャンセル
                   </Button>
@@ -509,11 +594,19 @@ export default function ArticleCreation() {
               {articles.map((article) => (
                 <Card key={article.id}>
                   <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      {article.image_urls && article.image_urls.length > 0 && (
+                        <img
+                          src={article.image_urls[0]}
+                          alt={article.title}
+                          className="w-16 h-16 rounded-md object-cover border shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
                         <CardTitle>{article.title}</CardTitle>
                         <p className="text-xs text-muted-foreground mt-2">
                           {article.slug} • {article.category}
+                          {article.image_urls && article.image_urls.length > 0 ? ` • 画像${article.image_urls.length}枚` : ""}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {format(new Date(article.created_at), "yyyy/MM/dd", {

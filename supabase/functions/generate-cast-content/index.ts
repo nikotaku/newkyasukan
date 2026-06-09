@@ -1,9 +1,91 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// ニュース生成用に実データ（割引・料金・出勤）を取得してプロンプト用テキストと画像候補を作る
+async function buildNewsGrounding(): Promise<{ facts: string; images: string[] }> {
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!SUPABASE_URL || !SERVICE_KEY) return { facts: "", images: [] };
+
+  try {
+    const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+    const today = new Date();
+    const weekLater = new Date(today.getTime() + 7 * 86400000);
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+    const [discountsRes, nomRes, optRes, shiftsRes, castsRes, bannersRes] = await Promise.all([
+      sb.from("discounts").select("name, discount_type, discount_value").eq("is_active", true),
+      sb.from("nomination_rates").select("nomination_type, customer_price"),
+      sb.from("option_rates").select("option_name, customer_price, extension_minutes").eq("is_visible", true).order("display_order"),
+      sb.from("shifts").select("cast_id, shift_date, start_time, end_time").gte("shift_date", iso(today)).lte("shift_date", iso(weekLater)).order("shift_date").limit(40),
+      sb.from("casts").select("id, name, photo").eq("is_visible", true),
+      sb.from("banners").select("image_url").eq("is_active", true).order("display_order").limit(1),
+    ]);
+
+    const lines: string[] = [];
+
+    const discounts = discountsRes.data ?? [];
+    if (discounts.length) {
+      lines.push("【現在有効な割引】");
+      for (const d of discounts) {
+        const v = d.discount_type === "percent" ? `${d.discount_value}%OFF` : `${Number(d.discount_value).toLocaleString()}円引き`;
+        lines.push(`・${d.name}：${v}`);
+      }
+    }
+
+    const noms = nomRes.data ?? [];
+    if (noms.length) {
+      lines.push("【指名料金】");
+      for (const n of noms) lines.push(`・${n.nomination_type}：${Number(n.customer_price).toLocaleString()}円`);
+    }
+
+    const opts = optRes.data ?? [];
+    if (opts.length) {
+      lines.push("【オプション料金】");
+      for (const o of opts) {
+        const ext = o.extension_minutes ? `（${o.extension_minutes}分）` : "";
+        lines.push(`・${o.option_name}${ext}：${Number(o.customer_price).toLocaleString()}円`);
+      }
+    }
+
+    const castMap = new Map<string, { name: string; photo: string | null }>();
+    for (const c of castsRes.data ?? []) castMap.set(c.id, { name: c.name, photo: c.photo });
+
+    const shifts = (shiftsRes.data ?? []).filter((s) => castMap.has(s.cast_id));
+    if (shifts.length) {
+      lines.push("【今後7日間の出勤予定】");
+      const wd = ["日", "月", "火", "水", "木", "金", "土"];
+      for (const s of shifts.slice(0, 20)) {
+        const c = castMap.get(s.cast_id)!;
+        const dt = new Date(s.shift_date + "T00:00:00");
+        const dstr = `${dt.getMonth() + 1}/${dt.getDate()}(${wd[dt.getDay()]})`;
+        const time = s.start_time && s.end_time ? ` ${String(s.start_time).slice(0, 5)}〜${String(s.end_time).slice(0, 5)}` : "";
+        lines.push(`・${dstr}${time} ${c.name}`);
+      }
+    }
+
+    // 画像候補: 出勤予定キャストの写真（重複排除・最大3）＋バナー1
+    const images: string[] = [];
+    const seen = new Set<string>();
+    for (const s of shifts) {
+      const photo = castMap.get(s.cast_id)?.photo;
+      if (photo && !seen.has(photo)) { seen.add(photo); images.push(photo); }
+      if (images.length >= 3) break;
+    }
+    const banner = bannersRes.data?.[0]?.image_url;
+    if (banner) images.push(banner);
+
+    return { facts: lines.join("\n"), images };
+  } catch (e) {
+    console.error("buildNewsGrounding failed:", e);
+    return { facts: "", images: [] };
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -28,6 +110,7 @@ serve(async (req) => {
 
     let systemPrompt = "";
     let userPrompt = "";
+    let autoImages: string[] = [];
 
     switch (type) {
       case "profile":
@@ -45,12 +128,19 @@ serve(async (req) => {
         userPrompt = `キャスト名: ${castName}\nタイプ: ${castType}\n\n上記のキャストの魅力を表現する、20-40文字程度の印象的なキャッチコピーを作成してください。`;
         break;
       
-      case "news":
-        systemPrompt = "あなたはメンズエステのニュース記事を作成する専門のライターです。読みやすく、魅力的で、お客様の興味を引く記事を日本語で作成してください。";
-        userPrompt = newsTitle 
-          ? `タイトル: ${newsTitle}\n\n上記のタイトルに基づいて、メンズエステのニュース記事を300-500文字程度で作成してください。店舗の魅力やサービスの特徴、お得な情報などを含めてください。`
-          : `メンズエステの新着ニュース記事を300-500文字程度で作成してください。店舗の魅力やサービスの特徴、お得な情報などを含めてください。`;
+      case "news": {
+        const { facts, images } = await buildNewsGrounding();
+        autoImages = images;
+        systemPrompt = "あなたはメンズエステのニュース記事を作成する専門のライターです。読みやすく、魅力的で、お客様の興味を引く記事を日本語で作成してください。重要: 料金・割引・出勤など具体的な情報は、必ず提供された『参照データ』に記載のある事実のみを使用し、記載のない金額・割引名・キャスト名・日時を創作してはいけません。参照データが空の場合は、具体的な数値や固有名を避けた一般的な内容にしてください。";
+        const factsBlock = facts
+          ? `\n\n===== 参照データ（この事実のみ使用可。創作禁止）=====\n${facts}\n===============================================\n`
+          : "";
+        userPrompt = (newsTitle
+          ? `タイトル: ${newsTitle}\n\n上記のタイトルに基づいて、メンズエステのニュース記事を300-500文字程度で作成してください。`
+          : `メンズエステの新着ニュース記事を300-500文字程度で作成してください。`)
+          + `下記の参照データに含まれる実際の割引・料金・出勤情報を活用し、お得感のある内容にしてください。参照データに無い具体的な数値や固有名は使わないでください。${factsBlock}`;
         break;
+      }
       
       case "coupon":
         systemPrompt = "あなたはメンズエステのクーポン案内記事を作成する専門のライターです。お客様の来店意欲を高める魅力的なクーポン案内を日本語で作成してください。";
@@ -121,7 +211,7 @@ serve(async (req) => {
     console.log("Generated content:", generatedContent);
 
     return new Response(
-      JSON.stringify({ content: generatedContent }),
+      JSON.stringify({ content: generatedContent, images: autoImages }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
