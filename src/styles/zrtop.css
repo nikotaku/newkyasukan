@@ -1,0 +1,109 @@
+/* トップページ ヒーロー / 理念 / コース（全力エステ・ゴールド） */
+@import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700&display=swap');
+
+.zrtop{
+  --ink:#f3efe6;--muted:#b8b1a3;
+  --gold1:#fbe9a6;--gold2:#e7c06a;--gold3:#b06a26;--gold-line:#d8b25a;
+  --mincho:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --sans:"Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+  --maxw:1456px;
+  background:#08080a;color:var(--ink);
+  display:flex;flex-direction:column;align-items:center;width:100%;
+}
+.zrtop .goldtext{background:linear-gradient(180deg,var(--gold1),var(--gold2) 45%,var(--gold3));
+  -webkit-background-clip:text;background-clip:text;color:transparent;}
+.zrtop .goldfill{background:linear-gradient(95deg,var(--gold1),var(--gold-line) 60%,var(--gold3));color:#1a1305;}
+
+/* ====== 1枚目：ヒーロー ====== */
+.zrtop .hero{position:relative;width:100%;max-width:var(--maxw);overflow:hidden;
+  min-height:clamp(360px,56vw,560px);display:flex;align-items:center;
+  background:
+    radial-gradient(120% 90% at 88% 8%, rgba(216,178,90,.16), transparent 55%),
+    linear-gradient(160deg,#15130f 0%,#0c0b0a 48%,#000 100%);}
+.zrtop .hero::after{content:"";position:absolute;inset:clamp(12px,2vw,22px);
+  border:1px solid rgba(216,178,90,.35);pointer-events:none;}
+.zrtop .hero .mono{position:absolute;right:clamp(-10px,2vw,40px);top:50%;transform:translateY(-50%);
+  font-family:var(--mincho);font-weight:700;font-size:clamp(180px,42vw,420px);line-height:1;
+  color:transparent;-webkit-text-stroke:1px rgba(216,178,90,.10);user-select:none;letter-spacing:-.04em;}
+.zrtop .hero .inner{position:relative;z-index:2;padding:clamp(34px,6vw,72px);max-width:62%;}
+@media(max-width:720px){.zrtop .hero .inner{max-width:90%;}}
+.zrtop .overline{display:flex;align-items:center;gap:10px;font-family:var(--mincho);font-weight:600;
+  letter-spacing:.34em;font-size:clamp(11px,1.5vw,13px);margin-bottom:clamp(16px,3vw,26px);}
+.zrtop .overline .dia{width:6px;height:6px;background:var(--gold-line);transform:rotate(45deg);flex:none;}
+.zrtop .hero h1{font-family:var(--mincho);font-weight:700;letter-spacing:.04em;
+  font-size:clamp(30px,7vw,66px);line-height:1.32;margin-bottom:clamp(14px,2.4vw,22px);
+  text-shadow:0 2px 24px rgba(0,0,0,.5);}
+.zrtop .hero .concept{font-family:var(--mincho);color:var(--muted);font-size:clamp(13px,2.4vw,19px);
+  letter-spacing:.06em;line-height:1.8;margin-bottom:clamp(26px,4vw,40px);}
+.zrtop .cta-row{display:flex;flex-wrap:wrap;gap:clamp(10px,1.6vw,16px);}
+.zrtop .btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;cursor:pointer;border:none;
+  font-family:var(--sans);font-size:clamp(13px,1.8vw,15px);font-weight:700;letter-spacing:.06em;
+  padding:clamp(12px,1.8vw,16px) clamp(22px,3vw,32px);border-radius:2px;transition:.2s;}
+.zrtop .btn-gold{box-shadow:0 8px 26px rgba(185,147,63,.34);}
+.zrtop .btn-gold:hover{filter:brightness(1.06);transform:translateY(-1px);}
+.zrtop .btn-line{color:var(--gold1);border:1px solid rgba(216,178,90,.5);background:transparent;}
+.zrtop .btn-line:hover{background:rgba(216,178,90,.08);}
+.zrtop .hero .loc{position:absolute;left:clamp(34px,6vw,72px);bottom:clamp(26px,4vw,40px);z-index:2;
+  font-size:clamp(10px,1.4vw,12px);letter-spacing:.28em;color:rgba(184,177,163,.7);}
+
+/* ====== 2枚目：理念 ====== */
+.zrtop .philo{position:relative;width:100%;max-width:var(--maxw);overflow:hidden;
+  min-height:clamp(420px,52vw,560px);display:flex;flex-direction:column;justify-content:center;
+  align-items:center;text-align:center;padding:clamp(48px,7vw,90px) clamp(28px,6vw,80px);
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(216,178,90,.14), transparent 55%),
+    linear-gradient(165deg,#16130f 0%,#0b0a09 50%,#000 100%);}
+.zrtop .philo::after{content:"";position:absolute;inset:clamp(12px,2vw,22px);
+  border:1px solid rgba(216,178,90,.32);pointer-events:none;}
+.zrtop .philo .over{font-family:var(--mincho);font-weight:600;letter-spacing:.36em;
+  font-size:clamp(11px,1.5vw,13px);margin-bottom:clamp(20px,3vw,30px);position:relative;z-index:2;}
+.zrtop .philo h2{font-family:var(--mincho);font-weight:700;letter-spacing:.05em;position:relative;z-index:2;
+  font-size:clamp(22px,4.4vw,40px);line-height:1.6;margin-bottom:clamp(22px,3.4vw,30px);}
+.zrtop .philo p{font-family:var(--mincho);font-weight:500;color:var(--muted);position:relative;z-index:2;
+  font-size:clamp(13px,2.2vw,17px);line-height:2.05;letter-spacing:.05em;max-width:640px;
+  margin-bottom:clamp(34px,4.5vw,46px);}
+.zrtop .cta{position:relative;z-index:2;display:inline-flex;align-items:center;gap:10px;cursor:pointer;border:none;
+  font-family:var(--sans);font-weight:700;letter-spacing:.08em;font-size:clamp(14px,1.9vw,16px);
+  padding:clamp(14px,1.9vw,18px) clamp(30px,4vw,46px);border-radius:2px;
+  box-shadow:0 10px 30px rgba(185,147,63,.32);transition:.2s;}
+.zrtop .cta:hover{filter:brightness(1.05);transform:translateY(-1px);}
+.zrtop .cta .arw{transition:.3s;}
+.zrtop .cta.open .arw{transform:rotate(180deg);}
+
+/* ====== コース（開閉） ====== */
+.zrtop #courses{width:100%;max-width:var(--maxw);max-height:0;opacity:0;overflow:hidden;
+  transition:max-height .8s cubic-bezier(.2,.8,.2,1),opacity .6s ease;
+  background:linear-gradient(180deg,#000,#0a0908);}
+.zrtop #courses.open{max-height:4000px;opacity:1;}
+.zrtop .courses-inner{padding:clamp(34px,5vw,64px) clamp(20px,4vw,56px);}
+.zrtop .courses-inner .title{text-align:center;font-family:var(--mincho);font-weight:700;
+  font-size:clamp(20px,3.4vw,30px);letter-spacing:.08em;margin-bottom:clamp(28px,4vw,44px);}
+.zrtop .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(16px,2vw,24px);}
+@media(max-width:760px){.zrtop .grid{grid-template-columns:1fr;}}
+.zrtop .card{background:#0d0c0a;border:1px solid rgba(216,178,90,.28);border-radius:6px;overflow:hidden;
+  display:flex;flex-direction:column;}
+.zrtop .card .visual{position:relative;aspect-ratio:1/1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;padding:18px;
+  background:
+    radial-gradient(120% 80% at 50% 18%, rgba(216,178,90,.16), transparent 55%),
+    radial-gradient(140% 120% at 50% 60%, transparent 45%, rgba(0,0,0,.7) 100%),
+    linear-gradient(150deg,#1c1813,#0a0907);}
+.zrtop .card .visual::after{content:"";position:absolute;inset:14px;border:1px solid rgba(216,178,90,.4);}
+.zrtop .badge{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:3;width:74px;height:74px;
+  border-radius:50%;border:1.5px solid var(--gold-line);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;background:radial-gradient(circle,rgba(216,178,90,.18),transparent 70%);}
+.zrtop .badge .star{font-size:13px;line-height:1;color:var(--gold-line);}
+.zrtop .badge .n{font-family:var(--sans);font-weight:800;font-size:20px;line-height:1.1;}
+.zrtop .cname{font-family:var(--mincho);font-weight:700;letter-spacing:.04em;font-size:clamp(22px,3.4vw,30px);
+  text-shadow:0 2px 10px rgba(0,0,0,.5);position:relative;z-index:2;}
+.zrtop .cmin{font-family:var(--mincho);font-weight:700;letter-spacing:.02em;font-size:clamp(46px,8vw,72px);
+  line-height:1.05;text-shadow:0 3px 14px rgba(0,0,0,.55);position:relative;z-index:2;}
+.zrtop .csub{font-family:var(--mincho);font-weight:700;font-size:clamp(15px,2.4vw,21px);margin-top:4px;position:relative;z-index:2;}
+.zrtop .cbody{padding:clamp(16px,2vw,22px);display:flex;flex-direction:column;flex:1;}
+.zrtop .cbody h3{font-family:var(--sans);font-weight:700;font-size:clamp(15px,2vw,17px);letter-spacing:.02em;margin-bottom:6px;}
+.zrtop .price{font-family:var(--sans);font-weight:800;font-size:clamp(18px,2.6vw,22px);margin-bottom:12px;}
+.zrtop .desc{font-size:clamp(12px,1.7vw,13.5px);line-height:1.85;color:var(--muted);}
+.zrtop .reserve-btn{display:block;width:100%;text-align:center;text-decoration:none;
+  font-family:var(--sans);font-weight:700;letter-spacing:.06em;font-size:14px;
+  padding:14px;border-radius:2px;box-shadow:0 6px 18px rgba(185,147,63,.28);transition:.2s;margin-top:18px;}
+.zrtop .reserve-btn:hover{filter:brightness(1.05);transform:translateY(-1px);}

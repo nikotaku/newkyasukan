@@ -5,9 +5,14 @@ import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { WeeklyScheduleWidget } from "@/components/public/WeeklyScheduleWidget";
-import { ExternalLink, ChevronLeft, ChevronRight, Newspaper } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { format } from "date-fns";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
+import "@/styles/zrtop.css";
+
+// 予約システムのURL（必要に応じて変更）
+const RESERVE_URL = "/booking";
+const reserveHref = (course?: string) =>
+  course ? `${RESERVE_URL}${RESERVE_URL.includes("?") ? "&" : "?"}course=${encodeURIComponent(course)}` : RESERVE_URL;
 
 const STORE_SNS_DEFS = [
   { key: "store_sns_x", label: "店舗公式 X (旧Twitter)", short: "X", color: "#000000" },
@@ -15,11 +20,6 @@ const STORE_SNS_DEFS = [
   { key: "store_sns_o2", label: "店舗公式 O2 (ゼロツー)", short: "O2", color: "#e85298" },
   { key: "store_sns_instagram", label: "店舗公式 Instagram", short: "IG", color: "#d62976" },
   { key: "store_sns_bluesky", label: "店舗公式 Bluesky", short: "B", color: "#1185fe" },
-];
-
-const FALLBACK_BANNERS = [
-  "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750253573.png",
-  "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750762260.png",
 ];
 
 interface HpArticle {
@@ -56,11 +56,10 @@ const cleanContent = (md: string): string =>
     .trim();
 
 const Top = () => {
-  const [bannerSlides, setBannerSlides] = useState<string[]>(FALLBACK_BANNERS);
   const [snsContent, setSnsContent] = useState<Record<string, string>>({});
-  const [currentSlide, setCurrentSlide] = useState(0);
   const [articles, setArticles] = useState<HpArticle[]>([]);
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
+  const [coursesOpen, setCoursesOpen] = useState(false);
   const navigate = useNavigate();
 
   const storeSns = STORE_SNS_DEFS
@@ -72,20 +71,8 @@ const Top = () => {
     fetchAll();
   }, []);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % bannerSlides.length);
-    }, 9000);
-    return () => clearInterval(timer);
-  }, []);
-
   const fetchAll = async () => {
-    const [b, content, arts] = await Promise.all([
-      supabase
-        .from("banners")
-        .select("image_url")
-        .eq("is_active", true)
-        .order("display_order", { ascending: true }),
+    const [content, arts] = await Promise.all([
       supabase.from("site_content").select("key, value").like("key", "store_sns_%"),
       supabase
         .from("hp_articles")
@@ -100,9 +87,6 @@ const Top = () => {
       content.data.forEach((r: { key: string; value: string }) => { map[r.key] = r.value; });
       setSnsContent(map);
     }
-    if (b.data && b.data.length > 0) {
-      setBannerSlides(b.data.map((r: any) => r.image_url));
-    }
     if (arts.data) {
       setArticles(arts.data as HpArticle[]);
     }
@@ -112,45 +96,87 @@ const Top = () => {
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
       <PublicNavigation />
 
-      {/* ===== Banner Slider ===== */}
-      <div className="relative overflow-hidden">
-        <AspectRatio ratio={16 / 9}>
-          <div className="relative w-full h-full bg-black">
-            {bannerSlides.map((src, i) => (
-              <img
-                key={i}
-                src={src}
-                alt="トップバナー | 全力エステ 仙台"
-                className={`absolute inset-0 w-full h-full object-cover transition-all duration-[1200ms] ease-out ${
-                  i === currentSlide
-                    ? "opacity-100 scale-105 z-10"
-                    : "opacity-0 scale-100 z-0"
-                }`}
-              />
-            ))}
+      {/* ===== ヒーロー / 理念 / コース ===== */}
+      <div className="zrtop">
+        {/* 1枚目：ヒーロー */}
+        <section className="hero">
+          <div className="mono">ZR</div>
+          <div className="inner">
+            <div className="overline goldtext"><span className="dia" />ZR ｜ 全力エステ</div>
+            <h1>また、<span className="goldtext">あの人</span>に<br />会いに。</h1>
+            <p className="concept">至極のおもてなしは、人がつくる。<br />あなたを覚えている、ただ一人のセラピストへ。</p>
+            <div className="cta-row">
+              <Link className="btn btn-gold goldfill" to={reserveHref()}>ご予約・空き状況 →</Link>
+              <Link className="btn btn-line" to="/casts">セラピスト一覧</Link>
+            </div>
           </div>
-        </AspectRatio>
-        <button
-          onClick={() => setCurrentSlide((prev) => (prev - 1 + bannerSlides.length) % bannerSlides.length)}
-          className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => setCurrentSlide((prev) => (prev + 1) % bannerSlides.length)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
-          {bannerSlides.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrentSlide(i)}
-              className={`w-2.5 h-2.5 rounded-full transition-all ${i === currentSlide ? "bg-white" : "bg-white/50"}`}
-            />
-          ))}
-        </div>
+          <div className="loc">SENDAI ・ MEN'S RELAXATION</div>
+        </section>
+
+        {/* 2枚目：理念 */}
+        <section className="philo">
+          <div className="over goldtext">OUR PHILOSOPHY ｜ 全力エステ</div>
+          <h2>技術の前に、<span className="goldtext">人</span>がいる。</h2>
+          <p>
+            ただ疲れをほぐすだけではありません。<br />
+            あなたの名前を、前回の言葉を、今日の表情を覚えている。<br />
+            その一人のために手を尽くすから、「また会いに来たい」が生まれる。<br />
+            <span className="goldtext">至極のおもてなしは、人がつくる。</span><br />
+            その想いを、すべてのコースに込めています。
+          </p>
+          <button className={`cta goldfill${coursesOpen ? " open" : ""}`} onClick={() => setCoursesOpen((v) => !v)}>
+            {coursesOpen ? "コースを閉じる " : "おすすめコースを見る "}<span className="arw">▾</span>
+          </button>
+        </section>
+
+        {/* 開閉コース */}
+        <section id="courses" className={coursesOpen ? "open" : ""}>
+          <div className="courses-inner">
+            <div className="title goldtext">RECOMMENDED COURSE</div>
+            <div className="grid">
+              <div className="card">
+                <div className="visual">
+                  <div className="badge"><span className="star">★</span><span className="n goldtext">No.1</span></div>
+                  <div className="cname goldtext">全力コース</div>
+                  <div className="cmin goldtext">80分</div>
+                  <div className="csub goldtext">× MB &amp; 極液</div>
+                </div>
+                <div className="cbody">
+                  <h3>全力コース × MB/極液</h3>
+                  <div className="price goldtext">¥26,000</div>
+                  <p className="desc">仙台メンズエステ史上最高値のSPメニュー。疲れや悩みなど、貴方のすべてを出し切ってください。</p>
+                  <Link className="reserve-btn goldfill" to={reserveHref("80mb")}>予約する</Link>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="visual">
+                  <div className="cname goldtext">全力コース</div>
+                  <div className="cmin goldtext">60分</div>
+                </div>
+                <div className="cbody">
+                  <h3>全力コース 60分</h3>
+                  <div className="price goldtext">¥15,000</div>
+                  <p className="desc">まずはお試し。60分に凝縮された全力施術でサクッと癒され、明日へのエナジーチャージを。</p>
+                  <Link className="reserve-btn goldfill" to={reserveHref("60")}>予約する</Link>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="visual">
+                  <div className="cname goldtext">全力コース</div>
+                  <div className="cmin goldtext">80分</div>
+                </div>
+                <div className="cbody">
+                  <h3>全力コース 80分</h3>
+                  <div className="price goldtext">¥19,000</div>
+                  <p className="desc">たっぷり80分。延長も可能で、豊富なオプションと組み合わせ、貴方だけのオリジナルを。</p>
+                  <Link className="reserve-btn goldfill" to={reserveHref("80")}>予約する</Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
       {/* ===== 週間出勤スケジュール ===== */}
