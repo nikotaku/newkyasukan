@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink } from "lucide-react";
+import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import backRatesImage from "@/assets/back-rates-table.jpg";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, isSameDay } from "date-fns";
 import { ja } from "date-fns/locale";
 
 interface PendingClearance {
@@ -88,6 +88,11 @@ export default function TherapistPortal() {
   const [shiftRows, setShiftRows] = useState<ShiftRow[]>([]);
   const [shiftsLoading, setShiftsLoading] = useState(false);
 
+  // Menu top: current month shifts (always loaded)
+  const [menuShiftRows, setMenuShiftRows] = useState<ShiftRow[]>([]);
+  const [menuShiftLoading, setMenuShiftLoading] = useState(false);
+  const [shiftExpanded, setShiftExpanded] = useState(false);
+
   // Rooms
   const [rooms, setRooms] = useState<Room[]>([]);
 
@@ -128,6 +133,17 @@ export default function TherapistPortal() {
         .limit(1)
         .maybeSingle()
         .then(({ data }) => setPendingClearance(data as PendingClearance | null));
+
+      // Load current month shifts for menu top display
+      setMenuShiftLoading(true);
+      supabase.rpc("get_therapist_shifts", {
+        p_token: token,
+        p_year: now.getFullYear(),
+        p_month: now.getMonth() + 1,
+      }).then(({ data }) => {
+        setMenuShiftRows((data || []) as ShiftRow[]);
+        setMenuShiftLoading(false);
+      });
     });
   }, [token, navigate]);
 
@@ -287,6 +303,71 @@ export default function TherapistPortal() {
         {/* ── MENU ── */}
         {view === "menu" && (
           <div className="space-y-4">
+
+          {/* Current month shift widget */}
+          <div className="rounded-xl border bg-card overflow-hidden">
+            <button
+              className="w-full px-4 py-3 flex items-center justify-between bg-muted/30"
+              onClick={() => setShiftExpanded(v => !v)}
+            >
+              <div className="flex items-center gap-2">
+                <Calendar size={15} className="text-primary" />
+                <span className="font-semibold text-sm">
+                  {format(now, "M月", { locale: ja })}のシフト
+                </span>
+                {!menuShiftLoading && (
+                  <span className="text-xs text-muted-foreground">
+                    （{menuShiftRows.filter(s => s.approval_status !== "rejected").length}件確定）
+                  </span>
+                )}
+              </div>
+              {shiftExpanded ? <ChevronUp size={15} className="text-muted-foreground" /> : <ChevronDown size={15} className="text-muted-foreground" />}
+            </button>
+
+            {/* Always show upcoming shifts (next 5 days preview); expand for full list */}
+            {menuShiftLoading ? (
+              <div className="py-4 text-center"><Loader2 size={16} className="animate-spin text-primary mx-auto" /></div>
+            ) : menuShiftRows.length === 0 ? (
+              <p className="text-center text-muted-foreground text-xs py-4">{format(now, "M月", { locale: ja })}のシフトはまだありません</p>
+            ) : (
+              <div className="divide-y">
+                {(shiftExpanded ? menuShiftRows : menuShiftRows.filter(s => s.approval_status !== "rejected").slice(0, 5)).map((s) => {
+                  const isToday = isSameDay(new Date(s.shift_date), now);
+                  return (
+                    <div key={s.id} className={`px-4 py-2.5 flex items-center gap-3 ${isToday ? "bg-primary/5" : ""}`}>
+                      <div className="text-xs whitespace-nowrap w-14">
+                        <p className={`font-bold ${isToday ? "text-primary" : "text-foreground"}`}>
+                          {format(new Date(s.shift_date), "M/d", { locale: ja })}
+                          {isToday && <span className="ml-1 text-[10px]">今日</span>}
+                        </p>
+                        <p className="text-muted-foreground">{format(new Date(s.shift_date), "(E)", { locale: ja })}</p>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm ${s.approval_status === "rejected" ? "line-through text-muted-foreground" : "font-medium"}`}>
+                          {s.start_time.slice(0, 5)}〜 {s.end_time.slice(0, 5)}
+                        </p>
+                        {s.room && s.approval_status === "approved" && (
+                          <p className="text-xs text-primary">{s.room}</p>
+                        )}
+                      </div>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${shiftStatusBadge[s.approval_status] ?? "bg-muted text-muted-foreground"}`}>
+                        {shiftStatusLabel[s.approval_status] ?? s.approval_status}
+                      </span>
+                    </div>
+                  );
+                })}
+                {!shiftExpanded && menuShiftRows.filter(s => s.approval_status !== "rejected").length > 5 && (
+                  <button
+                    className="w-full py-2 text-xs text-primary text-center hover:bg-muted/30 transition-colors"
+                    onClick={() => setShiftExpanded(true)}
+                  >
+                    残り{menuShiftRows.filter(s => s.approval_status !== "rejected").length - 5}件をすべて表示
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Clearance notification */}
           {pendingClearance && (
             <div className="rounded-xl border-2 border-primary/40 bg-primary/5 p-4 space-y-3">
