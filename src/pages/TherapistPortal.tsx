@@ -77,8 +77,8 @@ export default function TherapistPortal() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>("menu");
   const [showBackRates, setShowBackRates] = useState(false);
-  const [guideSite, setGuideSite] = useState<"o2" | "x" | "esutama" | null>(null);
-  const [linkSite, setLinkSite] = useState<"o2" | "x" | "esutama" | null>(null);
+  const [guideSite, setGuideSite] = useState<"o2" | "x" | "esutama" | "ranking" | null>(null);
+  const [linkSite, setLinkSite] = useState<"o2" | "x" | "esutama" | "ranking" | null>(null);
   const [linkForm, setLinkForm] = useState({ login_id: "", password: "" });
   const [linkSaving, setLinkSaving] = useState(false);
 
@@ -279,14 +279,20 @@ export default function TherapistPortal() {
     { title: "振り込み申請", description: "報酬の振り込み申請フォーム", icon: ExternalLink, action: () => window.open("https://yoom.fun/5eee42a7-b4ff-49a8-8373-606c66495142/forms/shared/Cu2K735X9qaSAdMs45x6Bw", "_blank") },
   ];
 
-  const REGISTER_URLS: Record<"o2" | "x" | "esutama", string> = {
+  const REGISTER_URLS: Record<"o2" | "x" | "esutama" | "ranking", string> = {
     o2: "https://m-sns.net/cast-register/",
     x: "https://x.com/i/flow/signup",
     esutama: "https://s-tama.jp/cast/register",
+    ranking: "https://mensesthe-ranking.com/cast-register/",
   };
-  const SITE_LABEL: Record<"o2" | "x" | "esutama", string> = { o2: "O2（ゼロツー）", x: "X（旧Twitter）", esutama: "エスたまの魂" };
+  const SITE_LABEL: Record<"o2" | "x" | "esutama" | "ranking", string> = {
+    o2: "O2（ゼロツー）",
+    x: "X（旧Twitter）",
+    esutama: "エスたまの魂",
+    ranking: "メンズエステランキング",
+  };
 
-  const openLink = (site: "o2" | "x" | "esutama") => {
+  const openLink = (site: "o2" | "x" | "esutama" | "ranking") => {
     setLinkSite(site);
     setLinkForm({ login_id: "", password: "" });
   };
@@ -460,7 +466,7 @@ export default function TherapistPortal() {
               <p className="font-semibold text-sm">外部サイト登録・連携</p>
             </div>
             <div className="p-4 space-y-4">
-              {(["o2", "x", "esutama"] as const).map((site) => (
+              {(["o2", "x", "esutama", "ranking"] as const).map((site) => (
                 <div key={site}>
                   <p className="text-sm font-medium mb-2">{SITE_LABEL[site]}</p>
                   <div className="flex flex-col sm:flex-row gap-2">
@@ -770,13 +776,13 @@ export default function TherapistPortal() {
           </DialogHeader>
           {guideSite === "o2" ? (
             <iframe src="/o2-register-guide.pdf" title="O2登録ガイド" className="w-full h-[70vh] rounded border" />
-          ) : guideSite === "esutama" ? (
-            <div className="py-6 text-center space-y-3">
-              <p className="text-sm text-muted-foreground">エスたまの魂の新規登録は公式サイトから行えます。</p>
-            </div>
           ) : (
             <div className="py-6 text-center space-y-3">
-              <p className="text-sm text-muted-foreground">X（旧Twitter）の新規登録は公式サイトから行えます。</p>
+              <p className="text-sm text-muted-foreground">
+                {guideSite === "esutama" && "エスたまの魂の新規登録は公式サイトから行えます。"}
+                {guideSite === "x" && "X（旧Twitter）の新規登録は公式サイトから行えます。"}
+                {guideSite === "ranking" && "メンズエステランキングの新規登録は公式サイトから行えます。"}
+              </p>
             </div>
           )}
           <div className="flex justify-end pt-2">
