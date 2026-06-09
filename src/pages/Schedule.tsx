@@ -108,11 +108,17 @@ function StatusBox({
   reservations,
   castNameMap,
   onStatusChange,
+  onEdit,
+  onSms,
+  isAdmin,
 }: {
   status: string;
   reservations: Reservation[];
   castNameMap: Map<string, string>;
   onStatusChange: (id: string, status: string) => void;
+  onEdit: (res: Reservation) => void;
+  onSms: (res: Reservation) => void;
+  isAdmin: boolean;
 }) {
   const style = BOARD_STATUS_STYLE[status];
   return (
@@ -134,6 +140,22 @@ function StatusBox({
                 <div>{res.customer_phone}</div>
               </div>
               <div className="mt-1.5 flex gap-1 flex-wrap">
+                <button
+                  onClick={() => onSms(res)}
+                  className="text-[10px] px-1.5 py-0.5 rounded border bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors font-medium"
+                >
+                  SMS
+                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => onEdit(res)}
+                    className="text-[10px] px-1.5 py-0.5 rounded border bg-white border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors font-medium"
+                  >
+                    編集
+                  </button>
+                )}
+              </div>
+              <div className="mt-1 flex gap-1 flex-wrap">
                 {BOARD_STATUSES.filter((s) => s !== status).map((s) => (
                   <button
                     key={s}
@@ -350,6 +372,67 @@ export default function Schedule() {
     }
   };
 
+  const buildReservationSms = (d: Reservation): string => {
+    const date = new Date(d.reservation_date);
+    const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+    const dayOfWeek = dayNames[date.getDay()];
+    const dateStr = `${format(date, "M月d日", { locale: ja })}(${dayOfWeek})`;
+    const castName = castNameMap.get(d.cast_id) ?? "";
+    const nominationLabel = d.nomination_type && d.nomination_type !== "none" ? d.nomination_type : "フリー";
+    const fee = d.payment_fee || 0;
+    const grandTotal = d.price + fee;
+    const paySetting = findPaymentSetting(paymentSettings, d.payment_method || "");
+    const payLink = fee > 0 && paySetting?.payment_link ? paySetting.payment_link : null;
+    const roomRecord = rooms.find((r) => r.name === d.room);
+    const roomSmsText = roomRecord?.sms_text ?? null;
+    const roomAddress = roomRecord?.address ?? null;
+
+    const backRate = backRates.find(
+      (r) => r.course_type === d.course_type && r.duration === d.duration
+    );
+    const coursePrice = backRate?.customer_price ?? 0;
+    const optionsTotal = (d.options ?? []).reduce((sum, optName) => {
+      const opt = optionRates.find((r) => r.option_name === optName);
+      return sum + (opt?.customer_price ?? 0);
+    }, 0);
+    const nominationFee = d.nomination_type && d.nomination_type !== "none"
+      ? (nominationRates.find((r) => r.nomination_type === d.nomination_type)?.customer_price ?? 0)
+      : 0;
+    const discountAmount = d.discount ?? 0;
+
+    return [
+      `${d.customer_name} 様`,
+      `ご予約ありがとうございます。`,
+      ``,
+      `[予約情報]`,
+      `予約日時：${dateStr} ${toExtTime(d.start_time)}`,
+      `コース：${d.course_name}`,
+      (d.options ?? []).length > 0 ? `オプション：${(d.options ?? []).join("、")}` : null,
+      `セラピスト：${castName ? `${castName}（${nominationLabel}）` : nominationLabel}`,
+      d.room ? `ルーム：${d.room}` : null,
+      roomAddress ? `住所：${roomAddress}` : null,
+      `予約名：${d.customer_name}`,
+      `ご要望など：${d.notes ?? ""}`,
+      ``,
+      `[料金]`,
+      `コース料金：${coursePrice.toLocaleString()}円`,
+      optionsTotal > 0 ? `オプション料金：${optionsTotal.toLocaleString()}円` : null,
+      `指名料：${nominationFee.toLocaleString()}円`,
+      discountAmount > 0 ? `割引：-${discountAmount.toLocaleString()}円` : null,
+      `決済手数料：${fee.toLocaleString()}円`,
+      `総額：${grandTotal.toLocaleString()}円`,
+      ...(payLink ? [``, `▼${paySetting?.payment_method ?? "カード"}決済はこちら`, payLink] : []),
+      roomSmsText
+        ? `\n${roomSmsText}`
+        : roomAddress ? `\n【住所】\n${roomAddress}` : null,
+    ].filter((l) => l !== null).join("\n");
+  };
+
+  const copyReservationSms = (d: Reservation) => {
+    navigator.clipboard.writeText(buildReservationSms(d));
+    toast({ title: "SMSをコピーしました" });
+  };
+
   const openDetail = (res: Reservation) => {
     setDetailRes(res);
     setEditStatus(res.status);
@@ -357,9 +440,10 @@ export default function Schedule() {
   };
 
   // 編集モードに入るとき、予約データを ReservationForm の形に展開
-  const startEdit = () => {
-    if (!detailRes) return;
-    const res = detailRes;
+  const startEdit = (target?: Reservation) => {
+    const res = target ?? detailRes;
+    if (!res) return;
+    setDetailRes(res);
     setEditStatus(res.status);
     setEditFormData({
       cast_id: res.cast_id,
@@ -549,6 +633,9 @@ export default function Schedule() {
                       reservations={reservations.filter((r) => r.status === s)}
                       castNameMap={castNameMap}
                       onStatusChange={handleQuickStatusChange}
+                      onEdit={(res) => startEdit(res)}
+                      onSms={copyReservationSms}
+                      isAdmin={isAdmin}
                     />
                   ))}
                 </div>
@@ -723,7 +810,7 @@ export default function Schedule() {
             <div className="flex items-center justify-between">
               <SheetTitle>{editMode ? "予約を編集" : "予約詳細"}</SheetTitle>
               {isAdmin && !editMode && (
-                <Button size="sm" variant="outline" onClick={startEdit}>
+                <Button size="sm" variant="outline" onClick={() => startEdit()}>
                   <Pencil size={14} className="mr-1" />編集
                 </Button>
               )}
@@ -825,70 +912,7 @@ export default function Schedule() {
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      onClick={() => {
-                        const d = detailRes;
-                        const date = new Date(d.reservation_date);
-                        const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
-                        const dayOfWeek = dayNames[date.getDay()];
-                        const dateStr = `${format(date, "M月d日", { locale: ja })}(${dayOfWeek})`;
-                        // 担当セラピスト名
-                        const castName = castNameMap.get(d.cast_id) ?? "";
-                        // 指名種別ラベル
-                        const nominationLabel = d.nomination_type && d.nomination_type !== "none"
-                          ? d.nomination_type
-                          : "フリー";
-                        const fee = d.payment_fee || 0;
-                        const grandTotal = d.price + fee;
-                        const paySetting = findPaymentSetting(paymentSettings, d.payment_method || "");
-                        const payLink = fee > 0 && paySetting?.payment_link ? paySetting.payment_link : null;
-                        const roomRecord = rooms.find((r) => r.name === d.room);
-                        const roomSmsText = roomRecord?.sms_text ?? null;
-                        const roomAddress = roomRecord?.address ?? null;
-
-                        // 料金内訳を再構成（d.price はコース＋オプション＋指名料−割引の合計）
-                        const backRate = backRates.find(
-                          (r) => r.course_type === d.course_type && r.duration === d.duration
-                        );
-                        const coursePrice = backRate?.customer_price ?? 0;
-                        const optionsTotal = (d.options ?? []).reduce((sum, optName) => {
-                          const opt = optionRates.find((r) => r.option_name === optName);
-                          return sum + (opt?.customer_price ?? 0);
-                        }, 0);
-                        const nominationFee = d.nomination_type && d.nomination_type !== "none"
-                          ? (nominationRates.find((r) => r.nomination_type === d.nomination_type)?.customer_price ?? 0)
-                          : 0;
-                        const discountAmount = d.discount ?? 0;
-
-                        const text = [
-                          `${d.customer_name} 様`,
-                          `ご予約ありがとうございます。`,
-                          ``,
-                          `[予約情報]`,
-                          `予約日時：${dateStr} ${toExtTime(d.start_time)}`,
-                          `コース：${d.course_name}`,
-                          (d.options ?? []).length > 0 ? `オプション：${(d.options ?? []).join("、")}` : null,
-                          `セラピスト：${castName ? `${castName}（${nominationLabel}）` : nominationLabel}`,
-                          d.room ? `ルーム：${d.room}` : null,
-                          roomAddress ? `住所：${roomAddress}` : null,
-                          `予約名：${d.customer_name}`,
-                          `ご要望など：${d.notes ?? ""}`,
-                          ``,
-                          `[料金]`,
-                          `コース料金：${coursePrice.toLocaleString()}円`,
-                          optionsTotal > 0 ? `オプション料金：${optionsTotal.toLocaleString()}円` : null,
-                          `指名料：${nominationFee.toLocaleString()}円`,
-                          discountAmount > 0 ? `割引：-${discountAmount.toLocaleString()}円` : null,
-                          `決済手数料：${fee.toLocaleString()}円`,
-                          `総額：${grandTotal.toLocaleString()}円`,
-                          ...(payLink ? [``, `▼${paySetting?.payment_method ?? "カード"}決済はこちら`, payLink] : []),
-                          // ルームのSMSテキストがあれば使用、無ければルーム設定の住所を自動反映
-                          roomSmsText
-                            ? `\n${roomSmsText}`
-                            : roomAddress ? `\n【住所】\n${roomAddress}` : null,
-                        ].filter((l) => l !== null).join("\n");
-                        navigator.clipboard.writeText(text);
-                        toast({ title: "SMSをコピーしました" });
-                      }}
+                      onClick={() => copyReservationSms(detailRes)}
                     >
                       <Copy size={14} className="mr-1" />SMSをコピー
                     </Button>
