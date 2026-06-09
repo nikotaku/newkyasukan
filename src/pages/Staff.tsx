@@ -1129,17 +1129,6 @@ export default function Staff() {
                         </div>
                       </div>
 
-                      {/* ショップコメント */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <Label htmlFor="add-shop-comment" className="font-semibold">ショップコメント</Label>
-                          <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateShopComment('add')} disabled={generatingShopComment} className="h-7 px-2 text-xs text-pink-600 border-pink-300 hover:bg-pink-50">
-                            {generatingShopComment ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Sparkles size={12} className="mr-1" />}AI生成
-                          </Button>
-                        </div>
-                        <Textarea id="add-shop-comment" rows={3} value={formData.shop_comment} onChange={(e) => setFormData({...formData, shop_comment: e.target.value})} />
-                      </div>
-
                       {/* 基本情報 */}
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">基本情報</Label>
@@ -1154,8 +1143,16 @@ export default function Staff() {
                           </div>
                         </div>
                         <div>
+                          <Label htmlFor="add-age">年齢</Label>
+                          <Input id="add-age" type="number" placeholder="25" value={formData.age} onChange={(e) => setFormData({...formData, age: e.target.value})} />
+                        </div>
+                        <div>
                           <Label htmlFor="add-height">身長 (cm)</Label>
                           <Input id="add-height" type="number" placeholder="158" value={formData.height} onChange={(e) => setFormData({...formData, height: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="add-body-size">3サイズ (B/W/H)</Label>
+                          <Input id="add-body-size" placeholder="84/58/84" value={formData.body_size} onChange={(e) => setFormData({...formData, body_size: e.target.value})} />
                         </div>
                         <div>
                           <Label>バストのカップ数</Label>
@@ -1166,58 +1163,21 @@ export default function Staff() {
                         </div>
                       </div>
 
-                      {/* セラピストコメント */}
+                      {/* お店からのコメント（ショップコメント） */}
                       <div>
-                        <Label htmlFor="add-therapist-comment" className="font-semibold">セラピストコメント</Label>
-                        <Textarea id="add-therapist-comment" rows={3} className="mt-1" value={formData.therapist_comment} onChange={(e) => setFormData({...formData, therapist_comment: e.target.value})} />
-                      </div>
-
-                      {/* セラピストの特徴 */}
-                      <div>
-                        <Label className="font-semibold">セラピストの特徴（4つまで）</Label>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {THERAPIST_FEATURES.map((f) => {
-                            const checked = formData.features.includes(f);
-                            return (
-                              <button key={f} type="button"
-                                className={`px-2 py-1 text-xs rounded-full border transition-colors ${checked ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground/30 text-muted-foreground hover:border-primary"}`}
-                                onClick={() => {
-                                  if (checked) { setFormData({...formData, features: formData.features.filter(x => x !== f)}); }
-                                  else if (formData.features.length >= MAX_FEATURES) { toast({ title: "特徴は4つまで選択できます", variant: "destructive" }); }
-                                  else { setFormData({...formData, features: [...formData.features, f]}); }
-                                }}>
-                                {f}
-                              </button>
-                            );
-                          })}
+                        <div className="flex items-center justify-between mb-1">
+                          <Label htmlFor="add-shop-comment" className="font-semibold">お店からのコメント</Label>
+                          <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateShopComment('add')} disabled={generatingShopComment} className="h-7 px-2 text-xs text-pink-600 border-pink-300 hover:bg-pink-50">
+                            {generatingShopComment ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Sparkles size={12} className="mr-1" />}AI生成
+                          </Button>
                         </div>
+                        <Textarea id="add-shop-comment" rows={3} value={formData.shop_comment} onChange={(e) => setFormData({...formData, shop_comment: e.target.value})} />
                       </div>
 
-                      {/* エステ歴 */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="font-semibold">エステ歴</Label>
-                          <Select value={formData.therapist_experience} onValueChange={(v) => setFormData({...formData, therapist_experience: v})}>
-                            <SelectTrigger className="mt-1"><SelectValue placeholder="選択" /></SelectTrigger>
-                            <SelectContent>{THERAPIST_EXPERIENCE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="add-age" className="font-semibold">年齢</Label>
-                          <Input id="add-age" type="number" placeholder="25" className="mt-1" value={formData.age} onChange={(e) => setFormData({...formData, age: e.target.value})} />
-                        </div>
-                      </div>
-
-                      {/* サイズ */}
-                      <div>
-                        <Label htmlFor="add-body-size" className="font-semibold">サイズ (T/W/H)</Label>
-                        <Input id="add-body-size" className="mt-1" placeholder="158/58/84" value={formData.body_size} onChange={(e) => setFormData({...formData, body_size: e.target.value})} />
-                      </div>
-
-                      {/* プロフィール詳細（トグル） */}
+                      {/* セラピストインタビュー（トグル） */}
                       <div className="border rounded-lg">
                         <button type="button" className="w-full flex items-center justify-between p-4" onClick={() => setShowProfileDetailAdd(v => !v)}>
-                          <span className="font-semibold">プロフィール詳細</span>
+                          <span className="font-semibold">セラピストインタビュー</span>
                           {showProfileDetailAdd ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </button>
                         {showProfileDetailAdd && (
@@ -1250,6 +1210,42 @@ export default function Staff() {
                         )}
                       </div>
 
+                      {/* セラピストコメント */}
+                      <div>
+                        <Label htmlFor="add-therapist-comment" className="font-semibold">セラピストコメント</Label>
+                        <Textarea id="add-therapist-comment" rows={3} className="mt-1" value={formData.therapist_comment} onChange={(e) => setFormData({...formData, therapist_comment: e.target.value})} />
+                      </div>
+
+                      {/* セラピストの特徴 */}
+                      <div>
+                        <Label className="font-semibold">セラピストの特徴（4つまで）</Label>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {THERAPIST_FEATURES.map((f) => {
+                            const checked = formData.features.includes(f);
+                            return (
+                              <button key={f} type="button"
+                                className={`px-2 py-1 text-xs rounded-full border transition-colors ${checked ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground/30 text-muted-foreground hover:border-primary"}`}
+                                onClick={() => {
+                                  if (checked) { setFormData({...formData, features: formData.features.filter(x => x !== f)}); }
+                                  else if (formData.features.length >= MAX_FEATURES) { toast({ title: "特徴は4つまで選択できます", variant: "destructive" }); }
+                                  else { setFormData({...formData, features: [...formData.features, f]}); }
+                                }}>
+                                {f}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* エステ歴 */}
+                      <div>
+                        <Label className="font-semibold">エステ歴</Label>
+                        <Select value={formData.therapist_experience} onValueChange={(v) => setFormData({...formData, therapist_experience: v})}>
+                          <SelectTrigger className="mt-1"><SelectValue placeholder="選択" /></SelectTrigger>
+                          <SelectContent>{THERAPIST_EXPERIENCE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+
                       {/* ブログ・SNS */}
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">ブログ・SNS</Label>
@@ -1270,6 +1266,7 @@ export default function Staff() {
                           <Input id="add-instagram" placeholder="https://..." value={formData.instagram_url} onChange={(e) => setFormData({...formData, instagram_url: e.target.value})} />
                         </div>
                       </div>
+
 
                       <Button onClick={handleAddCast} className="w-full">
                         追加する
@@ -1345,17 +1342,6 @@ export default function Staff() {
                         </div>
                       </div>
 
-                      {/* ショップコメント */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <Label htmlFor="e-shop-comment" className="font-semibold">ショップコメント</Label>
-                          <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateShopComment('edit')} disabled={generatingShopComment} className="h-7 px-2 text-xs text-pink-600 border-pink-300 hover:bg-pink-50">
-                            {generatingShopComment ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Sparkles size={12} className="mr-1" />}AI生成
-                          </Button>
-                        </div>
-                        <Textarea id="e-shop-comment" rows={3} value={editingCast.shop_comment || ""} onChange={(e) => setEditingCast({...editingCast, shop_comment: e.target.value})} />
-                      </div>
-
                       {/* 基本情報 */}
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">基本情報</Label>
@@ -1368,8 +1354,16 @@ export default function Staff() {
                           <Input id="e-name-kana" value={editingCast.name_kana || ""} onChange={(e) => setEditingCast({...editingCast, name_kana: e.target.value})} />
                         </div>
                         <div>
+                          <Label htmlFor="e-age">年齢</Label>
+                          <Input id="e-age" type="number" value={editingCast.age || ""} onChange={(e) => setEditingCast({...editingCast, age: parseInt(e.target.value) || null})} />
+                        </div>
+                        <div>
                           <Label htmlFor="e-height">身長 (cm)</Label>
                           <Input id="e-height" type="number" value={editingCast.height || ""} onChange={(e) => setEditingCast({...editingCast, height: parseInt(e.target.value) || null})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-body-size">3サイズ (B/W/H)</Label>
+                          <Input id="e-body-size" placeholder="84/58/84" value={editingCast.body_size || ""} onChange={(e) => setEditingCast({...editingCast, body_size: e.target.value})} />
                         </div>
                         <div>
                           <Label>バストのカップ数</Label>
@@ -1378,6 +1372,53 @@ export default function Staff() {
                             <SelectContent>{BUST_SIZES.map(b => <SelectItem key={b} value={b}>{b}カップ</SelectItem>)}</SelectContent>
                           </Select>
                         </div>
+                      </div>
+
+                      {/* お店からのコメント（ショップコメント） */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <Label htmlFor="e-shop-comment" className="font-semibold">お店からのコメント</Label>
+                          <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateShopComment('edit')} disabled={generatingShopComment} className="h-7 px-2 text-xs text-pink-600 border-pink-300 hover:bg-pink-50">
+                            {generatingShopComment ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Sparkles size={12} className="mr-1" />}AI生成
+                          </Button>
+                        </div>
+                        <Textarea id="e-shop-comment" rows={3} value={editingCast.shop_comment || ""} onChange={(e) => setEditingCast({...editingCast, shop_comment: e.target.value})} />
+                      </div>
+
+                      {/* セラピストインタビュー（トグル） */}
+                      <div className="border rounded-lg">
+                        <button type="button" className="w-full flex items-center justify-between p-4" onClick={() => setShowProfileDetail(v => !v)}>
+                          <span className="font-semibold">セラピストインタビュー</span>
+                          {showProfileDetail ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                        {showProfileDetail && (
+                          <div className="px-4 pb-4 space-y-3">
+                            <div>
+                              <Label htmlFor="e-techniques">得意な施術</Label>
+                              <Textarea id="e-techniques" rows={2} className="mt-1" value={editingCast.favorite_techniques || ""} onChange={(e) => setEditingCast({...editingCast, favorite_techniques: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-favfood">好きな食べ物</Label>
+                              <Input id="e-favfood" className="mt-1" value={editingCast.favorite_food || ""} onChange={(e) => setEditingCast({...editingCast, favorite_food: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-idealtype">好きな男性のタイプ</Label>
+                              <Input id="e-idealtype" className="mt-1" value={editingCast.ideal_type || ""} onChange={(e) => setEditingCast({...editingCast, ideal_type: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-celeb">似ている芸能人</Label>
+                              <Input id="e-celeb" className="mt-1" value={editingCast.celebrity_lookalike || ""} onChange={(e) => setEditingCast({...editingCast, celebrity_lookalike: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-dayoff">休みの日は何してる？</Label>
+                              <Textarea id="e-dayoff" rows={2} className="mt-1" value={editingCast.day_off_activities || ""} onChange={(e) => setEditingCast({...editingCast, day_off_activities: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-hobbies">趣味・特技</Label>
+                              <Textarea id="e-hobbies" rows={2} className="mt-1" value={editingCast.hobbies || ""} onChange={(e) => setEditingCast({...editingCast, hobbies: e.target.value})} />
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* セラピストコメント */}
@@ -1413,61 +1454,13 @@ export default function Staff() {
                         </div>
                       </div>
 
-                      {/* エステ歴・年齢 */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="font-semibold">エステ歴</Label>
-                          <Select value={editingCast.therapist_experience || ""} onValueChange={(v) => setEditingCast({...editingCast, therapist_experience: v})}>
-                            <SelectTrigger className="mt-1"><SelectValue placeholder="選択" /></SelectTrigger>
-                            <SelectContent>{THERAPIST_EXPERIENCE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="e-age" className="font-semibold">年齢</Label>
-                          <Input id="e-age" type="number" className="mt-1" value={editingCast.age || ""} onChange={(e) => setEditingCast({...editingCast, age: parseInt(e.target.value) || null})} />
-                        </div>
-                      </div>
-
-                      {/* サイズ */}
+                      {/* エステ歴 */}
                       <div>
-                        <Label htmlFor="e-body-size" className="font-semibold">サイズ (T/W/H)</Label>
-                        <Input id="e-body-size" className="mt-1" placeholder="158/58/84" value={editingCast.body_size || ""} onChange={(e) => setEditingCast({...editingCast, body_size: e.target.value})} />
-                      </div>
-
-                      {/* プロフィール詳細（トグル） */}
-                      <div className="border rounded-lg">
-                        <button type="button" className="w-full flex items-center justify-between p-4" onClick={() => setShowProfileDetail(v => !v)}>
-                          <span className="font-semibold">プロフィール詳細</span>
-                          {showProfileDetail ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </button>
-                        {showProfileDetail && (
-                          <div className="px-4 pb-4 space-y-3">
-                            <div>
-                              <Label htmlFor="e-techniques">得意な施術</Label>
-                              <Textarea id="e-techniques" rows={2} className="mt-1" value={editingCast.favorite_techniques || ""} onChange={(e) => setEditingCast({...editingCast, favorite_techniques: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="e-favfood">好きな食べ物</Label>
-                              <Input id="e-favfood" className="mt-1" value={editingCast.favorite_food || ""} onChange={(e) => setEditingCast({...editingCast, favorite_food: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="e-idealtype">好きな男性のタイプ</Label>
-                              <Input id="e-idealtype" className="mt-1" value={editingCast.ideal_type || ""} onChange={(e) => setEditingCast({...editingCast, ideal_type: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="e-celeb">似ている芸能人</Label>
-                              <Input id="e-celeb" className="mt-1" value={editingCast.celebrity_lookalike || ""} onChange={(e) => setEditingCast({...editingCast, celebrity_lookalike: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="e-dayoff">休みの日は何してる？</Label>
-                              <Textarea id="e-dayoff" rows={2} className="mt-1" value={editingCast.day_off_activities || ""} onChange={(e) => setEditingCast({...editingCast, day_off_activities: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="e-hobbies">趣味・特技</Label>
-                              <Textarea id="e-hobbies" rows={2} className="mt-1" value={editingCast.hobbies || ""} onChange={(e) => setEditingCast({...editingCast, hobbies: e.target.value})} />
-                            </div>
-                          </div>
-                        )}
+                        <Label className="font-semibold">エステ歴</Label>
+                        <Select value={editingCast.therapist_experience || ""} onValueChange={(v) => setEditingCast({...editingCast, therapist_experience: v})}>
+                          <SelectTrigger className="mt-1"><SelectValue placeholder="選択" /></SelectTrigger>
+                          <SelectContent>{THERAPIST_EXPERIENCE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+                        </Select>
                       </div>
 
                       {/* ブログ・SNS */}
