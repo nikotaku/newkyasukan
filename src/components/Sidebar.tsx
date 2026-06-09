@@ -63,6 +63,7 @@ const menuItems: MenuItem[] = [
       { href: "/design", label: "ホームページ管理" },
       { href: "/board", label: "タイムライン" },
       { href: "/hp/article-creation", label: "記事作成" },
+      { href: "/hp/business-flow", label: "業務フロー" },
       { href: "/hp/store-info", label: "店舗情報" },
       { href: "/hp/sns-links", label: "店舗SNSリンク" },
       { href: "/hp/recommended-menu", label: "おすすめメニュー" },
