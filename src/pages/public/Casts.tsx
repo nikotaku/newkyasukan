@@ -44,6 +44,7 @@ const Casts = () => {
   const [casts, setCasts] = useState<Cast[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'today' | 'newface'>('all');
+  const [todayShiftCastIds, setTodayShiftCastIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     document.title = "全力エステ - セラピスト";
@@ -51,11 +52,19 @@ const Casts = () => {
 
   useEffect(() => {
     fetchCasts();
-    const channel = supabase
+    fetchTodayShifts();
+    const castsChannel = supabase
       .channel('public-casts-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'casts' }, () => fetchCasts())
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const shiftsChannel = supabase
+      .channel('public-shifts-today')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, () => fetchTodayShifts())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(castsChannel);
+      supabase.removeChannel(shiftsChannel);
+    };
   }, []);
 
   const fetchCasts = async () => {
@@ -74,16 +83,23 @@ const Casts = () => {
     }
   };
 
+  const fetchTodayShifts = async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await supabase
+      .from("shifts")
+      .select("cast_id")
+      .eq("shift_date", today);
+    setTodayShiftCastIds(new Set((data || []).map((s: any) => s.cast_id)));
+  };
+
   const isNewFace = (joinDate: string) => {
     const join = new Date(joinDate);
     const now = new Date();
     return Math.ceil(Math.abs(now.getTime() - join.getTime()) / (1000 * 60 * 60 * 24)) <= 30;
   };
 
-  const isWorkingToday = (status: string) => status === 'waiting' || status === 'busy';
-
   const filteredCasts = casts.filter((cast) => {
-    if (filter === 'today') return isWorkingToday(cast.status);
+    if (filter === 'today') return todayShiftCastIds.has(cast.id);
     if (filter === 'newface') return isNewFace(cast.join_date);
     return true;
   });
