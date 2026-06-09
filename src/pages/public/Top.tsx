@@ -1,13 +1,25 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { WeeklyScheduleWidget } from "@/components/public/WeeklyScheduleWidget";
-import { ExternalLink } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { usePageTracking } from "@/hooks/usePageTracking";
+import { ExternalLink, Menu } from "lucide-react";
 import { format } from "date-fns";
 import "@/styles/zrtop.css";
+
+const RECRUIT_URL = "https://esjob.jp/shop/43923/";
+const NAV_ITEMS = [
+  { to: "/", label: "TOP", sub: "トップ", external: false },
+  { to: "/schedule", label: "SCHEDULE", sub: "出勤情報", external: false },
+  { to: "/casts", label: "THERAPIST", sub: "セラピスト", external: false },
+  { to: "/system", label: "SYSTEM", sub: "料金システム", external: false },
+  { to: "/access", label: "ACCESS", sub: "アクセス", external: false },
+  { to: RECRUIT_URL, label: "RECRUIT", sub: "求人情報", external: true },
+  { to: "/booking", label: "RESERVE", sub: "Web予約", external: false },
+];
 
 // 予約システムのURL（必要に応じて変更）
 const RESERVE_URL = "/booking";
@@ -60,7 +72,9 @@ const Top = () => {
   const [articles, setArticles] = useState<HpArticle[]>([]);
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
   const [coursesOpen, setCoursesOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
+  usePageTracking();
 
   const storeSns = STORE_SNS_DEFS
     .map((d) => ({ ...d, url: snsContent[d.key] || "" }))
@@ -94,7 +108,35 @@ const Top = () => {
 
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
-      <PublicNavigation />
+      {/* 左寄せハンバーガーメニュー（ヘッダー・ロゴなし） */}
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetTrigger asChild>
+          <button
+            aria-label="メニュー"
+            className="fixed top-4 left-4 z-50 p-2.5 rounded-md border border-[#d8b25a]/50 bg-black/55 text-[#fbe9a6] backdrop-blur-sm hover:bg-black/75 transition-colors"
+          >
+            <Menu size={22} />
+          </button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-72 p-0 border-r border-[#3a3634] text-white" style={{ backgroundColor: "#242220" }}>
+          <nav className="py-4">
+            {NAV_ITEMS.map((item) => {
+              const cls = "flex items-baseline gap-2 px-5 py-3.5 border-b border-[#3a3634]/60 transition-colors hover:bg-[#3a3634]/60";
+              const inner = (
+                <>
+                  <span className="text-[#d8ceca] font-semibold text-sm tracking-wider">{item.label}</span>
+                  <span className="text-[11px] text-[#9a8c88]">{item.sub}</span>
+                </>
+              );
+              return item.external ? (
+                <a key={item.to} href={item.to} target="_blank" rel="noopener noreferrer" className={cls} onClick={() => setMenuOpen(false)}>{inner}</a>
+              ) : (
+                <Link key={item.to} to={item.to} className={cls} onClick={() => setMenuOpen(false)}>{inner}</Link>
+              );
+            })}
+          </nav>
+        </SheetContent>
+      </Sheet>
 
       {/* ===== ヒーロー / 理念 / コース ===== */}
       <div className="zrtop">
