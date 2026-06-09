@@ -18,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Plus, Trash2, Edit2, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Trash2, Edit2, Sparkles, Loader2, Globe, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface Article {
@@ -215,6 +215,21 @@ export default function ArticleCreation() {
     } catch (error) {
       console.error("Error deleting article:", error);
       toast.error("削除に失敗しました");
+    }
+  };
+
+  const handleTogglePublish = async (article: Article) => {
+    try {
+      const { error } = await supabase
+        .from("hp_articles")
+        .update({ is_published: !article.is_published })
+        .eq("id", article.id);
+      if (error) throw error;
+      toast.success(article.is_published ? "非公開にしました" : "公開しました");
+      fetchArticles();
+    } catch (error) {
+      console.error("Error toggling publish:", error);
+      toast.error("更新に失敗しました");
     }
   };
 
@@ -507,7 +522,14 @@ export default function ArticleCreation() {
                           {article.is_published ? "（公開中）" : "（下書き）"}
                         </p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleTogglePublish(article)}
+                          title={article.is_published ? "非公開にする" : "公開する"}
+                          className={`transition-colors ${article.is_published ? "text-green-600 hover:text-muted-foreground" : "text-muted-foreground hover:text-green-600"}`}
+                        >
+                          {article.is_published ? <Globe size={18} /> : <EyeOff size={18} />}
+                        </button>
                         <button className="text-muted-foreground hover:text-primary transition-colors">
                           <Edit2 size={18} />
                         </button>
