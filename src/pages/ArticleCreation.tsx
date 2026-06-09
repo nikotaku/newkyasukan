@@ -49,6 +49,8 @@ export default function ArticleCreation() {
     staffName: "", staffProfile: "", staffMessage: "",
   });
   const [aiLoading, setAiLoading] = useState(false);
+  const [autoNewsTopic, setAutoNewsTopic] = useState("");
+  const [autoNewsLoading, setAutoNewsLoading] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -126,6 +128,42 @@ export default function ArticleCreation() {
     }
   };
 
+  // ニュースをワンクリックで自動生成して公開
+  const handleAutoNews = async () => {
+    setAutoNewsLoading(true);
+    try {
+      const topic = autoNewsTopic.trim();
+      const { data, error } = await supabase.functions.invoke("generate-cast-content", {
+        body: { type: "news", newsTitle: topic || undefined },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.content) throw new Error("内容の生成に失敗しました");
+
+      const title = topic || `新着ニュース ${format(new Date(), "M月d日", { locale: ja })}`;
+      const slug = `news-${Date.now()}`;
+
+      const { error: insertError } = await supabase.from("hp_articles").insert([
+        {
+          title,
+          slug,
+          content: data.content,
+          category: "news",
+          is_published: true,
+        },
+      ]);
+      if (insertError) throw insertError;
+
+      toast.success("ニュースを自動生成して公開しました");
+      setAutoNewsTopic("");
+      fetchArticles();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "自動投稿に失敗しました");
+    } finally {
+      setAutoNewsLoading(false);
+    }
+  };
+
   const handleAdd = async () => {
     if (!formData.title.trim() || !formData.content.trim()) {
       toast.error("タイトルと内容を入力してください");
@@ -199,6 +237,41 @@ export default function ArticleCreation() {
               新規作成
             </Button>
           </div>
+
+          {/* ニュース自動投稿（ワンクリック） */}
+          <Card className="mb-6 border-pink-200 bg-gradient-to-br from-pink-50 to-rose-50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 text-pink-700">
+                <Sparkles size={18} />
+                ニュース自動投稿
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                ボタン一発でAIがニュース記事を生成し、そのままHPに公開します。テーマは任意です。
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  value={autoNewsTopic}
+                  onChange={(e) => setAutoNewsTopic(e.target.value)}
+                  placeholder="テーマ（任意・例：夏の新キャンペーン開始）"
+                  className="flex-1 bg-white"
+                  onKeyDown={(e) => { if (e.key === "Enter" && !autoNewsLoading) handleAutoNews(); }}
+                />
+                <Button
+                  onClick={handleAutoNews}
+                  disabled={autoNewsLoading}
+                  className="bg-pink-600 hover:bg-pink-700 text-white shrink-0"
+                >
+                  {autoNewsLoading ? (
+                    <><Loader2 size={16} className="mr-2 animate-spin" />生成して公開中...</>
+                  ) : (
+                    <><Sparkles size={16} className="mr-2" />ニュースを生成して公開</>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {isAdding && (
             <Card className="mb-6">
