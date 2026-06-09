@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Save, X, Plus, ExternalLink, Copy } from "lucide-react";
+import { Search, Save, X, Plus, ExternalLink, Copy, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { driveImgUrl } from "@/lib/drive";
 
@@ -40,6 +40,7 @@ interface Cast {
   line_url: string | null;
   litlink_url: string | null;
   o2_url: string | null;
+  ranking_cast_id: string | null;
 }
 
 interface InternalProfile {
@@ -78,6 +79,7 @@ export default function TherapistDatabase() {
   const [loading, setLoading] = useState(true);
   const [savingEstama, setSavingEstama] = useState(false);
   const [savingInternal, setSavingInternal] = useState(false);
+  const [syncingRanking, setSyncingRanking] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCast, setSelectedCast] = useState<Cast | null>(null);
   const [castEdit, setCastEdit] = useState<Cast | null>(null);
@@ -102,7 +104,7 @@ export default function TherapistDatabase() {
     try {
       const [castsRes, profilesRes, tokensRes] = await Promise.all([
         supabase.from("casts").select(
-          "id,name,photo,age,height,bust,cup_size,waist,hip,blood_type,therapist_years,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,message,profile,x_account,line_url,litlink_url,o2_url"
+          "id,name,photo,age,height,bust,cup_size,waist,hip,blood_type,therapist_years,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,message,profile,x_account,line_url,litlink_url,o2_url,ranking_cast_id"
         ).order("name"),
         supabase.from("therapist_profiles" as any).select("*"),
         supabase.rpc("get_cast_access_tokens").catch(() => ({ data: null })),
@@ -152,6 +154,7 @@ export default function TherapistDatabase() {
       line_url: castEdit.line_url || null,
       litlink_url: castEdit.litlink_url || null,
       o2_url: castEdit.o2_url || null,
+      ranking_cast_id: castEdit.ranking_cast_id || null,
     }).eq("id", castEdit.id);
     setSavingEstama(false);
     if (error) { toast.error("保存に失敗しました"); return; }
@@ -171,6 +174,27 @@ export default function TherapistDatabase() {
     toast.success("内部情報を保存しました");
     await fetchAll();
     if (selectedCast) selectCast(casts.find(c => c.id === selectedCast.id) || selectedCast);
+  };
+
+  const handleSyncRanking = async () => {
+    if (!selectedCast) return;
+    if (!selectedCast.ranking_cast_id) {
+      toast.error("ランキングサイトのキャストIDを先に設定してください（エスタ魂掲載タブ）");
+      return;
+    }
+    setSyncingRanking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-ranking-profile", {
+        body: { cast_id: selectedCast.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("ランキングサイトにプロフィールを転記しました");
+    } catch (e: any) {
+      toast.error("転記に失敗しました: " + (e.message ?? "不明なエラー"));
+    } finally {
+      setSyncingRanking(false);
+    }
   };
 
   const setCast = (field: keyof Cast, value: any) =>
@@ -290,6 +314,15 @@ export default function TherapistDatabase() {
                         <img src={driveImgUrl(selectedCast.photo, 200)} className="w-12 h-12 rounded object-cover object-top" />
                       )}
                       <span className="flex-1">{selectedCast.name}</span>
+                      <button
+                        onClick={handleSyncRanking}
+                        disabled={syncingRanking}
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors disabled:opacity-50"
+                        title="メンズエステランキングに転記"
+                      >
+                        <RefreshCw size={11} className={syncingRanking ? "animate-spin" : ""} />
+                        ランキング転記
+                      </button>
                       {tokenMap[selectedCast.id] ? (
                         <div className="flex gap-1.5">
                           <button
@@ -455,6 +488,19 @@ export default function TherapistDatabase() {
                           {textField("line_url", "LINE URL")}
                           {textField("litlink_url", "リットリンク URL")}
                           {textField("o2_url", "O2 プロフィールURL")}
+                        </div>
+
+                        <div className="pt-2 border-t space-y-2">
+                          <Label className="text-muted-foreground text-xs font-semibold tracking-wider">メンズエステランキング</Label>
+                          <div>
+                            <Label>ランキングサイト キャストID</Label>
+                            <Input
+                              value={castEdit.ranking_cast_id ?? ""}
+                              onChange={(e) => setCast("ranking_cast_id", e.target.value)}
+                              placeholder="ランキングサイト管理画面のキャストID"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">転記ボタンはこのIDで管理画面にアクセスします</p>
+                          </div>
                         </div>
 
                         <Button onClick={handleSaveEstama} disabled={savingEstama}>
