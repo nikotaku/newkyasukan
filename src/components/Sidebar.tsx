@@ -77,14 +77,7 @@ const menuItems: MenuItem[] = [
         groupLabel: "ダッシュボード",
         items: [
           { href: "/sales", label: "売上ダッシュボード" },
-        ],
-      },
-      {
-        groupLabel: "レポート",
-        items: [
-          { href: "/report", label: "レポート" },
-          { href: "/sales/therapist-breakdown", label: "セラピスト別" },
-          { href: "/sales/price-analysis", label: "単価" },
+          { href: "/sales/data", label: "売上データ" },
         ],
       },
       {

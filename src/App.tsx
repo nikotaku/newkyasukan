@@ -106,6 +106,7 @@ import TherapistPostPage from "./pages/TherapistPostPage";
 import RecommendedMenu from "./pages/RecommendedMenu";
 import BusinessContinuity from "./pages/BusinessContinuity";
 import SalesDashboard from "./pages/SalesDashboard";
+import SalesData from "./pages/SalesData";
 import ScheduleDashboard from "./pages/ScheduleDashboard";
 import PanelPhotoManual from "./pages/PanelPhotoManual";
 import CustomerServiceManual from "./pages/CustomerServiceManual";
@@ -170,6 +171,7 @@ const App = () => {
           <Route path="/knowledge/passwords" element={<PasswordDatabase />} />
           <Route path="/templates" element={<TextTemplates />} />
           <Route path="/sales" element={<SalesDashboard />} />
+          <Route path="/sales/data" element={<SalesData />} />
           <Route path="/sales/customer-info" element={<SalesCustomerInfo />} />
           <Route path="/sales/closing" element={<SalesClosing />} />
           <Route path="/sales/therapist-breakdown" element={<SalesTherapistBreakdown />} />
