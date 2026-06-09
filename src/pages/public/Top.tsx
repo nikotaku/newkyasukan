@@ -5,7 +5,7 @@ import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { WeeklyScheduleWidget } from "@/components/public/WeeklyScheduleWidget";
-import { ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { ExternalLink, ChevronLeft, ChevronRight, Newspaper } from "lucide-react";
 import { format } from "date-fns";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 
@@ -22,10 +22,26 @@ const FALLBACK_BANNERS = [
   "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750762260.png",
 ];
 
+interface HpArticle {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  category: string;
+  created_at: string;
+}
+
+const CATEGORY_LABEL: Record<string, string> = {
+  news: "ニュース", coupon: "クーポン", schedule: "出勤情報",
+  newstaff: "新人入店", campaign: "キャンペーン", tips: "ノウハウ", other: "お知らせ",
+};
+
 const Top = () => {
   const [bannerSlides, setBannerSlides] = useState<string[]>(FALLBACK_BANNERS);
   const [snsContent, setSnsContent] = useState<Record<string, string>>({});
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [articles, setArticles] = useState<HpArticle[]>([]);
+  const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const storeSns = STORE_SNS_DEFS
@@ -45,13 +61,19 @@ const Top = () => {
   }, []);
 
   const fetchAll = async () => {
-    const [b, content] = await Promise.all([
+    const [b, content, arts] = await Promise.all([
       supabase
         .from("banners")
         .select("image_url")
         .eq("is_active", true)
         .order("display_order", { ascending: true }),
       supabase.from("site_content").select("key, value").like("key", "store_sns_%"),
+      supabase
+        .from("hp_articles")
+        .select("id, title, slug, content, category, created_at")
+        .eq("is_published", true)
+        .order("created_at", { ascending: false })
+        .limit(10),
     ]);
 
     if (content.data) {
@@ -61,6 +83,9 @@ const Top = () => {
     }
     if (b.data && b.data.length > 0) {
       setBannerSlides(b.data.map((r: any) => r.image_url));
+    }
+    if (arts.data) {
+      setArticles(arts.data as HpArticle[]);
     }
   };
 
@@ -127,6 +152,42 @@ const Top = () => {
           出勤カレンダー
         </Link>
       </div>
+
+      {/* ===== ニュース ===== */}
+      {articles.length > 0 && (
+        <section className="py-10 md:py-16" style={{ background: "#fdf8f5" }}>
+          <div className="container mx-auto max-w-3xl px-3 md:px-6">
+            <SectionTitle en="NEWS" jp="新着情報" />
+            <div className="mt-6 space-y-0 divide-y divide-[#e5d5cc]">
+              {articles.map((a) => (
+                <div key={a.id} className="py-4">
+                  <button
+                    className="w-full text-left group"
+                    onClick={() => setExpandedArticle(expandedArticle === a.id ? null : a.id)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-xs text-[#a89586] whitespace-nowrap mt-0.5">
+                        {format(new Date(a.created_at), "MM/dd")}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded-full shrink-0 mt-0.5" style={{ background: "#f5e1d8", color: "#c49480" }}>
+                        {CATEGORY_LABEL[a.category] ?? a.category}
+                      </span>
+                      <span className="text-sm font-medium group-hover:text-[#c49480] transition-colors flex-1" style={{ color: "#5a5550" }}>
+                        {a.title}
+                      </span>
+                    </div>
+                  </button>
+                  {expandedArticle === a.id && a.content && (
+                    <div className="mt-3 ml-[60px] text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#7a706c" }}>
+                      {a.content}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ===== 店舗公式SNS ===== */}
       <section
