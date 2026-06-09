@@ -64,6 +64,18 @@ serve(async (req) => {
       results.esutama = { status: "skipped" };
     }
 
+    // Post to メンズエステランキング
+    if (credMap.ranking) {
+      try {
+        const r = await postToRanking(credMap.ranking.login_id, credMap.ranking.password, post);
+        results.ranking = r;
+      } catch (e: any) {
+        results.ranking = { status: "failed", error: e.message };
+      }
+    } else {
+      results.ranking = { status: "skipped" };
+    }
+
     const allPosted = Object.values(results).every(r => r.status === "posted" || r.status === "skipped");
     const anyFailed = Object.values(results).some(r => r.status === "failed");
 
@@ -72,6 +84,8 @@ serve(async (req) => {
       o2_error: results.o2?.error ?? null,
       esutama_status: results.esutama?.status ?? "skipped",
       esutama_error: results.esutama?.error ?? null,
+      ranking_status: results.ranking?.status ?? "skipped",
+      ranking_error: results.ranking?.error ?? null,
       status: allPosted ? "posted" : anyFailed ? "failed" : "pending",
       posted_at: allPosted ? new Date().toISOString() : null,
     }).eq("id", post_id);
@@ -224,5 +238,74 @@ async function postToEsutama(loginId: string, password: string, post: any) {
   setCookies(postRes);
 
   if (postRes.status >= 400) throw new Error("エスたま投稿失敗: " + postRes.status);
+  return { status: "posted" };
+}
+
+async function postToRanking(loginId: string, password: string, post: any) {
+  // メンズエステランキング diary posting via HTTP form submission
+  const BASE = "https://mensesthe-ranking.com";
+  const jar: Record<string, string> = {};
+
+  const cookieHeader = () =>
+    Object.entries(jar).map(([k, v]) => `${k}=${v}`).join("; ");
+
+  const setCookies = (res: Response) => {
+    const raw = res.headers.get("set-cookie") ?? "";
+    for (const part of raw.split(/,(?=[^ ])/)) {
+      const [kv] = part.trim().split(";");
+      const [k, v] = kv.split("=");
+      if (k && v !== undefined) jar[k.trim()] = v.trim();
+    }
+  };
+
+  const loginPage = await fetch(`${BASE}/cast/login`, { redirect: "follow" });
+  setCookies(loginPage);
+  const loginHtml = await loginPage.text();
+  const tokenMatch = loginHtml.match(/name="_token"\s+value="([^"]+)"/);
+  const csrfToken = tokenMatch?.[1] ?? "";
+
+  const loginRes = await fetch(`${BASE}/cast/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Cookie: cookieHeader(),
+    },
+    body: new URLSearchParams({ _token: csrfToken, login_id: loginId, password }).toString(),
+    redirect: "manual",
+  });
+  setCookies(loginRes);
+
+  if (loginRes.status >= 400) throw new Error("メンズエステランキングログイン失敗");
+
+  const diaryPage = await fetch(`${BASE}/cast/diary/create`, {
+    headers: { Cookie: cookieHeader() },
+    redirect: "follow",
+  });
+  setCookies(diaryPage);
+  const diaryHtml = await diaryPage.text();
+  const dTokenMatch = diaryHtml.match(/name="_token"\s+value="([^"]+)"/);
+  const dToken = dTokenMatch?.[1] ?? "";
+
+  const body = new URLSearchParams({
+    _token: dToken,
+    title: post.title ?? "",
+    body: post.body,
+  });
+  if (post.image_urls?.length) {
+    body.append("image_url", post.image_urls[0]);
+  }
+
+  const postRes = await fetch(`${BASE}/cast/diary`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Cookie: cookieHeader(),
+    },
+    body: body.toString(),
+    redirect: "manual",
+  });
+  setCookies(postRes);
+
+  if (postRes.status >= 400) throw new Error("メンズエステランキング投稿失敗: " + postRes.status);
   return { status: "posted" };
 }
