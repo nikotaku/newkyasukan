@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, ChevronLeft, Send, CheckCircle, XCircle, Clock, Settings } from "lucide-react";
+import { Loader2, ChevronLeft, Send, CheckCircle, XCircle, Clock, Settings, ImagePlus, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -41,7 +41,9 @@ export default function TherapistPostPage() {
   const [showPost, setShowPost] = useState(false);
   const [showCreds, setShowCreds] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ title: "", body: "", image_urls: "" });
+  const [uploading, setUploading] = useState(false);
+  const [form, setForm] = useState({ title: "", body: "" });
+  const [images, setImages] = useState<string[]>([]);
   const [credForm, setCredForm] = useState({ o2_id: "", o2_pw: "", esutama_id: "", esutama_pw: "" });
 
   useEffect(() => {
@@ -75,20 +77,52 @@ export default function TherapistPostPage() {
     setCreds((data || []) as Credential[]);
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !castId) return;
+    setUploading(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of Array.from(files)) {
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `posts/${castId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error } = await supabase.storage.from("cast-photos").upload(path, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+        if (error) throw error;
+        const { data: pub } = supabase.storage.from("cast-photos").getPublicUrl(path);
+        uploaded.push(pub.publicUrl);
+      }
+      setImages(prev => [...prev, ...uploaded]);
+      toast.success(`${uploaded.length}枚添付しました`);
+    } catch (err) {
+      console.error("Image upload error:", err);
+      toast.error("画像のアップロードに失敗しました");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const removeImage = (idx: number) => {
+    setImages(prev => prev.filter((_, i) => i !== idx));
+  };
+
   const handlePost = async () => {
     if (!castId || !form.body.trim()) { toast.error("本文を入力してください"); return; }
     setSubmitting(true);
-    const imageUrls = form.image_urls.split("\n").map(s => s.trim()).filter(Boolean);
     const { data, error } = await supabase.from("cast_posts").insert({
       cast_id: castId,
       title: form.title || null,
       body: form.body,
-      image_urls: imageUrls.length > 0 ? imageUrls : null,
+      image_urls: images.length > 0 ? images : null,
       status: "pending",
     }).select().single();
     if (error) { toast.error("投稿に失敗しました"); setSubmitting(false); return; }
     toast.success("投稿しました。自動投稿を開始します...");
-    setForm({ title: "", body: "", image_urls: "" });
+    setForm({ title: "", body: "" });
+    setImages([]);
     setShowPost(false);
     fetchPosts(castId);
     supabase.functions.invoke("post-to-sites", { body: { post_id: data.id } })
@@ -202,8 +236,30 @@ export default function TherapistPostPage() {
               <Textarea rows={6} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} placeholder="投稿内容..." />
             </div>
             <div>
-              <Label>画像URL（1行1URL）</Label>
-              <Textarea rows={2} value={form.image_urls} onChange={e => setForm({ ...form, image_urls: e.target.value })} placeholder="https://..." />
+              <Label>画像</Label>
+              <div className="mt-1.5 space-y-2">
+                <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-dashed cursor-pointer text-sm hover:bg-accent transition-colors">
+                  {uploading ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
+                  {uploading ? "アップロード中..." : "画像を選択して添付"}
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} disabled={uploading} />
+                </label>
+                {images.length > 0 && (
+                  <div className="grid grid-cols-4 gap-2">
+                    {images.map((url, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-md overflow-hidden border bg-muted">
+                        <img src={url} alt={`画像${idx + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(idx)}
+                          className="absolute top-0.5 right-0.5 bg-black/60 hover:bg-black/80 text-white rounded-full p-0.5"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <Button className="w-full" onClick={handlePost} disabled={submitting}>
               {submitting ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Send size={14} className="mr-1" />}
