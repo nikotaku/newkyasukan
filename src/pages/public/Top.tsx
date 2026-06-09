@@ -29,6 +29,7 @@ interface HpArticle {
   content: string;
   category: string;
   created_at: string;
+  image_urls: string[] | null;
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -70,7 +71,7 @@ const Top = () => {
       supabase.from("site_content").select("key, value").like("key", "store_sns_%"),
       supabase
         .from("hp_articles")
-        .select("id, title, slug, content, category, created_at")
+        .select("id, title, slug, content, category, created_at, image_urls")
         .eq("is_published", true)
         .order("created_at", { ascending: false })
         .limit(10),
@@ -177,9 +178,26 @@ const Top = () => {
                       </span>
                     </div>
                   </button>
-                  {expandedArticle === a.id && a.content && (
-                    <div className="mt-3 ml-[60px] text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#7a706c" }}>
-                      {a.content}
+                  {expandedArticle === a.id && (
+                    <div className="mt-3 ml-[60px]">
+                      {a.image_urls && a.image_urls.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto pb-2 mb-2">
+                          {a.image_urls.map((url, i) => (
+                            <img
+                              key={i}
+                              src={url}
+                              alt={`${a.title} 画像${i + 1}`}
+                              loading="lazy"
+                              className="h-32 w-auto rounded-md object-cover shrink-0 border border-[#e5d5cc]"
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {a.content && (
+                        <div className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#7a706c" }}>
+                          {a.content}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
