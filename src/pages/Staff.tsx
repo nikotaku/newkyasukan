@@ -44,6 +44,14 @@ const ESTAMA_BOOKMARKLET = `javascript:(function(){function go(D){function fire(
 const CATEGORY_TAGS = ["ノーステータス", "入店手続き---面談予定", "入店手続き---講習予定", "在籍", "出稼ぎ"] as const;
 type CategoryTag = typeof CATEGORY_TAGS[number];
 
+const CATEGORY_LABELS: Record<CategoryTag, { main: string; sub?: string }> = {
+  "ノーステータス": { main: "ノーステータス" },
+  "入店手続き---面談予定": { main: "入店手続き", sub: "面談予定" },
+  "入店手続き---講習予定": { main: "入店手続き", sub: "講習予定" },
+  "在籍": { main: "在籍" },
+  "出稼ぎ": { main: "出稼ぎ" },
+};
+
 const LEVEL_TAGS = ["ビギナーズ", "スタンダード", "ソルジャー", "マスター"] as const;
 type LevelTag = typeof LEVEL_TAGS[number];
 
@@ -1720,21 +1728,23 @@ export default function Staff() {
 
             <TabsContent value="management" className="space-y-4">
               {/* Category Tabs */}
-              <div className="flex gap-1 border-b pb-0">
+              <div className="flex gap-0.5 border-b pb-0 overflow-x-auto scrollbar-none">
                 {CATEGORY_TAGS.map((cat) => {
                   const count = casts.filter(c => getCastCategory(c) === cat).length;
+                  const label = CATEGORY_LABELS[cat];
                   return (
                     <button
                       key={cat}
                       onClick={() => setCategoryTab(cat)}
-                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      className={`flex-shrink-0 px-3 py-2 text-xs font-medium border-b-2 transition-colors leading-tight text-center min-w-[72px] ${
                         categoryTab === cat
                           ? "border-primary text-primary"
                           : "border-transparent text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {cat}
-                      <span className="ml-1.5 text-xs bg-muted text-muted-foreground rounded-full px-1.5 py-0.5">{count}</span>
+                      <span className="block">{label.main}</span>
+                      {label.sub && <span className="block text-[10px] opacity-80">{label.sub}</span>}
+                      <span className="mt-0.5 inline-block text-[11px] bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 leading-none">{count}</span>
                     </button>
                   );
                 })}
