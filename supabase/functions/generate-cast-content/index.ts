@@ -20,10 +20,10 @@ serve(async (req) => {
       // newstaff
       staffName, staffProfile, staffMessage,
     } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
     let systemPrompt = "";
@@ -76,46 +76,47 @@ serve(async (req) => {
         throw new Error("Invalid content type");
     }
 
-    console.log("Calling Gemini API with type:", type);
+    console.log("Calling Anthropic API with type:", type);
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${GEMINI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gemini-2.0-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-        }),
-      }
-    );
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    });
 
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "レート制限に達しました。しばらく待ってから再度お試しください。" }), 
+          JSON.stringify({ error: "レート制限に達しました。しばらく待ってから再度お試しください。" }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
+      if (response.status === 402 || response.status === 400) {
+        const errBody = await response.text();
+        console.error("Anthropic API error:", response.status, errBody);
         return new Response(
-          JSON.stringify({ error: "クレジットが不足しています。ワークスペースに資金を追加してください。" }), 
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "クレジットが不足しているか、リクエストが不正です。" }),
+          { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       const errorText = await response.text();
-      console.error("Gemini API error:", response.status, errorText);
-      throw new Error("Gemini API error");
+      console.error("Anthropic API error:", response.status, errorText);
+      throw new Error("Anthropic API error");
     }
 
     const data = await response.json();
-    const generatedContent = data.choices[0].message.content;
+    const generatedContent = data.content?.[0]?.text ?? "";
 
     console.log("Generated content:", generatedContent);
 
