@@ -60,6 +60,8 @@ interface ShopSettings {
   business_day_start: string;
   description: string | null;
   logo_url: string | null;
+  line_reminder_enabled?: boolean;
+  line_reminder_time?: string;
 }
 
 export default function Settings() {
@@ -134,6 +136,8 @@ export default function Settings() {
           business_day_start: settings.business_day_start,
           description: settings.description,
           logo_url: settings.logo_url,
+          line_reminder_enabled: settings.line_reminder_enabled ?? true,
+          line_reminder_time: settings.line_reminder_time ?? "23:00",
           updated_by: user!.id,
         })
         .eq('id', settings.id);
@@ -280,7 +284,41 @@ export default function Settings() {
                       この時刻以前の予約は前日扱いになります（例: 10:00 → 深夜01:00の予約は前日として集計）
                     </p>
                   </div>
-                  
+
+                  <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="line_reminder_enabled" className="flex items-center gap-2 font-semibold">
+                        <Clock size={14} />
+                        LINE出勤リマインド
+                      </Label>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          id="line_reminder_enabled"
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={settings.line_reminder_enabled ?? true}
+                          onChange={(e) => setSettings({ ...settings, line_reminder_enabled: e.target.checked })}
+                          disabled={!isAdmin}
+                        />
+                        有効
+                      </label>
+                    </div>
+                    <div>
+                      <Label htmlFor="line_reminder_time">送信時刻</Label>
+                      <Input
+                        id="line_reminder_time"
+                        type="time"
+                        value={settings.line_reminder_time ?? "23:00"}
+                        onChange={(e) => setSettings({ ...settings, line_reminder_time: e.target.value })}
+                        disabled={!isAdmin}
+                        className="w-40"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      毎日この時刻に、翌日のセラピストの出勤ルーム・出勤時刻・予約件数をスタッフLINEグループへ自動送信します。
+                    </p>
+                  </div>
+
                   <div>
                     <Label htmlFor="description">店舗説明</Label>
                     <Textarea
