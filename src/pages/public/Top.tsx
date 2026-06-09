@@ -37,6 +37,24 @@ const CATEGORY_LABEL: Record<string, string> = {
   newstaff: "新人入店", campaign: "キャンペーン", tips: "ノウハウ", other: "お知らせ",
 };
 
+// AI生成文に混じるMarkdown記法（見出し・太字・区切り線・表組み等）を除去して自然な文章にする
+const cleanContent = (md: string): string =>
+  md
+    .replace(/^#{1,6}\s+/gm, "")              // 見出し ###
+    .replace(/\*\*(.+?)\*\*/g, "$1")          // 太字 **text**
+    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "$1") // 斜体 *text*
+    .replace(/`([^`]+)`/g, "$1")              // コード `text`
+    .replace(/^\s*>\s?/gm, "")                // 引用 >
+    .replace(/^\s*[-*]\s+/gm, "・")           // 箇条書き - / *
+    .replace(/^\s*\d+\.\s+/gm, "")            // 番号付きリスト
+    .replace(/^\s*[-=]{3,}\s*$/gm, "")        // 区切り線 --- / ===
+    .replace(/^\s*\|.*\|\s*$/gm, (line) => {
+      if (/^\s*\|[\s:|-]+\|\s*$/.test(line)) return ""; // 表の区切り行
+      return line.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map((s) => s.trim()).join("　");
+    })
+    .replace(/\n{3,}/g, "\n\n")               // 余分な空行を圧縮
+    .trim();
+
 const Top = () => {
   const [bannerSlides, setBannerSlides] = useState<string[]>(FALLBACK_BANNERS);
   const [snsContent, setSnsContent] = useState<Record<string, string>>({});
@@ -195,7 +213,7 @@ const Top = () => {
                       )}
                       {a.content && (
                         <div className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#7a706c" }}>
-                          {a.content}
+                          {cleanContent(a.content)}
                         </div>
                       )}
                     </div>
