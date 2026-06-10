@@ -116,6 +116,7 @@ import BusinessLogins from "./pages/BusinessLogins";
 import BusinessFixedCosts from "./pages/BusinessFixedCosts";
 import BusinessBankAccounts from "./pages/BusinessBankAccounts";
 import BusinessContracts from "./pages/BusinessContracts";
+import Education from "./pages/Education";
 
 const queryClient = new QueryClient();
 
@@ -217,6 +218,7 @@ const App = () => {
           <Route path="/panel-manual" element={<PanelPhotoManual />} />
           <Route path="/service-manual" element={<CustomerServiceManual />} />
           <Route path="/recruitment-criteria" element={<RecruitmentCriteria />} />
+          <Route path="/education" element={<Education />} />
 
           <Route path="/business-continuity" element={<BusinessContinuity />} />
           <Route path="/business-continuity/vendors" element={<BusinessVendors />} />
