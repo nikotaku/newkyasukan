@@ -19,6 +19,12 @@ interface Stats {
   totalCasts: number;
 }
 
+interface ExpenseStats {
+  miscExpenses: number;
+  accommodationFee: number;
+  transportationFee: number;
+}
+
 interface CastStats {
   name: string;
   sales: number;
@@ -33,6 +39,7 @@ export default function Report() {
     totalCasts: 0,
   });
   const [castStats, setCastStats] = useState<CastStats[]>([]);
+  const [expenseStats, setExpenseStats] = useState<ExpenseStats>({ miscExpenses: 0, accommodationFee: 0, transportationFee: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const isCurrentMonth = format(selectedMonth, "yyyy-MM") === format(new Date(), "yyyy-MM");
@@ -50,6 +57,7 @@ export default function Report() {
     if (user) {
       fetchStats();
       fetchCastStats();
+      fetchExpenseStats();
     }
   }, [user, selectedMonth]);
 
@@ -88,6 +96,22 @@ export default function Report() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchExpenseStats = async () => {
+    const startDate = format(startOfMonth(selectedMonth), 'yyyy-MM-dd');
+    const endDate = format(endOfMonth(selectedMonth), 'yyyy-MM-dd');
+    const { data } = await supabase
+      .from('daily_clearances' as any)
+      .select('misc_expenses, accommodation_fee, transportation_fee')
+      .gte('date', startDate)
+      .lte('date', endDate);
+    const rows = (data as any[]) ?? [];
+    setExpenseStats({
+      miscExpenses: rows.reduce((s, r) => s + (r.misc_expenses ?? 0), 0),
+      accommodationFee: rows.reduce((s, r) => s + (r.accommodation_fee ?? 0), 0),
+      transportationFee: rows.reduce((s, r) => s + (r.transportation_fee ?? 0), 0),
+    });
   };
 
   const fetchCastStats = async () => {
@@ -206,6 +230,40 @@ export default function Report() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{stats.totalCasts}名</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Expense Summary */}
+            <div className="grid gap-4 md:grid-cols-3 mb-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">雑費合計</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">¥{expenseStats.miscExpenses.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground mt-1">日別清算より集計</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">宿泊費合計</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">¥{expenseStats.accommodationFee.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground mt-1">日別清算より集計</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">交通費合計</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">¥{expenseStats.transportationFee.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground mt-1">日別清算より集計</p>
                 </CardContent>
               </Card>
             </div>
