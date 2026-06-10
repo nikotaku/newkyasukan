@@ -346,7 +346,7 @@ export default function MonthlyShift() {
                         <div
                           key={s.id}
                           className={cn(
-                            "group relative flex items-center gap-1 rounded px-1 py-0.5 text-[10px] leading-tight cursor-pointer",
+                            "flex items-center gap-1 rounded px-1 py-0.5 text-[10px] leading-tight cursor-pointer relative",
                             s.approval_status === "pending" && "bg-amber-100 dark:bg-amber-900/30",
                             s.approval_status === "rejected" && "bg-rose-100 dark:bg-rose-900/20 line-through opacity-60",
                             s.approval_status === "approved" && "bg-primary/10"
@@ -369,10 +369,6 @@ export default function MonthlyShift() {
                           <span className="text-muted-foreground hidden md:inline shrink-0">
                             {s.start_time.slice(0,5)}〜{s.end_time.slice(0,5)}
                           </span>
-                          <button
-                            onClick={e => { e.stopPropagation(); handleDelete(s.id); }}
-                            className="absolute top-0 right-0 hidden group-hover:flex items-center justify-center w-3.5 h-3.5 bg-red-500 text-white rounded-full text-[9px] leading-none"
-                          >×</button>
                         </div>
                       ))}
                       {dayShifts.length > 4 && (
@@ -443,7 +439,7 @@ export default function MonthlyShift() {
                               onClick={e => { e.stopPropagation(); openEdit(s); }}
                               title="クリックで編集"
                               className={cn(
-                              "group relative rounded px-1 py-0.5 mb-0.5 cursor-pointer",
+                              "relative rounded px-1 py-0.5 mb-0.5 cursor-pointer",
                               s.approval_status === "pending" && "bg-amber-100 dark:bg-amber-900/30",
                               s.approval_status === "rejected" && "bg-rose-100 dark:bg-rose-900/20 line-through opacity-60",
                               s.approval_status === "approved" && "bg-primary/10"
@@ -464,10 +460,6 @@ export default function MonthlyShift() {
                               {s.room && (
                                 <div className="text-[10px] text-primary/70 truncate max-w-[48px]">{s.room}</div>
                               )}
-                              <button
-                                onClick={e => { e.stopPropagation(); handleDelete(s.id); }}
-                                className="absolute top-0 right-0 hidden group-hover:flex items-center justify-center w-4 h-4 bg-red-500 text-white rounded-full text-[10px]"
-                              >×</button>
                             </div>
                           ))}
                         </td>
