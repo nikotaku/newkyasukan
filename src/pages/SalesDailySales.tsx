@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, addDays, isToday } from "date-fns";
 import { toExtTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CheckCircle, Loader2, CreditCard, Download, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle, Loader2, CreditCard, Download, Copy, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadClearanceReceipt } from "@/lib/clearanceReceipt";
 
@@ -63,11 +63,17 @@ interface Clearance {
   cleared_at: string | null;
 }
 
+interface OtherItem {
+  label: string;
+  amount: number;
+}
+
 interface ClearanceInput {
   therapistBack: number;
   miscExpenses: number;
   accommodationFee: number;
   transportationFee: number;
+  otherItems: OtherItem[];
   payoutMethod: string;
   submitting: boolean;
 }
@@ -216,6 +222,7 @@ export default function SalesDailySales() {
           miscExpenses: ex?.misc_expenses ?? 0,
           accommodationFee: ex?.accommodation_fee ?? 0,
           transportationFee: ex?.transportation_fee ?? 0,
+          otherItems: (ex as any)?.other_expenses ?? [],
           payoutMethod: ex?.payout_method ?? "",
           submitting: false,
         };
@@ -260,7 +267,8 @@ ${portalUrl}
   const handleDownloadReceipt = (group: CastGroup) => {
     const input = clearanceInputs[group.castId];
     if (!input) return;
-    const salary = input.therapistBack - input.miscExpenses - input.accommodationFee + input.transportationFee;
+    const otherTotal = input.otherItems.reduce((s, i) => s + i.amount, 0);
+    const salary = input.therapistBack - input.miscExpenses - input.accommodationFee + input.transportationFee - otherTotal;
     const payout = group.totalSales - salary;
     downloadClearanceReceipt({
       date: selectedDate,
@@ -289,8 +297,9 @@ ${portalUrl}
     if (!input) return;
     updateInput(group.castId, "submitting", true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
-    // セラピスト給与 = バック - 雑費 - 宿泊費 + 交通費
-    const salary = input.therapistBack - input.miscExpenses - input.accommodationFee + input.transportationFee;
+    const otherTotal = input.otherItems.reduce((s, i) => s + i.amount, 0);
+    // セラピスト給与 = バック - 雑費 - 宿泊費 + 交通費 - その他合計
+    const salary = input.therapistBack - input.miscExpenses - input.accommodationFee + input.transportationFee - otherTotal;
     // 投函金額 = 店舗取り分 = 売上 - セラピスト給与
     const payout = group.totalSales - salary;
     try {
@@ -303,6 +312,7 @@ ${portalUrl}
           misc_expenses: input.miscExpenses,
           accommodation_fee: input.accommodationFee,
           transportation_fee: input.transportationFee,
+          other_expenses: input.otherItems,
           payout_amount: payout,
           payout_method: input.payoutMethod || null,
           status: "pending",
@@ -418,9 +428,10 @@ ${portalUrl}
                       </thead>
                       <tbody className="divide-y">
                         {castGroups.map((g) => {
-                          const input = clearanceInputs[g.castId] ?? { therapistBack: 0, miscExpenses: 0, accommodationFee: 0, transportationFee: 0, payoutMethod: "", submitting: false };
+                          const input = clearanceInputs[g.castId] ?? { therapistBack: 0, miscExpenses: 0, accommodationFee: 0, transportationFee: 0, otherItems: [], payoutMethod: "", submitting: false };
                           const cleared = clearances[g.castId];
-                          const salary = input.therapistBack - input.miscExpenses - input.accommodationFee + input.transportationFee;
+                          const otherTotal = input.otherItems.reduce((s, i) => s + i.amount, 0);
+                const salary = input.therapistBack - input.miscExpenses - input.accommodationFee + input.transportationFee - otherTotal;
                           const storeShare = g.totalSales - salary;
                           return (
                             <tr key={g.castId} className="hover:bg-muted/20 transition-colors">
@@ -447,13 +458,15 @@ ${portalUrl}
                             {yen(castGroups.reduce((s, g) => {
                               const inp = clearanceInputs[g.castId];
                               if (!inp) return s;
-                              return s + inp.therapistBack - inp.miscExpenses - inp.accommodationFee + inp.transportationFee;
+                              const ot = inp.otherItems.reduce((a, i) => a + i.amount, 0);
+                              return s + inp.therapistBack - inp.miscExpenses - inp.accommodationFee + inp.transportationFee - ot;
                             }, 0))}
                           </td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-xs text-green-700">
                             {yen(castGroups.reduce((s, g) => {
                               const inp = clearanceInputs[g.castId];
-                              const salary = inp ? inp.therapistBack - inp.miscExpenses - inp.accommodationFee + inp.transportationFee : 0;
+                              const ot = inp ? inp.otherItems.reduce((a, i) => a + i.amount, 0) : 0;
+                              const salary = inp ? inp.therapistBack - inp.miscExpenses - inp.accommodationFee + inp.transportationFee - ot : 0;
                               return s + g.totalSales - salary;
                             }, 0))}
                           </td>
@@ -467,10 +480,11 @@ ${portalUrl}
 
               {/* ── 個別清算フォーム ── */}
               {castGroups.map((g) => {
-                const input = clearanceInputs[g.castId] ?? { therapistBack: 0, miscExpenses: 0, accommodationFee: 0, transportationFee: 0, payoutMethod: "", submitting: false };
+                const input = clearanceInputs[g.castId] ?? { therapistBack: 0, miscExpenses: 0, accommodationFee: 0, transportationFee: 0, otherItems: [], payoutMethod: "", submitting: false };
                 const cleared = clearances[g.castId];
                 // セラピスト給与 = バック - 雑費 - 宿泊費 + 交通費
-                const salary = input.therapistBack - input.miscExpenses - input.accommodationFee + input.transportationFee;
+                const otherTotal = input.otherItems.reduce((s, i) => s + i.amount, 0);
+                const salary = input.therapistBack - input.miscExpenses - input.accommodationFee + input.transportationFee - otherTotal;
                 // 投函金額 = 店舗取り分 = 売上 - セラピスト給与
                 const payout = g.totalSales - salary;
 
@@ -620,6 +634,63 @@ ${portalUrl}
                           />
                           <p className="text-[10px] text-muted-foreground mt-0.5">給与に加算・経費計上</p>
                         </div>
+                        <div className="col-span-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <Label className="text-xs">その他（給与から控除）</Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => updateInput(g.castId, "otherItems", [...input.otherItems, { label: "", amount: 0 }])}
+                            >
+                              <Plus size={12} className="mr-1" />追加
+                            </Button>
+                          </div>
+                          {input.otherItems.length > 0 && (
+                            <div className="space-y-1.5">
+                              {input.otherItems.map((item, idx) => (
+                                <div key={idx} className="flex gap-1.5 items-center">
+                                  <Input
+                                    className="h-8 text-xs flex-1"
+                                    placeholder="項目名"
+                                    value={item.label}
+                                    onChange={(e) => {
+                                      const next = [...input.otherItems];
+                                      next[idx] = { ...next[idx], label: e.target.value };
+                                      updateInput(g.castId, "otherItems", next);
+                                    }}
+                                  />
+                                  <Input
+                                    className="h-8 text-xs w-24"
+                                    type="number"
+                                    min="0"
+                                    inputMode="numeric"
+                                    placeholder="0"
+                                    value={item.amount === 0 ? "" : item.amount}
+                                    onChange={(e) => {
+                                      const next = [...input.otherItems];
+                                      next[idx] = { ...next[idx], amount: Number(e.target.value) || 0 };
+                                      updateInput(g.castId, "otherItems", next);
+                                    }}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                                    onClick={() => {
+                                      const next = input.otherItems.filter((_, i) => i !== idx);
+                                      updateInput(g.castId, "otherItems", next);
+                                    }}
+                                  >
+                                    <Trash2 size={12} />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         <div className="col-span-2 flex items-center">
                           <div className="w-full p-3 bg-primary/5 rounded-md text-center">
                             <p className="text-xs text-muted-foreground">投函金額（店舗取り分）</p>
@@ -639,7 +710,7 @@ ${portalUrl}
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">
-                            − セラピスト給与（バック {yen(input.therapistBack)} − 雑費 {yen(input.miscExpenses)} − 宿泊費 {yen(input.accommodationFee)}{input.transportationFee > 0 && ` + 交通費 ${yen(input.transportationFee)}`}）
+                            − セラピスト給与（バック {yen(input.therapistBack)} − 雑費 {yen(input.miscExpenses)} − 宿泊費 {yen(input.accommodationFee)}{input.transportationFee > 0 && ` + 交通費 ${yen(input.transportationFee)}`}{otherTotal > 0 && ` − その他 ${yen(otherTotal)}`}）
                           </span>
                           <span className="tabular-nums text-blue-700">{yen(salary)}</span>
                         </div>
