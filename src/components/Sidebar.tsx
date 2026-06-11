@@ -70,39 +70,9 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    label: "売上管理",
+    href: "/sales",
+    label: "売上ダッシュボード",
     icon: TrendingUp,
-    subGroups: [
-      {
-        groupLabel: "ダッシュボード",
-        items: [
-          { href: "/sales", label: "売上ダッシュボード" },
-          { href: "/sales/data", label: "売上データ" },
-        ],
-      },
-      {
-        groupLabel: "売り上げ",
-        items: [
-          { href: "/sales/pending-reports", label: "確認待ちボックス" },
-          { href: "/sales/monthly-sales", label: "月別売上" },
-          { href: "/sales/daily-sales", label: "日別清算" },
-          { href: "/sales/card-sales", label: "カード売上" },
-          { href: "/sales/paypay-sales", label: "PayPay売上" },
-          { href: "/sales/monthly-target", label: "月別売上目標" },
-          { href: "/sales/daily-target", label: "日別売上目標" },
-          { href: "/sales/expense-input", label: "経費入力" },
-        ],
-      },
-      {
-        groupLabel: "経費",
-        items: [
-          { href: "/expenses", label: "経費管理" },
-          { href: "/sales/advertising-cost", label: "広告費管理" },
-          { href: "/sales/deduction-summary", label: "控除集計" },
-          { href: "/sales/referral-fees", label: "紹介報酬管理" },
-        ],
-      },
-    ],
   },
   {
     label: "システム",
