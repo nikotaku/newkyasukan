@@ -7,6 +7,7 @@ import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { driveImgUrl } from "@/lib/drive";
 import o2LogoUrl from "@/assets/o2-logo.png";
+import { useStore } from "@/hooks/useStore";
 
 interface Cast {
   id: string;
@@ -45,12 +46,14 @@ const Casts = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'today' | 'newface'>('all');
   const [todayShiftCastIds, setTodayShiftCastIds] = useState<Set<string>>(new Set());
+  const { storeId, loading: storeLoading } = useStore();
 
   useEffect(() => {
     document.title = "全力エステ - セラピスト";
   }, []);
 
   useEffect(() => {
+    if (storeLoading) return;
     fetchCasts();
     fetchTodayShifts();
     const castsChannel = supabase
@@ -65,7 +68,7 @@ const Casts = () => {
       supabase.removeChannel(castsChannel);
       supabase.removeChannel(shiftsChannel);
     };
-  }, []);
+  }, [storeLoading, storeId]);
 
   const fetchCasts = async () => {
     try {
@@ -73,6 +76,7 @@ const Casts = () => {
         .from("casts")
         .select("*")
         .eq("is_visible", true)
+        .eq("store_id", storeId)
         .order("name", { ascending: true });
       if (error) throw error;
       setCasts(data || []);
@@ -88,7 +92,8 @@ const Casts = () => {
     const { data } = await supabase
       .from("shifts")
       .select("cast_id")
-      .eq("shift_date", today);
+      .eq("shift_date", today)
+      .eq("store_id", storeId);
     setTodayShiftCastIds(new Set((data || []).map((s: any) => s.cast_id)));
   };
 

@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { calcPaymentFee, findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
 import { z } from "zod";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
+import { useStore } from "@/hooks/useStore";
 
 interface Cast {
   id: string;
@@ -141,6 +142,7 @@ const BookingReservation = () => {
 
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { storeId } = useStore();
 
   useEffect(() => {
     fetchRates();
@@ -152,6 +154,7 @@ const BookingReservation = () => {
       .from("banners")
       .select("id, image_url, link_url")
       .eq("is_active", true)
+      .eq("store_id", storeId)
       .order("display_order", { ascending: true });
     setBanners((data || []) as Banner[]);
   };
@@ -195,7 +198,7 @@ const BookingReservation = () => {
       fetchAvailableCasts();
       setSelectedCastId(""); // 日付変更時にセラピスト選択をリセット
     }
-  }, [selectedDate]);
+  }, [selectedDate, storeId]);
 
   // URL の castId / time を、その日のキャスト一覧が揃ったタイミングで一度だけ適用
   useEffect(() => {
@@ -306,7 +309,8 @@ const BookingReservation = () => {
       const { data: shiftsData, error: shiftsError } = await supabase
         .from("shifts")
         .select("*")
-        .eq("shift_date", dateStr);
+        .eq("shift_date", dateStr)
+        .eq("store_id", storeId);
 
       if (shiftsError) throw shiftsError;
 
@@ -568,6 +572,7 @@ const BookingReservation = () => {
           status: "pending",
           payment_status: "unpaid",
           created_by: null,
+          store_id: storeId,
         }]);
 
       if (error) throw error;

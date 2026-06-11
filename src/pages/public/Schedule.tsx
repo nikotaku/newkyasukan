@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
+import { useStore } from "@/hooks/useStore";
 
 interface Shift {
   id: string;
@@ -46,12 +47,14 @@ const Schedule = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [stripStart, setStripStart] = useState<Date>(startOfDay(new Date()));
+  const { storeId, loading: storeLoading } = useStore();
 
   useEffect(() => {
     document.title = "出勤情報｜全力エステ 仙台店";
   }, []);
 
   useEffect(() => {
+    if (storeLoading) return;
     fetchData();
     const ch1 = supabase
       .channel("public-shifts-changes")
@@ -65,7 +68,7 @@ const Schedule = () => {
       supabase.removeChannel(ch1);
       supabase.removeChannel(ch2);
     };
-  }, [selectedDate]);
+  }, [selectedDate, storeLoading, storeId]);
 
   const fetchData = async () => {
     try {
@@ -77,6 +80,7 @@ const Schedule = () => {
             `*, casts (name, photo, type, status, age, height, cup_size, tags, message, x_account)`
           )
           .eq("shift_date", dateStr)
+          .eq("store_id", storeId)
           .order("start_time", { ascending: true }),
         supabase.rpc("get_reservation_slots", { p_date: dateStr, p_cast_id: null }),
       ]);

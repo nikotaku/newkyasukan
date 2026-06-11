@@ -10,18 +10,66 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      advertising_costs: {
+        Row: {
+          clicks: number
+          conversions: number
+          cost: number
+          created_at: string
+          date: string
+          id: string
+          impressions: number
+          platform: string
+          store_id: string
+        }
+        Insert: {
+          clicks?: number
+          conversions?: number
+          cost?: number
+          created_at?: string
+          date: string
+          id?: string
+          impressions?: number
+          platform: string
+          store_id?: string
+        }
+        Update: {
+          clicks?: number
+          conversions?: number
+          cost?: number
+          created_at?: string
+          date?: string
+          id?: string
+          impressions?: number
+          platform?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "advertising_costs_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       back_rates: {
         Row: {
           course_type: string
           created_at: string
           customer_price: number
+          description: string | null
+          display_order: number
           duration: number
           id: string
+          is_visible: boolean
           shop_back: number
+          store_id: string
           therapist_back: number
           updated_at: string
         }
@@ -29,23 +77,39 @@ export type Database = {
           course_type: string
           created_at?: string
           customer_price: number
+          description?: string | null
+          display_order?: number
           duration: number
           id?: string
-          shop_back: number
-          therapist_back: number
+          is_visible?: boolean
+          shop_back?: number
+          store_id?: string
+          therapist_back?: number
           updated_at?: string
         }
         Update: {
           course_type?: string
           created_at?: string
           customer_price?: number
+          description?: string | null
+          display_order?: number
           duration?: number
           id?: string
+          is_visible?: boolean
           shop_back?: number
+          store_id?: string
           therapist_back?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "back_rates_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       banners: {
         Row: {
@@ -55,6 +119,7 @@ export type Database = {
           image_url: string
           is_active: boolean
           link_url: string | null
+          store_id: string
           title: string | null
           updated_at: string
         }
@@ -65,6 +130,7 @@ export type Database = {
           image_url: string
           is_active?: boolean
           link_url?: string | null
+          store_id?: string
           title?: string | null
           updated_at?: string
         }
@@ -75,61 +141,480 @@ export type Database = {
           image_url?: string
           is_active?: boolean
           link_url?: string | null
+          store_id?: string
           title?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "banners_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       board_posts: {
         Row: {
-          author_id: string | null
           author_name: string
           content: string
           created_at: string
+          created_by: string | null
           id: string
           is_pinned: boolean
+          store_id: string
+          title: string
+        }
+        Insert: {
+          author_name?: string
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_pinned?: boolean
+          store_id?: string
+          title?: string
+        }
+        Update: {
+          author_name?: string
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_pinned?: boolean
+          store_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_posts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_bank_accounts: {
+        Row: {
+          account_holder: string | null
+          account_name: string
+          account_number: string | null
+          bank_name: string | null
+          branch_name: string | null
+          created_at: string | null
+          id: string
+          layout: Json
+          notes: string | null
+          purpose: string | null
+          sort_order: number | null
+          store_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_holder?: string | null
+          account_name: string
+          account_number?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
+          created_at?: string | null
+          id?: string
+          layout?: Json
+          notes?: string | null
+          purpose?: string | null
+          sort_order?: number | null
+          store_id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_holder?: string | null
+          account_name?: string
+          account_number?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
+          created_at?: string | null
+          id?: string
+          layout?: Json
+          notes?: string | null
+          purpose?: string | null
+          sort_order?: number | null
+          store_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_bank_accounts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_contracts: {
+        Row: {
+          cancellation_deadline: string | null
+          contract_name: string
+          counterparty: string | null
+          created_at: string | null
+          file_url: string | null
+          id: string
+          notes: string | null
+          renewal_date: string | null
+          sort_order: number | null
+          start_date: string | null
+          store_id: string
+          updated_at: string | null
+          vendor_id: string | null
+        }
+        Insert: {
+          cancellation_deadline?: string | null
+          contract_name: string
+          counterparty?: string | null
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          notes?: string | null
+          renewal_date?: string | null
+          sort_order?: number | null
+          start_date?: string | null
+          store_id?: string
+          updated_at?: string | null
+          vendor_id?: string | null
+        }
+        Update: {
+          cancellation_deadline?: string | null
+          contract_name?: string
+          counterparty?: string | null
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          notes?: string | null
+          renewal_date?: string | null
+          sort_order?: number | null
+          start_date?: string | null
+          store_id?: string
+          updated_at?: string | null
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_contracts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_contracts_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "business_vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_fixed_costs: {
+        Row: {
+          amount: number
+          cancellation_method: string | null
+          contract_holder: string | null
+          created_at: string | null
+          debit_account_id: string | null
+          id: string
+          item_name: string
+          label: string | null
+          label_color: string | null
+          layout: Json
+          notes: string | null
+          payment_day: number | null
+          payment_method: string | null
+          renewal_date: string | null
+          sort_order: number | null
+          store_id: string
+          transfer_account_id: string | null
+          transfer_destination: string | null
+          updated_at: string | null
+          vendor_id: string | null
+        }
+        Insert: {
+          amount?: number
+          cancellation_method?: string | null
+          contract_holder?: string | null
+          created_at?: string | null
+          debit_account_id?: string | null
+          id?: string
+          item_name: string
+          label?: string | null
+          label_color?: string | null
+          layout?: Json
+          notes?: string | null
+          payment_day?: number | null
+          payment_method?: string | null
+          renewal_date?: string | null
+          sort_order?: number | null
+          store_id?: string
+          transfer_account_id?: string | null
+          transfer_destination?: string | null
+          updated_at?: string | null
+          vendor_id?: string | null
+        }
+        Update: {
+          amount?: number
+          cancellation_method?: string | null
+          contract_holder?: string | null
+          created_at?: string | null
+          debit_account_id?: string | null
+          id?: string
+          item_name?: string
+          label?: string | null
+          label_color?: string | null
+          layout?: Json
+          notes?: string | null
+          payment_day?: number | null
+          payment_method?: string | null
+          renewal_date?: string | null
+          sort_order?: number | null
+          store_id?: string
+          transfer_account_id?: string | null
+          transfer_destination?: string | null
+          updated_at?: string | null
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_fixed_costs_debit_account_id_fkey"
+            columns: ["debit_account_id"]
+            isOneToOne: false
+            referencedRelation: "business_bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_fixed_costs_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_fixed_costs_transfer_account_id_fkey"
+            columns: ["transfer_account_id"]
+            isOneToOne: false
+            referencedRelation: "business_bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_fixed_costs_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "business_vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_flows: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          steps: Json
+          store_id: string
           title: string
           updated_at: string
         }
         Insert: {
-          author_id?: string | null
-          author_name: string
-          content: string
           created_at?: string
+          description?: string | null
+          display_order?: number
           id?: string
-          is_pinned?: boolean
+          steps?: Json
+          store_id?: string
           title: string
           updated_at?: string
         }
         Update: {
-          author_id?: string | null
-          author_name?: string
-          content?: string
           created_at?: string
+          description?: string | null
+          display_order?: number
           id?: string
-          is_pinned?: boolean
+          steps?: Json
+          store_id?: string
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "business_flows_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_logins: {
+        Row: {
+          bank_account_id: string | null
+          category: string | null
+          contact_person: string | null
+          created_at: string | null
+          id: string
+          layout: Json
+          login_id: string | null
+          login_url: string | null
+          notes: string | null
+          password: string | null
+          registered_email: string | null
+          service_name: string
+          store_id: string
+          two_factor_method: string | null
+          updated_at: string | null
+          vendor_id: string | null
+        }
+        Insert: {
+          bank_account_id?: string | null
+          category?: string | null
+          contact_person?: string | null
+          created_at?: string | null
+          id?: string
+          layout?: Json
+          login_id?: string | null
+          login_url?: string | null
+          notes?: string | null
+          password?: string | null
+          registered_email?: string | null
+          service_name: string
+          store_id?: string
+          two_factor_method?: string | null
+          updated_at?: string | null
+          vendor_id?: string | null
+        }
+        Update: {
+          bank_account_id?: string | null
+          category?: string | null
+          contact_person?: string | null
+          created_at?: string | null
+          id?: string
+          layout?: Json
+          login_id?: string | null
+          login_url?: string | null
+          notes?: string | null
+          password?: string | null
+          registered_email?: string | null
+          service_name?: string
+          store_id?: string
+          two_factor_method?: string | null
+          updated_at?: string | null
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_logins_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "business_bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_logins_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_logins_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "business_vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_vendors: {
+        Row: {
+          bank_info: string | null
+          contact_name: string | null
+          contract_status: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          industry: string | null
+          line_id: string | null
+          name: string
+          notes: string | null
+          payment_method: string | null
+          phone: string | null
+          sort_order: number | null
+          store_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          bank_info?: string | null
+          contact_name?: string | null
+          contract_status?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          industry?: string | null
+          line_id?: string | null
+          name: string
+          notes?: string | null
+          payment_method?: string | null
+          phone?: string | null
+          sort_order?: number | null
+          store_id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          bank_info?: string | null
+          contact_name?: string | null
+          contract_status?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          industry?: string | null
+          line_id?: string | null
+          name?: string
+          notes?: string | null
+          payment_method?: string | null
+          phone?: string | null
+          sort_order?: number | null
+          store_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_vendors_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cast_access_tokens: {
         Row: {
           access_token: string
           cast_id: string
           created_at: string
+          store_id: string
           updated_at: string
         }
         Insert: {
           access_token: string
           cast_id: string
           created_at?: string
+          store_id?: string
           updated_at?: string
         }
         Update: {
           access_token?: string
           cast_id?: string
           created_at?: string
+          store_id?: string
           updated_at?: string
         }
         Relationships: [
@@ -140,160 +625,983 @@ export type Database = {
             referencedRelation: "casts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "cast_access_tokens_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cast_messages: {
+        Row: {
+          cast_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          sender_name: string
+          store_id: string
+        }
+        Insert: {
+          cast_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          sender_name: string
+          store_id?: string
+        }
+        Update: {
+          cast_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          sender_name?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cast_messages_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cast_messages_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cast_posts: {
+        Row: {
+          body: string
+          cast_id: string
+          created_at: string | null
+          esutama_error: string | null
+          esutama_status: string | null
+          id: string
+          image_urls: string[] | null
+          o2_error: string | null
+          o2_status: string | null
+          posted_at: string | null
+          ranking_error: string | null
+          ranking_status: string | null
+          status: string
+          store_id: string
+          title: string | null
+        }
+        Insert: {
+          body: string
+          cast_id: string
+          created_at?: string | null
+          esutama_error?: string | null
+          esutama_status?: string | null
+          id?: string
+          image_urls?: string[] | null
+          o2_error?: string | null
+          o2_status?: string | null
+          posted_at?: string | null
+          ranking_error?: string | null
+          ranking_status?: string | null
+          status?: string
+          store_id?: string
+          title?: string | null
+        }
+        Update: {
+          body?: string
+          cast_id?: string
+          created_at?: string | null
+          esutama_error?: string | null
+          esutama_status?: string | null
+          id?: string
+          image_urls?: string[] | null
+          o2_error?: string | null
+          o2_status?: string | null
+          posted_at?: string | null
+          ranking_error?: string | null
+          ranking_status?: string | null
+          status?: string
+          store_id?: string
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cast_posts_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cast_posts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cast_reviews: {
+        Row: {
+          body: string
+          cast_id: string
+          course: string | null
+          created_at: string
+          id: string
+          is_visible: boolean
+          rating: number
+          reviewer_name: string
+          store_id: string
+          visit_date: string | null
+        }
+        Insert: {
+          body: string
+          cast_id: string
+          course?: string | null
+          created_at?: string
+          id?: string
+          is_visible?: boolean
+          rating?: number
+          reviewer_name?: string
+          store_id?: string
+          visit_date?: string | null
+        }
+        Update: {
+          body?: string
+          cast_id?: string
+          course?: string | null
+          created_at?: string
+          id?: string
+          is_visible?: boolean
+          rating?: number
+          reviewer_name?: string
+          store_id?: string
+          visit_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cast_reviews_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cast_reviews_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cast_site_credentials: {
+        Row: {
+          cast_id: string
+          created_at: string | null
+          id: string
+          login_id: string | null
+          password: string | null
+          site: string
+          store_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          cast_id: string
+          created_at?: string | null
+          id?: string
+          login_id?: string | null
+          password?: string | null
+          site: string
+          store_id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          cast_id?: string
+          created_at?: string | null
+          id?: string
+          login_id?: string | null
+          password?: string | null
+          site?: string
+          store_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cast_site_credentials_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cast_site_credentials_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cast_training_records: {
+        Row: {
+          cast_id: string
+          feedback: string | null
+          id: string
+          implemented_date: string | null
+          improvement: string | null
+          instructor: string | null
+          module_id: string
+          score: number | null
+          status: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          cast_id: string
+          feedback?: string | null
+          id?: string
+          implemented_date?: string | null
+          improvement?: string | null
+          instructor?: string | null
+          module_id: string
+          score?: number | null
+          status?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Update: {
+          cast_id?: string
+          feedback?: string | null
+          id?: string
+          implemented_date?: string | null
+          improvement?: string | null
+          instructor?: string | null
+          module_id?: string
+          score?: number | null
+          status?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cast_training_records_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cast_training_records_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "training_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cast_training_records_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
         ]
       }
       casts: {
         Row: {
+          access_token: string | null
           age: number | null
+          birth_date: string | null
+          blog_url: string | null
           blood_type: string | null
-          body_type: string | null
+          body_size: string | null
           bust: number | null
+          bust_size: string | null
+          celebrity_like: string | null
           celebrity_lookalike: string | null
           created_at: string
           cup_size: string | null
+          custom_fields: Json
+          customer_base_memo: string | null
           day_off_activities: string | null
           dispatch_status: string | null
-          display_order: number
+          display_order: number | null
+          enrollment_period: string | null
           execution_date_end: string | null
           execution_date_start: string | null
-          experience_years: number | null
           favorite_food: string | null
           favorite_techniques: string | null
+          features: string[] | null
           files: string[] | null
           follow_list: string | null
           format_type: string | null
           height: number | null
           hip: number | null
           hobbies: string | null
+          hobby: string | null
+          hometown: string | null
           hp_notice: string | null
           id: string
           ideal_partner: string | null
           ideal_type: string | null
+          instagram_url: string | null
+          interview_sheet_url: string | null
+          is_active: boolean
+          is_online: boolean
           is_visible: boolean
           join_date: string
+          line_url: string | null
+          litlink_url: string | null
+          management_photos: string[] | null
           marks: string[] | null
           media_registration: string[] | null
           memo: string | null
           message: string | null
           name: string
+          name_en: string | null
+          name_kana: string | null
+          o2_url: string | null
           photo: string | null
           photos: string[] | null
           profile: string | null
+          profile_format: string | null
+          ranking_cast_id: string | null
+          real_name: string | null
           recent_dispatch_details: string | null
+          referral_reward_id: string | null
+          referral_route: string | null
           registration_sheet: string | null
           repeat_scheduled: boolean | null
+          romaji_name: string | null
           room: string | null
-          specialties: string | null
+          shop_comment: string | null
+          skebiy_url: string | null
           status: string
-          tags: string[] | null
+          store_id: string
+          tags: string[]
+          therapist_comment: string | null
+          therapist_experience: string | null
           therapist_years: number | null
+          total_points: number
           type: string
           updated_at: string
           upload_check: string | null
+          uses_sns: boolean | null
           waist: number | null
+          weight: number | null
           x_account: string | null
         }
         Insert: {
+          access_token?: string | null
           age?: number | null
+          birth_date?: string | null
+          blog_url?: string | null
           blood_type?: string | null
-          body_type?: string | null
+          body_size?: string | null
           bust?: number | null
+          bust_size?: string | null
+          celebrity_like?: string | null
           celebrity_lookalike?: string | null
           created_at?: string
           cup_size?: string | null
+          custom_fields?: Json
+          customer_base_memo?: string | null
           day_off_activities?: string | null
           dispatch_status?: string | null
-          display_order?: number
+          display_order?: number | null
+          enrollment_period?: string | null
           execution_date_end?: string | null
           execution_date_start?: string | null
-          experience_years?: number | null
           favorite_food?: string | null
           favorite_techniques?: string | null
+          features?: string[] | null
           files?: string[] | null
           follow_list?: string | null
           format_type?: string | null
           height?: number | null
           hip?: number | null
           hobbies?: string | null
+          hobby?: string | null
+          hometown?: string | null
           hp_notice?: string | null
           id?: string
           ideal_partner?: string | null
           ideal_type?: string | null
+          instagram_url?: string | null
+          interview_sheet_url?: string | null
+          is_active?: boolean
+          is_online?: boolean
           is_visible?: boolean
           join_date?: string
+          line_url?: string | null
+          litlink_url?: string | null
+          management_photos?: string[] | null
           marks?: string[] | null
           media_registration?: string[] | null
           memo?: string | null
           message?: string | null
           name: string
+          name_en?: string | null
+          name_kana?: string | null
+          o2_url?: string | null
           photo?: string | null
           photos?: string[] | null
           profile?: string | null
+          profile_format?: string | null
+          ranking_cast_id?: string | null
+          real_name?: string | null
           recent_dispatch_details?: string | null
+          referral_reward_id?: string | null
+          referral_route?: string | null
           registration_sheet?: string | null
           repeat_scheduled?: boolean | null
+          romaji_name?: string | null
           room?: string | null
-          specialties?: string | null
+          shop_comment?: string | null
+          skebiy_url?: string | null
           status?: string
-          tags?: string[] | null
+          store_id?: string
+          tags?: string[]
+          therapist_comment?: string | null
+          therapist_experience?: string | null
           therapist_years?: number | null
-          type: string
+          total_points?: number
+          type?: string
           updated_at?: string
           upload_check?: string | null
+          uses_sns?: boolean | null
           waist?: number | null
+          weight?: number | null
           x_account?: string | null
         }
         Update: {
+          access_token?: string | null
           age?: number | null
+          birth_date?: string | null
+          blog_url?: string | null
           blood_type?: string | null
-          body_type?: string | null
+          body_size?: string | null
           bust?: number | null
+          bust_size?: string | null
+          celebrity_like?: string | null
           celebrity_lookalike?: string | null
           created_at?: string
           cup_size?: string | null
+          custom_fields?: Json
+          customer_base_memo?: string | null
           day_off_activities?: string | null
           dispatch_status?: string | null
-          display_order?: number
+          display_order?: number | null
+          enrollment_period?: string | null
           execution_date_end?: string | null
           execution_date_start?: string | null
-          experience_years?: number | null
           favorite_food?: string | null
           favorite_techniques?: string | null
+          features?: string[] | null
           files?: string[] | null
           follow_list?: string | null
           format_type?: string | null
           height?: number | null
           hip?: number | null
           hobbies?: string | null
+          hobby?: string | null
+          hometown?: string | null
           hp_notice?: string | null
           id?: string
           ideal_partner?: string | null
           ideal_type?: string | null
+          instagram_url?: string | null
+          interview_sheet_url?: string | null
+          is_active?: boolean
+          is_online?: boolean
           is_visible?: boolean
           join_date?: string
+          line_url?: string | null
+          litlink_url?: string | null
+          management_photos?: string[] | null
           marks?: string[] | null
           media_registration?: string[] | null
           memo?: string | null
           message?: string | null
           name?: string
+          name_en?: string | null
+          name_kana?: string | null
+          o2_url?: string | null
           photo?: string | null
           photos?: string[] | null
           profile?: string | null
+          profile_format?: string | null
+          ranking_cast_id?: string | null
+          real_name?: string | null
           recent_dispatch_details?: string | null
+          referral_reward_id?: string | null
+          referral_route?: string | null
           registration_sheet?: string | null
           repeat_scheduled?: boolean | null
+          romaji_name?: string | null
           room?: string | null
-          specialties?: string | null
+          shop_comment?: string | null
+          skebiy_url?: string | null
           status?: string
-          tags?: string[] | null
+          store_id?: string
+          tags?: string[]
+          therapist_comment?: string | null
+          therapist_experience?: string | null
           therapist_years?: number | null
+          total_points?: number
           type?: string
           updated_at?: string
           upload_check?: string | null
+          uses_sns?: boolean | null
           waist?: number | null
+          weight?: number | null
           x_account?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "casts_referral_reward_id_fkey"
+            columns: ["referral_reward_id"]
+            isOneToOne: false
+            referencedRelation: "referral_rewards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "casts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cleaning_checklists: {
+        Row: {
+          cast_id: string | null
+          created_at: string
+          date: string
+          equipment_checked: boolean
+          id: string
+          notes: string | null
+          room_cleaned: boolean
+          status: string
+          store_id: string
+          supplies_stocked: boolean
+          trash_taken_out: boolean
+        }
+        Insert: {
+          cast_id?: string | null
+          created_at?: string
+          date: string
+          equipment_checked?: boolean
+          id?: string
+          notes?: string | null
+          room_cleaned?: boolean
+          status?: string
+          store_id?: string
+          supplies_stocked?: boolean
+          trash_taken_out?: boolean
+        }
+        Update: {
+          cast_id?: string | null
+          created_at?: string
+          date?: string
+          equipment_checked?: boolean
+          id?: string
+          notes?: string | null
+          room_cleaned?: boolean
+          status?: string
+          store_id?: string
+          supplies_stocked?: boolean
+          trash_taken_out?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cleaning_checklists_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cleaning_checklists_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      closings: {
+        Row: {
+          closed_at: string
+          created_at: string
+          deduction_amount: number
+          expense_amount: number
+          id: string
+          notes: string | null
+          period_date: string
+          period_type: string
+          store_id: string
+          total_reservations: number
+          total_sales: number
+        }
+        Insert: {
+          closed_at?: string
+          created_at?: string
+          deduction_amount?: number
+          expense_amount?: number
+          id?: string
+          notes?: string | null
+          period_date: string
+          period_type: string
+          store_id?: string
+          total_reservations?: number
+          total_sales?: number
+        }
+        Update: {
+          closed_at?: string
+          created_at?: string
+          deduction_amount?: number
+          expense_amount?: number
+          id?: string
+          notes?: string | null
+          period_date?: string
+          period_type?: string
+          store_id?: string
+          total_reservations?: number
+          total_sales?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "closings_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          kana: string | null
+          name: string
+          notes: string | null
+          phone: string
+          status: string
+          store_id: string
+          updated_at: string
+          visit_count: number | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          kana?: string | null
+          name: string
+          notes?: string | null
+          phone: string
+          status?: string
+          store_id?: string
+          updated_at?: string
+          visit_count?: number | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          kana?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string
+          status?: string
+          store_id?: string
+          updated_at?: string
+          visit_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_clearances: {
+        Row: {
+          accommodation_fee: number
+          cast_id: string
+          cleared_at: string | null
+          created_at: string
+          date: string
+          id: string
+          misc_expenses: number
+          other_expenses: Json
+          payout_amount: number
+          payout_method: string | null
+          points_awarded: number
+          status: string
+          store_id: string
+          therapist_back: number
+          total_sales: number
+          transportation_fee: number
+        }
+        Insert: {
+          accommodation_fee?: number
+          cast_id: string
+          cleared_at?: string | null
+          created_at?: string
+          date: string
+          id?: string
+          misc_expenses?: number
+          other_expenses?: Json
+          payout_amount?: number
+          payout_method?: string | null
+          points_awarded?: number
+          status?: string
+          store_id?: string
+          therapist_back?: number
+          total_sales?: number
+          transportation_fee?: number
+        }
+        Update: {
+          accommodation_fee?: number
+          cast_id?: string
+          cleared_at?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          misc_expenses?: number
+          other_expenses?: Json
+          payout_amount?: number
+          payout_method?: string | null
+          points_awarded?: number
+          status?: string
+          store_id?: string
+          therapist_back?: number
+          total_sales?: number
+          transportation_fee?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_clearances_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_clearances_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_feedback: {
+        Row: {
+          cast_id: string | null
+          created_at: string
+          customer_feedback: string | null
+          date: string
+          good_points: string | null
+          id: string
+          improvement_points: string | null
+          rating: number
+          status: string
+          store_id: string
+        }
+        Insert: {
+          cast_id?: string | null
+          created_at?: string
+          customer_feedback?: string | null
+          date: string
+          good_points?: string | null
+          id?: string
+          improvement_points?: string | null
+          rating?: number
+          status?: string
+          store_id?: string
+        }
+        Update: {
+          cast_id?: string | null
+          created_at?: string
+          customer_feedback?: string | null
+          date?: string
+          good_points?: string | null
+          id?: string
+          improvement_points?: string | null
+          rating?: number
+          status?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_feedback_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_feedback_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_sales_records: {
+        Row: {
+          card_amount: number
+          cash_amount: number
+          cast_id: string | null
+          created_at: string
+          customer_count: number
+          date: string
+          id: string
+          notes: string | null
+          paypay_amount: number
+          status: string
+          store_id: string
+          total_amount: number
+        }
+        Insert: {
+          card_amount?: number
+          cash_amount?: number
+          cast_id?: string | null
+          created_at?: string
+          customer_count?: number
+          date: string
+          id?: string
+          notes?: string | null
+          paypay_amount?: number
+          status?: string
+          store_id?: string
+          total_amount?: number
+        }
+        Update: {
+          card_amount?: number
+          cash_amount?: number
+          cast_id?: string | null
+          created_at?: string
+          customer_count?: number
+          date?: string
+          id?: string
+          notes?: string | null
+          paypay_amount?: number
+          status?: string
+          store_id?: string
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_sales_records_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_sales_records_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deductions: {
+        Row: {
+          amount: number
+          created_at: string
+          deduction_type: string
+          id: string
+          is_active: boolean
+          name: string
+          rule: string | null
+          store_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          deduction_type: string
+          id?: string
+          is_active?: boolean
+          name: string
+          rule?: string | null
+          store_id?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          deduction_type?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          rule?: string | null
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deductions_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discounts: {
+        Row: {
+          created_at: string
+          discount_type: string
+          discount_value: number
+          id: string
+          is_active: boolean
+          name: string
+          store_id: string
+        }
+        Insert: {
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          store_id?: string
+        }
+        Update: {
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discounts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       expense_rates: {
         Row: {
@@ -302,6 +1610,7 @@ export type Database = {
           id: string
           min_days: number | null
           shop_income: number
+          store_id: string
           therapist_deduction: number
           updated_at: string
         }
@@ -311,6 +1620,7 @@ export type Database = {
           id?: string
           min_days?: number | null
           shop_income: number
+          store_id?: string
           therapist_deduction: number
           updated_at?: string
         }
@@ -320,47 +1630,56 @@ export type Database = {
           id?: string
           min_days?: number | null
           shop_income?: number
+          store_id?: string
           therapist_deduction?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "expense_rates_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       expenses: {
         Row: {
           amount: number
           cast_id: string | null
-          created_at: string
+          created_at: string | null
           created_by: string | null
           description: string | null
           expense_date: string
           expense_type: string
           id: string
           payment_method: string | null
-          updated_at: string
+          store_id: string
         }
         Insert: {
           amount?: number
           cast_id?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           description?: string | null
-          expense_date?: string
-          expense_type?: string
+          expense_date: string
+          expense_type: string
           id?: string
           payment_method?: string | null
-          updated_at?: string
+          store_id?: string
         }
         Update: {
           amount?: number
           cast_id?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           description?: string | null
           expense_date?: string
           expense_type?: string
           id?: string
           payment_method?: string | null
-          updated_at?: string
+          store_id?: string
         }
         Relationships: [
           {
@@ -370,43 +1689,492 @@ export type Database = {
             referencedRelation: "casts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "expenses_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      facility_contracts: {
+        Row: {
+          address: string | null
+          amount: number
+          auto_lock: boolean | null
+          contract_holder: string | null
+          contract_status: string | null
+          contract_terms: string | null
+          contract_type: string
+          created_at: string
+          end_date: string | null
+          floor_plan: string | null
+          id: string
+          internet_connection: string | null
+          key_count: number | null
+          login_id: string | null
+          login_password: string | null
+          mailbox_code: string | null
+          management_company: string | null
+          management_url: string | null
+          name: string
+          nominal_holder: string | null
+          notes: string | null
+          payment_method: string | null
+          renewal_fee: number | null
+          resident_manager: boolean | null
+          start_date: string | null
+          store_id: string
+          tags: string[]
+        }
+        Insert: {
+          address?: string | null
+          amount?: number
+          auto_lock?: boolean | null
+          contract_holder?: string | null
+          contract_status?: string | null
+          contract_terms?: string | null
+          contract_type: string
+          created_at?: string
+          end_date?: string | null
+          floor_plan?: string | null
+          id?: string
+          internet_connection?: string | null
+          key_count?: number | null
+          login_id?: string | null
+          login_password?: string | null
+          mailbox_code?: string | null
+          management_company?: string | null
+          management_url?: string | null
+          name: string
+          nominal_holder?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          renewal_fee?: number | null
+          resident_manager?: boolean | null
+          start_date?: string | null
+          store_id?: string
+          tags?: string[]
+        }
+        Update: {
+          address?: string | null
+          amount?: number
+          auto_lock?: boolean | null
+          contract_holder?: string | null
+          contract_status?: string | null
+          contract_terms?: string | null
+          contract_type?: string
+          created_at?: string
+          end_date?: string | null
+          floor_plan?: string | null
+          id?: string
+          internet_connection?: string | null
+          key_count?: number | null
+          login_id?: string | null
+          login_password?: string | null
+          mailbox_code?: string | null
+          management_company?: string | null
+          management_url?: string | null
+          name?: string
+          nominal_holder?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          renewal_fee?: number | null
+          resident_manager?: boolean | null
+          start_date?: string | null
+          store_id?: string
+          tags?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facility_contracts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      facility_equipment: {
+        Row: {
+          created_at: string
+          custom_fields: Json
+          id: string
+          item_type: string
+          manual_images: string[]
+          name: string
+          notes: string | null
+          quantity: number
+          store_id: string
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          custom_fields?: Json
+          id?: string
+          item_type?: string
+          manual_images?: string[]
+          name: string
+          notes?: string | null
+          quantity?: number
+          store_id?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          custom_fields?: Json
+          id?: string
+          item_type?: string
+          manual_images?: string[]
+          name?: string
+          notes?: string | null
+          quantity?: number
+          store_id?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facility_equipment_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hp_analytics_daily: {
+        Row: {
+          date: string
+          page_views: number
+          store_id: string
+          unique_visitors: number
+          updated_at: string
+          visits: number
+        }
+        Insert: {
+          date: string
+          page_views?: number
+          store_id?: string
+          unique_visitors?: number
+          updated_at?: string
+          visits?: number
+        }
+        Update: {
+          date?: string
+          page_views?: number
+          store_id?: string
+          unique_visitors?: number
+          updated_at?: string
+          visits?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hp_analytics_daily_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hp_analytics_hourly: {
+        Row: {
+          date: string
+          hour: number
+          store_id: string
+          visits: number
+        }
+        Insert: {
+          date: string
+          hour: number
+          store_id?: string
+          visits?: number
+        }
+        Update: {
+          date?: string
+          hour?: number
+          store_id?: string
+          visits?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hp_analytics_hourly_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hp_analytics_pages: {
+        Row: {
+          date: string
+          page_path: string
+          store_id: string
+          views: number
+        }
+        Insert: {
+          date: string
+          page_path: string
+          store_id?: string
+          views?: number
+        }
+        Update: {
+          date?: string
+          page_path?: string
+          store_id?: string
+          views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hp_analytics_pages_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hp_analytics_traffic: {
+        Row: {
+          date: string
+          source: string
+          store_id: string
+          visits: number
+        }
+        Insert: {
+          date: string
+          source: string
+          store_id?: string
+          visits?: number
+        }
+        Update: {
+          date?: string
+          source?: string
+          store_id?: string
+          visits?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hp_analytics_traffic_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hp_articles: {
+        Row: {
+          category: string | null
+          content: string | null
+          created_at: string
+          id: string
+          image_urls: string[]
+          is_published: boolean
+          slug: string | null
+          store_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          image_urls?: string[]
+          is_published?: boolean
+          slug?: string | null
+          store_id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          image_urls?: string[]
+          is_published?: boolean
+          slug?: string | null
+          store_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hp_articles_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
         ]
       }
       knowledge_articles: {
         Row: {
-          category: string
-          content: string
+          category: string | null
+          content: string | null
           created_at: string
-          created_by: string | null
           id: string
           is_pinned: boolean
+          store_id: string
           tags: string[] | null
           title: string
           updated_at: string
         }
         Insert: {
-          category?: string
-          content?: string
+          category?: string | null
+          content?: string | null
           created_at?: string
-          created_by?: string | null
           id?: string
           is_pinned?: boolean
+          store_id?: string
           tags?: string[] | null
           title: string
           updated_at?: string
         }
         Update: {
-          category?: string
-          content?: string
+          category?: string | null
+          content?: string | null
           created_at?: string
-          created_by?: string | null
           id?: string
           is_pinned?: boolean
+          store_id?: string
           tags?: string[] | null
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_articles_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_documents: {
+        Row: {
+          content: string
+          slug: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          slug: string
+          store_id?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          slug?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_documents_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_reports: {
+        Row: {
+          created_at: string
+          customer_count: number | null
+          discount: number | null
+          gross_profit: number | null
+          month_date: string
+          new_customers: number | null
+          repeat_customers: number | null
+          revenue: number | null
+          session_count: number | null
+          store_id: string
+          therapist_pay: number | null
+          transportation_fee: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_count?: number | null
+          discount?: number | null
+          gross_profit?: number | null
+          month_date: string
+          new_customers?: number | null
+          repeat_customers?: number | null
+          revenue?: number | null
+          session_count?: number | null
+          store_id?: string
+          therapist_pay?: number | null
+          transportation_fee?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_count?: number | null
+          discount?: number | null
+          gross_profit?: number | null
+          month_date?: string
+          new_customers?: number | null
+          repeat_customers?: number | null
+          revenue?: number | null
+          session_count?: number | null
+          store_id?: string
+          therapist_pay?: number | null
+          transportation_fee?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_reports_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_sales_targets: {
+        Row: {
+          created_at: string
+          month_date: string
+          store_id: string
+          target_revenue: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          month_date: string
+          store_id?: string
+          target_revenue?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          month_date?: string
+          store_id?: string
+          target_revenue?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_sales_targets_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       nomination_rates: {
         Row: {
@@ -415,6 +2183,7 @@ export type Database = {
           id: string
           nomination_type: string
           shop_back: number | null
+          store_id: string
           therapist_back: number | null
           updated_at: string
         }
@@ -424,6 +2193,7 @@ export type Database = {
           id?: string
           nomination_type: string
           shop_back?: number | null
+          store_id?: string
           therapist_back?: number | null
           updated_at?: string
         }
@@ -433,70 +2203,160 @@ export type Database = {
           id?: string
           nomination_type?: string
           shop_back?: number | null
+          store_id?: string
           therapist_back?: number | null
           updated_at?: string
         }
-        Relationships: []
-      }
-      notion_pages: {
-        Row: {
-          content: Json
-          created_at: string
-          id: string
-          notion_page_id: string
-          slug: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          content: Json
-          created_at?: string
-          id?: string
-          notion_page_id: string
-          slug: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          content?: Json
-          created_at?: string
-          id?: string
-          notion_page_id?: string
-          slug?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "nomination_rates_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       option_rates: {
         Row: {
           created_at: string
           customer_price: number
+          display_order: number
+          extension_minutes: number | null
           id: string
+          is_visible: boolean
           option_name: string
           shop_back: number | null
+          store_id: string
           therapist_back: number
           updated_at: string
         }
         Insert: {
           created_at?: string
           customer_price: number
+          display_order?: number
+          extension_minutes?: number | null
           id?: string
+          is_visible?: boolean
           option_name: string
           shop_back?: number | null
-          therapist_back: number
+          store_id?: string
+          therapist_back?: number
           updated_at?: string
         }
         Update: {
           created_at?: string
           customer_price?: number
+          display_order?: number
+          extension_minutes?: number | null
           id?: string
+          is_visible?: boolean
           option_name?: string
           shop_back?: number | null
+          store_id?: string
           therapist_back?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "option_rates_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      password_entries: {
+        Row: {
+          category: string
+          created_at: string
+          email: string | null
+          id: string
+          login_id: string | null
+          login_password: string | null
+          name: string
+          notes: string | null
+          store_id: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          login_id?: string | null
+          login_password?: string | null
+          name: string
+          notes?: string | null
+          store_id?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          login_id?: string | null
+          login_password?: string | null
+          name?: string
+          notes?: string | null
+          store_id?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "password_entries_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_reminders: {
+        Row: {
+          active: boolean
+          amount: number
+          created_at: string
+          day_of_month: number
+          id: string
+          memo: string | null
+          store_id: string
+          title: string
+        }
+        Insert: {
+          active?: boolean
+          amount?: number
+          created_at?: string
+          day_of_month: number
+          id?: string
+          memo?: string | null
+          store_id?: string
+          title: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          created_at?: string
+          day_of_month?: number
+          id?: string
+          memo?: string | null
+          store_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_reminders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_settings: {
         Row: {
@@ -506,6 +2366,7 @@ export type Database = {
           is_active: boolean
           payment_link: string | null
           payment_method: string
+          store_id: string
           updated_at: string
         }
         Insert: {
@@ -515,6 +2376,7 @@ export type Database = {
           is_active?: boolean
           payment_link?: string | null
           payment_method: string
+          store_id?: string
           updated_at?: string
         }
         Update: {
@@ -524,162 +2386,146 @@ export type Database = {
           is_active?: boolean
           payment_link?: string | null
           payment_method?: string
+          store_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "payment_settings_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      pricing: {
+      referral_rewards: {
         Row: {
-          course_type: string
+          amount: number
           created_at: string
-          duration: number
           id: string
-          premium_price: number
-          standard_price: number
-          updated_at: string
-          vip_price: number
+          is_active: boolean
+          name: string
+          note: string | null
+          store_id: string
         }
         Insert: {
-          course_type?: string
+          amount?: number
           created_at?: string
-          duration: number
           id?: string
-          premium_price?: number
-          standard_price?: number
-          updated_at?: string
-          vip_price?: number
+          is_active?: boolean
+          name: string
+          note?: string | null
+          store_id?: string
         }
         Update: {
-          course_type?: string
+          amount?: number
           created_at?: string
-          duration?: number
           id?: string
-          premium_price?: number
-          standard_price?: number
-          updated_at?: string
-          vip_price?: number
-        }
-        Relationships: []
-      }
-      pricing_options: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-          price: number
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-          price?: number
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
+          is_active?: boolean
           name?: string
-          price?: number
-          updated_at?: string
+          note?: string | null
+          store_id?: string
         }
-        Relationships: []
-      }
-      profiles: {
-        Row: {
-          created_at: string
-          display_name: string | null
-          id: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          display_name?: string | null
-          id?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          display_name?: string | null
-          id?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "referral_rewards_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reservations: {
         Row: {
-          cast_id: string
+          cast_id: string | null
           course_name: string
           course_type: string | null
           created_at: string
           created_by: string | null
           customer_email: string | null
+          customer_furigana: string | null
           customer_name: string
           customer_phone: string
+          discount: number
+          discount_ids: string[] | null
           duration: number
           id: string
           nomination_type: string | null
           notes: string | null
           options: string[] | null
+          payment_details: Json | null
+          payment_fee: number
           payment_method: string | null
           payment_status: string
           price: number
+          referral_source: string | null
           reservation_date: string
           room: string | null
           start_time: string
           status: string
+          store_id: string
           updated_at: string
         }
         Insert: {
-          cast_id: string
-          course_name: string
-          course_type?: string | null
-          created_at?: string
-          created_by?: string | null
-          customer_email?: string | null
-          customer_name: string
-          customer_phone: string
-          duration?: number
-          id?: string
-          nomination_type?: string | null
-          notes?: string | null
-          options?: string[] | null
-          payment_method?: string | null
-          payment_status?: string
-          price: number
-          reservation_date: string
-          room?: string | null
-          start_time: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          cast_id?: string
+          cast_id?: string | null
           course_name?: string
           course_type?: string | null
           created_at?: string
           created_by?: string | null
           customer_email?: string | null
+          customer_furigana?: string | null
           customer_name?: string
           customer_phone?: string
+          discount?: number
+          discount_ids?: string[] | null
           duration?: number
           id?: string
           nomination_type?: string | null
           notes?: string | null
           options?: string[] | null
+          payment_details?: Json | null
+          payment_fee?: number
           payment_method?: string | null
           payment_status?: string
           price?: number
+          referral_source?: string | null
+          reservation_date: string
+          room?: string | null
+          start_time: string
+          status?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Update: {
+          cast_id?: string | null
+          course_name?: string
+          course_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string | null
+          customer_furigana?: string | null
+          customer_name?: string
+          customer_phone?: string
+          discount?: number
+          discount_ids?: string[] | null
+          duration?: number
+          id?: string
+          nomination_type?: string | null
+          notes?: string | null
+          options?: string[] | null
+          payment_details?: Json | null
+          payment_fee?: number
+          payment_method?: string | null
+          payment_status?: string
+          price?: number
+          referral_source?: string | null
           reservation_date?: string
           room?: string | null
           start_time?: string
           status?: string
+          store_id?: string
           updated_at?: string
         }
         Relationships: [
@@ -690,121 +2536,316 @@ export type Database = {
             referencedRelation: "casts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "reservations_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_costumes: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          quantity: number
+          room_id: string
+          size: string | null
+          store_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          quantity?: number
+          room_id: string
+          size?: string | null
+          store_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          quantity?: number
+          room_id?: string
+          size?: string | null
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_costumes_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_costumes_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_equipment: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          quantity: number
+          room_id: string
+          store_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          quantity?: number
+          room_id: string
+          store_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          quantity?: number
+          room_id?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_equipment_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_equipment_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_supplies: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          quantity: number
+          room_id: string
+          store_id: string
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          quantity?: number
+          room_id: string
+          store_id?: string
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          quantity?: number
+          room_id?: string
+          store_id?: string
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_supplies_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_supplies_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
         ]
       }
       rooms: {
         Row: {
+          access: string | null
           address: string | null
           amenities: string[] | null
           capacity: number | null
+          cast_guide: string | null
+          cleaning_manual: string | null
           created_at: string
           description: string | null
+          display_name: string | null
+          email_text: string | null
+          entry_flow: string | null
+          entry_photos: string[] | null
           equipment_costumes: string | null
           equipment_placement: string | null
           garbage_disposal: string | null
           id: string
+          internal_notes: string | null
           is_active: boolean
+          key_info: string | null
+          key_number: string | null
+          map_address: string | null
+          map_url: string | null
           name: string
+          reset_procedure: string | null
           room_photos: string[] | null
+          room_type: string | null
+          sms_text: string | null
+          store_id: string
           updated_at: string
         }
         Insert: {
+          access?: string | null
           address?: string | null
           amenities?: string[] | null
           capacity?: number | null
+          cast_guide?: string | null
+          cleaning_manual?: string | null
           created_at?: string
           description?: string | null
+          display_name?: string | null
+          email_text?: string | null
+          entry_flow?: string | null
+          entry_photos?: string[] | null
           equipment_costumes?: string | null
           equipment_placement?: string | null
           garbage_disposal?: string | null
           id?: string
+          internal_notes?: string | null
           is_active?: boolean
+          key_info?: string | null
+          key_number?: string | null
+          map_address?: string | null
+          map_url?: string | null
           name: string
+          reset_procedure?: string | null
           room_photos?: string[] | null
+          room_type?: string | null
+          sms_text?: string | null
+          store_id?: string
           updated_at?: string
         }
         Update: {
+          access?: string | null
           address?: string | null
           amenities?: string[] | null
           capacity?: number | null
+          cast_guide?: string | null
+          cleaning_manual?: string | null
           created_at?: string
           description?: string | null
+          display_name?: string | null
+          email_text?: string | null
+          entry_flow?: string | null
+          entry_photos?: string[] | null
           equipment_costumes?: string | null
           equipment_placement?: string | null
           garbage_disposal?: string | null
           id?: string
+          internal_notes?: string | null
           is_active?: boolean
+          key_info?: string | null
+          key_number?: string | null
+          map_address?: string | null
+          map_url?: string | null
           name?: string
+          reset_procedure?: string | null
           room_photos?: string[] | null
+          room_type?: string | null
+          sms_text?: string | null
+          store_id?: string
           updated_at?: string
         }
-        Relationships: []
-      }
-      sales_targets: {
-        Row: {
-          created_at: string
-          id: string
-          month: number
-          target_amount: number
-          updated_at: string
-          year: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          month: number
-          target_amount?: number
-          updated_at?: string
-          year: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          month?: number
-          target_amount?: number
-          updated_at?: string
-          year?: number
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rooms_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shifts: {
         Row: {
+          approval_comment: string | null
+          approval_status: string
           cast_id: string
           created_at: string
           created_by: string | null
           end_time: string
+          estama_registered: boolean
           id: string
           notes: string | null
           room: string | null
           shift_date: string
           start_time: string
           status: string
+          store_id: string
           updated_at: string
         }
         Insert: {
+          approval_comment?: string | null
+          approval_status?: string
           cast_id: string
           created_at?: string
           created_by?: string | null
           end_time: string
+          estama_registered?: boolean
           id?: string
           notes?: string | null
           room?: string | null
           shift_date: string
           start_time: string
           status?: string
+          store_id?: string
           updated_at?: string
         }
         Update: {
+          approval_comment?: string | null
+          approval_status?: string
           cast_id?: string
           created_at?: string
           created_by?: string | null
           end_time?: string
+          estama_registered?: boolean
           id?: string
           notes?: string | null
           room?: string | null
           shift_date?: string
           start_time?: string
           status?: string
+          store_id?: string
           updated_at?: string
         }
         Relationships: [
@@ -815,76 +2856,539 @@ export type Database = {
             referencedRelation: "casts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "shifts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
         ]
       }
       shop_settings: {
         Row: {
+          business_day_start: string
           business_hours: string | null
-          created_at: string
+          created_at: string | null
           description: string | null
           id: string
+          line_reminder_enabled: boolean
+          line_reminder_last_sent: string | null
+          line_reminder_time: string
           logo_url: string | null
           shop_address: string | null
           shop_email: string | null
           shop_name: string
           shop_phone: string | null
-          updated_at: string
-          updated_by: string
+          store_id: string
+          updated_at: string | null
+          updated_by: string | null
         }
         Insert: {
+          business_day_start?: string
           business_hours?: string | null
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           id?: string
-          logo_url?: string | null
-          shop_address?: string | null
-          shop_email?: string | null
-          shop_name: string
-          shop_phone?: string | null
-          updated_at?: string
-          updated_by: string
-        }
-        Update: {
-          business_hours?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
+          line_reminder_enabled?: boolean
+          line_reminder_last_sent?: string | null
+          line_reminder_time?: string
           logo_url?: string | null
           shop_address?: string | null
           shop_email?: string | null
           shop_name?: string
           shop_phone?: string | null
-          updated_at?: string
-          updated_by?: string
+          store_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
         }
-        Relationships: []
+        Update: {
+          business_day_start?: string
+          business_hours?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          line_reminder_enabled?: boolean
+          line_reminder_last_sent?: string | null
+          line_reminder_time?: string
+          logo_url?: string | null
+          shop_address?: string | null
+          shop_email?: string | null
+          shop_name?: string
+          shop_phone?: string | null
+          store_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_settings_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      user_roles: {
+      site_content: {
+        Row: {
+          key: string
+          store_id: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          store_id?: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          key?: string
+          store_id?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_content_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sns_accounts: {
+        Row: {
+          category: string | null
+          created_at: string
+          email: string | null
+          id: string
+          login_id: string | null
+          login_password: string | null
+          management_url: string | null
+          name: string
+          profile_link: string | null
+          published_to_hp: boolean | null
+          store_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          login_id?: string | null
+          login_password?: string | null
+          management_url?: string | null
+          name: string
+          profile_link?: string | null
+          published_to_hp?: boolean | null
+          store_id?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          login_id?: string | null
+          login_password?: string | null
+          management_url?: string | null
+          name?: string
+          profile_link?: string | null
+          published_to_hp?: boolean | null
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sns_accounts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stores: {
         Row: {
           created_at: string
           id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          is_active: boolean
+          is_default: boolean
+          logo_url: string | null
+          name: string
+          settings: Json
+          slug: string
+          theme_color: string | null
         }
         Insert: {
           created_at?: string
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          is_active?: boolean
+          is_default?: boolean
+          logo_url?: string | null
+          name: string
+          settings?: Json
+          slug: string
+          theme_color?: string | null
         }
         Update: {
           created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          is_active?: boolean
+          is_default?: boolean
+          logo_url?: string | null
+          name?: string
+          settings?: Json
+          slug?: string
+          theme_color?: string | null
         }
         Relationships: []
+      }
+      text_templates: {
+        Row: {
+          color: string
+          content: string | null
+          created_at: string
+          display_order: number
+          id: string
+          is_folder: boolean
+          label: string
+          parent_id: string | null
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          content?: string | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_folder?: boolean
+          label: string
+          parent_id?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          content?: string | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_folder?: boolean
+          label?: string
+          parent_id?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "text_templates_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "text_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "text_templates_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      therapist_clearance_reports: {
+        Row: {
+          admin_note: string | null
+          cast_id: string
+          created_at: string
+          deduction_items: Json
+          id: string
+          orders_detail: string
+          report_date: string
+          reviewed_at: string | null
+          status: string
+          store_id: string
+          total_deduction: number
+        }
+        Insert: {
+          admin_note?: string | null
+          cast_id: string
+          created_at?: string
+          deduction_items?: Json
+          id?: string
+          orders_detail?: string
+          report_date?: string
+          reviewed_at?: string | null
+          status?: string
+          store_id?: string
+          total_deduction?: number
+        }
+        Update: {
+          admin_note?: string | null
+          cast_id?: string
+          created_at?: string
+          deduction_items?: Json
+          id?: string
+          orders_detail?: string
+          report_date?: string
+          reviewed_at?: string | null
+          status?: string
+          store_id?: string
+          total_deduction?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "therapist_clearance_reports_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "therapist_clearance_reports_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      therapist_profiles: {
+        Row: {
+          age: number | null
+          birthplace: string | null
+          blood_type: string | null
+          bust: number | null
+          career_history: string | null
+          cast_id: string
+          comment: string | null
+          created_at: string
+          customer_age_range: string | null
+          height: number | null
+          hip: number | null
+          hobbies: string | null
+          id: string
+          love_type: string | null
+          massage_skills: string | null
+          mbti: string | null
+          preferred_type: string | null
+          self_introduction: string | null
+          sns_operation_notes: string | null
+          special_skills: string | null
+          store_id: string
+          tags: string[]
+          training_count: number | null
+          updated_at: string
+          waist: number | null
+          weight: number | null
+        }
+        Insert: {
+          age?: number | null
+          birthplace?: string | null
+          blood_type?: string | null
+          bust?: number | null
+          career_history?: string | null
+          cast_id: string
+          comment?: string | null
+          created_at?: string
+          customer_age_range?: string | null
+          height?: number | null
+          hip?: number | null
+          hobbies?: string | null
+          id?: string
+          love_type?: string | null
+          massage_skills?: string | null
+          mbti?: string | null
+          preferred_type?: string | null
+          self_introduction?: string | null
+          sns_operation_notes?: string | null
+          special_skills?: string | null
+          store_id?: string
+          tags?: string[]
+          training_count?: number | null
+          updated_at?: string
+          waist?: number | null
+          weight?: number | null
+        }
+        Update: {
+          age?: number | null
+          birthplace?: string | null
+          blood_type?: string | null
+          bust?: number | null
+          career_history?: string | null
+          cast_id?: string
+          comment?: string | null
+          created_at?: string
+          customer_age_range?: string | null
+          height?: number | null
+          hip?: number | null
+          hobbies?: string | null
+          id?: string
+          love_type?: string | null
+          massage_skills?: string | null
+          mbti?: string | null
+          preferred_type?: string | null
+          self_introduction?: string | null
+          sns_operation_notes?: string | null
+          special_skills?: string | null
+          store_id?: string
+          tags?: string[]
+          training_count?: number | null
+          updated_at?: string
+          waist?: number | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "therapist_profiles_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: true
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "therapist_profiles_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      therapist_transport_expenses: {
+        Row: {
+          amount: number
+          cast_id: string
+          created_at: string
+          expense_date: string
+          id: string
+          notes: string | null
+          route: string | null
+          status: string
+          store_id: string
+        }
+        Insert: {
+          amount: number
+          cast_id: string
+          created_at?: string
+          expense_date: string
+          id?: string
+          notes?: string | null
+          route?: string | null
+          status?: string
+          store_id?: string
+        }
+        Update: {
+          amount?: number
+          cast_id?: string
+          created_at?: string
+          expense_date?: string
+          id?: string
+          notes?: string | null
+          route?: string | null
+          status?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "therapist_transport_expenses_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "therapist_transport_expenses_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_modules: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          store_id: string
+          title: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          store_id?: string
+          title: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          store_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_modules_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_stores: {
+        Row: {
+          created_at: string
+          role: string
+          store_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          role?: string
+          store_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          role?: string
+          store_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_stores_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      check_repeat_nomination: {
+        Args: { p_cast_id: string; p_phone: string }
+        Returns: boolean
+      }
+      current_store_ids: { Args: never; Returns: string[] }
       get_cast_access_tokens: {
         Args: never
         Returns: {
@@ -919,13 +3423,51 @@ export type Database = {
           start_time: string
         }[]
       }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
+      get_therapist_monthly_settlements: {
+        Args: { p_month: number; p_token: string; p_year: number }
+        Returns: {
+          course_name: string
+          customer_price: number
+          duration: number
+          id: string
+          reservation_date: string
+          start_time: string
+          status: string
+          therapist_back: number
+        }[]
       }
+      get_therapist_shifts: {
+        Args: { p_month: number; p_token: string; p_year: number }
+        Returns: {
+          approval_comment: string
+          approval_status: string
+          end_time: string
+          id: string
+          notes: string
+          room: string
+          shift_date: string
+          start_time: string
+        }[]
+      }
+      get_therapist_transport_expenses: {
+        Args: { p_month: number; p_token: string; p_year: number }
+        Returns: {
+          amount: number
+          expense_date: string
+          id: string
+          notes: string
+          route: string
+          status: string
+        }[]
+      }
+      increment_cast_points: {
+        Args: { p_cast_id: string; p_points: number }
+        Returns: undefined
+      }
+      record_page_view: { Args: { p_path: string }; Returns: undefined }
+      refresh_monthly_report:
+        | { Args: { p_month: string }; Returns: undefined }
+        | { Args: { p_month: string; p_store: string }; Returns: undefined }
       set_cast_access_token: {
         Args: { p_cast_id: string; p_token: string }
         Returns: undefined
@@ -934,9 +3476,19 @@ export type Database = {
         Args: { p_shifts: Json; p_token: string }
         Returns: number
       }
+      submit_therapist_transport_expense: {
+        Args: {
+          p_amount: number
+          p_date: string
+          p_notes: string
+          p_route: string
+          p_token: string
+        }
+        Returns: string
+      }
     }
     Enums: {
-      app_role: "admin" | "user"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1063,8 +3615,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["admin", "user"],
-    },
+    Enums: {},
   },
 } as const

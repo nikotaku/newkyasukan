@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Component, ReactNode } from "react";
 import { useGlobalHalfWidth } from "@/hooks/useGlobalHalfWidth";
+import { StoreProvider } from "@/hooks/useStore";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -125,6 +126,7 @@ const App = () => {
   return (
   <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
+    <StoreProvider>
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -232,6 +234,7 @@ const App = () => {
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
+    </StoreProvider>
   </QueryClientProvider>
   </ErrorBoundary>
   );
