@@ -105,6 +105,7 @@ export default function SystemSMSAuto() {
     reservation_cancelled: "予約キャンセル時",
     first_visit: "初回来店後",
     revisit_reminder: "再来店促進",
+    thanks: "サンクスSMS",
   };
 
   return (
@@ -143,6 +144,7 @@ export default function SystemSMSAuto() {
                           <SelectItem value="reservation_cancelled">予約キャンセル時</SelectItem>
                           <SelectItem value="first_visit">初回来店後</SelectItem>
                           <SelectItem value="revisit_reminder">再来店促進</SelectItem>
+                          <SelectItem value="thanks">サンクスSMS（タイムテーブルから手動送信）</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
