@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>キャス管 | メンズエステ・リラクゼーション店舗管理システム</title>
+<meta name="description" content="予約・売上・精算・顧客カルテ・集客HPまで、店舗運営のすべてをひとつに。メンズエステ/リラクゼーションサロン専用のオールインワン店舗管理システム。">
+<style>
+  :root {
+    --primary: #7c3aed;
+    --primary-dark: #6d28d9;
+    --ink: #1e1b2e;
+    --muted: #6b7280;
+    --bg-soft: #f7f5fb;
+    --border: #e5e7eb;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif; color: var(--ink); line-height: 1.7; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+  section { padding: 72px 0; }
+  h2 { font-size: 30px; text-align: center; margin-bottom: 12px; }
+  .section-lead { text-align: center; color: var(--muted); margin-bottom: 44px; font-size: 15px; }
+  .btn {
+    display: inline-block; padding: 16px 40px; border-radius: 999px; font-weight: 700;
+    text-decoration: none; font-size: 16px; transition: opacity .2s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 8px 24px rgba(124,58,237,.35); }
+  .btn-ghost { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
+
+  /* Hero */
+  .hero { background: linear-gradient(135deg, #1e1b2e 0%, #2d1f54 55%, #4c1d95 100%); color: #fff; padding: 96px 0 88px; text-align: center; }
+  .hero .badge { display: inline-block; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: 6px 18px; font-size: 13px; margin-bottom: 24px; letter-spacing: .05em; }
+  .hero h1 { font-size: 42px; line-height: 1.4; margin-bottom: 20px; }
+  .hero h1 .accent { color: #c4b5fd; }
+  .hero p.sub { font-size: 17px; color: rgba(255,255,255,.85); margin-bottom: 36px; }
+  .hero .cta-row { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+  .hero .note { margin-top: 16px; font-size: 12px; color: rgba(255,255,255,.6); }
+
+  /* Pain */
+  .pain { background: var(--bg-soft); }
+  .pain-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .pain-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 22px; font-size: 15px; }
+  .pain-card .x { color: #e11d48; font-weight: 700; margin-right: 8px; }
+  .pain-arrow { text-align: center; font-size: 34px; color: var(--primary); margin: 36px 0 8px; }
+  .pain-answer { text-align: center; font-size: 22px; font-weight: 700; }
+
+  /* Features */
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .feature-card { border: 1px solid var(--border); border-radius: 16px; padding: 26px; transition: box-shadow .2s; }
+  .feature-card:hover { box-shadow: 0 8px 28px rgba(30,27,46,.08); }
+  .feature-card .icon { font-size: 28px; margin-bottom: 12px; }
+  .feature-card h3 { font-size: 17px; margin-bottom: 8px; }
+  .feature-card p { font-size: 13.5px; color: var(--muted); }
+  .feature-card .tag { display: inline-block; font-size: 11px; background: #ede9fe; color: var(--primary-dark); border-radius: 999px; padding: 2px 10px; margin-bottom: 10px; font-weight: 700; }
+
+  /* Strengths */
+  .strengths { background: var(--bg-soft); }
+  .strength-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+  .strength { background: #fff; border-radius: 16px; padding: 30px; border-top: 4px solid var(--primary); }
+  .strength h3 { font-size: 18px; margin-bottom: 10px; }
+  .strength p { font-size: 14px; color: var(--muted); }
+
+  /* Flow */
+  .flow-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; counter-reset: step; }
+  .flow-step { border: 1px solid var(--border); border-radius: 14px; padding: 24px 20px; text-align: center; position: relative; }
+  .flow-step .num { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+  .flow-step h3 { font-size: 15px; margin-bottom: 6px; }
+  .flow-step p { font-size: 13px; color: var(--muted); }
+
+  /* FAQ */
+  .faq-item { border-bottom: 1px solid var(--border); padding: 20px 4px; }
+  .faq-item .q { font-weight: 700; margin-bottom: 6px; }
+  .faq-item .q::before { content: "Q. "; color: var(--primary); }
+  .faq-item .a { font-size: 14px; color: var(--muted); }
+  .faq-item .a::before { content: "A. "; color: #e11d48; font-weight: 700; }
+
+  /* CTA */
+  .cta-final { background: linear-gradient(135deg, #2d1f54, #4c1d95); color: #fff; text-align: center; }
+  .cta-final h2 { color: #fff; }
+  .cta-final p { color: rgba(255,255,255,.8); margin-bottom: 32px; }
+
+  footer { padding: 28px 0; text-align: center; font-size: 12px; color: var(--muted); }
+
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 28px; }
+    h2 { font-size: 24px; }
+    section { padding: 52px 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<header class="hero">
+  <div class="container">
+    <span class="badge">メンズエステ・リラクゼーションサロン専用</span>
+    <h1>店舗運営のすべてを、<br><span class="accent">ひとつの管理画面</span>に。</h1>
+    <p class="sub">予約・シフト・売上・精算・顧客カルテ・集客HPまで。<br>スプレッドシートと手作業の運営から卒業する、オールインワン店舗管理システム「キャス管」。</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="#contact">無料デモを依頼する</a>
+      <a class="btn btn-ghost" href="#features">機能を見る</a>
+    </div>
+    <p class="note">導入相談・デモは無料。スマホだけでも運用できます。</p>
+  </div>
+</header>
+
+<!-- Pain -->
+<section class="pain">
+  <div class="container">
+    <h2>こんな運営、続けますか？</h2>
+    <p class="section-lead">小規模サロンの「あるある」を、キャス管はゼロにします。</p>
+    <div class="pain-grid">
+      <div class="pain-card"><span class="x">✕</span>予約はLINE、シフトはスプレッドシート、売上はノート…情報がバラバラ</div>
+      <div class="pain-card"><span class="x">✕</span>毎晩の精算でバック率を電卓計算。ミスも揉め事も起きる</div>
+      <div class="pain-card"><span class="x">✕</span>お客様の好みやNGを覚えきれず、リピート営業が属人化</div>
+      <div class="pain-card"><span class="x">✕</span>HPの更新は外注頼み。写メ日記もお知らせも反映が遅い</div>
+      <div class="pain-card"><span class="x">✕</span>予約確認SMSを毎回手打ち。サンクス連絡は忘れがち</div>
+      <div class="pain-card"><span class="x">✕</span>オーナーが倒れたら誰も契約・パスワード・固定費が分からない</div>
+    </div>
+    <div class="pain-arrow">▼</div>
+    <p class="pain-answer">キャス管なら、ぜんぶ <span style="color:var(--primary)">1つの画面</span> で完結します。</p>
+  </div>
+</section>
+
+<!-- Features -->
+<section id="features">
+  <div class="container">
+    <h2>主な機能</h2>
+    <p class="section-lead">現場のオーナーの要望から生まれた、実戦仕様の機能群。</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">📅</div>
+        <span class="tag">予約管理</span>
+        <h3>予約タイムテーブル</h3>
+        <p>セラピスト×時間軸のタイムラインに予約を一覧表示。確認中／SMS待ち／確定／完了のステータスボードで当日の動きを見える化。タップで予約詳細・編集・キャンセルまで完結。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">💬</div>
+        <span class="tag">SMS連携</span>
+        <h3>ワンタップSMS送信</h3>
+        <p>予約確認SMS・サンクスSMSをテンプレート登録しておけば、ボタンひとつでお客様の電話番号宛てに本文入りのSMS送信画面が起動。料金明細・ルーム住所・決済リンクも自動挿入。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🗓️</div>
+        <span class="tag">シフト</span>
+        <h3>月別シフト管理</h3>
+        <p>カレンダー／マトリクスの2ビュー。ルームごとの色分け表示で「どの部屋が埋まっているか」が一目瞭然。セラピストからのシフト提出→承認フローにも対応。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📊</div>
+        <span class="tag">売上管理</span>
+        <h3>売上ダッシュボード</h3>
+        <p>月別売上・日別精算・カード／PayPay売上・売上目標・経費・広告費・控除・紹介報酬までワンページに集約。グラフで推移を確認、確認待ち予約のアラートも。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🧮</div>
+        <span class="tag">精算</span>
+        <h3>報酬の自動計算</h3>
+        <p>コース・オプション・指名ごとのバック率をマスタ登録すれば、予約からセラピスト報酬を自動計算。雑費・宿泊費・交通費を引いた日払い額まで一発算出、精算レシートも発行。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">❤️</div>
+        <span class="tag">顧客CRM</span>
+        <h3>顧客カルテ・営業管理</h3>
+        <p>圧の好み・気になる部位・会話の好み・NGを電話ヒアリングしながら記録。来店回数・累計利用額からVIP/常連/リピーターを自動判定し、「30日来てない顧客」を抽出してフォロー。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🌐</div>
+        <span class="tag">集客</span>
+        <h3>集客HP一体型</h3>
+        <p>出勤表・セラピスト一覧・料金・予約フォームつきの公式HPが管理画面と完全連動。記事・タイムライン・おすすめメニュー・SNSリンクも管理画面から即更新。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">✨</div>
+        <span class="tag">AI</span>
+        <h3>AI文章生成</h3>
+        <p>セラピスト紹介文・お知らせ・キャッチコピー・クーポン文・入店速報をAIが自動生成。文章が苦手でも、プロ品質の集客テキストが数秒で完成。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📱</div>
+        <span class="tag">セラピスト向け</span>
+        <h3>セラピストポータル</h3>
+        <p>セラピストはログイン不要のマイページから、シフト提出・精算明細の確認・担当顧客のカルテ閲覧・交通費申請・写メ日記投稿まで。スマホ完結で店との連絡コストを削減。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🎓</div>
+        <span class="tag">教育</span>
+        <h3>教育・マニュアル</h3>
+        <p>研修カリキュラムの受講進捗をセラピスト別に管理。パネル撮影マニュアル・接客マニュアル・採用基準シートも管理画面から編集でき、新人教育を標準化。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🗂️</div>
+        <span class="tag">事業継続</span>
+        <h3>引き継ぎセンター</h3>
+        <p>業者一覧・ログイン情報・固定費・銀行口座・賃貸契約・備品まで店舗運営の裏側を一元管理。「オーナーにしか分からない」をなくし、事業承継・多店舗化に備える。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🏬</div>
+        <span class="tag">多店舗</span>
+        <h3>マルチ店舗対応</h3>
+        <p>1つのシステムで複数店舗を運営。店舗ごとにサブドメイン・ロゴ・テーマカラーを設定でき、データは店舗単位で完全分離。2号店の立ち上げはDBに1行追加するだけ。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Strengths -->
+<section class="strengths">
+  <div class="container">
+    <h2>キャス管が選ばれる理由</h2>
+    <p class="section-lead">汎用POSでも、予約サイト依存でもない「業態特化」の強み。</p>
+    <div class="strength-row">
+      <div class="strength">
+        <h3>業態に最適化された設計</h3>
+        <p>指名種別ごとのバック率、ルーム運用、深夜またぎ営業（〜翌2時表記）、写メ日記文化まで。メンズエステ／リラクゼーションの現場運用をそのままシステム化しています。</p>
+      </div>
+      <div class="strength">
+        <h3>集客から精算まで分断ゼロ</h3>
+        <p>HPで入った予約がそのままタイムテーブルへ、完了した予約がそのまま売上・顧客統計・報酬計算へ。転記作業も二重入力も発生しません。</p>
+      </div>
+      <div class="strength">
+        <h3>スマホファースト</h3>
+        <p>管理画面・セラピストポータルともスマホ最適化。SMS送信画面のワンタップ起動など、「店に居ない時間」の運営を前提に作られています。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Flow -->
+<section>
+  <div class="container">
+    <h2>導入までの流れ</h2>
+    <p class="section-lead">最短数日で運用開始できます。</p>
+    <div class="flow-steps">
+      <div class="flow-step"><div class="num">1</div><h3>無料相談・デモ</h3><p>現在の運営状況をヒアリングし、実際の画面をご覧いただきます。</p></div>
+      <div class="flow-step"><div class="num">2</div><h3>初期設定</h3><p>コース・バック率・ルーム・セラピスト情報を弊社側でセットアップ。</p></div>
+      <div class="flow-step"><div class="num">3</div><h3>データ移行</h3><p>既存の顧客・予約データはスプレッドシートからインポート可能。</p></div>
+      <div class="flow-step"><div class="num">4</div><h3>運用開始</h3><p>独自ドメインのHPを公開し、その日から予約受付・精算を開始。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="pain">
+  <div class="container" style="max-width:760px;">
+    <h2>よくある質問</h2>
+    <div class="faq-item">
+      <p class="q">PCがなくても使えますか？</p>
+      <p class="a">はい。管理画面・セラピストポータルともスマホ最適化済みで、日々の運用はスマホだけで完結できます。</p>
+    </div>
+    <div class="faq-item">
+      <p class="q">既存のホームページや予約データはどうなりますか？</p>
+      <p class="a">顧客・予約データはスプレッドシートからのインポートに対応。HPは独自ドメインを設定でき、システム付属の公式HPに置き換えられます。</p>
+    </div>
+    <div class="faq-item">
+      <p class="q">複数店舗で使えますか？</p>
+      <p class="a">1契約で複数店舗に対応しています。店舗ごとにサブドメイン・デザインを分けつつ、データは完全に分離されます。</p>
+    </div>
+    <div class="faq-item">
+      <p class="q">セラピストにアカウントを配る必要はありますか？</p>
+      <p class="a">不要です。セラピストには専用URLを渡すだけで、シフト提出や精算確認ができるマイページが使えます。</p>
+    </div>
+    <div class="faq-item">
+      <p class="q">料金はいくらですか？</p>
+      <p class="a">店舗規模・必要な機能に応じてご提案します。まずは無料相談でお見積もりください。</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-final" id="contact">
+  <div class="container">
+    <h2>まずは画面を見てみませんか？</h2>
+    <p>実際に稼働している店舗の管理画面をベースに、御社の運用に合わせたデモをお見せします。</p>
+    <a class="btn btn-primary" href="mailto:saito.crow@gmail.com?subject=%E3%82%AD%E3%83%A3%E3%82%B9%E7%AE%A1%E3%83%87%E3%83%A2%E4%BE%9D%E9%A0%BC">無料デモを依頼する</a>
+  </div>
+</section>
+
+<footer>
+  <p>© 2026 caskan.jp All rights reserved</p>
+</footer>
+
+</body>
+</html>
