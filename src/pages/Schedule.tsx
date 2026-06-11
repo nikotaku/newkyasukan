@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { format, addDays, subDays, addMonths, subMonths, parse, addMinutes, startOfMonth, endOfMonth, startOfWeek, eachDayOfInterval } from "date-fns";
 import { toExtTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, MessageSquare, Heart } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { TabMenu } from "@/components/TabMenu";
@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
+import { openSmsApp } from "@/lib/sms";
 import { PaymentReminderPopup } from "@/components/PaymentReminderPopup";
 
 interface Cast {
@@ -110,6 +111,7 @@ function StatusBox({
   onStatusChange,
   onEdit,
   onSms,
+  onThanksSms,
   isAdmin,
 }: {
   status: string;
@@ -118,6 +120,7 @@ function StatusBox({
   onStatusChange: (id: string, status: string) => void;
   onEdit: (res: Reservation) => void;
   onSms: (res: Reservation) => void;
+  onThanksSms: (res: Reservation) => void;
   isAdmin: boolean;
 }) {
   const style = BOARD_STATUS_STYLE[status];
@@ -145,6 +148,12 @@ function StatusBox({
                   className="text-[10px] px-1.5 py-0.5 rounded border bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors font-medium"
                 >
                   SMS
+                </button>
+                <button
+                  onClick={() => onThanksSms(res)}
+                  className="text-[10px] px-1.5 py-0.5 rounded border bg-pink-50 border-pink-200 text-pink-700 hover:bg-pink-100 transition-colors font-medium"
+                >
+                  サンクス
                 </button>
                 {isAdmin && (
                   <button
@@ -249,6 +258,7 @@ export default function Schedule() {
   const [nominationRates, setNominationRates] = useState<any[]>([]);
   const [discounts, setDiscounts] = useState<{ id: string; name: string; discount_type: "fixed" | "percentage"; discount_value: number }[]>([]);
   const [paymentSettings, setPaymentSettings] = useState<PaymentSetting[]>([]);
+  const [thanksTemplate, setThanksTemplate] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -262,7 +272,7 @@ export default function Schedule() {
   }, [user, selectedDate]);
 
   const fetchFormData = async () => {
-    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }, { data: p }] = await Promise.all([
+    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }, { data: p }, { data: t }] = await Promise.all([
       supabase.from("casts").select("id, name").order("name"),
       supabase.from("rooms").select("id, name, address, sms_text").eq("is_active", true).order("name"),
       supabase.from("back_rates").select("*").order("display_order"),
@@ -270,6 +280,7 @@ export default function Schedule() {
       supabase.from("nomination_rates").select("*"),
       supabase.from("discounts").select("id, name, discount_type, discount_value, is_active").eq("is_active", true).order("name"),
       supabase.from("payment_settings").select("id, payment_method, payment_link, fee_percentage"),
+      supabase.from("sms_auto_templates").select("message").eq("trigger", "thanks").eq("is_active", true).limit(1),
     ]);
     if (c) setCasts(c);
     if (r) setRooms(r);
@@ -278,6 +289,7 @@ export default function Schedule() {
     if (n) setNominationRates(n);
     if (d) setDiscounts(d as any);
     if (p) setPaymentSettings(p as PaymentSetting[]);
+    setThanksTemplate(t && t.length > 0 ? t[0].message : null);
   };
 
   const fetchData = async () => {
@@ -428,9 +440,39 @@ export default function Schedule() {
     ].filter((l) => l !== null).join("\n");
   };
 
-  const copyReservationSms = (d: Reservation) => {
-    navigator.clipboard.writeText(buildReservationSms(d));
-    toast({ title: "SMSをコピーしました" });
+  // コピーしつつ端末のSMS送信画面を開く（宛先＝予約の電話番号、本文プリセット）
+  const openReservationSms = (d: Reservation) => {
+    const body = buildReservationSms(d);
+    navigator.clipboard.writeText(body).catch(() => {});
+    toast({ title: "SMS送信画面を開きます", description: "本文はコピー済みです" });
+    openSmsApp(d.customer_phone, body);
+  };
+
+  const buildThanksSms = (d: Reservation): string | null => {
+    if (!thanksTemplate) return null;
+    const date = new Date(d.reservation_date);
+    const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+    const dateStr = `${format(date, "M月d日", { locale: ja })}(${dayNames[date.getDay()]})`;
+    return thanksTemplate
+      .replaceAll("{customer_name}", d.customer_name)
+      .replaceAll("{date}", dateStr)
+      .replaceAll("{cast_name}", castNameMap.get(d.cast_id) ?? "")
+      .replaceAll("{course_name}", d.course_name);
+  };
+
+  const openThanksSms = (d: Reservation) => {
+    const body = buildThanksSms(d);
+    if (!body) {
+      toast({
+        title: "サンクスSMSが未登録です",
+        description: "システム > SMS自動送信 でトリガー「サンクスSMS」のテンプレートを登録してください",
+        variant: "destructive",
+      });
+      return;
+    }
+    navigator.clipboard.writeText(body).catch(() => {});
+    toast({ title: "SMS送信画面を開きます", description: "本文はコピー済みです" });
+    openSmsApp(d.customer_phone, body);
   };
 
   const openDetail = (res: Reservation) => {
@@ -634,7 +676,8 @@ export default function Schedule() {
                       castNameMap={castNameMap}
                       onStatusChange={handleQuickStatusChange}
                       onEdit={(res) => startEdit(res)}
-                      onSms={copyReservationSms}
+                      onSms={openReservationSms}
+                      onThanksSms={openThanksSms}
                       isAdmin={isAdmin}
                     />
                   ))}
@@ -912,9 +955,17 @@ export default function Schedule() {
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      onClick={() => copyReservationSms(detailRes)}
+                      onClick={() => openReservationSms(detailRes)}
                     >
-                      <Copy size={14} className="mr-1" />SMSをコピー
+                      <MessageSquare size={14} className="mr-1" />予約確認SMS
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-pink-600 border-pink-200 hover:bg-pink-50"
+                      onClick={() => openThanksSms(detailRes)}
+                    >
+                      <Heart size={14} className="mr-1" />サンクスSMS
                     </Button>
                     {isAdmin && (
                       <Button
