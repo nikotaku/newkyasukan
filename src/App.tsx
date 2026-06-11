@@ -118,6 +118,7 @@ import BusinessFixedCosts from "./pages/BusinessFixedCosts";
 import BusinessBankAccounts from "./pages/BusinessBankAccounts";
 import BusinessContracts from "./pages/BusinessContracts";
 import Education from "./pages/Education";
+import ProductLP from "./pages/public/ProductLP";
 
 const queryClient = new QueryClient();
 
@@ -142,6 +143,7 @@ const App = () => {
           <Route path="/access" element={<PublicAccess />} />
           <Route path="/booking" element={<BookingReservation />} />
           <Route path="/page/:slug" element={<NotionPageView />} />
+          <Route path="/lp" element={<ProductLP />} />
           
           {/* Admin/Staff Pages */}
           <Route path="/login" element={<Auth />} />
