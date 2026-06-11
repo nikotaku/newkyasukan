@@ -37,6 +37,25 @@ interface Cast {
 const WEEKDAY = ["日", "月", "火", "水", "木", "金", "土"];
 const ROOMS = ["インルーム", "ラスルーム"];
 
+// ルームごとの色分け（承認済みシフトに適用。pending=amber / rejected=rose はそのまま）
+const ROOM_PALETTE = [
+  { chip: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-700 dark:text-emerald-300", dot: "bg-emerald-500" },
+  { chip: "bg-violet-100 dark:bg-violet-900/30", text: "text-violet-700 dark:text-violet-300", dot: "bg-violet-500" },
+  { chip: "bg-sky-100 dark:bg-sky-900/30", text: "text-sky-700 dark:text-sky-300", dot: "bg-sky-500" },
+  { chip: "bg-orange-100 dark:bg-orange-900/30", text: "text-orange-700 dark:text-orange-300", dot: "bg-orange-500" },
+  { chip: "bg-pink-100 dark:bg-pink-900/30", text: "text-pink-700 dark:text-pink-300", dot: "bg-pink-500" },
+  { chip: "bg-teal-100 dark:bg-teal-900/30", text: "text-teal-700 dark:text-teal-300", dot: "bg-teal-500" },
+];
+
+const roomColor = (room: string | null) => {
+  if (!room) return null;
+  const idx = ROOMS.indexOf(room);
+  if (idx >= 0) return ROOM_PALETTE[idx % ROOM_PALETTE.length];
+  let h = 0;
+  for (const ch of room) h = (h * 31 + ch.charCodeAt(0)) % 997;
+  return ROOM_PALETTE[h % ROOM_PALETTE.length];
+};
+
 export default function MonthlyShift() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -201,6 +220,11 @@ export default function MonthlyShift() {
   const calendarStart = startOfWeek(startOfMonth(selectedMonth), { weekStartsOn: 0 });
   const calendarDays = Array.from({ length: 42 }, (_, i) => addDays(calendarStart, i));
 
+  // 凡例用: この月で使われているルーム
+  const usedRooms = [...new Set(shifts.filter(s => s.room).map(s => s.room!))].sort(
+    (a, b) => (ROOMS.indexOf(a) === -1 ? 99 : ROOMS.indexOf(a)) - (ROOMS.indexOf(b) === -1 ? 99 : ROOMS.indexOf(b)),
+  );
+
   // 日付→その日の全シフト
   const dayShiftMap = new Map<string, Shift[]>();
   shifts.forEach(s => {
@@ -231,20 +255,36 @@ export default function MonthlyShift() {
               <Plus size={14} className="mr-1" />シフト追加
             </Button>
           </div>
-          {/* 2行目: ビュー切り替え */}
-          <div className="flex rounded-md border overflow-hidden w-fit">
-            <button
-              onClick={() => setViewMode("calendar")}
-              className={cn("px-3 py-1.5 text-xs flex items-center gap-1", viewMode === "calendar" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
-            >
-              <LayoutGrid size={13} />カレンダー
-            </button>
-            <button
-              onClick={() => setViewMode("matrix")}
-              className={cn("px-3 py-1.5 text-xs flex items-center gap-1 border-l", viewMode === "matrix" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
-            >
-              <Table2 size={13} />マトリクス
-            </button>
+          {/* 2行目: ビュー切り替え + ルーム凡例 */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex rounded-md border overflow-hidden w-fit">
+              <button
+                onClick={() => setViewMode("calendar")}
+                className={cn("px-3 py-1.5 text-xs flex items-center gap-1", viewMode === "calendar" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
+              >
+                <LayoutGrid size={13} />カレンダー
+              </button>
+              <button
+                onClick={() => setViewMode("matrix")}
+                className={cn("px-3 py-1.5 text-xs flex items-center gap-1 border-l", viewMode === "matrix" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
+              >
+                <Table2 size={13} />マトリクス
+              </button>
+            </div>
+            {usedRooms.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                {usedRooms.map(r => (
+                  <span key={r} className="flex items-center gap-1">
+                    <span className={cn("w-2.5 h-2.5 rounded-full", roomColor(r)?.dot)} />
+                    {r}
+                  </span>
+                ))}
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-full bg-primary/30" />
+                  ルーム未設定
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -349,7 +389,7 @@ export default function MonthlyShift() {
                             "flex items-center gap-1 rounded px-1 py-0.5 text-[10px] leading-tight cursor-pointer relative",
                             s.approval_status === "pending" && "bg-amber-100 dark:bg-amber-900/30",
                             s.approval_status === "rejected" && "bg-rose-100 dark:bg-rose-900/20 line-through opacity-60",
-                            s.approval_status === "approved" && "bg-primary/10"
+                            s.approval_status === "approved" && (roomColor(s.room)?.chip ?? "bg-primary/10")
                           )}
                           onClick={e => { e.stopPropagation(); openEdit(s); }}
                           title="クリックで編集"
@@ -362,7 +402,11 @@ export default function MonthlyShift() {
                           )}
                           <span className={cn(
                             "font-medium truncate max-w-[50px] md:max-w-none",
-                            s.approval_status === "rejected" ? "text-rose-600" : "text-primary"
+                            s.approval_status === "rejected"
+                              ? "text-rose-600"
+                              : s.approval_status === "approved"
+                                ? roomColor(s.room)?.text ?? "text-primary"
+                                : "text-primary"
                           )}>
                             {s.casts.name}
                           </span>
@@ -442,14 +486,18 @@ export default function MonthlyShift() {
                               "relative rounded px-1 py-0.5 mb-0.5 cursor-pointer",
                               s.approval_status === "pending" && "bg-amber-100 dark:bg-amber-900/30",
                               s.approval_status === "rejected" && "bg-rose-100 dark:bg-rose-900/20 line-through opacity-60",
-                              s.approval_status === "approved" && "bg-primary/10"
+                              s.approval_status === "approved" && (roomColor(s.room)?.chip ?? "bg-primary/10")
                             )}>
                               {s.estama_registered && (
                                 <span className="absolute -top-0.5 -left-0.5 w-2 h-2 bg-red-500 rounded-full z-10" title="エスたま登録済み" />
                               )}
                               <div className={cn(
                                 "font-semibold leading-tight",
-                                s.approval_status === "rejected" ? "text-rose-600" : "text-primary"
+                                s.approval_status === "rejected"
+                                  ? "text-rose-600"
+                                  : s.approval_status === "approved"
+                                    ? roomColor(s.room)?.text ?? "text-primary"
+                                    : "text-primary"
                               )}>
                                 {s.approval_status === "pending" && <span className="text-amber-600 mr-0.5" title="承認待ち">●</span>}
                                 {s.start_time.slice(0, 5)}
@@ -458,7 +506,7 @@ export default function MonthlyShift() {
                                 ~{s.end_time.slice(0, 5)}
                               </div>
                               {s.room && (
-                                <div className="text-[10px] text-primary/70 truncate max-w-[48px]">{s.room}</div>
+                                <div className={cn("text-[10px] truncate max-w-[48px]", roomColor(s.room)?.text ?? "text-primary/70")}>{s.room}</div>
                               )}
                             </div>
                           ))}

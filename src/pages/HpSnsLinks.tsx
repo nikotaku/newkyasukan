@@ -48,7 +48,7 @@ export default function HpSnsLinks() {
   const handleSave = async () => {
     setSaving(true);
     const rows = FIELDS.map((f) => ({ key: f.key, value: values[f.key] ?? "", updated_at: new Date().toISOString() }));
-    const { error } = await supabase.from("site_content").upsert(rows, { onConflict: "key" });
+    const { error } = await supabase.from("site_content").upsert(rows, { onConflict: "store_id,key" });
     setSaving(false);
     if (error) { toast.error(`保存に失敗しました: ${error.message}`); return; }
     toast.success("保存しました");

@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { calcPaymentFee, findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
+import { PRESSURE_OPTIONS, AREA_OPTIONS, CONVERSATION_OPTIONS } from "@/lib/customerRank";
 
 interface Cast {
   id: string;
@@ -110,6 +111,22 @@ interface RecentReservation {
   cast_id: string | null;
 }
 
+interface PreferenceForm {
+  preferred_pressure: string | null;
+  concern_areas: string[];
+  conversation_level: string | null;
+  ng_items: string;
+  preference_notes: string;
+}
+
+const EMPTY_PREFS: PreferenceForm = {
+  preferred_pressure: null,
+  concern_areas: [],
+  conversation_level: null,
+  ng_items: "",
+  preference_notes: "",
+};
+
 export function ReservationForm({
   formData,
   setFormData,
@@ -130,6 +147,8 @@ export function ReservationForm({
   const [ngReason, setNgReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [paymentSettings, setPaymentSettings] = useState<PaymentSetting[]>([]);
+  const [prefs, setPrefs] = useState<PreferenceForm>(EMPTY_PREFS);
+  const [prefsDirty, setPrefsDirty] = useState(false);
 
   useEffect(() => {
     supabase
@@ -263,11 +282,29 @@ export function ReservationForm({
         };
         setCustomerInfo(info);
         setBanReason(info.ban_reason ?? "");
+        // 既存顧客の好みプロフィールを読み込み
+        supabase
+          .from("customer_profiles")
+          .select("preferred_pressure, concern_areas, conversation_level, ng_items, preference_notes")
+          .eq("customer_id", raw.id)
+          .maybeSingle()
+          .then(({ data: prof }) => {
+            setPrefs({
+              preferred_pressure: prof?.preferred_pressure ?? null,
+              concern_areas: prof?.concern_areas ?? [],
+              conversation_level: prof?.conversation_level ?? null,
+              ng_items: prof?.ng_items ?? "",
+              preference_notes: prof?.preference_notes ?? "",
+            });
+            setPrefsDirty(false);
+          });
         if (!formData.customer_name && info.name) {
           setFormData({ ...formData, customer_name: info.name });
         }
       } else {
         setCustomerInfo(null);
+        setPrefs(EMPTY_PREFS);
+        setPrefsDirty(false);
         // 顧客マスタに無い場合は過去予約の名前を自動入力
         const pastName = (resRes.data as any[])?.find((r) => r.customer_name)?.customer_name;
         if (!formData.customer_name && pastName) {
@@ -351,6 +388,61 @@ export function ReservationForm({
       ...customerInfo,
       ng_casts: customerInfo.ng_casts.filter(n => n.cast_id !== castId),
     });
+  };
+
+  const updatePrefs = (patch: Partial<PreferenceForm>) => {
+    setPrefs((prev) => ({ ...prev, ...patch }));
+    setPrefsDirty(true);
+  };
+
+  // 好みヒアリング内容を顧客マスタに保存（予約登録とは独立して保存する）
+  const savePreferences = async () => {
+    if (!prefsDirty) return;
+    const hasContent =
+      prefs.preferred_pressure ||
+      prefs.concern_areas.length > 0 ||
+      prefs.conversation_level ||
+      prefs.ng_items.trim() ||
+      prefs.preference_notes.trim();
+    if (!hasContent && !customerInfo) return;
+    try {
+      let customerId = customerInfo?.id;
+      if (!customerId) {
+        const phone = formData.customer_phone.trim();
+        if (!phone || !formData.customer_name.trim()) return;
+        const { data, error } = await supabase
+          .from("customers")
+          .insert({
+            name: formData.customer_name.trim(),
+            phone,
+            email: formData.customer_email || null,
+          })
+          .select("id")
+          .single();
+        if (error || !data) return;
+        customerId = data.id;
+      }
+      await supabase.from("customer_profiles").upsert(
+        {
+          customer_id: customerId,
+          preferred_pressure: prefs.preferred_pressure,
+          concern_areas: prefs.concern_areas.length ? prefs.concern_areas : null,
+          conversation_level: prefs.conversation_level,
+          ng_items: prefs.ng_items.trim() || null,
+          preference_notes: prefs.preference_notes.trim() || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "customer_id" },
+      );
+      setPrefsDirty(false);
+    } catch (e) {
+      console.error("preference save failed", e);
+    }
+  };
+
+  const handleSubmit = async () => {
+    await savePreferences();
+    onSubmit();
   };
 
   const handleOptionToggle = useCallback((optionName: string) => {
@@ -956,6 +1048,83 @@ export function ReservationForm({
         />
       </div>
 
+      {/* 17.5 お客様の好み（電話ヒアリング） */}
+      <div className="rounded-lg border p-3 space-y-3 bg-muted/20">
+        <p className="text-sm font-semibold flex items-center gap-1.5">
+          💆 お客様の好み（電話ヒアリング）
+          {customerInfo && !prefsDirty && (prefs.preferred_pressure || prefs.concern_areas.length > 0) && (
+            <span className="text-[10px] font-normal text-green-600">登録済み</span>
+          )}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">圧の好み</Label>
+            <Select
+              value={prefs.preferred_pressure ?? "unset"}
+              onValueChange={(v) => updatePrefs({ preferred_pressure: v === "unset" ? null : v })}
+            >
+              <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="未設定" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unset">未設定</SelectItem>
+                {PRESSURE_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">会話の好み</Label>
+            <Select
+              value={prefs.conversation_level ?? "unset"}
+              onValueChange={(v) => updatePrefs({ conversation_level: v === "unset" ? null : v })}
+            >
+              <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="未設定" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unset">未設定</SelectItem>
+                {CONVERSATION_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs">気になる部位</Label>
+          <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+            {AREA_OPTIONS.map((area) => (
+              <label key={area} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <Checkbox
+                  checked={prefs.concern_areas.includes(area)}
+                  onCheckedChange={() => {
+                    const next = prefs.concern_areas.includes(area)
+                      ? prefs.concern_areas.filter((a) => a !== area)
+                      : [...prefs.concern_areas, area];
+                    updatePrefs({ concern_areas: next });
+                  }}
+                />
+                {area}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs">NG・アレルギー</Label>
+          <Input
+            placeholder="例：アロマオイルNG"
+            value={prefs.ng_items}
+            onChange={(e) => updatePrefs({ ng_items: e.target.value })}
+            className="mt-1 h-9 text-sm"
+          />
+        </div>
+        <div>
+          <Label className="text-xs">好みメモ</Label>
+          <Textarea
+            placeholder="例：足裏を長めにしてほしい"
+            value={prefs.preference_notes}
+            onChange={(e) => updatePrefs({ preference_notes: e.target.value })}
+            rows={2}
+            className="mt-1 text-sm"
+          />
+        </div>
+        <p className="text-[10px] text-muted-foreground">入力すると予約登録時に顧客カルテへ自動保存されます</p>
+      </div>
+
       {/* 18. 合計金額表示 */}
       <div className="pt-4 border-t space-y-1">
         {formData.discount > 0 && (
@@ -1000,7 +1169,7 @@ export function ReservationForm({
       </div>
 
       {/* 19. 予約追加ボタン */}
-      <Button onClick={onSubmit} className="w-full" size="lg">
+      <Button onClick={handleSubmit} className="w-full" size="lg">
         {submitLabel}
       </Button>
     </div>
