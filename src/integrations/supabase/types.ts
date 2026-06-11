@@ -1288,47 +1288,223 @@ export type Database = {
           },
         ]
       }
+      customer_followups: {
+        Row: {
+          content: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          followup_date: string
+          id: string
+          method: string | null
+          next_action_date: string | null
+          store_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          followup_date?: string
+          id?: string
+          method?: string | null
+          next_action_date?: string | null
+          store_id?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          followup_date?: string
+          id?: string
+          method?: string | null
+          next_action_date?: string | null
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_followups_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_followups_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_ng_casts: {
+        Row: {
+          cast_id: string
+          created_at: string | null
+          customer_id: string
+          id: string
+          reason: string | null
+          store_id: string
+        }
+        Insert: {
+          cast_id: string
+          created_at?: string | null
+          customer_id: string
+          id?: string
+          reason?: string | null
+          store_id?: string
+        }
+        Update: {
+          cast_id?: string
+          created_at?: string | null
+          customer_id?: string
+          id?: string
+          reason?: string | null
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_ng_casts_cast_id_fkey"
+            columns: ["cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_ng_casts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_ng_casts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_profiles: {
+        Row: {
+          concern_areas: string[] | null
+          conversation_level: string | null
+          created_at: string
+          customer_id: string
+          ng_items: string | null
+          preference_notes: string | null
+          preferred_pressure: string | null
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          concern_areas?: string[] | null
+          conversation_level?: string | null
+          created_at?: string
+          customer_id: string
+          ng_items?: string | null
+          preference_notes?: string | null
+          preferred_pressure?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Update: {
+          concern_areas?: string[] | null
+          conversation_level?: string | null
+          created_at?: string
+          customer_id?: string
+          ng_items?: string | null
+          preference_notes?: string | null
+          preferred_pressure?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_profiles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: true
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_profiles_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
+          ban_reason: string | null
           created_at: string
           email: string | null
           id: string
+          is_banned: boolean | null
           kana: string | null
+          last_cast_id: string | null
+          last_visited: string | null
           name: string
           notes: string | null
           phone: string
           status: string
           store_id: string
+          tags: string[] | null
+          total_spent: number
           updated_at: string
           visit_count: number | null
         }
         Insert: {
+          ban_reason?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          is_banned?: boolean | null
           kana?: string | null
+          last_cast_id?: string | null
+          last_visited?: string | null
           name: string
           notes?: string | null
           phone: string
           status?: string
           store_id?: string
+          tags?: string[] | null
+          total_spent?: number
           updated_at?: string
           visit_count?: number | null
         }
         Update: {
+          ban_reason?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          is_banned?: boolean | null
           kana?: string | null
+          last_cast_id?: string | null
+          last_visited?: string | null
           name?: string
           notes?: string | null
           phone?: string
           status?: string
           store_id?: string
+          tags?: string[] | null
+          total_spent?: number
           updated_at?: string
           visit_count?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "customers_last_cast_id_fkey"
+            columns: ["last_cast_id"]
+            isOneToOne: false
+            referencedRelation: "casts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "customers_store_id_fkey"
             columns: ["store_id"]
@@ -3423,6 +3599,26 @@ export type Database = {
           start_time: string
         }[]
       }
+      get_therapist_customers: {
+        Args: { p_token: string }
+        Returns: {
+          concern_areas: string[]
+          conversation_level: string
+          customer_id: string
+          last_visited: string
+          my_last_visit: string
+          my_visit_count: number
+          name: string
+          ng_items: string
+          notes: string
+          phone: string
+          preference_notes: string
+          preferred_pressure: string
+          tags: string[]
+          total_spent: number
+          visit_count: number
+        }[]
+      }
       get_therapist_monthly_settlements: {
         Args: { p_month: number; p_token: string; p_year: number }
         Returns: {
@@ -3464,6 +3660,7 @@ export type Database = {
         Args: { p_cast_id: string; p_points: number }
         Returns: undefined
       }
+      norm_phone: { Args: { p: string }; Returns: string }
       record_page_view: { Args: { p_path: string }; Returns: undefined }
       refresh_monthly_report:
         | { Args: { p_month: string }; Returns: undefined }
@@ -3485,6 +3682,10 @@ export type Database = {
           p_token: string
         }
         Returns: string
+      }
+      sync_customer_stats_for: {
+        Args: { p_name: string; p_phone_raw: string; p_store: string }
+        Returns: undefined
       }
     }
     Enums: {

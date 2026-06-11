@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { NotionDatabaseView } from "@/components/database/NotionDatabaseView";
 import { Property, DatabaseRecord } from "@/components/database/types";
@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GoogleSheetPanel } from "@/components/GoogleSheetPanel";
 import { mapCustomerRows, batchInsert } from "@/lib/importMappers";
+import { CustomerPreferencesTab } from "@/components/customers/CustomerPreferencesTab";
+import { CustomerSalesTab } from "@/components/customers/CustomerSalesTab";
 
 const DEFAULT_PROPERTIES: Property[] = [
   { id: "name", name: "名前", type: "text", width: 140 },
@@ -57,6 +59,9 @@ export default function CustomerDatabase() {
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab = ["preferences", "sales", "sheet"].includes(tabParam || "") ? tabParam! : "db";
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -169,13 +174,25 @@ export default function CustomerDatabase() {
             <FileUp size={16} className="mr-2" />CSVインポート
           </Button>
         </div>
-        <Tabs defaultValue="db" className="flex-1 flex flex-col overflow-hidden">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setSearchParams(v === "db" ? {} : { tab: v }, { replace: true })}
+          className="flex-1 flex flex-col overflow-hidden"
+        >
           <TabsList className="mb-3 shrink-0">
             <TabsTrigger value="db">データベース</TabsTrigger>
+            <TabsTrigger value="preferences">好み</TabsTrigger>
+            <TabsTrigger value="sales">営業</TabsTrigger>
             <TabsTrigger value="sheet" className="gap-1.5">
               <Table2 size={13} />Googleスプレッドシート
             </TabsTrigger>
           </TabsList>
+          <TabsContent value="preferences" className="flex-1 overflow-hidden mt-0">
+            <CustomerPreferencesTab />
+          </TabsContent>
+          <TabsContent value="sales" className="flex-1 overflow-hidden mt-0">
+            <CustomerSalesTab />
+          </TabsContent>
           <TabsContent value="sheet" className="mt-0">
             <GoogleSheetPanel
               source="customers"

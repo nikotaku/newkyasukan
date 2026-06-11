@@ -65,6 +65,10 @@ export default function Education() {
   const [loading, setLoading] = useState(true);
   const [recordsLoading, setRecordsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [castSort, setCastSort] = useState<"name" | "progressAsc" | "progressDesc">("name");
+  const [moduleSort, setModuleSort] = useState<"category" | "status">("category");
+  // 全セラピストの受講状況（一覧の進捗率ソート用）key: `${cast_id}:${module_id}`
+  const [allStatuses, setAllStatuses] = useState<Record<string, string>>({});
   const [selectedCast, setSelectedCast] = useState<Cast | null>(null);
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [savingModule, setSavingModule] = useState<string | null>(null);
@@ -86,12 +90,16 @@ export default function Education() {
 
   const fetchBase = async () => {
     setLoading(true);
-    const [castsRes, modulesRes] = await Promise.all([
+    const [castsRes, modulesRes, recordsRes] = await Promise.all([
       supabase.from("casts").select("id,name,photo").order("name"),
       supabase.from("training_modules" as any).select("*").eq("is_active", true).order("display_order"),
+      supabase.from("cast_training_records" as any).select("cast_id, module_id, status"),
     ]);
     setCasts((castsRes.data || []) as Cast[]);
     setModules((modulesRes.data || []) as Module[]);
+    const statusMap: Record<string, string> = {};
+    ((recordsRes.data || []) as any[]).forEach((r) => { statusMap[`${r.cast_id}:${r.module_id}`] = r.status; });
+    setAllStatuses(statusMap);
     setLoading(false);
   };
 
@@ -146,6 +154,7 @@ export default function Education() {
     setSavingModule(null);
     if (error) { toast.error("保存に失敗しました"); return; }
     setRecords((prev) => ({ ...prev, [moduleId]: data as TrainingRecord }));
+    setAllStatuses((prev) => ({ ...prev, [`${selectedCast.id}:${moduleId}`]: (data as TrainingRecord).status }));
   };
 
   const quickSetStatus = (moduleId: string, status: TrainingRecord["status"]) => {
@@ -178,7 +187,30 @@ export default function Education() {
     fetchBase();
   };
 
-  const filtered = casts.filter((c) => c.name.includes(searchQuery));
+  // セラピストごとの完了率（一覧ソート・表示用）
+  const castProgress = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (modules.length === 0) return map;
+    for (const c of casts) {
+      let completed = 0;
+      for (const m of modules) {
+        if (allStatuses[`${c.id}:${m.id}`] === "completed") completed++;
+      }
+      map[c.id] = Math.round((completed / modules.length) * 100);
+    }
+    return map;
+  }, [casts, modules, allStatuses]);
+
+  const filtered = useMemo(() => {
+    const list = casts.filter((c) => c.name.includes(searchQuery));
+    if (castSort === "progressAsc") {
+      return [...list].sort((a, b) => (castProgress[a.id] ?? 0) - (castProgress[b.id] ?? 0));
+    }
+    if (castSort === "progressDesc") {
+      return [...list].sort((a, b) => (castProgress[b.id] ?? 0) - (castProgress[a.id] ?? 0));
+    }
+    return list;
+  }, [casts, searchQuery, castSort, castProgress]);
 
   // grouped modules by category
   const grouped = useMemo(() => {
@@ -188,6 +220,20 @@ export default function Education() {
     }
     return g;
   }, [modules]);
+
+  // 受講状況タブの項目グルーピング（カテゴリ別 or 受講状況別）
+  const moduleGroups = useMemo(() => {
+    if (moduleSort === "category") {
+      return Object.entries(grouped).map(([label, mods]) => ({ label, mods }));
+    }
+    const order: TrainingRecord["status"][] = ["not_started", "in_progress", "completed"];
+    return order
+      .map((st) => ({
+        label: STATUS_META[st].label,
+        mods: modules.filter((m) => (records[m.id]?.status ?? "not_started") === st),
+      }))
+      .filter((g) => g.mods.length > 0);
+  }, [moduleSort, grouped, modules, records]);
 
   // progress for selected cast
   const progress = useMemo(() => {
@@ -230,23 +276,42 @@ export default function Education() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left: cast list */}
                 <div>
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2 mb-2">
                     <Search size={16} className="text-muted-foreground" />
                     <Input placeholder="名前で検索..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                  </div>
+                  <div className="flex gap-1.5 mb-3">
+                    {([
+                      { key: "name", label: "名前順" },
+                      { key: "progressAsc", label: "進捗が低い順" },
+                      { key: "progressDesc", label: "進捗が高い順" },
+                    ] as const).map((s) => (
+                      <button key={s.key} onClick={() => setCastSort(s.key)}
+                        className={`text-xs px-2 py-1 rounded-full border transition-colors ${castSort === s.key ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted/50"}`}>
+                        {s.label}
+                      </button>
+                    ))}
                   </div>
                   {loading ? (
                     <div className="text-center text-muted-foreground py-4 text-sm">読み込み中...</div>
                   ) : (
                     <div className="space-y-1">
-                      {filtered.map((c) => (
-                        <button key={c.id} onClick={() => selectCast(c)}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${selectedCast?.id === c.id ? "bg-primary text-primary-foreground" : "hover:bg-muted/50"}`}>
-                          {c.photo && (
-                            <img src={driveImgUrl(c.photo, 100)} className="w-8 h-8 rounded object-cover object-top shrink-0" />
-                          )}
-                          <span className="truncate">{c.name}</span>
-                        </button>
-                      ))}
+                      {filtered.map((c) => {
+                        const pct = castProgress[c.id] ?? 0;
+                        const selected = selectedCast?.id === c.id;
+                        return (
+                          <button key={c.id} onClick={() => selectCast(c)}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${selected ? "bg-primary text-primary-foreground" : "hover:bg-muted/50"}`}>
+                            {c.photo && (
+                              <img src={driveImgUrl(c.photo, 100)} className="w-8 h-8 rounded object-cover object-top shrink-0" />
+                            )}
+                            <span className="truncate flex-1">{c.name}</span>
+                            <span className={`text-xs tabular-nums shrink-0 ${selected ? "text-primary-foreground/80" : pct >= 100 ? "text-green-600" : pct > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
+                              {pct}%
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -311,11 +376,25 @@ export default function Education() {
                         </Card>
                       )}
 
-                      {/* Curriculum by category */}
-                      {Object.entries(grouped).map(([category, mods]) => (
-                        <div key={category}>
+                      {/* 表示順切り替え */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground mr-1">表示順：</span>
+                        {([
+                          { key: "category", label: "カテゴリ別" },
+                          { key: "status", label: "受講状況別" },
+                        ] as const).map((s) => (
+                          <button key={s.key} onClick={() => setModuleSort(s.key)}
+                            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${moduleSort === s.key ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted/50"}`}>
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Curriculum grouped by category or status */}
+                      {moduleGroups.map(({ label, mods }) => (
+                        <div key={label}>
                           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                            <BookOpen size={13} />{category}
+                            <BookOpen size={13} />{label}
                           </p>
                           <div className="space-y-2">
                             {mods.map((m) => {

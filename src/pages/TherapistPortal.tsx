@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import backRatesImage from "@/assets/back-rates-table.jpg";
@@ -66,7 +66,25 @@ interface Room {
   entry_photos: string[] | null;
 }
 
-type View = "menu" | "settlement" | "transport" | "shift" | "entry";
+type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers";
+
+interface TherapistCustomer {
+  customer_id: string;
+  name: string;
+  phone: string;
+  visit_count: number | null;
+  total_spent: number | null;
+  last_visited: string | null;
+  tags: string[] | null;
+  notes: string | null;
+  preferred_pressure: string | null;
+  concern_areas: string[] | null;
+  conversation_level: string | null;
+  ng_items: string | null;
+  preference_notes: string | null;
+  my_visit_count: number;
+  my_last_visit: string | null;
+}
 
 const now = new Date();
 
@@ -102,6 +120,12 @@ export default function TherapistPortal() {
 
   // Clearance notification
   const [pendingClearance, setPendingClearance] = useState<PendingClearance | null>(null);
+
+  // Customers (顧客カルテ)
+  const [therapistCustomers, setTherapistCustomers] = useState<TherapistCustomer[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
 
   // Transport
   const [expenses, setExpenses] = useState<TransportExpense[]>([]);
@@ -155,6 +179,7 @@ export default function TherapistPortal() {
     if (view === "settlement" && cast) fetchSettlements();
     if (view === "transport" && cast) fetchExpenses();
     if (view === "shift" && cast) fetchShifts();
+    if (view === "customers" && cast && therapistCustomers.length === 0) fetchCustomers();
   }, [view, year, month, cast]);
 
   useEffect(() => {
@@ -196,6 +221,14 @@ export default function TherapistPortal() {
     if (error) toast.error("データの取得に失敗しました");
     else setSettlements((data || []) as Settlement[]);
     setSettlementLoading(false);
+  };
+
+  const fetchCustomers = async () => {
+    setCustomersLoading(true);
+    const { data, error } = await supabase.rpc("get_therapist_customers", { p_token: token });
+    if (error) toast.error("顧客データの取得に失敗しました");
+    else setTherapistCustomers((data || []) as TherapistCustomer[]);
+    setCustomersLoading(false);
   };
 
   const fetchExpenses = async () => {
@@ -275,6 +308,7 @@ export default function TherapistPortal() {
     { title: "バック表", description: "コース別・オプション別のバック率を確認", icon: Receipt, action: () => setShowBackRates(true) },
     { title: "交通費申請", description: "交通費の申請・申請履歴を確認", icon: Plane, action: () => setView("transport") },
     { title: "退勤フォーム", description: "売上入力・清掃チェック・フィードバック", icon: LogOut, action: () => navigate(`/therapist/${token}/checkout`) },
+    { title: "顧客カルテ", description: "担当したお客様の好み・来店履歴を確認", icon: Users, action: () => setView("customers") },
     { title: "入室方法", description: "各ルームへの入室手順・鍵の場所を確認", icon: DoorOpen, action: () => setView("entry") },
     { title: "振り込み申請", description: "報酬の振り込み申請フォーム", icon: ExternalLink, action: () => window.open("https://yoom.fun/5eee42a7-b4ff-49a8-8373-606c66495142/forms/shared/Cu2K735X9qaSAdMs45x6Bw", "_blank") },
   ];
@@ -332,7 +366,7 @@ export default function TherapistPortal() {
           <div className="min-w-0">
             <p className="font-bold text-base leading-tight truncate">{cast.name}様</p>
             <p className="text-xs text-muted-foreground">
-              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : "交通費申請"}
+              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : "交通費申請"}
             </p>
           </div>
         </div>
@@ -709,6 +743,75 @@ export default function TherapistPortal() {
             </div>
           </div>
         )}
+        {/* ── CUSTOMERS（顧客カルテ） ── */}
+        {view === "customers" && (
+          <div className="space-y-3">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="お客様の名前で検索"
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                className="pl-8 h-9"
+              />
+            </div>
+
+            {customersLoading ? (
+              <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>
+            ) : therapistCustomers.length === 0 ? (
+              <p className="text-center text-muted-foreground text-sm py-12">担当したお客様がまだいません</p>
+            ) : (
+              <div className="space-y-2">
+                {therapistCustomers
+                  .filter((c) => !customerSearch.trim() || c.name?.toLowerCase().includes(customerSearch.trim().toLowerCase()))
+                  .map((c) => {
+                    const expanded = expandedCustomer === c.customer_id;
+                    const hasPrefs = c.preferred_pressure || c.concern_areas?.length || c.conversation_level || c.ng_items || c.preference_notes;
+                    return (
+                      <div key={c.customer_id} className="rounded-xl border bg-card overflow-hidden">
+                        <button
+                          className="w-full px-4 py-3 flex items-center gap-3 text-left"
+                          onClick={() => setExpandedCustomer(expanded ? null : c.customer_id)}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm flex items-center gap-1.5">
+                              {c.name}様
+                              {hasPrefs && <Heart size={11} className="text-rose-400 shrink-0" />}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              担当{c.my_visit_count}回
+                              {c.my_last_visit && ` · 最終 ${format(new Date(c.my_last_visit), "M/d", { locale: ja })}`}
+                              {c.visit_count != null && ` · 全${c.visit_count}回来店`}
+                            </p>
+                          </div>
+                          {expanded ? <ChevronUp size={15} className="text-muted-foreground shrink-0" /> : <ChevronDown size={15} className="text-muted-foreground shrink-0" />}
+                        </button>
+                        {expanded && (
+                          <div className="px-4 pb-4 pt-1 border-t space-y-2 text-sm">
+                            {hasPrefs ? (
+                              <>
+                                {c.preferred_pressure && <p>圧の好み：<strong>{c.preferred_pressure}</strong></p>}
+                                {c.concern_areas?.length ? <p>気になる部位：<strong>{c.concern_areas.join("・")}</strong></p> : null}
+                                {c.conversation_level && <p>会話：<strong>{c.conversation_level}</strong></p>}
+                                {c.ng_items && <p className="text-orange-600 font-medium">⚠️ NG：{c.ng_items}</p>}
+                                {c.preference_notes && <p className="text-muted-foreground">{c.preference_notes}</p>}
+                              </>
+                            ) : (
+                              <p className="text-muted-foreground text-xs">好み情報はまだ登録されていません</p>
+                            )}
+                            {c.notes && (
+                              <p className="text-xs text-muted-foreground pt-1.5 border-t">メモ：{c.notes}</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── ENTRY ── */}
         {view === "entry" && (
           <div className="space-y-4">
