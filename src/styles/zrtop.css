@@ -26,7 +26,15 @@
   font-family:var(--mincho);font-weight:700;font-size:clamp(180px,42vw,420px);line-height:1;
   color:transparent;-webkit-text-stroke:1px rgba(216,178,90,.10);user-select:none;letter-spacing:-.04em;}
 .zrtop .hero .inner{position:relative;z-index:2;padding:clamp(34px,6vw,72px);max-width:62%;}
-@media(max-width:720px){.zrtop .hero .inner{max-width:90%;}}
+@media(max-width:720px){
+  /* ハンバーガー（fixed左上）と下部ロケーション表記に本文が被らないよう余白を確保 */
+  .zrtop .hero{min-height:480px;}
+  .zrtop .hero .inner{max-width:100%;padding:88px 26px 76px;}
+  .zrtop .hero h1{font-size:clamp(28px,8.5vw,34px);}
+  .zrtop .cta-row{flex-direction:column;align-items:stretch;gap:12px;}
+  .zrtop .cta-row .btn{justify-content:center;padding:14px 22px;}
+  .zrtop .hero .loc{left:26px;bottom:22px;font-size:9px;letter-spacing:.22em;}
+}
 .zrtop .overline{display:flex;align-items:center;gap:10px;font-family:var(--mincho);font-weight:600;
   letter-spacing:.34em;font-size:clamp(11px,1.5vw,13px);margin-bottom:clamp(16px,3vw,26px);}
 .zrtop .overline .dia{width:6px;height:6px;background:var(--gold-line);transform:rotate(45deg);flex:none;}
