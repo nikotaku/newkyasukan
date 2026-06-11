@@ -6,6 +6,7 @@ import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { WeeklyScheduleWidget } from "@/components/public/WeeklyScheduleWidget";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { usePageTracking } from "@/hooks/usePageTracking";
+import { useStore } from "@/hooks/useStore";
 import { ExternalLink, Menu } from "lucide-react";
 import { format } from "date-fns";
 import "@/styles/zrtop.css";
@@ -74,6 +75,7 @@ const Top = () => {
   const [coursesOpen, setCoursesOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const { storeId, loading: storeLoading } = useStore();
   usePageTracking();
 
   const storeSns = STORE_SNS_DEFS
@@ -82,16 +84,18 @@ const Top = () => {
 
   useEffect(() => {
     document.title = "全力エステ 仙台店｜仙台のメンズエステ";
+    if (storeLoading) return;
     fetchAll();
-  }, []);
+  }, [storeLoading, storeId]);
 
   const fetchAll = async () => {
     const [content, arts] = await Promise.all([
-      supabase.from("site_content").select("key, value").like("key", "store_sns_%"),
+      supabase.from("site_content").select("key, value").like("key", "store_sns_%").eq("store_id", storeId),
       supabase
         .from("hp_articles")
         .select("id, title, slug, content, category, created_at, image_urls")
         .eq("is_published", true)
+        .eq("store_id", storeId)
         .order("created_at", { ascending: false })
         .limit(10),
     ]);
