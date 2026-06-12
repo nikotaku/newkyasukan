@@ -19,6 +19,7 @@ import {
 import { Loader2, ArrowLeft, CheckCircle, RefreshCw, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { getBusinessDateFromCache, useShopSettings } from "@/hooks/useShopSettings";
 import { ja } from "date-fns/locale";
 import { calcPaymentFee, findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
 
@@ -107,7 +108,11 @@ export default function TherapistCheckout() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [paymentEdits, setPaymentEdits] = useState<Record<string, string>>({});
   const [reservationsLoading, setReservationsLoading] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [selectedDate, setSelectedDate] = useState(() => format(getBusinessDateFromCache(), "yyyy-MM-dd"));
+  const { loaded: settingsLoaded, businessToday } = useShopSettings();
+  useEffect(() => {
+    if (settingsLoaded) setSelectedDate(format(businessToday, "yyyy-MM-dd"));
+  }, [settingsLoaded]); // eslint-disable-line
 
   // マスターデータ
   const [backRates, setBackRates] = useState<BackRate[]>([]);

@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
+import { useShopSettings, getBusinessDateFromCache } from "@/hooks/useShopSettings";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, startOfDay } from "date-fns";
@@ -39,7 +40,7 @@ const TIME_SLOTS = Array.from({ length: 16 }, (_, i) => {
 
 export default function AvailableSlots() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(getBusinessDateFromCache);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +48,10 @@ export default function AvailableSlots() {
   const [casts, setCasts] = useState<{ id: string; name: string }[]>([]);
 
   const { user, loading: authLoading } = useAuth();
+  const { loaded: settingsLoaded, businessToday } = useShopSettings();
+  useEffect(() => {
+    if (settingsLoaded) setSelectedDate(businessToday);
+  }, [settingsLoaded]); // eslint-disable-line
   const navigate = useNavigate();
 
   useEffect(() => {

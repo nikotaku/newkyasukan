@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
 import { openSmsApp } from "@/lib/sms";
+import { getBusinessDateFromCache } from "@/hooks/useShopSettings";
 import { PaymentReminderPopup } from "@/components/PaymentReminderPopup";
 
 interface Cast {
@@ -185,7 +186,7 @@ function StatusBox({
 
 export default function Schedule() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(getBusinessDateFromCache);
   const [selectedView, setSelectedView] = useState<"cast" | "room">("cast");
   const [shifts, setShifts] = useState<(Shift & { cast: Cast })[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -199,7 +200,10 @@ export default function Schedule() {
   const [editStatus, setEditStatus] = useState<string>("confirmed");
 
   const { user, loading: authLoading, isAdmin } = useAuth();
-  const { dayStartTime } = useShopSettings();
+  const { dayStartTime, loaded: settingsLoaded, businessToday } = useShopSettings();
+  useEffect(() => {
+    if (settingsLoaded) setSelectedDate(businessToday);
+  }, [settingsLoaded]); // eslint-disable-line
   const navigate = useNavigate();
   const { toast } = useToast();
 

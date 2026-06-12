@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, Plus, User, Phone, Clock, CreditCard, Trash2, CalendarIcon, MessageSquare, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useShopSettings, getBusinessDateFromCache } from "@/hooks/useShopSettings";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
@@ -61,7 +62,7 @@ interface Reservation {
 
 const Shift = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }));
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(getBusinessDateFromCache(), { weekStartsOn: 0 }));
   const [searchTerm, setSearchTerm] = useState("");
   const [casts, setCasts] = useState<Cast[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -70,7 +71,7 @@ const Shift = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [reservationSearchTerm, setReservationSearchTerm] = useState("");
-  const [selectedScheduleDate, setSelectedScheduleDate] = useState<Date>(new Date());
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState<Date>(getBusinessDateFromCache);
   const [generatingSMS, setGeneratingSMS] = useState<string | null>(null);
   const [smsMessage, setSmsMessage] = useState<string>("");
   const [showSmsDialog, setShowSmsDialog] = useState(false);
@@ -100,7 +101,15 @@ const Shift = () => {
 
   const { toast } = useToast();
   const { user, loading: authLoading, isAdmin } = useAuth();
+  const { loaded: settingsLoaded, businessToday } = useShopSettings();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (settingsLoaded) {
+      setCurrentWeekStart(startOfWeek(businessToday, { weekStartsOn: 0 }));
+      setSelectedScheduleDate(businessToday);
+    }
+  }, [settingsLoaded]); // eslint-disable-line
 
   useEffect(() => {
     if (!authLoading && !user) {

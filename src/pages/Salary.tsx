@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useShopSettings, getBusinessDateFromCache } from "@/hooks/useShopSettings";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -58,8 +59,12 @@ interface CastSalary {
 
 export default function Salary() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(getBusinessDateFromCache);
   const [salaries, setSalaries] = useState<CastSalary[]>([]);
+  const { loaded: settingsLoaded, businessToday } = useShopSettings();
+  useEffect(() => {
+    if (settingsLoaded) setSelectedDate(businessToday);
+  }, [settingsLoaded]); // eslint-disable-line
   const [loading, setLoading] = useState(true);
   const [expandedCastId, setExpandedCastId] = useState<string | null>(null);
   const [expenseForms, setExpenseForms] = useState<Record<string, { type: string; amount: string; custom: string; saving: boolean }>>({});
