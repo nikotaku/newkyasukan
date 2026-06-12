@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
-import { useShopSettings } from "@/hooks/useShopSettings";
+import { useShopSettings, getBusinessDateFromCache } from "@/hooks/useShopSettings";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, addDays, isToday } from "date-fns";
@@ -82,14 +82,17 @@ const yen = (v: number) => v === 0 ? "¥0" : `¥${v.toLocaleString()}`;
 
 export default function SalesDailySales() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(getBusinessDateFromCache);
   const [castGroups, setCastGroups] = useState<CastGroup[]>([]);
   const [clearances, setClearances] = useState<Record<string, Clearance>>({});
   const [clearanceInputs, setClearanceInputs] = useState<Record<string, ClearanceInput>>({});
   const [loading, setLoading] = useState(true);
 
   const { user, loading: authLoading } = useAuth();
-  const { dayStartTime } = useShopSettings();
+  const { dayStartTime, loaded: settingsLoaded, businessToday } = useShopSettings();
+  useEffect(() => {
+    if (settingsLoaded) setSelectedDate(businessToday);
+  }, [settingsLoaded]); // eslint-disable-line
   const navigate = useNavigate();
 
   useEffect(() => {

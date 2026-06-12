@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { subDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ShopSettings {
@@ -10,6 +11,14 @@ const DEFAULT_SETTINGS: ShopSettings = {
 };
 
 let cachedSettings: ShopSettings | null = null;
+
+/** ページ初期化時（useState lazy init）で使う。キャッシュがあればそこから、なければ暦日ベースの今日を返す */
+export function getBusinessDateFromCache(): Date {
+  const now = new Date();
+  if (!cachedSettings) return now;
+  const h = parseInt(cachedSettings.business_day_start.split(":")[0], 10);
+  return now.getHours() < h ? subDays(now, 1) : now;
+}
 
 export function useShopSettings() {
   const [settings, setSettings] = useState<ShopSettings>(cachedSettings ?? DEFAULT_SETTINGS);
@@ -36,5 +45,12 @@ export function useShopSettings() {
     ? settings.business_day_start + ":00"
     : settings.business_day_start;
 
-  return { settings, loaded, dayStartTime };
+  // 「今日」の営業日: dayStartHour前は前日扱い
+  const businessToday = useMemo(() => {
+    const h = parseInt(settings.business_day_start.split(":")[0], 10);
+    const now = new Date();
+    return now.getHours() < h ? subDays(now, 1) : now;
+  }, [settings.business_day_start]);
+
+  return { settings, loaded, dayStartTime, businessToday };
 }

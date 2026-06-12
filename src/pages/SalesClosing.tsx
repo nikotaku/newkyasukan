@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { useShopSettings, getBusinessDateFromCache } from "@/hooks/useShopSettings";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -49,7 +50,7 @@ export default function SalesClosing() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Daily state
-  const [dailyDate, setDailyDate] = useState(new Date());
+  const [dailyDate, setDailyDate] = useState(getBusinessDateFromCache);
   const [dailyReservations, setDailyReservations] = useState<Reservation[]>([]);
   const [dailyClosing, setDailyClosing] = useState<Closing | null>(null);
   const [dailyNotes, setDailyNotes] = useState("");
@@ -65,6 +66,10 @@ export default function SalesClosing() {
   const [closingMonthly, setClosingMonthly] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
+  const { loaded: settingsLoaded, businessToday } = useShopSettings();
+  useEffect(() => {
+    if (settingsLoaded) setDailyDate(businessToday);
+  }, [settingsLoaded]); // eslint-disable-line
   const navigate = useNavigate();
 
   useEffect(() => {
