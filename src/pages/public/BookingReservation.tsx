@@ -370,7 +370,7 @@ const BookingReservation = () => {
     const checkDuration = 60; // Use 60min as default check duration for overview
 
     const slots: { time: string; available: boolean }[] = [];
-    for (let time = shiftStart; time + checkDuration <= shiftEnd; time += 30) {
+    for (let time = shiftStart; time + checkDuration <= shiftEnd; time += 10) {
       const hour = Math.floor(time / 60) % 24;
       const minute = time % 60;
       const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
@@ -467,9 +467,9 @@ const BookingReservation = () => {
     // インターバル時間（分）- 予約と予約の間に必要な準備時間
     const intervalMinutes = 30;
 
-    // 30分刻みで可能な時間を生成
+    // 10分刻みで可能な時間を生成
     const slots: string[] = [];
-    for (let time = shiftStart; time + duration <= shiftEnd; time += 30) {
+    for (let time = shiftStart; time + duration <= shiftEnd; time += 10) {
       const hour = Math.floor(time / 60) % 24;
       const minute = time % 60;
       const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
