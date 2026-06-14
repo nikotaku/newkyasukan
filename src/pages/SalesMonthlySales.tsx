@@ -7,6 +7,19 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
+import { ChevronDown, ChevronRight } from "lucide-react";
+
+interface DailyRow {
+  date: string;
+  castName: string;
+  totalSales: number;
+  therapistBack: number;
+  miscExpenses: number;
+  accommodationFee: number;
+  transportationFee: number;
+  otherExpenses: number;
+  payoutAmount: number;
+}
 
 interface MonthlySummary {
   month: string;
@@ -18,6 +31,7 @@ interface MonthlySummary {
   otherExpenses: number;
   payoutAmount: number;
   recordCount: number;
+  dailyRows: DailyRow[];
 }
 
 const yen = (v: number) => (v === 0 ? "¥0" : `¥${v.toLocaleString()}`);
@@ -26,6 +40,7 @@ export default function SalesMonthlySales() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [summaries, setSummaries] = useState<MonthlySummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -43,12 +58,12 @@ export default function SalesMonthlySales() {
     try {
       const { data, error } = await supabase
         .from("daily_clearances")
-        .select("date, total_sales, therapist_back, misc_expenses, accommodation_fee, transportation_fee, other_expenses, payout_amount")
+        .select("date, total_sales, therapist_back, misc_expenses, accommodation_fee, transportation_fee, other_expenses, payout_amount, casts(name)")
         .order("date", { ascending: false });
       if (error) throw error;
 
       const byMonth: Record<string, MonthlySummary> = {};
-      for (const row of data || []) {
+      for (const row of (data || []) as any[]) {
         const month = row.date.slice(0, 7);
         if (!byMonth[month]) {
           byMonth[month] = {
@@ -61,20 +76,32 @@ export default function SalesMonthlySales() {
             otherExpenses: 0,
             payoutAmount: 0,
             recordCount: 0,
+            dailyRows: [],
           };
         }
         const m = byMonth[month];
+        const others = Array.isArray(row.other_expenses) ? row.other_expenses : [];
+        const otherTotal = (others as { amount?: number }[]).reduce((s, o) => s + (o.amount ?? 0), 0);
+
         m.totalSales += row.total_sales ?? 0;
         m.therapistBack += row.therapist_back ?? 0;
         m.miscExpenses += row.misc_expenses ?? 0;
         m.accommodationFee += row.accommodation_fee ?? 0;
         m.transportationFee += row.transportation_fee ?? 0;
+        m.otherExpenses += otherTotal;
         m.payoutAmount += row.payout_amount ?? 0;
         m.recordCount += 1;
-        const others = Array.isArray(row.other_expenses) ? row.other_expenses : [];
-        for (const o of others as { amount?: number }[]) {
-          m.otherExpenses += o.amount ?? 0;
-        }
+        m.dailyRows.push({
+          date: row.date,
+          castName: row.casts?.name ?? "不明",
+          totalSales: row.total_sales ?? 0,
+          therapistBack: row.therapist_back ?? 0,
+          miscExpenses: row.misc_expenses ?? 0,
+          accommodationFee: row.accommodation_fee ?? 0,
+          transportationFee: row.transportation_fee ?? 0,
+          otherExpenses: otherTotal,
+          payoutAmount: row.payout_amount ?? 0,
+        });
       }
 
       setSummaries(
@@ -85,6 +112,15 @@ export default function SalesMonthlySales() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleExpand = (month: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(month)) next.delete(month);
+      else next.add(month);
+      return next;
+    });
   };
 
   const totals = summaries.reduce(
@@ -119,7 +155,7 @@ export default function SalesMonthlySales() {
         <div className="max-w-7xl mx-auto">
           <div className="mb-6">
             <h1 className="text-2xl font-bold">月別サマリー</h1>
-            <p className="text-sm text-muted-foreground mt-1">日別精算データの月別集計</p>
+            <p className="text-sm text-muted-foreground mt-1">月をタップすると日別内訳を表示</p>
           </div>
 
           {loading ? (
@@ -147,21 +183,50 @@ export default function SalesMonthlySales() {
                       </tr>
                     </thead>
                     <tbody>
-                      {summaries.map((s) => (
-                        <tr key={s.month} className="border-b hover:bg-muted/30 transition-colors">
-                          <td className="py-3 px-4 font-semibold whitespace-nowrap">
-                            {format(parseISO(`${s.month}-01`), "yyyy年M月", { locale: ja })}
-                          </td>
-                          {cols.map((c) => (
-                            <td key={c.key} className={`py-3 px-4 tabular-nums text-right whitespace-nowrap ${c.className}`}>
-                              {yen(s[c.key])}
-                            </td>
-                          ))}
-                          <td className="py-3 px-4 text-right text-muted-foreground tabular-nums">
-                            {s.recordCount}
-                          </td>
-                        </tr>
-                      ))}
+                      {summaries.map((s) => {
+                        const isOpen = expanded.has(s.month);
+                        return (
+                          <>
+                            {/* 月行 */}
+                            <tr
+                              key={s.month}
+                              className="border-b hover:bg-muted/30 transition-colors cursor-pointer select-none"
+                              onClick={() => toggleExpand(s.month)}
+                            >
+                              <td className="py-3 px-4 font-semibold whitespace-nowrap">
+                                <span className="flex items-center gap-1">
+                                  {isOpen ? <ChevronDown size={14} className="text-muted-foreground" /> : <ChevronRight size={14} className="text-muted-foreground" />}
+                                  {format(parseISO(`${s.month}-01`), "yyyy年M月", { locale: ja })}
+                                </span>
+                              </td>
+                              {cols.map((c) => (
+                                <td key={c.key} className={`py-3 px-4 tabular-nums text-right whitespace-nowrap ${c.className}`}>
+                                  {yen(s[c.key])}
+                                </td>
+                              ))}
+                              <td className="py-3 px-4 text-right text-muted-foreground tabular-nums">
+                                {s.recordCount}
+                              </td>
+                            </tr>
+
+                            {/* 日別内訳行 */}
+                            {isOpen && s.dailyRows.map((d, i) => (
+                              <tr key={`${d.date}-${i}`} className="border-b bg-muted/10 text-xs">
+                                <td className="py-2 pl-9 pr-4 text-muted-foreground whitespace-nowrap">
+                                  {format(parseISO(d.date), "M/d(E)", { locale: ja })}
+                                  <span className="ml-2 text-foreground/70">{d.castName}</span>
+                                </td>
+                                {cols.map((c) => (
+                                  <td key={c.key} className={`py-2 px-4 tabular-nums text-right whitespace-nowrap ${c.className} opacity-80`}>
+                                    {yen(d[c.key])}
+                                  </td>
+                                ))}
+                                <td />
+                              </tr>
+                            ))}
+                          </>
+                        );
+                      })}
                     </tbody>
                     <tfoot className="border-t-2 border-border bg-muted/20">
                       <tr>
