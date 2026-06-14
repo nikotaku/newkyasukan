@@ -84,7 +84,7 @@ export default function SalesDashboard() {
       title: "売上",
       modules: [
         { href: "/sales/pending-reports", label: "確認待ちボックス", icon: Inbox, description: "確認待ちの売上報告" },
-        { href: "/sales/monthly-sales", label: "月別売上", icon: CalendarRange, description: "月別の売上集計" },
+        { href: "/sales/monthly-sales", label: "月別サマリー", icon: CalendarRange, description: "日別精算の月別集計" },
         { href: "/sales/daily-sales", label: "日別清算", icon: CalendarCheck, description: "日別の清算管理" },
         { href: "/sales/card-sales", label: "カード売上", icon: CreditCard, description: "カード決済の売上" },
         { href: "/sales/paypay-sales", label: "PayPay売上", icon: Wallet, description: "PayPay決済の売上" },
