@@ -10,7 +10,7 @@ import { ja } from "date-fns/locale";
 
 interface MonthlySummary {
   month: string;
-  totalSales: number;
+  totalSales: number;       // 予約DBから（日別精算と同じ計算）
   therapistBack: number;
   miscExpenses: number;
   accommodationFee: number;
@@ -41,15 +41,22 @@ export default function SalesMonthlySales() {
   const fetchSummaries = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("daily_clearances")
-        .select("date, total_sales, therapist_back, misc_expenses, accommodation_fee, transportation_fee, other_expenses, payout_amount")
-        .order("date", { ascending: false });
-      if (error) throw error;
+      // 売上: 予約DBから（キャンセル以外、日別精算と同じソース）
+      const [resResult, dcResult] = await Promise.all([
+        supabase
+          .from("reservations")
+          .select("reservation_date, price, payment_fee")
+          .eq("store_id", "00000000-0000-0000-0000-000000000001")
+          .neq("status", "cancelled"),
+        supabase
+          .from("daily_clearances")
+          .select("date, therapist_back, misc_expenses, accommodation_fee, transportation_fee, other_expenses, payout_amount")
+          .order("date", { ascending: false }),
+      ]);
 
       const byMonth: Record<string, MonthlySummary> = {};
-      for (const row of data || []) {
-        const month = row.date.slice(0, 7);
+
+      const ensure = (month: string) => {
         if (!byMonth[month]) {
           byMonth[month] = {
             month,
@@ -63,8 +70,19 @@ export default function SalesMonthlySales() {
             recordCount: 0,
           };
         }
-        const m = byMonth[month];
-        m.totalSales += row.total_sales ?? 0;
+        return byMonth[month];
+      };
+
+      // 予約から売上を月別集計
+      for (const r of resResult.data || []) {
+        const month = r.reservation_date.slice(0, 7);
+        ensure(month).totalSales += (r.price ?? 0) + (r.payment_fee ?? 0);
+      }
+
+      // daily_clearancesから費用を月別集計
+      for (const row of dcResult.data || []) {
+        const month = row.date.slice(0, 7);
+        const m = ensure(month);
         m.therapistBack += row.therapist_back ?? 0;
         m.miscExpenses += row.misc_expenses ?? 0;
         m.accommodationFee += row.accommodation_fee ?? 0;
@@ -127,7 +145,7 @@ export default function SalesMonthlySales() {
           ) : summaries.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
-                精算データがありません
+                データがありません
               </CardContent>
             </Card>
           ) : (
