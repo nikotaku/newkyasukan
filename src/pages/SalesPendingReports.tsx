@@ -15,6 +15,7 @@ import { Check, RefreshCw } from "lucide-react";
 interface SalesRecord {
   id: string;
   date: string;
+  cast_id: string | null;
   cash_amount: number;
   card_amount: number;
   paypay_amount: number;
@@ -65,6 +66,8 @@ export default function SalesPendingReports() {
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // key: "YYYY-MM-DD_castId" → 予約合計金額
+  const [reservationTotals, setReservationTotals] = useState<Record<string, number>>({});
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -84,7 +87,7 @@ export default function SalesPendingReports() {
       const [s, c, f] = await Promise.all([
         supabase
           .from("daily_sales_records")
-          .select("*, casts(name)")
+          .select("*, cast_id, casts(name)")
           .in("status", statusFilter)
           .order("date", { ascending: false }),
         supabase
@@ -98,9 +101,26 @@ export default function SalesPendingReports() {
           .in("status", statusFilter)
           .order("date", { ascending: false }),
       ]);
-      setSalesRecords((s.data as SalesRecord[]) || []);
+      const salesData = (s.data as SalesRecord[]) || [];
+      setSalesRecords(salesData);
       setCleaningRecords((c.data as CleaningRecord[]) || []);
       setFeedbackRecords((f.data as FeedbackRecord[]) || []);
+
+      // 予約合計を (date, cast_id) ごとに取得
+      const uniqueDates = [...new Set(salesData.map((r) => r.date))];
+      if (uniqueDates.length > 0) {
+        const { data: resData } = await supabase
+          .from("reservations")
+          .select("cast_id, reservation_date, price, payment_fee")
+          .in("reservation_date", uniqueDates)
+          .neq("status", "cancelled");
+        const totalsMap: Record<string, number> = {};
+        for (const res of resData || []) {
+          const key = `${res.reservation_date}_${res.cast_id}`;
+          totalsMap[key] = (totalsMap[key] ?? 0) + (res.price ?? 0) + (res.payment_fee ?? 0);
+        }
+        setReservationTotals(totalsMap);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -200,11 +220,15 @@ export default function SalesPendingReports() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {salesRecords.map((r) => (
-                  <Card key={r.id}>
+                {salesRecords.map((r) => {
+                  const resTotal = r.cast_id ? (reservationTotals[`${r.date}_${r.cast_id}`] ?? null) : null;
+                  const diff = resTotal !== null ? r.total_amount - resTotal : null;
+                  const hasDiff = diff !== null && diff !== 0;
+                  return (
+                  <Card key={r.id} className={hasDiff ? "border-orange-300" : ""}>
                     <CardContent className="pt-4 pb-4">
                       <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold">{fmtDate(r.date)}</span>
                             <span className="text-sm text-muted-foreground">{r.casts?.name ?? "不明"}</span>
@@ -213,14 +237,29 @@ export default function SalesPendingReports() {
                             ) : (
                               <Badge variant="destructive">未確認</Badge>
                             )}
+                            {hasDiff && (
+                              <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-xs">差異あり</Badge>
+                            )}
                           </div>
-                          <div className="flex gap-4 text-sm tabular-nums">
-                            <span>合計 <strong>{yen(r.total_amount)}</strong></span>
+                          <div className="flex flex-wrap gap-3 text-sm tabular-nums">
+                            <span>申請額 <strong>{yen(r.total_amount)}</strong></span>
                             <span className="text-muted-foreground">現金 {yen(r.cash_amount)}</span>
                             <span className="text-muted-foreground">カード {yen(r.card_amount)}</span>
                             <span className="text-muted-foreground">PayPay {yen(r.paypay_amount)}</span>
                             <span className="text-muted-foreground">{r.customer_count}件</span>
                           </div>
+                          {/* 予約データとの比較 */}
+                          {resTotal !== null && (
+                            <div className={`flex items-center gap-2 text-xs px-2 py-1 rounded ${hasDiff ? "bg-orange-50 text-orange-700" : "bg-green-50 text-green-700"}`}>
+                              <span>予約データ合計: <strong>{yen(resTotal)}</strong></span>
+                              {hasDiff && (
+                                <span className="font-semibold">
+                                  （{diff! > 0 ? "+" : ""}{yen(diff!)} のズレ）
+                                </span>
+                              )}
+                              {!hasDiff && <span>✓ 一致</span>}
+                            </div>
+                          )}
                           {r.notes && <p className="text-xs text-muted-foreground">{r.notes}</p>}
                         </div>
                         {r.status === "pending" && (
@@ -235,7 +274,8 @@ export default function SalesPendingReports() {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                  );
+                })}
               </div>
             )
           ) : tab === "cleaning" ? (
