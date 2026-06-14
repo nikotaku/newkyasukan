@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
-  FileText,
-  Users,
-  Tag,
   Inbox,
   CalendarRange,
   CalendarCheck,
@@ -16,7 +13,6 @@ import {
   MinusCircle,
   Gift,
   ClipboardList,
-  BarChart3,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
@@ -84,15 +80,6 @@ export default function SalesDashboard() {
     title: string;
     modules: { href: string; label: string; icon: any; description: string }[];
   }[] = [
-    {
-      title: "レポート",
-      modules: [
-        { href: "/report", label: "レポート", icon: FileText, description: "売上レポートの確認" },
-        { href: "/sales/data", label: "売上データ", icon: BarChart3, description: "売上データの一覧" },
-        { href: "/sales/therapist-breakdown", label: "セラピスト別", icon: Users, description: "セラピスト別の売上内訳" },
-        { href: "/sales/price-analysis", label: "単価", icon: Tag, description: "単価の分析" },
-      ],
-    },
     {
       title: "売上",
       modules: [
