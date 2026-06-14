@@ -263,13 +263,24 @@ export default function SalesPendingReports() {
                           {r.notes && <p className="text-xs text-muted-foreground">{r.notes}</p>}
                         </div>
                         {r.status === "pending" && (
-                          <Button
-                            size="sm"
-                            onClick={() => confirmSales(r.id)}
-                            disabled={confirming === r.id}
-                          >
-                            <Check size={14} className="mr-1" />確認
-                          </Button>
+                          hasDiff ? (
+                            <Button
+                              size="sm"
+                              className="bg-orange-500 hover:bg-orange-600 text-white"
+                              onClick={() => confirmSales(r.id)}
+                              disabled={confirming === r.id}
+                            >
+                              <Check size={14} className="mr-1" />申告を承認する
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => confirmSales(r.id)}
+                              disabled={confirming === r.id}
+                            >
+                              <Check size={14} className="mr-1" />確認
+                            </Button>
+                          )
                         )}
                       </div>
                     </CardContent>
