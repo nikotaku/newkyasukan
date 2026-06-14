@@ -369,6 +369,14 @@ ${portalUrl}
   const dateStr = format(selectedDate, "yyyy-MM-dd");
   const allCleared = castGroups.length > 0 && castGroups.every((g) => clearances[g.castId]);
 
+  // 当日合計
+  const dayTotalSales = castGroups.reduce((s, g) => s + g.totalSales, 0);
+  const dayTotalBack = castGroups.reduce((s, g) => s + (clearanceInputs[g.castId]?.therapistBack ?? 0), 0);
+  const dayTotalMisc = castGroups.reduce((s, g) => s + (clearanceInputs[g.castId]?.miscExpenses ?? 0), 0);
+  const dayTotalAccom = castGroups.reduce((s, g) => s + (clearanceInputs[g.castId]?.accommodationFee ?? 0), 0);
+  const dayTotalTransport = castGroups.reduce((s, g) => s + (clearanceInputs[g.castId]?.transportationFee ?? 0), 0);
+  const dayTotalOther = castGroups.reduce((s, g) => (clearanceInputs[g.castId]?.otherItems ?? []).reduce((os, i) => os + i.amount, 0) + s, 0);
+
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
@@ -397,6 +405,29 @@ ${portalUrl}
               </Button>
             </div>
           </div>
+
+          {/* 当日合計サマリー */}
+          {!loading && castGroups.length > 0 && (
+            <Card className="mb-4">
+              <CardContent className="py-3 px-4">
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center">
+                  {[
+                    { label: "売上", value: dayTotalSales, className: "font-bold" },
+                    { label: "報酬", value: dayTotalBack, className: "font-bold text-blue-700" },
+                    { label: "雑費", value: dayTotalMisc, className: "font-bold text-orange-600" },
+                    { label: "宿泊費", value: dayTotalAccom, className: "font-bold text-orange-600" },
+                    { label: "交通費", value: dayTotalTransport, className: "font-bold text-green-700" },
+                    { label: "その他", value: dayTotalOther, className: "font-bold text-rose-600" },
+                  ].map(({ label, value, className }) => (
+                    <div key={label}>
+                      <p className="text-[11px] text-muted-foreground mb-0.5">{label}</p>
+                      <p className={`text-sm tabular-nums ${className}`}>{yen(value)}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {loading ? (
             <div className="flex justify-center py-16"><Loader2 className="animate-spin text-muted-foreground" /></div>
