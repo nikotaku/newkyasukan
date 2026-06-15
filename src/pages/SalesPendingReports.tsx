@@ -11,6 +11,7 @@ import { format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
 import { toast } from "sonner";
 import { Check, RefreshCw } from "lucide-react";
+import { toExtTime } from "@/lib/timeFormat";
 
 interface SalesRecord {
   id: string;
@@ -25,6 +26,15 @@ interface SalesRecord {
   status: string;
   created_at: string;
   casts: { name: string } | null;
+}
+
+interface ReservationDetail {
+  customer_name: string;
+  course_name: string;
+  price: number;
+  payment_fee: number;
+  options: string[];
+  start_time: string | null;
 }
 
 interface CleaningRecord {
@@ -66,8 +76,10 @@ export default function SalesPendingReports() {
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  // key: "YYYY-MM-DD_castId" → 予約合計金額
-  const [reservationTotals, setReservationTotals] = useState<Record<string, number>>({});
+  // key: "YYYY-MM-DD_castId" → 予約詳細リスト
+  const [reservationsByKey, setReservationsByKey] = useState<Record<string, ReservationDetail[]>>({});
+  // option_name → customer_price
+  const [optionPriceMap, setOptionPriceMap] = useState<Record<string, number>>({});
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -84,7 +96,7 @@ export default function SalesPendingReports() {
     setLoading(true);
     try {
       const statusFilter = showAll ? ["pending", "confirmed"] : ["pending"];
-      const [s, c, f] = await Promise.all([
+      const [s, c, f, optResult] = await Promise.all([
         supabase
           .from("daily_sales_records")
           .select("*, cast_id, casts(name)")
@@ -100,26 +112,47 @@ export default function SalesPendingReports() {
           .select("*, casts(name)")
           .in("status", statusFilter)
           .order("date", { ascending: false }),
+        supabase
+          .from("option_rates")
+          .select("option_name, customer_price"),
       ]);
+
       const salesData = (s.data as SalesRecord[]) || [];
       setSalesRecords(salesData);
       setCleaningRecords((c.data as CleaningRecord[]) || []);
       setFeedbackRecords((f.data as FeedbackRecord[]) || []);
 
-      // 予約合計を (date, cast_id) ごとに取得
+      // オプション料金マップ
+      const priceMap: Record<string, number> = {};
+      for (const o of (optResult.data || []) as any[]) {
+        priceMap[o.option_name] = o.customer_price ?? 0;
+      }
+      setOptionPriceMap(priceMap);
+
+      // 予約詳細を (date, cast_id) ごとに取得
       const uniqueDates = [...new Set(salesData.map((r) => r.date))];
       if (uniqueDates.length > 0) {
         const { data: resData } = await supabase
           .from("reservations")
-          .select("cast_id, reservation_date, price, payment_fee")
+          .select("cast_id, reservation_date, price, payment_fee, customer_name, course_name, start_time, options")
           .in("reservation_date", uniqueDates)
-          .neq("status", "cancelled");
-        const totalsMap: Record<string, number> = {};
-        for (const res of resData || []) {
+          .neq("status", "cancelled")
+          .order("start_time", { ascending: true });
+
+        const detailsMap: Record<string, ReservationDetail[]> = {};
+        for (const res of (resData || []) as any[]) {
           const key = `${res.reservation_date}_${res.cast_id}`;
-          totalsMap[key] = (totalsMap[key] ?? 0) + (res.price ?? 0) + (res.payment_fee ?? 0);
+          if (!detailsMap[key]) detailsMap[key] = [];
+          detailsMap[key].push({
+            customer_name: res.customer_name ?? "不明",
+            course_name: res.course_name ?? "不明",
+            price: res.price ?? 0,
+            payment_fee: res.payment_fee ?? 0,
+            options: Array.isArray(res.options) ? res.options : [],
+            start_time: res.start_time ?? null,
+          });
         }
-        setReservationTotals(totalsMap);
+        setReservationsByKey(detailsMap);
       }
     } catch (e) {
       console.error(e);
@@ -221,70 +254,104 @@ export default function SalesPendingReports() {
             ) : (
               <div className="space-y-3">
                 {salesRecords.map((r) => {
-                  const resTotal = r.cast_id ? (reservationTotals[`${r.date}_${r.cast_id}`] ?? null) : null;
+                  const resDetails = r.cast_id ? (reservationsByKey[`${r.date}_${r.cast_id}`] ?? []) : [];
+                  const resTotal = resDetails.length > 0
+                    ? resDetails.reduce((s, rd) => s + rd.price + rd.payment_fee, 0)
+                    : null;
                   const diff = resTotal !== null ? r.total_amount - resTotal : null;
                   const hasDiff = diff !== null && diff !== 0;
                   return (
-                  <Card key={r.id} className={hasDiff ? "border-orange-300" : ""}>
-                    <CardContent className="pt-4 pb-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-1.5 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{fmtDate(r.date)}</span>
-                            <span className="text-sm text-muted-foreground">{r.casts?.name ?? "不明"}</span>
-                            {r.status === "confirmed" ? (
-                              <Badge variant="secondary">確認済</Badge>
-                            ) : (
-                              <Badge variant="destructive">未確認</Badge>
-                            )}
-                            {hasDiff && (
-                              <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-xs">差異あり</Badge>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-3 text-sm tabular-nums">
-                            <span>申請額 <strong>{yen(r.total_amount)}</strong></span>
-                            <span className="text-muted-foreground">現金 {yen(r.cash_amount)}</span>
-                            <span className="text-muted-foreground">カード {yen(r.card_amount)}</span>
-                            <span className="text-muted-foreground">PayPay {yen(r.paypay_amount)}</span>
-                            <span className="text-muted-foreground">{r.customer_count}件</span>
-                          </div>
-                          {/* 予約データとの比較 */}
-                          {resTotal !== null && (
-                            <div className={`flex items-center gap-2 text-xs px-2 py-1 rounded ${hasDiff ? "bg-orange-50 text-orange-700" : "bg-green-50 text-green-700"}`}>
-                              <span>予約データ合計: <strong>{yen(resTotal)}</strong></span>
-                              {hasDiff && (
-                                <span className="font-semibold">
-                                  （{diff! > 0 ? "+" : ""}{yen(diff!)} のズレ）
-                                </span>
+                    <Card key={r.id} className={hasDiff ? "border-orange-300" : ""}>
+                      <CardContent className="pt-4 pb-4">
+                        {/* ヘッダー行 */}
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="space-y-1.5 flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold">{fmtDate(r.date)}</span>
+                              <span className="text-sm text-muted-foreground">{r.casts?.name ?? "不明"}</span>
+                              {r.status === "confirmed" ? (
+                                <Badge variant="secondary">確認済</Badge>
+                              ) : (
+                                <Badge variant="destructive">未確認</Badge>
                               )}
-                              {!hasDiff && <span>✓ 一致</span>}
+                              {hasDiff && (
+                                <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-xs">差異あり</Badge>
+                              )}
                             </div>
-                          )}
-                          {r.notes && <p className="text-xs text-muted-foreground">{r.notes}</p>}
-                        </div>
-                        {r.status === "pending" && (
-                          hasDiff ? (
+
+                            {/* 申告額サマリー */}
+                            <div className="flex flex-wrap gap-3 text-sm tabular-nums">
+                              <span>申請額 <strong>{yen(r.total_amount)}</strong></span>
+                              <span className="text-muted-foreground">現金 {yen(r.cash_amount)}</span>
+                              <span className="text-muted-foreground">カード {yen(r.card_amount)}</span>
+                              <span className="text-muted-foreground">PayPay {yen(r.paypay_amount)}</span>
+                              <span className="text-muted-foreground">{r.customer_count}件</span>
+                            </div>
+
+                            {/* 予約詳細（DBから取得した予約1件ずつ） */}
+                            {resDetails.length > 0 && (
+                              <div className="mt-2 space-y-1.5">
+                                {resDetails.map((rd, i) => {
+                                  const optTotal = rd.options.reduce((s, o) => s + (optionPriceMap[o] ?? 0), 0);
+                                  return (
+                                    <div key={i} className="text-xs bg-muted/30 rounded px-2.5 py-2">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="font-medium">
+                                          {rd.start_time ? `${toExtTime(rd.start_time)} ` : ""}
+                                          {rd.customer_name}｜{rd.course_name}
+                                        </span>
+                                        <span className="tabular-nums font-semibold flex-shrink-0">
+                                          {yen(rd.price + rd.payment_fee)}
+                                        </span>
+                                      </div>
+                                      {rd.options.length > 0 && (
+                                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 pl-1 text-muted-foreground">
+                                          {rd.options.map((o, j) => (
+                                            <span key={j} className="text-blue-600">
+                                              +{o}{optionPriceMap[o] !== undefined ? ` ${yen(optionPriceMap[o])}` : ""}
+                                            </span>
+                                          ))}
+                                          {optTotal > 0 && (
+                                            <span className="text-muted-foreground">（OP合計 {yen(optTotal)}）</span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* 予約データとの合計比較 */}
+                            {resTotal !== null && (
+                              <div className={`flex items-center gap-2 text-xs px-2 py-1 rounded ${hasDiff ? "bg-orange-50 text-orange-700" : "bg-green-50 text-green-700"}`}>
+                                <span>予約データ合計: <strong>{yen(resTotal)}</strong></span>
+                                {hasDiff && (
+                                  <span className="font-semibold">
+                                    （{diff! > 0 ? "+" : ""}{yen(diff!)} のズレ）
+                                  </span>
+                                )}
+                                {!hasDiff && <span>✓ 一致</span>}
+                              </div>
+                            )}
+
+                            {r.notes && <p className="text-xs text-muted-foreground">{r.notes}</p>}
+                          </div>
+
+                          {/* 承認ボタン */}
+                          {r.status === "pending" && (
                             <Button
                               size="sm"
-                              className="bg-orange-500 hover:bg-orange-600 text-white"
+                              className={hasDiff ? "bg-orange-500 hover:bg-orange-600 text-white flex-shrink-0" : "flex-shrink-0"}
                               onClick={() => confirmSales(r.id)}
                               disabled={confirming === r.id}
                             >
                               <Check size={14} className="mr-1" />申告を承認する
                             </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() => confirmSales(r.id)}
-                              disabled={confirming === r.id}
-                            >
-                              <Check size={14} className="mr-1" />確認
-                            </Button>
-                          )
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
                   );
                 })}
               </div>
