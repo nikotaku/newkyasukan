@@ -225,13 +225,39 @@ export default function TherapistCheckout() {
     if (!editStates[r.id]) {
       const courseType = r.course_type ?? (courseTypes[0] || "");
       const duration = r.duration ?? (backRates.find(b => b.course_type === courseType)?.duration ?? 60);
+
+      // 既存の割引額からdiscount_idを逆引き
+      let discount_id = "none";
+      if ((r.discount ?? 0) > 0) {
+        const basePrice = backRates.find(b => b.course_type === courseType && b.duration === duration)?.customer_price ?? 0;
+        const optionTotal = (r.options ?? []).reduce((s, o) => {
+          const or = optionRates.find(x => x.option_name === o);
+          return s + (or?.customer_price ?? 0);
+        }, 0);
+        const nominationFee = (r.nomination_type && r.nomination_type !== "none")
+          ? (nominationRates.find(nr => nr.nomination_type === r.nomination_type)?.customer_price ?? 0)
+          : 0;
+        const subtotal = basePrice + optionTotal + nominationFee;
+
+        const fixedMatch = discounts.find(d => d.discount_type === "fixed" && d.discount_value === r.discount);
+        if (fixedMatch) {
+          discount_id = fixedMatch.id;
+        } else {
+          const pctMatch = discounts.find(d =>
+            d.discount_type === "percentage" &&
+            Math.round((subtotal * d.discount_value) / 100) === r.discount
+          );
+          if (pctMatch) discount_id = pctMatch.id;
+        }
+      }
+
       setEditStates(prev => ({
         ...prev,
         [r.id]: {
           course_type: courseType,
           duration,
           selectedOptions: r.options ?? [],
-          discount_id: "none",
+          discount_id,
           payment_method: r.payment_method || "cash",
           nomination_type: r.nomination_type ?? "none",
         },
