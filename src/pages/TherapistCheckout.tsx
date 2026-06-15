@@ -43,6 +43,7 @@ interface Reservation {
   duration: number | null;
   options: string[] | null;
   discount: number | null;
+  discount_ids: string[] | null;
   price: number;
   payment_method: string;
   payment_details: PaymentDetail[] | null;
@@ -194,7 +195,7 @@ export default function TherapistCheckout() {
     try {
       const { data, error } = await supabase
         .from("reservations")
-        .select("id, customer_name, start_time, course_name, course_type, duration, options, discount, price, payment_method, payment_details, payment_fee, status, nomination_type")
+        .select("id, customer_name, start_time, course_name, course_type, duration, options, discount, discount_ids, price, payment_method, payment_details, payment_fee, status, nomination_type")
         .eq("cast_id", cast.id)
         .eq("reservation_date", selectedDate)
         .order("start_time");
@@ -226,9 +227,12 @@ export default function TherapistCheckout() {
       const courseType = r.course_type ?? (courseTypes[0] || "");
       const duration = r.duration ?? (backRates.find(b => b.course_type === courseType)?.duration ?? 60);
 
-      // 既存の割引額からdiscount_idを逆引き
+      // discount_ids から直接取得（なければ金額で逆引き）
       let discount_id = "none";
-      if ((r.discount ?? 0) > 0) {
+      const storedDiscountId = r.discount_ids?.[0];
+      if (storedDiscountId && discounts.find(d => d.id === storedDiscountId)) {
+        discount_id = storedDiscountId;
+      } else if ((r.discount ?? 0) > 0) {
         const basePrice = backRates.find(b => b.course_type === courseType && b.duration === duration)?.customer_price ?? 0;
         const optionTotal = (r.options ?? []).reduce((s, o) => {
           const or = optionRates.find(x => x.option_name === o);
@@ -306,12 +310,14 @@ export default function TherapistCheckout() {
     const backRate = backRates.find(b => b.course_type === state.course_type && b.duration === state.duration);
     const courseName = backRate ? `${state.course_type} ${state.duration}分` : r.course_name;
     try {
+      const discountIds = state.discount_id !== "none" ? [state.discount_id] : [];
       const { error } = await supabase.from("reservations").update({
         course_type: state.course_type,
         duration: state.duration,
         course_name: courseName,
         options: state.selectedOptions,
         discount,
+        discount_ids: discountIds,
         price: total - fee,
         payment_fee: fee,
         payment_method: state.payment_method,
@@ -325,6 +331,7 @@ export default function TherapistCheckout() {
         course_name: courseName,
         options: state.selectedOptions,
         discount,
+        discount_ids: discountIds,
         price: total - fee,
         payment_fee: fee,
         payment_method: state.payment_method,
