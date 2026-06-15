@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, addDays, isToday } from "date-fns";
 import { toExtTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CheckCircle, Loader2, CreditCard, Download, Copy, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle, Loader2, CreditCard, Download, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadClearanceReceipt } from "@/lib/clearanceReceipt";
 
@@ -240,31 +240,6 @@ export default function SalesDailySales() {
 
   const updateInput = (castId: string, field: keyof ClearanceInput, value: any) => {
     setClearanceInputs((prev) => ({ ...prev, [castId]: { ...prev[castId], [field]: value } }));
-  };
-
-  const handleCopySettlementFlow = (group: CastGroup) => {
-    const portalUrl = group.accessToken
-      ? `${window.location.origin}/therapist/${group.accessToken}`
-      : "（マイページURLは未設定です）";
-    const text = `---------精算フロー---------
-
-❶封筒に
-・源氏名
-・日付
-・金額
-を記載
-
-❷金庫に投函
-※必ず動画を撮る事
-
-❸下記のフォームより、投函報告及び清掃チェックシートの記載
-
-${portalUrl}
-
-以上になります！
-退出時にご報告をお願い致します🙇‍♂️`;
-    navigator.clipboard.writeText(text);
-    toast.success("精算フローをコピーしました");
   };
 
   const handleDownloadReceipt = (group: CastGroup) => {
@@ -784,13 +759,6 @@ ${portalUrl}
                           title="清算明細をダウンロード（セラピスト送付用）"
                         >
                           <Download size={14} className="mr-2" />明細
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleCopySettlementFlow(g)}
-                          title="精算フローをクリップボードにコピー"
-                        >
-                          <Copy size={14} className="mr-2" />精算フロー
                         </Button>
                       </div>
 
