@@ -289,6 +289,29 @@ export default function ReservationsList() {
   const handleUpdateReservation = async () => {
     if (!editingReservation) return;
     try {
+      // Recompute price from master data to avoid stale-state race conditions
+      const backRate = backRates.find((r) => r.course_type === editFormData.course_type && r.duration === editFormData.duration);
+      let subtotal = backRate?.customer_price ?? 0;
+      (editFormData.selectedOptions ?? []).forEach((optName) => {
+        subtotal += optionRates.find((r) => r.option_name === optName)?.customer_price ?? 0;
+      });
+      if (editFormData.nomination_type && editFormData.nomination_type !== "none") {
+        subtotal += nominationRates.find((r) => r.nomination_type === editFormData.nomination_type)?.customer_price ?? 0;
+      }
+      let discountAmt = 0;
+      for (const discId of (editFormData.discount_ids ?? [])) {
+        const d = discounts.find((x) => x.id === discId);
+        if (d) {
+          discountAmt += d.discount_type === "percentage"
+            ? Math.round((subtotal * d.discount_value) / 100)
+            : d.discount_value;
+        }
+      }
+      discountAmt = Math.min(discountAmt, subtotal);
+      const computedPrice = subtotal > 0 ? subtotal - discountAmt : editFormData.price;
+      const computedDiscount = subtotal > 0 ? discountAmt : (editFormData.discount ?? 0);
+      const courseName = `${editFormData.course_type} ${editFormData.duration}分`;
+
       const { error } = await supabase.from("reservations").update({
         cast_id: editFormData.cast_id || null,
         customer_name: editFormData.customer_name,
@@ -298,11 +321,11 @@ export default function ReservationsList() {
         start_time: editFormData.start_time,
         duration: editFormData.duration,
         course_type: editFormData.course_type,
-        course_name: editFormData.course_name,
+        course_name: courseName,
         options: editFormData.selectedOptions,
         nomination_type: editFormData.nomination_type === "none" ? null : editFormData.nomination_type,
-        price: editFormData.price,
-        discount: editFormData.discount,
+        price: computedPrice,
+        discount: computedDiscount,
         discount_ids: editFormData.discount_ids,
         payment_method: editFormData.payment_details ? null : (editFormData.payment_method || null),
         payment_fee: editFormData.payment_fee || 0,
