@@ -256,7 +256,7 @@ export default function Schedule() {
   });
 
   const [casts, setCasts] = useState<{ id: string; name: string }[]>([]);
-  const [rooms, setRooms] = useState<{ id: string; name: string; address: string | null; sms_text: string | null; map_url: string | null }[]>([]);
+  const [rooms, setRooms] = useState<{ id: string; name: string; address: string | null; sms_text: string | null; map_url: string | null; caution_text: string | null }[]>([]);
   const [backRates, setBackRates] = useState<any[]>([]);
   const [optionRates, setOptionRates] = useState<any[]>([]);
   const [nominationRates, setNominationRates] = useState<any[]>([]);
@@ -278,7 +278,7 @@ export default function Schedule() {
   const fetchFormData = async () => {
     const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }, { data: p }, { data: t }] = await Promise.all([
       supabase.from("casts").select("id, name").order("name"),
-      supabase.from("rooms").select("id, name, address, sms_text, map_url").eq("is_active", true).order("name"),
+      supabase.from("rooms").select("id, name, address, sms_text, map_url, caution_text").eq("is_active", true).order("name"),
       supabase.from("back_rates").select("*").order("display_order"),
       supabase.from("option_rates").select("*").order("display_order"),
       supabase.from("nomination_rates").select("*"),
@@ -403,6 +403,7 @@ export default function Schedule() {
     const roomSmsText = roomRecord?.sms_text ?? null;
     const roomAddress = roomRecord?.address ?? null;
     const roomMapUrl = roomRecord?.map_url ?? null;
+    const roomCautionText = roomRecord?.caution_text ?? null;
 
     const backRate = backRates.find(
       (r) => r.course_type === d.course_type && r.duration === d.duration
@@ -444,6 +445,7 @@ export default function Schedule() {
         : roomAddress
           ? `\n【住所】\n${roomAddress}${roomMapUrl ? `\n📍${roomMapUrl}` : ""}`
           : roomMapUrl ? `\n📍${roomMapUrl}` : null,
+      roomCautionText ? `\n【注意事項】\n${roomCautionText}` : null,
     ].filter((l) => l !== null).join("\n");
   };
 
