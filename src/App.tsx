@@ -119,6 +119,7 @@ import BusinessBankAccounts from "./pages/BusinessBankAccounts";
 import BusinessContracts from "./pages/BusinessContracts";
 import Education from "./pages/Education";
 import ProductLP from "./pages/public/ProductLP";
+import PurchaseOrders from "./pages/PurchaseOrders";
 
 const queryClient = new QueryClient();
 
@@ -230,6 +231,7 @@ const App = () => {
           <Route path="/business-continuity/fixed-costs" element={<BusinessFixedCosts />} />
           <Route path="/business-continuity/bank-accounts" element={<BusinessBankAccounts />} />
           <Route path="/business-continuity/contracts" element={<BusinessContracts />} />
+          <Route path="/purchase-orders" element={<PurchaseOrders />} />
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
