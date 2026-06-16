@@ -178,10 +178,32 @@ export default function SalesPendingReports() {
     }
   };
 
-  const confirmSales = (id: string) => {
-    confirm("daily_sales_records", id, (rid) =>
-      setSalesRecords((rs) => rs.map((r) => r.id === rid ? { ...r, status: "confirmed" } : r))
-    );
+  const confirmSales = async (id: string) => {
+    const record = salesRecords.find((r) => r.id === id);
+    setConfirming(id);
+    try {
+      // 1. 売上報告を確認済みに
+      const { error } = await supabase
+        .from("daily_sales_records")
+        .update({ status: "confirmed" })
+        .eq("id", id);
+      if (error) throw error;
+      // 2. 該当日・該当セラピストの予約を【完了】にする
+      if (record?.cast_id) {
+        await supabase
+          .from("reservations")
+          .update({ status: "completed" })
+          .eq("reservation_date", record.date)
+          .eq("cast_id", record.cast_id)
+          .neq("status", "cancelled");
+      }
+      toast.success("承認しました（予約を完了にしました）");
+      setSalesRecords((rs) => rs.map((r) => r.id === id ? { ...r, status: "confirmed" } : r));
+    } catch (e: any) {
+      toast.error(`失敗しました：${e?.message ?? "不明なエラー"}`);
+    } finally {
+      setConfirming(null);
+    }
   };
   const confirmCleaning = (id: string) => {
     confirm("cleaning_checklists", id, (rid) =>
