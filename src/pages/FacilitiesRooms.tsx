@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Plus, MapPin, KeyRound, DoorOpen, Save, Upload, X, MessageSquare, Link } from "lucide-react";
+import { Trash2, Plus, MapPin, KeyRound, DoorOpen, Save, Upload, X, MessageSquare, Link, AlertTriangle } from "lucide-react";
 
 interface Room {
   id: string;
@@ -23,6 +23,7 @@ interface Room {
   entry_photos: string[] | null;
   sms_text: string | null;
   map_url: string | null;
+  caution_text: string | null;
 }
 
 interface EquipmentItem {
@@ -99,7 +100,7 @@ export default function FacilitiesRooms() {
     try {
       const { data, error } = await supabase
         .from("rooms" as any)
-        .select("id,name,room_type,address,entry_flow,key_number,key_info,entry_photos,sms_text,map_url")
+        .select("id,name,room_type,address,entry_flow,key_number,key_info,entry_photos,sms_text,map_url,caution_text")
         .order("name");
       if (error && error.code !== "PGRST116") throw error;
       const list = (data || []) as unknown as Room[];
@@ -154,6 +155,7 @@ export default function FacilitiesRooms() {
           entry_photos: draft.entry_photos?.length ? draft.entry_photos : null,
           sms_text: draft.sms_text || null,
           map_url: draft.map_url || null,
+          caution_text: draft.caution_text || null,
         })
         .eq("id", draft.id);
       if (error) throw error;
@@ -414,6 +416,17 @@ export default function FacilitiesRooms() {
                       placeholder="https://maps.app.goo.gl/..."
                     />
                     <p className="text-xs text-muted-foreground mt-1">SMSに住所と合わせて記載されます</p>
+                  </div>
+                  <div>
+                    <Label className="flex items-center gap-1.5"><AlertTriangle size={14} />注意事項</Label>
+                    <Textarea
+                      className="mt-1"
+                      rows={4}
+                      value={draft.caution_text || ""}
+                      onChange={(e) => setDraft({ ...draft, caution_text: e.target.value })}
+                      placeholder={`例：\n・到着5分前にご連絡ください。\n・駐車場はございません。\n・飲食物のお持ち込みはご遠慮ください。`}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">SMSの末尾に「【注意事項】」として追記されます</p>
                   </div>
                   <Button onClick={handleSaveRoom} disabled={saving} className="gap-1.5">
                     <Save size={15} />{saving ? "保存中..." : "基本情報を保存"}
