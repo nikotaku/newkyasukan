@@ -14,7 +14,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { calcPaymentFee, findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
-import { PRESSURE_OPTIONS, AREA_OPTIONS, CONVERSATION_OPTIONS } from "@/lib/customerRank";
+import { CONVERSATION_OPTIONS } from "@/lib/customerRank";
+
+const PREFERRED_TYPE_OPTIONS = ["20代前半", "30代", "ギャル系", "お姉さん系", "ベテラン", "未経験", "おっとり", "サバサバ"] as const;
 
 interface Cast {
   id: string;
@@ -112,16 +114,14 @@ interface RecentReservation {
 }
 
 interface PreferenceForm {
-  preferred_pressure: string | null;
-  concern_areas: string[];
+  preferred_types: string[];
   conversation_level: string | null;
   ng_items: string;
   preference_notes: string;
 }
 
 const EMPTY_PREFS: PreferenceForm = {
-  preferred_pressure: null,
-  concern_areas: [],
+  preferred_types: [],
   conversation_level: null,
   ng_items: "",
   preference_notes: "",
@@ -285,13 +285,12 @@ export function ReservationForm({
         // 既存顧客の好みプロフィールを読み込み
         supabase
           .from("customer_profiles")
-          .select("preferred_pressure, concern_areas, conversation_level, ng_items, preference_notes")
+          .select("preferred_types, conversation_level, ng_items, preference_notes")
           .eq("customer_id", raw.id)
           .maybeSingle()
           .then(({ data: prof }) => {
             setPrefs({
-              preferred_pressure: prof?.preferred_pressure ?? null,
-              concern_areas: prof?.concern_areas ?? [],
+              preferred_types: prof?.preferred_types ?? [],
               conversation_level: prof?.conversation_level ?? null,
               ng_items: prof?.ng_items ?? "",
               preference_notes: prof?.preference_notes ?? "",
@@ -399,8 +398,7 @@ export function ReservationForm({
   const savePreferences = async () => {
     if (!prefsDirty) return;
     const hasContent =
-      prefs.preferred_pressure ||
-      prefs.concern_areas.length > 0 ||
+      prefs.preferred_types.length > 0 ||
       prefs.conversation_level ||
       prefs.ng_items.trim() ||
       prefs.preference_notes.trim();
@@ -425,8 +423,7 @@ export function ReservationForm({
       await supabase.from("customer_profiles").upsert(
         {
           customer_id: customerId,
-          preferred_pressure: prefs.preferred_pressure,
-          concern_areas: prefs.concern_areas.length ? prefs.concern_areas : null,
+          preferred_types: prefs.preferred_types.length ? prefs.preferred_types : null,
           conversation_level: prefs.conversation_level,
           ng_items: prefs.ng_items.trim() || null,
           preference_notes: prefs.preference_notes.trim() || null,
@@ -1052,56 +1049,41 @@ export function ReservationForm({
       <div className="rounded-lg border p-3 space-y-3 bg-muted/20">
         <p className="text-sm font-semibold flex items-center gap-1.5">
           💆 お客様の好み（電話ヒアリング）
-          {customerInfo && !prefsDirty && (prefs.preferred_pressure || prefs.concern_areas.length > 0) && (
+          {customerInfo && !prefsDirty && prefs.preferred_types.length > 0 && (
             <span className="text-[10px] font-normal text-green-600">登録済み</span>
           )}
         </p>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs">圧の好み</Label>
-            <Select
-              value={prefs.preferred_pressure ?? "unset"}
-              onValueChange={(v) => updatePrefs({ preferred_pressure: v === "unset" ? null : v })}
-            >
-              <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="未設定" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unset">未設定</SelectItem>
-                {PRESSURE_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">会話の好み</Label>
-            <Select
-              value={prefs.conversation_level ?? "unset"}
-              onValueChange={(v) => updatePrefs({ conversation_level: v === "unset" ? null : v })}
-            >
-              <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="未設定" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unset">未設定</SelectItem>
-                {CONVERSATION_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
         <div>
-          <Label className="text-xs">気になる部位</Label>
-          <div className="grid grid-cols-3 gap-1.5 mt-1.5">
-            {AREA_OPTIONS.map((area) => (
-              <label key={area} className="flex items-center gap-1.5 text-xs cursor-pointer">
+          <Label className="text-xs">好みのタイプ</Label>
+          <div className="grid grid-cols-4 gap-1.5 mt-1.5">
+            {PREFERRED_TYPE_OPTIONS.map((type) => (
+              <label key={type} className="flex items-center gap-1.5 text-xs cursor-pointer">
                 <Checkbox
-                  checked={prefs.concern_areas.includes(area)}
+                  checked={prefs.preferred_types.includes(type)}
                   onCheckedChange={() => {
-                    const next = prefs.concern_areas.includes(area)
-                      ? prefs.concern_areas.filter((a) => a !== area)
-                      : [...prefs.concern_areas, area];
-                    updatePrefs({ concern_areas: next });
+                    const next = prefs.preferred_types.includes(type)
+                      ? prefs.preferred_types.filter((t) => t !== type)
+                      : [...prefs.preferred_types, type];
+                    updatePrefs({ preferred_types: next });
                   }}
                 />
-                {area}
+                {type}
               </label>
             ))}
           </div>
+        </div>
+        <div>
+          <Label className="text-xs">会話の好み</Label>
+          <Select
+            value={prefs.conversation_level ?? "unset"}
+            onValueChange={(v) => updatePrefs({ conversation_level: v === "unset" ? null : v })}
+          >
+            <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="未設定" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unset">未設定</SelectItem>
+              {CONVERSATION_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <Label className="text-xs">NG・アレルギー</Label>
