@@ -311,18 +311,21 @@ export default function TherapistCheckout() {
     const courseName = backRate ? `${state.course_type} ${state.duration}分` : r.course_name;
     try {
       const discountIds = state.discount_id !== "none" ? [state.discount_id] : [];
-      const { error } = await supabase.from("reservations").update({
-        course_type: state.course_type,
-        duration: state.duration,
-        course_name: courseName,
-        options: state.selectedOptions,
-        discount,
-        discount_ids: discountIds,
-        price: total - fee,
-        payment_fee: fee,
-        payment_method: state.payment_method,
-        nomination_type: state.nomination_type === "none" ? null : state.nomination_type,
-      }).eq("id", r.id);
+      // セラピストポータルは anon 権限のため、token 検証付きRPC経由で予約を直接更新する
+      const { error } = await supabase.rpc("therapist_update_reservation", {
+        p_token: token,
+        p_reservation_id: r.id,
+        p_course_type: state.course_type,
+        p_duration: state.duration,
+        p_course_name: courseName,
+        p_options: state.selectedOptions,
+        p_discount: discount,
+        p_discount_ids: discountIds,
+        p_price: total - fee,
+        p_payment_fee: fee,
+        p_payment_method: state.payment_method,
+        p_nomination_type: state.nomination_type === "none" ? null : state.nomination_type,
+      });
       if (error) throw error;
       setReservations(prev => prev.map(res => res.id === r.id ? {
         ...res,
@@ -349,7 +352,11 @@ export default function TherapistCheckout() {
 
   const handlePaymentChange = async (reservationId: string, method: string) => {
     setPaymentEdits((prev) => ({ ...prev, [reservationId]: method }));
-    await supabase.from("reservations").update({ payment_method: method }).eq("id", reservationId);
+    await supabase.rpc("therapist_update_payment_method", {
+      p_token: token,
+      p_reservation_id: reservationId,
+      p_payment_method: method,
+    });
   };
 
   // 支払い方法別合計（payment_details がある場合は各エントリで集計）
