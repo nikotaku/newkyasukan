@@ -150,6 +150,12 @@ const menuItems: MenuItem[] = [
         ],
       },
       {
+        groupLabel: "発注",
+        items: [
+          { href: "/purchase-orders", label: "発注リスト" },
+        ],
+      },
+      {
         groupLabel: "ナレッジ",
         items: [
           { href: "/knowledge", label: "ナレッジDB" },
