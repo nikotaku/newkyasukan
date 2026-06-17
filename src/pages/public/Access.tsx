@@ -21,7 +21,7 @@ interface StoreInfo {
 
 const DEFAULTS: StoreInfo = {
   name: "全力エステ 仙台",
-  address: "宮城県仙台市青葉区（出張専門）",
+  address: "宮城県仙台市青葉区",
   phone: "090-8126-4042",
   hours: "12:00〜26:00（24:40最終受付）",
   holiday: "年中無休",
