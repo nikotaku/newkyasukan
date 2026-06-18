@@ -7,6 +7,7 @@ import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { driveImgUrl } from "@/lib/drive";
 import o2LogoUrl from "@/assets/o2-logo.png";
+import o2BlogLogoUrl from "@/assets/o2-blog-logo.png";
 import { useStore } from "@/hooks/useStore";
 
 interface Cast {
@@ -257,11 +258,7 @@ const Casts = () => {
                                     className="flex flex-col items-center gap-0.5 group/sns"
                                   >
                                     <span className="w-8 h-8 rounded-full flex items-center justify-center shadow-md group-hover/sns:scale-110 transition-transform overflow-hidden" style={{ backgroundColor: "#f59e0b" }}>
-                                      {cast.custom_fields?.blog_icon ? (
-                                        <img src={cast.custom_fields.blog_icon} alt="Blog" className="w-6 h-6 object-contain" />
-                                      ) : (
-                                        <span className="text-white text-[8px] font-bold">BLOG</span>
-                                      )}
+                                      <img src={cast.custom_fields?.blog_icon || o2BlogLogoUrl} alt="Blog" className="w-full h-full object-cover" />
                                     </span>
                                     <span className="text-[9px] text-white/80 leading-none">ブログ</span>
                                   </a>

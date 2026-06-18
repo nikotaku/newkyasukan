@@ -226,6 +226,7 @@ export default function Staff() {
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const dragCastId = useRef<string | null>(null);
+  const dragPhotoIdxRef = useRef<number | null>(null);
   const addPhotoInputRef = useRef<HTMLInputElement>(null);
   const editPhotoInputRef = useRef<HTMLInputElement>(null);
   const interviewSheetInputRef = useRef<HTMLInputElement>(null);
@@ -1258,8 +1259,20 @@ export default function Staff() {
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">ブログ・SNS</Label>
                         <div>
-                          <Label htmlFor="add-blog">外部ブログ</Label>
-                          <Input id="add-blog" placeholder="https://..." value={formData.blog_url} onChange={(e) => setFormData({...formData, blog_url: e.target.value})} />
+                          <Label htmlFor="add-blog">外部ブログ(02)</Label>
+                          <div className="flex items-center gap-0 mt-1">
+                            <span className="text-xs text-muted-foreground bg-muted rounded-l px-2 h-9 flex items-center border border-r-0 whitespace-nowrap">https://m-sns.net/profile/</span>
+                            <Input
+                              id="add-blog"
+                              placeholder="@username"
+                              value={(formData.blog_url || "").replace("https://m-sns.net/profile/", "")}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setFormData({...formData, blog_url: val ? `https://m-sns.net/profile/${val}` : ""});
+                              }}
+                              className="rounded-l-none"
+                            />
+                          </div>
                         </div>
                         <div>
                           <Label htmlFor="add-x">X (Twitter)</Label>
@@ -1327,18 +1340,39 @@ export default function Staff() {
                               <Plus className="h-4 w-4" />
                             </Button>
                           </div>
+                          <p className="text-[10px] text-muted-foreground">ドラッグで順番を変更できます</p>
                           <div className="grid grid-cols-3 gap-2">
                             {Array.from({ length: 6 }).map((_, index) => {
-                              const photo = (editingCast.photos || [])[index];
+                              const photos = editingCast.photos || [];
+                              const photo = photos[index];
                               return (
-                                <div key={index} className="relative aspect-square border-2 border-dashed border-muted rounded-md overflow-hidden flex items-center justify-center bg-muted/30">
+                                <div
+                                  key={index}
+                                  draggable={!!photo}
+                                  onDragStart={() => { if (photo) dragPhotoIdxRef.current = index; }}
+                                  onDragOver={(e) => e.preventDefault()}
+                                  onDrop={() => {
+                                    const from = dragPhotoIdxRef.current;
+                                    dragPhotoIdxRef.current = null;
+                                    if (from === null || from === index) return;
+                                    const arr = [...photos];
+                                    const [moved] = arr.splice(from, 1);
+                                    arr.splice(index, 0, moved);
+                                    const cleaned = arr.filter(Boolean);
+                                    setEditingCast({ ...editingCast, photos: cleaned, photo: cleaned[0] || null });
+                                  }}
+                                  className={`relative aspect-square border-2 border-dashed border-muted rounded-md overflow-hidden flex items-center justify-center bg-muted/30 ${photo ? "cursor-grab active:cursor-grabbing" : ""}`}
+                                >
                                   {photo ? (
                                     <>
                                       <img src={driveImgUrl(photo)} alt={`写真${index + 1}`} className="w-full h-full object-cover" />
                                       <Button type="button" variant="destructive" size="sm" className="absolute top-1 right-1 h-6 w-6 p-0" onClick={() => handleRemovePhoto(index, true)}>
                                         <X className="h-3 w-3" />
                                       </Button>
-                                      <Badge variant="secondary" className="absolute bottom-1 left-1 text-[10px] px-1">{index + 1}</Badge>
+                                      <div className="absolute bottom-1 left-1 flex items-center gap-0.5">
+                                        <Badge variant="secondary" className="text-[10px] px-1">{index + 1}</Badge>
+                                        <GripVertical size={12} className="text-white/80 drop-shadow" />
+                                      </div>
                                     </>
                                   ) : (
                                     <span className="text-xs text-muted-foreground">写真{index + 1}</span>
@@ -1475,8 +1509,20 @@ export default function Staff() {
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">ブログ・SNS</Label>
                         <div>
-                          <Label htmlFor="e-blog">外部ブログ</Label>
-                          <Input id="e-blog" placeholder="https://..." value={editingCast.blog_url || ""} onChange={(e) => setEditingCast({...editingCast, blog_url: e.target.value})} />
+                          <Label htmlFor="e-blog">外部ブログ(02)</Label>
+                          <div className="flex items-center gap-0 mt-1">
+                            <span className="text-xs text-muted-foreground bg-muted rounded-l px-2 h-9 flex items-center border border-r-0 whitespace-nowrap">https://m-sns.net/profile/</span>
+                            <Input
+                              id="e-blog"
+                              placeholder="@username"
+                              value={(editingCast.blog_url || "").replace("https://m-sns.net/profile/", "")}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setEditingCast({...editingCast, blog_url: val ? `https://m-sns.net/profile/${val}` : ""});
+                              }}
+                              className="rounded-l-none"
+                            />
+                          </div>
                           <div className="mt-1 flex items-center gap-2">
                             <Input placeholder="ブログアイコン画像URL（任意）" value={blogIconUrl} onChange={(e) => setBlogIconUrl(e.target.value)} className="h-7 text-xs" />
                             {blogIconUrl && <img src={blogIconUrl} alt="preview" className="w-6 h-6 rounded object-contain shrink-0 border" />}
