@@ -26,6 +26,7 @@ interface Shift {
   approval_status: string;
   approval_comment: string | null;
   estama_registered: boolean;
+  esran_registered: boolean;
   casts: { name: string };
 }
 
@@ -73,6 +74,7 @@ export default function MonthlyShift() {
     end_time: "21:00",
     room: "",
     estama_registered: false,
+    esran_registered: false,
   });
   const [pendingAction, setPendingAction] = useState<{id: string; status: "approved" | "rejected"; room?: string | null} | null>(null);
   const [actionComment, setActionComment] = useState("");
@@ -86,6 +88,7 @@ export default function MonthlyShift() {
       end_time: "21:00",
       room: "",
       estama_registered: false,
+      esran_registered: false,
       ...preset,
     });
     setShowDialog(true);
@@ -100,6 +103,7 @@ export default function MonthlyShift() {
       end_time: shift.end_time.slice(0, 5),
       room: shift.room || "",
       estama_registered: shift.estama_registered ?? false,
+      esran_registered: shift.esran_registered ?? false,
     });
     setShowDialog(true);
   };
@@ -162,6 +166,7 @@ export default function MonthlyShift() {
       end_time: form.end_time,
       room: form.room || null,
       estama_registered: form.estama_registered,
+      esran_registered: form.esran_registered,
     };
     const { error } = editingId
       ? await supabase.from("shifts").update(payload).eq("id", editingId)
@@ -397,6 +402,9 @@ export default function MonthlyShift() {
                           {s.estama_registered && (
                             <span className="absolute -top-0.5 -left-0.5 w-2 h-2 bg-red-500 rounded-full z-10" title="エスたま登録済み" />
                           )}
+                          {s.esran_registered && (
+                            <span className="absolute -top-0.5 left-2 w-2 h-2 bg-blue-500 rounded-full z-10" title="エスラン登録済み" />
+                          )}
                           {s.approval_status === "pending" && (
                             <span className="text-amber-600 shrink-0" title="承認待ち">●</span>
                           )}
@@ -491,6 +499,9 @@ export default function MonthlyShift() {
                               {s.estama_registered && (
                                 <span className="absolute -top-0.5 -left-0.5 w-2 h-2 bg-red-500 rounded-full z-10" title="エスたま登録済み" />
                               )}
+                              {s.esran_registered && (
+                                <span className="absolute -top-0.5 left-2 w-2 h-2 bg-blue-500 rounded-full z-10" title="エスラン登録済み" />
+                              )}
                               <div className={cn(
                                 "font-semibold leading-tight",
                                 s.approval_status === "rejected"
@@ -567,6 +578,19 @@ export default function MonthlyShift() {
               <Select
                 value={form.estama_registered ? "registered" : "unregistered"}
                 onValueChange={v => setForm({ ...form, estama_registered: v === "registered" })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unregistered">未登録</SelectItem>
+                  <SelectItem value="registered">登録済み</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>エスランに登録</Label>
+              <Select
+                value={form.esran_registered ? "registered" : "unregistered"}
+                onValueChange={v => setForm({ ...form, esran_registered: v === "registered" })}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
