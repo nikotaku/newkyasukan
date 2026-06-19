@@ -106,6 +106,7 @@ export default function SystemSMSAuto() {
     first_visit: "初回来店後",
     revisit_reminder: "再来店促進",
     thanks: "サンクスSMS",
+    coupon: "クーポン送付",
   };
 
   return (
@@ -145,6 +146,7 @@ export default function SystemSMSAuto() {
                           <SelectItem value="first_visit">初回来店後</SelectItem>
                           <SelectItem value="revisit_reminder">再来店促進</SelectItem>
                           <SelectItem value="thanks">サンクスSMS（タイムテーブルから手動送信）</SelectItem>
+                          <SelectItem value="coupon">クーポン送付（タイムテーブルから手動送信）</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
