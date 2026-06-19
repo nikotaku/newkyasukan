@@ -113,6 +113,7 @@ function StatusBox({
   onEdit,
   onSms,
   onThanksSms,
+  onCouponSms,
   isAdmin,
 }: {
   status: string;
@@ -122,6 +123,7 @@ function StatusBox({
   onEdit: (res: Reservation) => void;
   onSms: (res: Reservation) => void;
   onThanksSms: (res: Reservation) => void;
+  onCouponSms: (res: Reservation) => void;
   isAdmin: boolean;
 }) {
   const style = BOARD_STATUS_STYLE[status];
@@ -155,6 +157,12 @@ function StatusBox({
                   className="text-[10px] px-1.5 py-0.5 rounded border bg-pink-50 border-pink-200 text-pink-700 hover:bg-pink-100 transition-colors font-medium"
                 >
                   サンクス
+                </button>
+                <button
+                  onClick={() => onCouponSms(res)}
+                  className="text-[10px] px-1.5 py-0.5 rounded border bg-green-50 border-green-200 text-green-700 hover:bg-green-100 transition-colors font-medium"
+                >
+                  クーポン
                 </button>
                 {isAdmin && (
                   <button
@@ -263,6 +271,7 @@ export default function Schedule() {
   const [discounts, setDiscounts] = useState<{ id: string; name: string; discount_type: "fixed" | "percentage"; discount_value: number }[]>([]);
   const [paymentSettings, setPaymentSettings] = useState<PaymentSetting[]>([]);
   const [thanksTemplate, setThanksTemplate] = useState<string | null>(null);
+  const [couponTemplate, setCouponTemplate] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -276,7 +285,7 @@ export default function Schedule() {
   }, [user, selectedDate]);
 
   const fetchFormData = async () => {
-    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }, { data: p }, { data: t }] = await Promise.all([
+    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }, { data: p }, { data: t }, { data: cp }] = await Promise.all([
       supabase.from("casts").select("id, name").order("name"),
       supabase.from("rooms").select("id, name, address, sms_text, map_url").eq("is_active", true).order("name"),
       supabase.from("back_rates").select("*").order("display_order"),
@@ -285,6 +294,7 @@ export default function Schedule() {
       supabase.from("discounts").select("id, name, discount_type, discount_value, is_active").eq("is_active", true).order("name"),
       supabase.from("payment_settings").select("id, payment_method, payment_link, fee_percentage"),
       supabase.from("sms_auto_templates").select("message").eq("trigger", "thanks").eq("is_active", true).limit(1),
+      supabase.from("sms_auto_templates").select("message").eq("trigger", "coupon").eq("is_active", true).limit(1),
     ]);
     if (c) setCasts(c);
     if (r) setRooms(r);
@@ -294,6 +304,7 @@ export default function Schedule() {
     if (d) setDiscounts(d as any);
     if (p) setPaymentSettings(p as PaymentSetting[]);
     setThanksTemplate(t && t.length > 0 ? t[0].message : null);
+    setCouponTemplate(cp && cp.length > 0 ? cp[0].message : null);
   };
 
   const fetchData = async () => {
@@ -477,6 +488,28 @@ export default function Schedule() {
       });
       return;
     }
+    navigator.clipboard.writeText(body).catch(() => {});
+    toast({ title: "SMS送信画面を開きます", description: "本文はコピー済みです" });
+    openSmsApp(d.customer_phone, body);
+  };
+
+  const openCouponSms = (d: Reservation) => {
+    if (!couponTemplate) {
+      toast({
+        title: "クーポンSMSが未登録です",
+        description: "システム > SMS自動送信 でトリガー「クーポン送付」のテンプレートを登録してください",
+        variant: "destructive",
+      });
+      return;
+    }
+    const date = new Date(d.reservation_date);
+    const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+    const dateStr = `${format(date, "M月d日", { locale: ja })}(${dayNames[date.getDay()]})`;
+    const body = couponTemplate
+      .replaceAll("{customer_name}", d.customer_name)
+      .replaceAll("{date}", dateStr)
+      .replaceAll("{cast_name}", castNameMap.get(d.cast_id) ?? "")
+      .replaceAll("{course_name}", d.course_name);
     navigator.clipboard.writeText(body).catch(() => {});
     toast({ title: "SMS送信画面を開きます", description: "本文はコピー済みです" });
     openSmsApp(d.customer_phone, body);
@@ -710,6 +743,7 @@ export default function Schedule() {
                       onEdit={(res) => startEdit(res)}
                       onSms={openReservationSms}
                       onThanksSms={openThanksSms}
+                      onCouponSms={openCouponSms}
                       isAdmin={isAdmin}
                     />
                   ))}
