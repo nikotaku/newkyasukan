@@ -17,7 +17,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil, X } from "lucide-react";
 
 interface SMSTemplate {
   id: string;
@@ -28,18 +28,31 @@ interface SMSTemplate {
   is_active: boolean;
 }
 
+const EMPTY_FORM = {
+  name: "",
+  trigger: "reservation_confirmed",
+  timing_minutes: 0,
+  message: "",
+  is_active: true,
+};
+
+const triggerLabels: Record<string, string> = {
+  reservation_confirmed: "予約確定時",
+  reservation_reminder: "予約前リマインド",
+  reservation_cancelled: "予約キャンセル時",
+  first_visit: "初回来店後",
+  revisit_reminder: "再来店促進",
+  thanks: "サンクスSMS",
+  coupon: "クーポン送付",
+};
+
 export default function SystemSMSAuto() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [templates, setTemplates] = useState<SMSTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    trigger: "reservation_confirmed",
-    timing_minutes: 0,
-    message: "",
-    is_active: true,
-  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({ ...EMPTY_FORM });
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -65,16 +78,38 @@ export default function SystemSMSAuto() {
     }
   };
 
+  const openAdd = () => {
+    setEditingId(null);
+    setFormData({ ...EMPTY_FORM });
+    setShowForm(true);
+  };
+
+  const openEdit = (t: SMSTemplate) => {
+    setEditingId(t.id);
+    setFormData({ name: t.name, trigger: t.trigger, timing_minutes: t.timing_minutes, message: t.message, is_active: t.is_active });
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setFormData({ ...EMPTY_FORM });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { error } = await supabase.from("sms_auto_templates").insert([formData]);
-      if (error) throw error;
-      setFormData({ name: "", trigger: "reservation_confirmed", timing_minutes: 0, message: "", is_active: true });
-      setShowForm(false);
+      if (editingId) {
+        const { error } = await supabase.from("sms_auto_templates").update(formData).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("sms_auto_templates").insert([formData]);
+        if (error) throw error;
+      }
+      closeForm();
       fetchTemplates();
     } catch (error) {
-      console.error("Error adding template:", error);
+      console.error("Error saving template:", error);
     }
   };
 
@@ -93,20 +128,11 @@ export default function SystemSMSAuto() {
     try {
       const { error } = await supabase.from("sms_auto_templates").delete().eq("id", id);
       if (error) throw error;
+      if (editingId === id) closeForm();
       fetchTemplates();
     } catch (error) {
       console.error("Error deleting template:", error);
     }
-  };
-
-  const triggerLabels: Record<string, string> = {
-    reservation_confirmed: "予約確定時",
-    reservation_reminder: "予約前リマインド",
-    reservation_cancelled: "予約キャンセル時",
-    first_visit: "初回来店後",
-    revisit_reminder: "再来店促進",
-    thanks: "サンクスSMS",
-    coupon: "クーポン送付",
   };
 
   return (
@@ -120,14 +146,16 @@ export default function SystemSMSAuto() {
               <h1 className="text-2xl font-bold">SMS自動送信</h1>
               <p className="text-muted-foreground">トリガー別の自動SMS設定</p>
             </div>
-            <Button onClick={() => setShowForm(!showForm)}>
+            <Button onClick={openAdd}>
               <Plus size={16} className="mr-2" />追加
             </Button>
           </div>
 
           {showForm && (
             <Card className="mb-6">
-              <CardHeader><CardTitle>テンプレートを追加</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle>{editingId ? "テンプレートを編集" : "テンプレートを追加"}</CardTitle>
+              </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -165,13 +193,20 @@ export default function SystemSMSAuto() {
                     <Textarea
                       value={formData.message}
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      rows={4}
+                      rows={6}
                       required
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button type="submit">保存</Button>
-                    <Button type="button" variant="outline" onClick={() => setShowForm(false)}>キャンセル</Button>
+                    <Button type="submit">{editingId ? "更新" : "保存"}</Button>
+                    <Button type="button" variant="outline" onClick={closeForm}>
+                      <X size={14} className="mr-1" />キャンセル
+                    </Button>
+                    {editingId && (
+                      <Button type="button" variant="destructive" className="ml-auto" onClick={() => handleDelete(editingId)}>
+                        <Trash2 size={14} className="mr-1" />削除
+                      </Button>
+                    )}
                   </div>
                 </form>
               </CardContent>
@@ -185,10 +220,10 @@ export default function SystemSMSAuto() {
           ) : (
             <div className="space-y-3">
               {templates.map((template) => (
-                <Card key={template.id}>
+                <Card key={template.id} className={editingId === template.id ? "ring-2 ring-primary" : ""}>
                   <CardContent className="pt-4">
                     <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-semibold">{template.name}</span>
                           <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
@@ -200,13 +235,16 @@ export default function SystemSMSAuto() {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">{template.message}</p>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all line-clamp-3">{template.message}</p>
                       </div>
-                      <div className="flex items-center gap-2 ml-4">
+                      <div className="flex items-center gap-2 ml-4 shrink-0">
                         <Switch
                           checked={template.is_active}
                           onCheckedChange={(checked) => handleToggle(template.id, checked)}
                         />
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(template)}>
+                          <Pencil size={14} />
+                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => handleDelete(template.id)}>
                           <Trash2 size={14} />
                         </Button>
