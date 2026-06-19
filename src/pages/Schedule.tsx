@@ -3,6 +3,7 @@ import { format, addDays, subDays, addMonths, subMonths, parse, addMinutes, star
 import { toExtTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, MessageSquare, Heart } from "lucide-react";
+import paypayGuideUrl from "@/assets/paypay-guide.jpeg";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { TabMenu } from "@/components/TabMenu";
@@ -998,6 +999,12 @@ export default function Schedule() {
                           <span className="font-semibold text-primary">¥{(detailRes.price + (detailRes.payment_fee ?? 0)).toLocaleString()}</span>
                         </>
                       )}
+                      {detailRes.payment_method && (
+                        <>
+                          <span className="text-muted-foreground">支払方法</span>
+                          <span className="font-medium">{detailRes.payment_method}</span>
+                        </>
+                      )}
                       {detailRes.nomination_type && (
                         <>
                           <span className="text-muted-foreground">指名</span>
@@ -1017,6 +1024,15 @@ export default function Schedule() {
                         </>
                       )}
                     </div>
+                    {detailRes.payment_method === "PayPay" && (
+                      <a href={paypayGuideUrl} target="_blank" rel="noopener noreferrer" className="block mt-3">
+                        <img
+                          src={paypayGuideUrl}
+                          alt="PayPay決済のご案内"
+                          className="w-full rounded-lg border border-[#e0e0e0] shadow-sm hover:opacity-90 transition-opacity"
+                        />
+                      </a>
+                    )}
                   </div>
                   <div className="pt-2 border-t space-y-2">
                     <Button
