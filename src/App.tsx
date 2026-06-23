@@ -111,6 +111,7 @@ import SalesData from "./pages/SalesData";
 import ScheduleDashboard from "./pages/ScheduleDashboard";
 import PanelPhotoManual from "./pages/PanelPhotoManual";
 import CustomerServiceManual from "./pages/CustomerServiceManual";
+import ZenryokuBookManual from "./pages/ZenryokuBookManual";
 import RecruitmentCriteria from "./pages/RecruitmentCriteria";
 import BusinessVendors from "./pages/BusinessVendors";
 import BusinessLogins from "./pages/BusinessLogins";
@@ -222,6 +223,7 @@ const App = () => {
           <Route path="/post-management" element={<CastPostManagement />} />
           <Route path="/panel-manual" element={<PanelPhotoManual />} />
           <Route path="/service-manual" element={<CustomerServiceManual />} />
+          <Route path="/zenryoku-book" element={<ZenryokuBookManual />} />
           <Route path="/recruitment-criteria" element={<RecruitmentCriteria />} />
           <Route path="/education" element={<Education />} />
 

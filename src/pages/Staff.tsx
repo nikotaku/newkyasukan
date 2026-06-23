@@ -1864,14 +1864,14 @@ export default function Staff() {
 
                   {/* Actions */}
                   {isAdmin && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1 flex-shrink-0 overflow-x-auto max-w-[calc(100vw-160px)] md:max-w-none pb-0.5">
                       {/* Level tag selector */}
                       <Select
                         value={getCastLevel(cast) ?? "__none__"}
                         onValueChange={(v) => handleSetLevelTag(cast.id, v === "__none__" ? "" : v as LevelTag)}
                       >
                         <SelectTrigger
-                          className="h-7 w-24 text-xs"
+                          className="h-7 w-20 text-xs shrink-0"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <SelectValue placeholder="レベル" />
@@ -1889,7 +1889,7 @@ export default function Staff() {
                         onValueChange={(v) => handleSetCategoryTag(cast.id, v as CategoryTag)}
                       >
                         <SelectTrigger
-                          className="h-7 w-32 text-xs"
+                          className="h-7 w-24 text-xs shrink-0"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <SelectValue />
@@ -1922,7 +1922,7 @@ export default function Staff() {
                         onClick={(e) => { e.stopPropagation(); handleSyncEstama(cast); }}
                       >
                         <ExternalLink size={13} />
-                        <span>エスたま</span>
+                        <span className="hidden sm:inline">エスたま</span>
                       </Button>
                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); handleEditCast(cast); }}>
                         <Edit size={14} />
