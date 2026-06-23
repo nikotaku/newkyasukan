@@ -167,6 +167,7 @@ export default function MonthlyShift() {
       room: form.room || null,
       estama_registered: form.estama_registered,
       esran_registered: form.esran_registered,
+      approval_status: "approved",
     };
     const { error } = editingId
       ? await supabase.from("shifts").update(payload).eq("id", editingId)
