@@ -17,6 +17,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, ArrowLeft, CheckCircle, RefreshCw, ChevronDown, ChevronUp, Check } from "lucide-react";
+import checkoutMirrorImg from "@/assets/checkout-mirror.jpeg";
+import checkoutDoorknobImg from "@/assets/checkout-doorknob.jpeg";
+import checkoutLaundryImg from "@/assets/checkout-laundry.png";
+import checkoutClosetImg from "@/assets/checkout-closet.jpeg";
+import checkoutSandalsImg from "@/assets/checkout-sandals.jpeg";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { getBusinessDateFromCache, useShopSettings } from "@/hooks/useShopSettings";
@@ -138,6 +143,25 @@ export default function TherapistCheckout() {
     equipment_checked: false,
     notes: "",
   });
+
+  // 清掃チェックリスト用チェック状態
+  const [cleaningChecks, setCleaningChecks] = useState({
+    mirror: false,
+    doorknob: false,
+    quickle: false,
+    laundry: false,
+  });
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    wiping: true,
+    laundry: true,
+    tidying: true,
+  });
+
+  const toggleSection = (key: string) =>
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const toggleCheck = (key: keyof typeof cleaningChecks) =>
+    setCleaningChecks((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const [feedback, setFeedback] = useState({
     rating: 5,
@@ -994,36 +1018,124 @@ export default function TherapistCheckout() {
             {submitted === "cleaning" ? (
               <CleaningSuccessCard />
             ) : (
-              <Card>
-                <CardHeader><CardTitle>清掃チェック</CardTitle></CardHeader>
-                <CardContent>
-                  <form onSubmit={handleCleaningSubmit} className="space-y-3">
-                    {[
-                      { key: "room_cleaned", label: "ルーム清掃完了" },
-                      { key: "supplies_stocked", label: "消耗品補充完了" },
-                      { key: "trash_taken_out", label: "ゴミ出し完了" },
-                      { key: "equipment_checked", label: "設備確認完了" },
-                    ].map(({ key, label }) => (
-                      <label key={key} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors">
+              <form onSubmit={handleCleaningSubmit} className="space-y-3">
+                {/* ▶ 拭き掃除 */}
+                <div className="border rounded-xl overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("wiping")}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+                  >
+                    <span className="font-semibold text-sm">▶ 拭き掃除</span>
+                    {openSections.wiping ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+                  {openSections.wiping && (
+                    <div className="px-4 pb-4 pt-2 space-y-4">
+                      <p className="text-xs text-muted-foreground">鏡やドアノブなど、オイルの付いた手で触れた場所を拭き掃除する</p>
+
+                      {/* 鏡 */}
+                      <div className="space-y-2">
+                        <img src={checkoutMirrorImg} alt="鏡を拭き掃除" className="w-full rounded-lg border" />
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={cleaningChecks.mirror}
+                            onChange={() => toggleCheck("mirror")}
+                            className="h-5 w-5 accent-primary"
+                          />
+                          <span className="font-medium text-sm">鏡を拭き掃除</span>
+                        </label>
+                      </div>
+
+                      {/* ドアノブ */}
+                      <div className="space-y-2">
+                        <img src={checkoutDoorknobImg} alt="ドアノブを拭き掃除" className="w-full rounded-lg border" />
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={cleaningChecks.doorknob}
+                            onChange={() => toggleCheck("doorknob")}
+                            className="h-5 w-5 accent-primary"
+                          />
+                          <span className="font-medium text-sm">ドアノブを拭き掃除</span>
+                        </label>
+                      </div>
+
+                      {/* 床クイックル（画像なし） */}
+                      <label className="flex items-center gap-3 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={cleaning[key as keyof typeof cleaning] as boolean}
-                          onChange={(e) => setCleaning({ ...cleaning, [key]: e.target.checked })}
-                          className="h-5 w-5"
+                          checked={cleaningChecks.quickle}
+                          onChange={() => toggleCheck("quickle")}
+                          className="h-5 w-5 accent-primary"
                         />
-                        <span className="font-medium">{label}</span>
+                        <span className="font-medium text-sm">床をクイックル</span>
                       </label>
-                    ))}
-                    <div>
-                      <Label>備考</Label>
-                      <Textarea value={cleaning.notes} onChange={(e) => setCleaning({ ...cleaning, notes: e.target.value })} rows={2} />
                     </div>
-                    <Button type="submit" className="w-full mt-2" disabled={submitting}>
-                      {submitting ? "送信中..." : "チェックリストを送信"}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
+                  )}
+                </div>
+
+                {/* ▶ 洗濯 */}
+                <div className="border rounded-xl overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("laundry")}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+                  >
+                    <span className="font-semibold text-sm">▶ 洗濯</span>
+                    {openSections.laundry ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+                  {openSections.laundry && (
+                    <div className="px-4 pb-4 pt-2 space-y-2">
+                      <img src={checkoutLaundryImg} alt="洗濯の詰め込みすぎNG" className="w-full rounded-lg border" />
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={cleaningChecks.laundry}
+                          onChange={() => toggleCheck("laundry")}
+                          className="h-5 w-5 accent-primary"
+                        />
+                        <span className="font-medium text-sm">一度に大量に詰め込まない</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                {/* ▶ 片付け */}
+                <div className="border rounded-xl overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("tidying")}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+                  >
+                    <span className="font-semibold text-sm">▶ 片付け</span>
+                    {openSections.tidying ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+                  {openSections.tidying && (
+                    <div className="px-4 pb-4 pt-2 space-y-4">
+                      {/* クローゼット */}
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">クローゼットの中</p>
+                        <img src={checkoutClosetImg} alt="クローゼットの中" className="w-full rounded-lg border" />
+                      </div>
+
+                      {/* サンダル */}
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">サンダルを並べる</p>
+                        <img src={checkoutSandalsImg} alt="サンダルを並べる" className="w-full rounded-lg border" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label>備考</Label>
+                  <Textarea value={cleaning.notes} onChange={(e) => setCleaning({ ...cleaning, notes: e.target.value })} rows={2} />
+                </div>
+                <Button type="submit" className="w-full mt-2" disabled={submitting}>
+                  {submitting ? "送信中..." : "チェックリストを送信"}
+                </Button>
+              </form>
             )}
           </TabsContent>
 
