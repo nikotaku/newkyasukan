@@ -121,6 +121,8 @@ import BusinessContracts from "./pages/BusinessContracts";
 import Education from "./pages/Education";
 import ProductLP from "./pages/public/ProductLP";
 import PurchaseOrders from "./pages/PurchaseOrders";
+import Survey from "./pages/public/Survey";
+import CustomerReview from "./pages/public/CustomerReview";
 
 const queryClient = new QueryClient();
 
@@ -146,6 +148,8 @@ const App = () => {
           <Route path="/booking" element={<BookingReservation />} />
           <Route path="/page/:slug" element={<NotionPageView />} />
           <Route path="/lp" element={<ProductLP />} />
+          <Route path="/survey" element={<Survey />} />
+          <Route path="/review" element={<CustomerReview />} />
           
           {/* Admin/Staff Pages */}
           <Route path="/login" element={<Auth />} />
