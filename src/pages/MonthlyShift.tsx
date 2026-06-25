@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek, addDays, isSameMonth, isToday } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek, addDays, isSameMonth, isToday, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Plus, ChevronLeft, ChevronRight, Trash2, LayoutGrid, Table2 } from "lucide-react";
 import { toast } from "sonner";
@@ -76,14 +76,19 @@ export default function MonthlyShift() {
     estama_registered: false,
     esran_registered: false,
   });
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkEndDate, setBulkEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [pendingAction, setPendingAction] = useState<{id: string; status: "approved" | "rejected"; room?: string | null} | null>(null);
   const [actionComment, setActionComment] = useState("");
 
   const openAdd = (preset?: Partial<typeof form>) => {
     setEditingId(null);
+    setBulkMode(false);
+    const startDate = preset?.shift_date ?? format(new Date(), "yyyy-MM-dd");
+    setBulkEndDate(startDate);
     setForm({
       cast_id: "",
-      shift_date: format(new Date(), "yyyy-MM-dd"),
+      shift_date: startDate,
       start_time: "12:00",
       end_time: "21:00",
       room: "",
@@ -159,6 +164,32 @@ export default function MonthlyShift() {
   const handleSave = async () => {
     if (!form.cast_id) { toast.error("セラピストを選択してください"); return; }
     setSaving(true);
+
+    if (!editingId && bulkMode) {
+      // 連続追加: 開始日〜終了日の全日程をまとめてINSERT
+      const start = parseISO(form.shift_date);
+      const end = parseISO(bulkEndDate);
+      if (end < start) { toast.error("終了日は開始日以降にしてください"); setSaving(false); return; }
+      const dates = eachDayOfInterval({ start, end });
+      const rows = dates.map(d => ({
+        cast_id: form.cast_id,
+        shift_date: format(d, "yyyy-MM-dd"),
+        start_time: form.start_time,
+        end_time: form.end_time,
+        room: form.room || null,
+        estama_registered: form.estama_registered,
+        esran_registered: form.esran_registered,
+        approval_status: "approved",
+      }));
+      const { error } = await supabase.from("shifts").insert(rows);
+      setSaving(false);
+      if (error) { toast.error("保存に失敗しました"); return; }
+      toast.success(`${dates.length}日分のシフトを追加しました`);
+      setShowDialog(false);
+      fetchMonthlyShifts();
+      return;
+    }
+
     const payload = {
       cast_id: form.cast_id,
       shift_date: form.shift_date,
@@ -536,12 +567,38 @@ export default function MonthlyShift() {
         )}
       </main>
 
-      <Dialog open={showDialog} onOpenChange={(o) => { setShowDialog(o); if (!o) setEditingId(null); }}>
+      <Dialog open={showDialog} onOpenChange={(o) => { setShowDialog(o); if (!o) { setEditingId(null); setBulkMode(false); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingId ? "シフト編集" : "シフト入力"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
+            {/* 連続追加トグル（新規追加時のみ） */}
+            {!editingId && (
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <div
+                  onClick={() => {
+                    setBulkMode(!bulkMode);
+                    if (!bulkMode) setBulkEndDate(form.shift_date);
+                  }}
+                  className={cn(
+                    "relative w-11 h-6 rounded-full transition-colors",
+                    bulkMode ? "bg-primary" : "bg-muted-foreground/30"
+                  )}
+                >
+                  <span className={cn(
+                    "absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform",
+                    bulkMode && "translate-x-5"
+                  )} />
+                </div>
+                <span className="text-sm font-medium">連続追加（出稼ぎ）</span>
+                {bulkMode && form.shift_date && bulkEndDate >= form.shift_date && (
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {eachDayOfInterval({ start: parseISO(form.shift_date), end: parseISO(bulkEndDate) }).length}日間
+                  </span>
+                )}
+              </label>
+            )}
             <div>
               <Label>セラピスト</Label>
               <Select value={form.cast_id} onValueChange={v => setForm({ ...form, cast_id: v })}>
@@ -551,10 +608,26 @@ export default function MonthlyShift() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>日付</Label>
-              <Input type="date" value={form.shift_date} onChange={e => setForm({ ...form, shift_date: e.target.value })} />
-            </div>
+            {bulkMode ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>開始日</Label>
+                  <Input type="date" value={form.shift_date} onChange={e => {
+                    setForm({ ...form, shift_date: e.target.value });
+                    if (bulkEndDate < e.target.value) setBulkEndDate(e.target.value);
+                  }} />
+                </div>
+                <div>
+                  <Label>終了日</Label>
+                  <Input type="date" value={bulkEndDate} min={form.shift_date} onChange={e => setBulkEndDate(e.target.value)} />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <Label>日付</Label>
+                <Input type="date" value={form.shift_date} onChange={e => setForm({ ...form, shift_date: e.target.value })} />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>開始時間</Label>
