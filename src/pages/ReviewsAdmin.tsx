@@ -6,8 +6,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { toast } from "sonner";
 
 interface Review {
   id: string;
@@ -15,6 +17,7 @@ interface Review {
   therapist_name: string | null;
   review_text: string;
   allow_publish: boolean;
+  is_published: boolean;
   created_at: string;
 }
 
@@ -22,7 +25,7 @@ export default function ReviewsAdmin() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "publish">("all");
+  const [filter, setFilter] = useState<"all" | "published">("all");
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -42,11 +45,26 @@ export default function ReviewsAdmin() {
       });
   }, [user]);
 
-  const displayed = filter === "publish" ? reviews.filter((r) => r.allow_publish) : reviews;
+  const togglePublish = async (id: string, current: boolean) => {
+    const next = !current;
+    setReviews((prev) => prev.map((r) => r.id === id ? { ...r, is_published: next } : r));
+    const { error } = await supabase
+      .from("customer_reviews")
+      .update({ is_published: next })
+      .eq("id", id);
+    if (error) {
+      setReviews((prev) => prev.map((r) => r.id === id ? { ...r, is_published: current } : r));
+      toast.error("更新に失敗しました");
+    } else {
+      toast.success(next ? "HPに公開しました" : "非公開にしました");
+    }
+  };
+
+  const displayed = filter === "published" ? reviews.filter((r) => r.is_published) : reviews;
   const avg = reviews.length
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
     : "-";
-  const publishCount = reviews.filter((r) => r.allow_publish).length;
+  const publishedCount = reviews.filter((r) => r.is_published).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,7 +74,7 @@ export default function ReviewsAdmin() {
         <div className="max-w-3xl mx-auto">
           <h1 className="text-2xl font-bold mb-1">口コミ一覧</h1>
           <p className="text-muted-foreground text-sm mb-6">
-            サンクスSMSから回収したお客様の口コミ
+            スイッチをONにするとHPの口コミページに表示されます
           </p>
 
           {/* サマリー */}
@@ -75,8 +93,8 @@ export default function ReviewsAdmin() {
             </Card>
             <Card>
               <CardContent className="pt-4 pb-4 text-center">
-                <p className="text-xs text-muted-foreground">公開許可</p>
-                <p className="text-3xl font-bold mt-1 text-green-600">{publishCount}</p>
+                <p className="text-xs text-muted-foreground">HP公開中</p>
+                <p className="text-3xl font-bold mt-1 text-green-600">{publishedCount}</p>
               </CardContent>
             </Card>
           </div>
@@ -92,12 +110,12 @@ export default function ReviewsAdmin() {
               すべて
             </button>
             <button
-              onClick={() => setFilter("publish")}
+              onClick={() => setFilter("published")}
               className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                filter === "publish" ? "bg-green-600 text-white" : "bg-muted hover:bg-muted/80"
+                filter === "published" ? "bg-green-600 text-white" : "bg-muted hover:bg-muted/80"
               }`}
             >
-              公開許可のみ ({publishCount})
+              公開中のみ ({publishedCount})
             </button>
           </div>
 
@@ -106,36 +124,47 @@ export default function ReviewsAdmin() {
           ) : displayed.length === 0 ? (
             <Card>
               <CardContent className="pt-12 pb-12 text-center text-muted-foreground">
-                {filter === "publish" ? "公開許可の口コミがありません" : "まだ口コミがありません"}
+                {filter === "published" ? "HP公開中の口コミがありません" : "まだ口コミがありません"}
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-3">
               {displayed.map((r) => (
-                <Card key={r.id}>
+                <Card key={r.id} className={r.is_published ? "border-green-200" : ""}>
                   <CardContent className="pt-4 pb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-yellow-400 font-bold">
-                          {"★".repeat(r.rating)}
-                          <span className="text-gray-300">{"★".repeat(5 - r.rating)}</span>
-                        </span>
-                        {r.therapist_name && (
-                          <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
-                            {r.therapist_name}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <span className="font-bold">
+                            <span className="text-yellow-400">{"★".repeat(r.rating)}</span>
+                            <span className="text-gray-300">{"★".repeat(5 - r.rating)}</span>
                           </span>
-                        )}
-                        {r.allow_publish && (
-                          <Badge variant="outline" className="text-xs text-green-600 border-green-300">
-                            公開許可
-                          </Badge>
-                        )}
+                          {r.therapist_name && (
+                            <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
+                              {r.therapist_name}
+                            </span>
+                          )}
+                          {r.allow_publish && (
+                            <Badge variant="outline" className="text-xs text-blue-600 border-blue-200">
+                              掲載許可あり
+                            </Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground ml-auto">
+                            {format(new Date(r.created_at), "M/d(E) HH:mm", { locale: ja })}
+                          </span>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">{r.review_text}</p>
                       </div>
-                      <span className="text-xs text-muted-foreground shrink-0 ml-2">
-                        {format(new Date(r.created_at), "M/d(E) HH:mm", { locale: ja })}
-                      </span>
+                      <div className="shrink-0 flex flex-col items-center gap-1">
+                        <Switch
+                          checked={r.is_published}
+                          onCheckedChange={() => togglePublish(r.id, r.is_published)}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          {r.is_published ? "公開中" : "非公開"}
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-sm whitespace-pre-wrap">{r.review_text}</p>
                   </CardContent>
                 </Card>
               ))}
