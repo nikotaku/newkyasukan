@@ -32,6 +32,8 @@ interface Reservation {
   options: string[] | null;
   nomination_type: string | null;
   payment_fee: number | null;
+  payment_method: string | null;
+  payment_details: { method: string; amount: number }[] | null;
   casts: { id: string; name: string; access_token: string | null } | null;
   // 計算済みバック内訳
   courseBack?: number;
@@ -47,6 +49,7 @@ interface CastGroup {
   accessToken: string | null;
   reservations: Reservation[];
   totalSales: number;
+  cashSales: number;
   autoBack: number;
 }
 
@@ -111,7 +114,7 @@ export default function SalesDailySales() {
       const [resResult, nextResResult, backRatesResult, optionRatesResult, nominationRatesResult, clearResult] = await Promise.all([
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name, access_token)")
+          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, payment_method, payment_details, casts(id, name, access_token)")
           .eq("reservation_date", dateStr)
           .gte("start_time", dayStartTime) // 営業開始時刻以前は前日の深夜またぎ分なので除外
           .in("status", ["confirmed", "completed"])
@@ -119,7 +122,7 @@ export default function SalesDailySales() {
         // 深夜またぎ分：翌日日付で保存されているが営業開始前の予約は当日扱い
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, casts(id, name, access_token)")
+          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, payment_method, payment_details, casts(id, name, access_token)")
           .eq("reservation_date", nextDateStr)
           .lt("start_time", dayStartTime)
           .in("status", ["confirmed", "completed"])
@@ -186,7 +189,7 @@ export default function SalesDailySales() {
         const castName = r.casts?.name ?? "未設定";
         if (!groups[castId]) {
           const accessToken = r.casts?.access_token ?? null;
-          groups[castId] = { castId, castName, accessToken, reservations: [], totalSales: 0, autoBack: 0 };
+          groups[castId] = { castId, castName, accessToken, reservations: [], totalSales: 0, cashSales: 0, autoBack: 0 };
         }
         // 予約ごとのバック内訳を計算
         const courseBack = findCourseBack(r.course_type, r.course_name, r.duration);
@@ -206,7 +209,14 @@ export default function SalesDailySales() {
 
         groups[castId].reservations.push(r);
         // 売上は決済手数料込みの金額で集計
-        groups[castId].totalSales += (r.price ?? 0) + (r.payment_fee ?? 0);
+        const totalPrice = (r.price ?? 0) + (r.payment_fee ?? 0);
+        groups[castId].totalSales += totalPrice;
+        // 現金集計: payment_details がある場合は cash エントリのみ合算
+        if (r.payment_details && r.payment_details.length > 0) {
+          groups[castId].cashSales += r.payment_details.filter(d => d.method === "cash").reduce((s, d) => s + d.amount, 0);
+        } else if ((r.payment_method ?? "cash") === "cash") {
+          groups[castId].cashSales += totalPrice;
+        }
         groups[castId].autoBack += totalBack;
       }
 
@@ -251,6 +261,7 @@ export default function SalesDailySales() {
     downloadClearanceReceipt({
       date: selectedDate,
       castName: group.castName,
+      cashTotal: group.cashSales,
       reservations: group.reservations.map((r) => ({
         start_time: r.start_time,
         customer_name: r.customer_name,

@@ -13,6 +13,7 @@ export interface ReceiptReservation {
 export interface ClearanceReceiptData {
   date: Date;
   castName: string;
+  cashTotal: number;
   reservations: ReceiptReservation[];
   totalSales: number;
   therapistBack: number;
@@ -96,7 +97,7 @@ export function downloadClearanceReceipt(data: ClearanceReceiptData): void {
   H += 16; // 区切り
   H += 6 * 26; // 売上・バック・雑費・宿泊費・交通費・給与
   H += 12; // 区切り
-  H += 44; // 投函金額（大）
+  H += 16 + 3 * 32 + 8; // ❶現金預かり・❷店落ち・❸投函（3行）
   if (methodLines.length > 0) {
     H += 16 + 20 + methodLines.length * 20;
   }
@@ -224,26 +225,40 @@ export function downloadClearanceReceipt(data: ClearanceReceiptData): void {
   }
   summaryRow("セラピスト給与", yen(data.salary), { color: primary, bold: true });
 
-  // 投函金額（強調）
+  // ❶❷❸ 3行サマリー
   ctx.strokeStyle = line;
   ctx.beginPath();
   ctx.moveTo(pad, y + 6);
   ctx.lineTo(right, y + 6);
   ctx.stroke();
-  y += 12;
+  y += 16;
 
-  ctx.fillStyle = "#eff6ff";
-  ctx.fillRect(pad, y, contentW, 38);
-  ctx.fillStyle = ink;
-  ctx.font = `bold 15px ${FONT}`;
-  ctx.textAlign = "left";
-  ctx.fillText("投函金額（店舗取り分）", pad + 10, y + 25);
-  ctx.fillStyle = primary;
-  ctx.font = `bold 19px ${FONT}`;
-  ctx.textAlign = "right";
-  ctx.fillText(yen(data.payout), right - 10, y + 26);
-  ctx.textAlign = "left";
-  y += 44;
+  const payoutRow = (num: string, label: string, value: number, opts?: { highlight?: boolean }) => {
+    const rh = 32;
+    if (opts?.highlight) {
+      ctx.fillStyle = "#eff6ff";
+      ctx.fillRect(pad, y, contentW, rh);
+    }
+    ctx.fillStyle = muted;
+    ctx.font = `12px ${FONT}`;
+    ctx.textAlign = "left";
+    ctx.fillText(num, pad + 6, y + 21);
+    ctx.fillStyle = opts?.highlight ? ink : ink;
+    ctx.font = opts?.highlight ? `bold 14px ${FONT}` : `13px ${FONT}`;
+    ctx.fillText(label, pad + 24, y + 21);
+    ctx.fillStyle = opts?.highlight ? primary : ink;
+    ctx.font = opts?.highlight ? `bold 17px ${FONT}` : `bold 14px ${FONT}`;
+    ctx.textAlign = "right";
+    ctx.fillText(yen(value), right - 8, y + 22);
+    ctx.textAlign = "left";
+    y += rh;
+  };
+
+  const cashPayout = data.cashTotal - data.salary;
+  payoutRow("❶", "現金預かり額", data.cashTotal);
+  payoutRow("❷", "店落ち", data.payout);
+  payoutRow("❸", "投函", cashPayout, { highlight: true });
+  y += 8;
 
   // 投函方法
   if (methodLines.length > 0) {
