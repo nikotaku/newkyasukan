@@ -123,6 +123,8 @@ import ProductLP from "./pages/public/ProductLP";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import Survey from "./pages/public/Survey";
 import CustomerReview from "./pages/public/CustomerReview";
+import SurveysAdmin from "./pages/SurveysAdmin";
+import ReviewsAdmin from "./pages/ReviewsAdmin";
 
 const queryClient = new QueryClient();
 
@@ -211,6 +213,8 @@ const App = () => {
           <Route path="/database/knowledge/sns" element={<SNSDatabase />} />
           <Route path="/database/therapist/mypage" element={<TherapistMyPage />} />
           <Route path="/database/customers" element={<CustomerDatabase />} />
+          <Route path="/database/surveys" element={<SurveysAdmin />} />
+          <Route path="/database/reviews" element={<ReviewsAdmin />} />
           <Route path="/facilities/rooms" element={<FacilitiesRooms />} />
           <Route path="/facilities/contracts" element={<FacilitiesContracts />} />
           <Route path="/facilities/contracts/:id" element={<FacilitiesContractDetail />} />
