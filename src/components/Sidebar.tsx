@@ -184,6 +184,8 @@ const menuItems: MenuItem[] = [
       { href: "/database/customers", label: "顧客一覧" },
       { href: "/database/customers?tab=preferences", label: "好み" },
       { href: "/database/customers?tab=sales", label: "営業" },
+      { href: "/database/surveys", label: "アンケート" },
+      { href: "/database/reviews", label: "口コミ" },
     ],
   },
 ];
