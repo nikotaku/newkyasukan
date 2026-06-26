@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart } from "lucide-react";
+import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart, PencilLine, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import backRatesImage from "@/assets/back-rates-table.jpg";
@@ -126,6 +126,9 @@ export default function TherapistPortal() {
   const [customersLoading, setCustomersLoading] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
+  const [notesEditing, setNotesEditing] = useState<string | null>(null);
+  const [notesValue, setNotesValue] = useState("");
+  const [notesSaving, setNotesSaving] = useState(false);
 
   // Transport
   const [expenses, setExpenses] = useState<TransportExpense[]>([]);
@@ -239,6 +242,22 @@ export default function TherapistPortal() {
     if (error) toast.error("データの取得に失敗しました");
     else setExpenses((data || []) as TransportExpense[]);
     setExpensesLoading(false);
+  };
+
+  const handleSaveNotes = async (customerId: string) => {
+    setNotesSaving(true);
+    const { error } = await supabase.rpc("update_therapist_customer_notes" as any, {
+      p_token: token,
+      p_customer_id: customerId,
+      p_notes: notesValue,
+    });
+    setNotesSaving(false);
+    if (error) { toast.error("メモの保存に失敗しました"); return; }
+    setTherapistCustomers(prev =>
+      prev.map(c => c.customer_id === customerId ? { ...c, preference_notes: notesValue || null } : c)
+    );
+    setNotesEditing(null);
+    toast.success("メモを保存しました");
   };
 
   const handleTransportSubmit = async () => {
@@ -766,7 +785,7 @@ export default function TherapistPortal() {
                   .filter((c) => !customerSearch.trim() || c.name?.toLowerCase().includes(customerSearch.trim().toLowerCase()))
                   .map((c) => {
                     const expanded = expandedCustomer === c.customer_id;
-                    const hasPrefs = c.preferred_pressure || c.concern_areas?.length || c.conversation_level || c.ng_items || c.preference_notes;
+                    const hasPrefs = c.preferred_pressure || c.concern_areas?.length || c.conversation_level || c.ng_items;
                     return (
                       <div key={c.customer_id} className="rounded-xl border bg-card overflow-hidden">
                         <button
@@ -787,21 +806,68 @@ export default function TherapistPortal() {
                           {expanded ? <ChevronUp size={15} className="text-muted-foreground shrink-0" /> : <ChevronDown size={15} className="text-muted-foreground shrink-0" />}
                         </button>
                         {expanded && (
-                          <div className="px-4 pb-4 pt-1 border-t space-y-2 text-sm">
+                          <div className="px-4 pb-4 pt-2 border-t space-y-2 text-sm">
                             {hasPrefs ? (
                               <>
                                 {c.preferred_pressure && <p>圧の好み：<strong>{c.preferred_pressure}</strong></p>}
                                 {c.concern_areas?.length ? <p>気になる部位：<strong>{c.concern_areas.join("・")}</strong></p> : null}
                                 {c.conversation_level && <p>会話：<strong>{c.conversation_level}</strong></p>}
                                 {c.ng_items && <p className="text-orange-600 font-medium">⚠️ NG：{c.ng_items}</p>}
-                                {c.preference_notes && <p className="text-muted-foreground">{c.preference_notes}</p>}
                               </>
                             ) : (
                               <p className="text-muted-foreground text-xs">好み情報はまだ登録されていません</p>
                             )}
                             {c.notes && (
-                              <p className="text-xs text-muted-foreground pt-1.5 border-t">メモ：{c.notes}</p>
+                              <p className="text-xs text-muted-foreground border-t pt-1.5">管理メモ：{c.notes}</p>
                             )}
+
+                            {/* セラピストメモ（編集可） */}
+                            <div className="border-t pt-2">
+                              <p className="text-xs font-semibold text-muted-foreground mb-1.5">自分メモ</p>
+                              {notesEditing === c.customer_id ? (
+                                <div className="space-y-1.5">
+                                  <textarea
+                                    value={notesValue}
+                                    onChange={(e) => setNotesValue(e.target.value)}
+                                    placeholder="施術の感想・次回への引き継ぎなど"
+                                    rows={3}
+                                    className="w-full rounded-md border bg-background px-3 py-2 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                                    autoFocus
+                                  />
+                                  <div className="flex gap-1.5">
+                                    <button
+                                      onClick={() => handleSaveNotes(c.customer_id)}
+                                      disabled={notesSaving}
+                                      className="flex-1 flex items-center justify-center gap-1 h-7 rounded-md bg-primary text-primary-foreground text-xs font-medium disabled:opacity-60"
+                                    >
+                                      {notesSaving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                                      保存
+                                    </button>
+                                    <button
+                                      onClick={() => setNotesEditing(null)}
+                                      className="h-7 w-7 flex items-center justify-center rounded-md border text-muted-foreground hover:text-foreground"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-start gap-2">
+                                  <p className="flex-1 text-xs text-muted-foreground whitespace-pre-wrap">
+                                    {c.preference_notes || <span className="italic">メモなし</span>}
+                                  </p>
+                                  <button
+                                    onClick={() => {
+                                      setNotesEditing(c.customer_id);
+                                      setNotesValue(c.preference_notes ?? "");
+                                    }}
+                                    className="shrink-0 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                                  >
+                                    <PencilLine size={13} />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
