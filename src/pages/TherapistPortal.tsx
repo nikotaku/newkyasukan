@@ -88,6 +88,34 @@ interface TherapistCustomer {
 
 const now = new Date();
 
+// 官能小説風・ニッチな投稿ネタ（参考例）。そのままコピペ可。
+const POST_IDEAS: { title: string; body: string }[] = [
+  {
+    title: "指先のいたずら",
+    body: "今日のあなたは、いつもより少し疲れた背中をしていたね。\nオイルをたっぷり手のひらで温めて、ゆっくり…ゆっくり。\n「ここ、好きでしょ？」って耳元で囁いたら、ピクッと反応したの、私だけの秘密にしておくね。\n続きは…私の部屋で待ってる♡",
+  },
+  {
+    title: "甘い密室の時間",
+    body: "鍵を閉めた瞬間から、ここはふたりだけの世界。\n照明を少し落として、香りに包まれながら、肌と肌の距離がゆっくり近づいていくの。\n呼吸が重なるたびに、あなたの力が抜けていくのがわかる。\nそんな無防備な顔、もっと見せて？",
+  },
+  {
+    title: "焦らすのが好きなの",
+    body: "わざとね、すぐには触れないの。\n指先がふれるかふれないか、その距離で、あなたが「早く」って目で訴えるまで。\nお願いされたら…ちゃんと応えてあげる。\n今夜は、たっぷり焦らされる覚悟をして会いに来てね♡",
+  },
+  {
+    title: "耳元の囁き",
+    body: "施術中、ふいに耳元で名前を呼ばれたら、ドキッとする？\n私はあなたの小さな反応ぜんぶ見てるよ。\n力が入った肩も、思わず漏れた吐息も。\n言葉にできない気持ちは、手のひらで全部受け止めてあげる。",
+  },
+  {
+    title: "とろける90分",
+    body: "最初はリラックス。だんだん、境界線が溶けていくの。\n「気持ちいい」が「もっと」に変わる瞬間が、私はいちばん好き。\n終わる頃にはとろとろになって、もう帰りたくないって言わせちゃうかも。\n今日は何時に会える？",
+  },
+  {
+    title: "あなた限定のわがまま",
+    body: "他の人には内緒のお願い、私にだけしてくれる？\nどんな小さなわがままも、今日は全部叶えてあげたい気分なの。\n恥ずかしがらなくていいよ、ふたりだけの秘密だから。\n指名してくれたら、特別なご褒美用意して待ってるね♡",
+  },
+];
+
 export default function TherapistPortal() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
@@ -132,6 +160,9 @@ export default function TherapistPortal() {
 
   // 専用予約ページリンク
   const [bookingLinkCopied, setBookingLinkCopied] = useState(false);
+  // 投稿ネタ
+  const [copiedIdeaIdx, setCopiedIdeaIdx] = useState<number | null>(null);
+  const [ideasOpen, setIdeasOpen] = useState(false);
 
   // Transport
   const [expenses, setExpenses] = useState<TransportExpense[]>([]);
@@ -553,6 +584,48 @@ export default function TherapistPortal() {
               </div>
             );
           })()}
+
+          {/* 投稿ネタ（官能小説風・参考例） */}
+          <div className="rounded-xl border bg-card overflow-hidden">
+            <button
+              className="w-full px-4 py-3 flex items-center justify-between bg-muted/30"
+              onClick={() => setIdeasOpen((v) => !v)}
+            >
+              <div className="flex items-center gap-2">
+                <Edit size={15} className="text-primary" />
+                <span className="font-semibold text-sm">投稿ネタ（コピペOK・参考例）</span>
+              </div>
+              {ideasOpen ? <ChevronUp size={15} className="text-muted-foreground" /> : <ChevronDown size={15} className="text-muted-foreground" />}
+            </button>
+            {ideasOpen && (
+              <div className="p-4 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  官能小説風の投稿例です。そのままコピペOK♡ 名前や状況を少し変えるとより自然になります。
+                </p>
+                {POST_IDEAS.map((idea, idx) => (
+                  <div key={idx} className="rounded-lg border bg-muted/20 p-3">
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <p className="text-sm font-bold text-foreground">{idea.title}</p>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${idea.title}\n\n${idea.body}`).then(() => {
+                            setCopiedIdeaIdx(idx);
+                            toast.success("コピーしました");
+                            setTimeout(() => setCopiedIdeaIdx((c) => (c === idx ? null : c)), 2000);
+                          });
+                        }}
+                        className="shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded border border-border hover:bg-muted transition-colors"
+                      >
+                        {copiedIdeaIdx === idx ? <Check size={12} /> : <Copy size={12} />}
+                        {copiedIdeaIdx === idx ? "コピー済" : "コピー"}
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">{idea.body}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* 外部サイト連携（O2・X） */}
           <div className="rounded-xl border bg-card overflow-hidden">
