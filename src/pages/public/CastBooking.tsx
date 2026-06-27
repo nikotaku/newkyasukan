@@ -33,16 +33,34 @@ interface Cast {
   photo: string | null;
 }
 
-// 30分刻みの希望時間候補（11:00〜23:30）
-const TIME_OPTIONS: string[] = (() => {
-  const out: string[] = [];
-  for (let m = 11 * 60; m <= 23 * 60 + 30; m += 30) {
-    const h = Math.floor(m / 60);
-    const mm = m % 60;
-    out.push(`${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`);
+// 30分刻みの希望時間候補（13:00〜25:00）。深夜は24:00/25:00表記で表示し、
+// 実際の保存値は通常時刻（24:00→00:00、25:00→01:00）に変換する。
+const TIME_OPTIONS: { label: string; value: string }[] = (() => {
+  const out: { label: string; value: string }[] = [];
+  for (let m = 13 * 60; m <= 25 * 60; m += 30) {
+    const dh = Math.floor(m / 60);
+    const dm = m % 60;
+    const label = `${dh}:${String(dm).padStart(2, "0")}`; // 表示（24:00/25:00もそのまま）
+    const real = m % (24 * 60);
+    const rh = Math.floor(real / 60);
+    const value = `${String(rh).padStart(2, "0")}:${String(dm).padStart(2, "0")}`; // 保存用
+    out.push({ label, value });
   }
   return out;
 })();
+
+// オプションの内容説明（空文字の間は表示しない）
+const OPTION_DESCRIPTIONS: Record<string, string> = {
+  "全力PKG": "",
+};
+
+// おすすめオプション＆掲載順（延長20→延長40→全力PKG→DR30→衣装MB→極液→その他）
+const OPTION_ORDER = ["延長20分", "延長40分", "全力PKG", "DR30分", "衣装MB", "極液"];
+const RECOMMENDED = new Set(OPTION_ORDER);
+const optionSortKey = (name: string) => {
+  const i = OPTION_ORDER.indexOf(name);
+  return i === -1 ? OPTION_ORDER.length : i;
+};
 
 export default function CastBooking() {
   const { castId } = useParams<{ castId: string }>();
@@ -267,16 +285,16 @@ export default function CastBooking() {
             <div className="grid grid-cols-4 gap-2 max-h-44 overflow-y-auto pr-1">
               {TIME_OPTIONS.map((t) => (
                 <button
-                  key={t}
+                  key={t.label}
                   type="button"
-                  onClick={() => setTime(t)}
+                  onClick={() => setTime(t.value)}
                   className={`py-2 rounded-xl text-sm font-medium transition-all ${
-                    time === t
+                    time === t.value
                       ? "bg-gradient-to-br from-pink-400 to-rose-400 text-white shadow-md scale-105"
                       : "bg-pink-50 text-rose-400 hover:bg-pink-100"
                   }`}
                 >
-                  {t}
+                  {t.label}
                 </button>
               ))}
             </div>
@@ -331,25 +349,41 @@ export default function CastBooking() {
                 <Heart size={14} className="fill-rose-300 text-rose-300" />オプション（延長など・任意）
               </label>
               <div className="flex flex-wrap gap-2">
-                {optionRates.map((o) => {
+                {[...optionRates]
+                  .sort((a, b) => optionSortKey(a.option_name) - optionSortKey(b.option_name) || a.display_order - b.display_order)
+                  .map((o) => {
                   const on = selectedOptions.includes(o.option_name);
+                  const recommended = RECOMMENDED.has(o.option_name);
                   return (
                     <button
                       key={o.option_name}
                       type="button"
                       onClick={() => toggleOption(o.option_name)}
-                      className={`px-3 py-2 rounded-full text-xs font-medium transition-all ${
+                      className={`relative px-3 py-2 rounded-full text-xs font-medium transition-all ${
                         on
                           ? "bg-gradient-to-br from-pink-400 to-rose-400 text-white shadow-md scale-105"
-                          : "bg-pink-50 text-rose-400 hover:bg-pink-100"
+                          : recommended
+                            ? "bg-rose-50 text-rose-500 ring-1 ring-rose-200 hover:bg-rose-100"
+                            : "bg-pink-50 text-rose-400 hover:bg-pink-100"
                       }`}
                     >
+                      {recommended && (
+                        <span className={`mr-1 ${on ? "text-yellow-200" : "text-rose-400"}`}>⭐</span>
+                      )}
                       {o.option_name} +¥{o.customer_price.toLocaleString()}
                     </button>
                   );
                 })}
               </div>
-              <p className="text-[11px] text-gray-400 mt-1.5">※ 延長やオプションのご希望があればタップしてね♡</p>
+              <p className="text-[11px] text-gray-400 mt-1.5">⭐ はおすすめオプション♡ ご希望があればタップしてね</p>
+
+              {/* 全力PKG の内容説明 */}
+              {optionRates.some((o) => o.option_name === "全力PKG") && OPTION_DESCRIPTIONS["全力PKG"] && (
+                <div className="mt-3 rounded-xl bg-rose-50 border border-rose-100 p-3">
+                  <p className="text-xs font-bold text-rose-500 mb-1">⭐ 全力PKGとは？</p>
+                  <p className="text-[11px] text-gray-600 whitespace-pre-wrap leading-relaxed">{OPTION_DESCRIPTIONS["全力PKG"]}</p>
+                </div>
+              )}
             </div>
           )}
 
