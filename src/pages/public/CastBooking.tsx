@@ -1,23 +1,36 @@
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { format, addDays } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Heart, Sparkles, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/hooks/useStore";
+import { driveImgUrl } from "@/lib/drive";
 
 /**
- * はる専用の予約リクエストフォーム（可愛いデザイン）。
- * 送信された予約は status="pending" / referral_source="はる専用フォーム" で
- * reservations に登録され、管理画面の予約ボードにリクエストとしてストックされる。
+ * セラピスト専用の予約リクエストフォーム（可愛いデザイン）。
+ * /book/:castId で対象セラピストを特定。各セラピストがマイページから
+ * 自分のリンクを発行して使う。送信された予約は status="pending" /
+ * referral_source="<名前>専用フォーム" で reservations に登録され、
+ * 管理画面の予約ボードにリクエストとしてストックされる。
  */
-
-const HARU_CAST_ID = "4b2fc0c8-ccad-48a6-9a32-f7898381f68b";
-const HARU_PHOTO = "https://cdn2-caskan.com/caskan/img/cast/1778034916_8931147.jpeg";
 
 interface BackRate {
   course_type: string;
   duration: number;
   customer_price: number;
+}
+
+interface OptionRate {
+  option_name: string;
+  customer_price: number;
+  display_order: number;
+}
+
+interface Cast {
+  id: string;
+  name: string;
+  photo: string | null;
 }
 
 // 30分刻みの希望時間候補（11:00〜23:30）
@@ -31,15 +44,20 @@ const TIME_OPTIONS: string[] = (() => {
   return out;
 })();
 
-export default function HaruBooking() {
+export default function CastBooking() {
+  const { castId } = useParams<{ castId: string }>();
   const { storeId } = useStore();
+  const [cast, setCast] = useState<Cast | null>(null);
+  const [castLoading, setCastLoading] = useState(true);
   const [backRates, setBackRates] = useState<BackRate[]>([]);
+  const [optionRates, setOptionRates] = useState<OptionRate[]>([]);
   const [nominationFee, setNominationFee] = useState(0);
 
   const [date, setDate] = useState(format(addDays(new Date(), 1), "yyyy-MM-dd"));
   const [time, setTime] = useState("");
   const [courseType, setCourseType] = useState("");
   const [duration, setDuration] = useState(0);
+  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
@@ -49,31 +67,50 @@ export default function HaruBooking() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    document.title = "はる｜専用予約ページ";
+    if (!castId) { setCastLoading(false); return; }
+    supabase.from("casts").select("id, name, photo").eq("id", castId).maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setCast(data as Cast);
+          document.title = `${(data as Cast).name}｜専用予約ページ`;
+        }
+        setCastLoading(false);
+      });
     supabase.rpc("get_public_back_rates").then(({ data }) => {
       const rates = (data || []) as BackRate[];
       setBackRates(rates);
       const aroma = rates.find((r) => r.course_type === "アロマオイル");
-      if (aroma) { setCourseType(aroma.course_type); }
+      if (aroma) setCourseType(aroma.course_type);
     });
+    supabase.from("option_rates").select("option_name, customer_price, display_order")
+      .order("display_order").then(({ data }) => {
+        setOptionRates((data || []) as OptionRate[]);
+      });
     supabase.from("nomination_rates").select("nomination_type, customer_price").then(({ data }) => {
       const net = (data || []).find((n: any) => n.nomination_type === "ネット指名");
       if (net) setNominationFee(net.customer_price ?? 0);
     });
-  }, []);
+  }, [castId]);
 
   const courseTypes = [...new Set(backRates.map((r) => r.course_type))];
   const durationsFor = (ct: string) =>
     backRates.filter((r) => r.course_type === ct).sort((a, b) => a.duration - b.duration);
 
+  const toggleOption = (name: string) =>
+    setSelectedOptions((prev) => prev.includes(name) ? prev.filter((o) => o !== name) : [...prev, name]);
+
   const coursePrice = backRates.find(
     (r) => r.course_type === courseType && r.duration === duration
   )?.customer_price ?? 0;
-  const total = coursePrice > 0 ? coursePrice + nominationFee : 0;
+  const optionsTotal = selectedOptions.reduce(
+    (s, name) => s + (optionRates.find((o) => o.option_name === name)?.customer_price ?? 0), 0
+  );
+  const total = coursePrice > 0 ? coursePrice + optionsTotal + nominationFee : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!cast) return;
     if (!name.trim()) { setError("お名前を入力してね"); return; }
     if (!phone.trim() || phone.replace(/\D/g, "").length < 10) { setError("電話番号を入力してね"); return; }
     if (!date) { setError("希望日を選んでね"); return; }
@@ -84,7 +121,7 @@ export default function HaruBooking() {
     try {
       const courseName = `${courseType} ${duration}分`;
       const { error: insErr } = await supabase.from("reservations").insert([{
-        cast_id: HARU_CAST_ID,
+        cast_id: cast.id,
         customer_name: name.trim(),
         customer_phone: phone.trim(),
         reservation_date: date,
@@ -92,11 +129,12 @@ export default function HaruBooking() {
         duration,
         course_type: courseType,
         course_name: courseName,
+        options: selectedOptions.length > 0 ? selectedOptions : null,
         nomination_type: "ネット指名",
         price: total,
         payment_method: "現金",
         notes: notes.trim() || null,
-        referral_source: "はる専用フォーム",
+        referral_source: `${cast.name}専用フォーム`,
         status: "pending",
         payment_status: "unpaid",
         created_by: null,
@@ -111,14 +149,15 @@ export default function HaruBooking() {
           body: {
             customer_name: name.trim(),
             customer_phone: phone.trim(),
-            cast_name: "はる",
+            cast_name: cast.name,
             reservation_date: dateStr,
             start_time: time,
             course_name: courseName,
+            options: selectedOptions.length > 0 ? selectedOptions : null,
             nomination_type: "ネット指名",
             price: total,
             payment_method: "現金",
-            notes: `【はる専用フォーム】${notes.trim()}`,
+            notes: `【${cast.name}専用フォーム】${notes.trim()}`,
           },
         });
       } catch (notifyErr) {
@@ -134,6 +173,24 @@ export default function HaruBooking() {
     }
   };
 
+  if (castLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-pink-100 via-rose-50 to-white flex items-center justify-center">
+        <Loader2 className="animate-spin text-rose-400" size={32} />
+      </div>
+    );
+  }
+
+  if (!cast) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-pink-100 via-rose-50 to-white flex items-center justify-center p-5">
+        <p className="text-rose-500 font-medium text-center">予約ページが見つかりませんでした。<br />リンクをご確認ください。</p>
+      </div>
+    );
+  }
+
+  const photoUrl = driveImgUrl(cast.photo, 400);
+
   if (done) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-pink-100 via-rose-50 to-white flex items-center justify-center p-5">
@@ -144,11 +201,12 @@ export default function HaruBooking() {
           <h1 className="text-xl font-bold text-rose-500">予約リクエスト完了♡</h1>
           <p className="text-sm text-gray-600 leading-relaxed">
             ご予約リクエストありがとうございます！<br />
-            内容を確認して、<span className="font-bold text-rose-500">はる</span>または<br />スタッフよりご連絡いたします💌
+            内容を確認して、<span className="font-bold text-rose-500">{cast.name}</span>または<br />スタッフよりご連絡いたします💌
           </p>
           <div className="bg-pink-50 rounded-2xl p-4 text-sm text-left space-y-1 text-gray-700">
             <p>📅 {format(new Date(`${date}T00:00:00`), "M月d日(E)", { locale: ja })} {time}〜</p>
             <p>💆 {courseType} {duration}分</p>
+            {selectedOptions.length > 0 && <p>✨ {selectedOptions.join("・")}</p>}
             {total > 0 && <p>💰 ¥{total.toLocaleString()}（目安）</p>}
           </div>
           <p className="text-xs text-gray-400">※ この時点ではまだ予約は確定していません。返信をもって確定となります。</p>
@@ -168,10 +226,16 @@ export default function HaruBooking() {
         </div>
         <div className="relative">
           <div className="mx-auto w-28 h-28 rounded-full p-1 bg-gradient-to-br from-pink-400 to-rose-300 shadow-lg">
-            <img src={HARU_PHOTO} alt="はる" className="w-full h-full rounded-full object-cover object-top border-2 border-white" />
+            {photoUrl ? (
+              <img src={photoUrl} alt={cast.name} className="w-full h-full rounded-full object-cover object-top border-2 border-white" />
+            ) : (
+              <div className="w-full h-full rounded-full bg-white flex items-center justify-center border-2 border-white">
+                <Heart className="text-rose-300 fill-rose-200" size={40} />
+              </div>
+            )}
           </div>
           <h1 className="mt-4 text-2xl font-bold text-rose-500 tracking-wide">
-            はる<span className="text-base font-medium text-pink-400"> 専用予約ページ</span>
+            {cast.name}<span className="text-base font-medium text-pink-400"> 専用予約ページ</span>
           </h1>
           <p className="mt-1.5 text-sm text-pink-500/80">
             会いに来てくれて嬉しいな♡<br />下のフォームから予約してね💕
@@ -260,6 +324,35 @@ export default function HaruBooking() {
             </div>
           </div>
 
+          {/* オプション（延長含む） */}
+          {optionRates.length > 0 && (
+            <div>
+              <label className="flex items-center gap-1.5 text-sm font-bold text-rose-500 mb-2">
+                <Heart size={14} className="fill-rose-300 text-rose-300" />オプション（延長など・任意）
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {optionRates.map((o) => {
+                  const on = selectedOptions.includes(o.option_name);
+                  return (
+                    <button
+                      key={o.option_name}
+                      type="button"
+                      onClick={() => toggleOption(o.option_name)}
+                      className={`px-3 py-2 rounded-full text-xs font-medium transition-all ${
+                        on
+                          ? "bg-gradient-to-br from-pink-400 to-rose-400 text-white shadow-md scale-105"
+                          : "bg-pink-50 text-rose-400 hover:bg-pink-100"
+                      }`}
+                    >
+                      {o.option_name} +¥{o.customer_price.toLocaleString()}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1.5">※ 延長やオプションのご希望があればタップしてね♡</p>
+            </div>
+          )}
+
           {/* お名前 */}
           <div>
             <label className="flex items-center gap-1.5 text-sm font-bold text-rose-500 mb-2">
@@ -292,7 +385,7 @@ export default function HaruBooking() {
           {/* ひとこと */}
           <div>
             <label className="flex items-center gap-1.5 text-sm font-bold text-rose-500 mb-2">
-              <Heart size={14} className="fill-rose-300 text-rose-300" />はるへひとこと（任意）
+              <Heart size={14} className="fill-rose-300 text-rose-300" />{cast.name}へひとこと（任意）
             </label>
             <textarea
               value={notes}
@@ -325,7 +418,7 @@ export default function HaruBooking() {
             )}
           </button>
           <p className="text-[11px] text-gray-400 text-center">
-            送信内容を確認後、はる・スタッフよりご連絡いたします。<br />この時点では予約は確定していません。
+            送信内容を確認後、{cast.name}・スタッフよりご連絡いたします。<br />この時点では予約は確定していません。
           </p>
         </form>
       </main>

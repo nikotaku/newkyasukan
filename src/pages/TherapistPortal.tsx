@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart, PencilLine, Check, X } from "lucide-react";
+import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart, PencilLine, Check, X, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import backRatesImage from "@/assets/back-rates-table.jpg";
@@ -129,6 +129,9 @@ export default function TherapistPortal() {
   const [notesEditing, setNotesEditing] = useState<string | null>(null);
   const [notesValue, setNotesValue] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
+
+  // 専用予約ページリンク
+  const [bookingLinkCopied, setBookingLinkCopied] = useState(false);
 
   // Transport
   const [expenses, setExpenses] = useState<TransportExpense[]>([]);
@@ -511,6 +514,45 @@ export default function TherapistPortal() {
               );
             })}
           </div>
+
+          {/* あなた専用の予約ページ */}
+          {(() => {
+            const bookingUrl = `${import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin}/book/${cast.id}`;
+            return (
+              <div className="rounded-xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-rose-50 overflow-hidden">
+                <div className="px-4 py-3 flex items-center gap-2 border-b border-pink-100">
+                  <Heart size={15} className="text-rose-400 fill-rose-300" />
+                  <p className="font-semibold text-sm text-rose-500">あなた専用の予約ページ</p>
+                </div>
+                <div className="p-4 space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    このリンクをSNSのプロフィールやお客様へのメッセージに貼ると、あなた宛ての予約リクエストが直接届きます💕
+                  </p>
+                  <code className="block bg-white/80 border border-pink-100 px-3 py-2 rounded-lg text-xs font-mono break-all text-rose-500">
+                    {bookingUrl}
+                  </code>
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1 bg-rose-400 hover:bg-rose-500"
+                      onClick={() => {
+                        navigator.clipboard.writeText(bookingUrl).then(() => {
+                          setBookingLinkCopied(true);
+                          toast.success("リンクをコピーしました");
+                          setTimeout(() => setBookingLinkCopied(false), 2000);
+                        });
+                      }}
+                    >
+                      {bookingLinkCopied ? <Check size={15} className="mr-1.5" /> : <Copy size={15} className="mr-1.5" />}
+                      {bookingLinkCopied ? "コピーしました" : "リンクをコピー"}
+                    </Button>
+                    <Button variant="outline" className="border-pink-200" onClick={() => window.open(bookingUrl, "_blank")}>
+                      <ExternalLink size={15} />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* 外部サイト連携（O2・X） */}
           <div className="rounded-xl border bg-card overflow-hidden">
