@@ -33,18 +33,19 @@ interface Cast {
   photo: string | null;
 }
 
-// 30分刻みの希望時間候補（13:00〜25:00）。深夜は24:00/25:00表記で表示し、
-// 実際の保存値は通常時刻（24:00→00:00、25:00→01:00）に変換する。
-const TIME_OPTIONS: { label: string; value: string }[] = (() => {
-  const out: { label: string; value: string }[] = [];
-  for (let m = 13 * 60; m <= 25 * 60; m += 30) {
+// 30分刻みの希望時間候補（13:00〜28:00）。深夜は24:00〜28:00表記で表示し、
+// 保存は「翌カレンダー日付＋実時刻（24:00→翌0:00 …）」に変換する（管理タイムラインと整合）。
+const TIME_OPTIONS: { label: string; value: string; dayOffset: number }[] = (() => {
+  const out: { label: string; value: string; dayOffset: number }[] = [];
+  for (let m = 13 * 60; m <= 28 * 60; m += 30) {
     const dh = Math.floor(m / 60);
     const dm = m % 60;
-    const label = `${dh}:${String(dm).padStart(2, "0")}`; // 表示（24:00/25:00もそのまま）
+    const label = `${dh}:${String(dm).padStart(2, "0")}`; // 表示（24:00〜28:00もそのまま）
     const real = m % (24 * 60);
     const rh = Math.floor(real / 60);
-    const value = `${String(rh).padStart(2, "0")}:${String(dm).padStart(2, "0")}`; // 保存用
-    out.push({ label, value });
+    const value = `${String(rh).padStart(2, "0")}:${String(dm).padStart(2, "0")}`; // 保存用の実時刻
+    const dayOffset = m >= 24 * 60 ? 1 : 0; // 24:00以降は翌カレンダー日付
+    out.push({ label, value, dayOffset });
   }
   return out;
 })();
@@ -125,6 +126,12 @@ export default function CastBooking() {
   );
   const total = coursePrice > 0 ? coursePrice + optionsTotal + nominationFee : 0;
 
+  const selectedTime = TIME_OPTIONS.find((t) => t.value === time);
+  // 24:00以降は翌カレンダー日付で保存（管理タイムラインの営業日ロジックと整合）
+  const resDate = selectedTime
+    ? format(addDays(new Date(`${date}T00:00:00`), selectedTime.dayOffset), "yyyy-MM-dd")
+    : date;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -142,7 +149,7 @@ export default function CastBooking() {
         cast_id: cast.id,
         customer_name: name.trim(),
         customer_phone: phone.trim(),
-        reservation_date: date,
+        reservation_date: resDate,
         start_time: time,
         duration,
         course_type: courseType,
@@ -169,7 +176,7 @@ export default function CastBooking() {
             customer_phone: phone.trim(),
             cast_name: cast.name,
             reservation_date: dateStr,
-            start_time: time,
+            start_time: selectedTime?.label ?? time,
             course_name: courseName,
             options: selectedOptions.length > 0 ? selectedOptions : null,
             nomination_type: "ネット指名",
@@ -222,7 +229,7 @@ export default function CastBooking() {
             内容を確認して、<span className="font-bold text-rose-500">{cast.name}</span>または<br />スタッフよりご連絡いたします💌
           </p>
           <div className="bg-pink-50 rounded-2xl p-4 text-sm text-left space-y-1 text-gray-700">
-            <p>📅 {format(new Date(`${date}T00:00:00`), "M月d日(E)", { locale: ja })} {time}〜</p>
+            <p>📅 {format(new Date(`${date}T00:00:00`), "M月d日(E)", { locale: ja })} {selectedTime?.label ?? time}〜</p>
             <p>💆 {courseType} {duration}分</p>
             {selectedOptions.length > 0 && <p>✨ {selectedOptions.join("・")}</p>}
             {total > 0 && <p>💰 ¥{total.toLocaleString()}（目安）</p>}
