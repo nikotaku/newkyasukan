@@ -460,7 +460,8 @@ export default function Schedule() {
       roomCautionText ? `\n【注意事項】\n${roomCautionText}` : null,
       castName
         ? [
-            `\n━━━━━━━━━━`,
+            `\n▼本日担当するセラピストからのメッセージ`,
+            `━━━━━━━━━━`,
             `本日担当いたします、${castName}です✨`,
             `いっぱい癒しますので、よろしくお願い致します！`,
             `もしよろしければ、施術後に私への一言を口コミで`,
