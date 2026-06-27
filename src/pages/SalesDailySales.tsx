@@ -505,8 +505,11 @@ export default function SalesDailySales() {
                 // セラピスト給与 = バック - 雑費 - 宿泊費 + 交通費
                 const otherTotal = input.otherItems.reduce((s, i) => s + i.amount, 0);
                 const salary = input.therapistBack - input.miscExpenses - input.accommodationFee + input.transportationFee - otherTotal;
-                // 投函金額 = 店舗取り分 = 売上 - セラピスト給与
+                // 店落ち（店舗取り分）= 売上 - セラピスト給与
                 const payout = g.totalSales - salary;
+                // 投函する現金 = 現金預かり額 - セラピスト給与（クレカ分は店舗が別途回収）
+                const cashPayout = g.cashSales - salary;
+                const hasCard = g.cashSales !== g.totalSales;
 
                 return (
                   <Card key={g.castId} className={cleared ? "border-green-200" : "border-primary/20"}>
@@ -711,13 +714,21 @@ export default function SalesDailySales() {
                             </div>
                           )}
                         </div>
-                        <div className="col-span-2 flex items-center">
-                          <div className="w-full p-3 bg-primary/5 rounded-md text-center">
-                            <p className="text-xs text-muted-foreground">投函金額（店舗取り分）</p>
-                            <p className="text-lg font-bold text-primary">{yen(payout)}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                              セラピスト給与 {yen(salary)}
-                            </p>
+                        <div className="col-span-2">
+                          <div className="w-full p-3 bg-primary/5 rounded-md space-y-1.5">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">❶ 現金預かり額{hasCard && <span className="text-orange-500">（うちカード {yen(g.totalSales - g.cashSales)}）</span>}</span>
+                              <span className="tabular-nums font-medium">{yen(g.cashSales)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">❷ 店落ち（売上 − 給与）</span>
+                              <span className="tabular-nums font-medium">{yen(payout)}</span>
+                            </div>
+                            <div className="flex justify-between items-center border-t pt-1.5">
+                              <span className="text-sm font-bold text-primary">❸ 投函する現金（❶ − 給与）</span>
+                              <span className="text-lg font-bold text-primary tabular-nums">{yen(cashPayout)}</span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground text-right">セラピスト給与 {yen(salary)}</p>
                           </div>
                         </div>
                       </div>
@@ -735,9 +746,15 @@ export default function SalesDailySales() {
                           <span className="tabular-nums text-blue-700">{yen(salary)}</span>
                         </div>
                         <div className="flex justify-between font-semibold border-t pt-1">
-                          <span>＝ 投函金額（店舗取り分）</span>
+                          <span>＝ 店落ち（店舗取り分）</span>
                           <span className="tabular-nums text-primary">{yen(payout)}</span>
                         </div>
+                        {hasCard && (
+                          <div className="flex justify-between text-[11px] text-muted-foreground pt-1 mt-1 border-t border-dashed">
+                            <span>うち現金で投函する額（現金預かり {yen(g.cashSales)} − 給与 {yen(salary)}）</span>
+                            <span className="tabular-nums font-semibold text-primary">{yen(cashPayout)}</span>
+                          </div>
+                        )}
                       </div>
 
                       <div>
