@@ -124,6 +124,7 @@ import PurchaseOrders from "./pages/PurchaseOrders";
 import Survey from "./pages/public/Survey";
 import CustomerReview from "./pages/public/CustomerReview";
 import Voice from "./pages/public/Voice";
+import ReviewMaker from "./pages/public/ReviewMaker";
 import SurveysAdmin from "./pages/SurveysAdmin";
 import ReviewsAdmin from "./pages/ReviewsAdmin";
 
@@ -153,6 +154,7 @@ const App = () => {
           <Route path="/lp" element={<ProductLP />} />
           <Route path="/survey" element={<Survey />} />
           <Route path="/review" element={<CustomerReview />} />
+          <Route path="/review-maker" element={<ReviewMaker />} />
           <Route path="/voice" element={<Voice />} />
           
           {/* Admin/Staff Pages */}
