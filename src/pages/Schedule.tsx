@@ -96,6 +96,18 @@ function minutesToPx(minutes: number) {
   return ((minutes - TIME_START * 60) / 60) * HOUR_HEIGHT;
 }
 
+// 早朝(06:00未満)の予約は前営業日の延長時刻として表示する
+// 例: 6/28 00:40（カレンダー日付保存）→ 6/27 24:40〜 と表示
+function extBusinessDateTime(reservationDate: string, startTime: string): { dateStr: string; timeStr: string } {
+  const [h] = startTime.split(":").map(Number);
+  const base = new Date(`${reservationDate}T00:00:00`);
+  const displayDate = h < 6 ? subDays(base, 1) : base;
+  return {
+    dateStr: format(displayDate, "M月d日(E)", { locale: ja }),
+    timeStr: toExtTime(startTime),
+  };
+}
+
 // 当日ステータスボード：予約詳細と同じステータス種別に統一（キャンセルは日別表示から除外）
 const BOARD_STATUSES = ["pending", "sms_waiting", "confirmed", "completed"] as const;
 
@@ -401,10 +413,7 @@ export default function Schedule() {
   };
 
   const buildReservationSms = (d: Reservation): string => {
-    const date = new Date(d.reservation_date);
-    const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
-    const dayOfWeek = dayNames[date.getDay()];
-    const dateStr = `${format(date, "M月d日", { locale: ja })}(${dayOfWeek})`;
+    const { dateStr, timeStr } = extBusinessDateTime(d.reservation_date, d.start_time);
     const castName = castNameMap.get(d.cast_id) ?? "";
     const nominationLabel = d.nomination_type && d.nomination_type !== "none" ? d.nomination_type : "フリー";
     const fee = d.payment_fee || 0;
@@ -435,7 +444,7 @@ export default function Schedule() {
       `ご予約ありがとうございます。`,
       ``,
       `[予約情報]`,
-      `予約日時：${dateStr} ${toExtTime(d.start_time)}`,
+      `予約日時：${dateStr} ${timeStr}〜`,
       `コース：${d.course_name}`,
       (d.options ?? []).length > 0 ? `オプション：${(d.options ?? []).join("、")}` : null,
       `セラピスト：${castName ? `${castName}（${nominationLabel}）` : nominationLabel}`,
@@ -484,9 +493,7 @@ export default function Schedule() {
 
   const buildThanksSms = (d: Reservation): string | null => {
     if (!thanksTemplate) return null;
-    const date = new Date(d.reservation_date);
-    const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
-    const dateStr = `${format(date, "M月d日", { locale: ja })}(${dayNames[date.getDay()]})`;
+    const { dateStr } = extBusinessDateTime(d.reservation_date, d.start_time);
     return thanksTemplate
       .replaceAll("{customer_name}", d.customer_name)
       .replaceAll("{date}", dateStr)
@@ -518,9 +525,7 @@ export default function Schedule() {
       });
       return;
     }
-    const date = new Date(d.reservation_date);
-    const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
-    const dateStr = `${format(date, "M月d日", { locale: ja })}(${dayNames[date.getDay()]})`;
+    const { dateStr } = extBusinessDateTime(d.reservation_date, d.start_time);
     const body = couponTemplate
       .replaceAll("{customer_name}", d.customer_name)
       .replaceAll("{date}", dateStr)
@@ -982,7 +987,7 @@ export default function Schedule() {
                     <div className="grid grid-cols-2 gap-y-2 text-sm">
                       <span className="text-muted-foreground">日時</span>
                       <span className="font-medium">
-                        {format(new Date(detailRes.reservation_date), "M月d日", { locale: ja })} {toExtTime(detailRes.start_time)} ({detailRes.duration}分)
+                        {(() => { const e = extBusinessDateTime(detailRes.reservation_date, detailRes.start_time); return `${e.dateStr} ${e.timeStr}`; })()} ({detailRes.duration}分)
                       </span>
                       <span className="text-muted-foreground">顧客名</span>
                       <span className="font-medium">{detailRes.customer_name}</span>
