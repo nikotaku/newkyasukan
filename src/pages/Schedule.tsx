@@ -69,17 +69,18 @@ const HOUR_HEIGHT = 80; // px per hour (vertical)
 const TIME_LABEL_W = 48;
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-100 border-amber-400 text-amber-900",
-  sms_waiting: "bg-purple-100 border-purple-400 text-purple-900",
   confirmed: "bg-blue-100 border-blue-400 text-blue-900",
+  hold: "bg-amber-100 border-amber-400 text-amber-900",
   completed: "bg-emerald-100 border-emerald-400 text-emerald-900",
   cancelled: "bg-rose-100 border-rose-300 text-rose-700 opacity-50",
+  // 旧ステータス（後方互換・確定扱いで表示）
+  pending: "bg-blue-100 border-blue-400 text-blue-900",
+  sms_waiting: "bg-blue-100 border-blue-400 text-blue-900",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: "確認中",
-  sms_waiting: "SMS送信待ち",
   confirmed: "確定",
+  hold: "保留",
   completed: "完了",
   cancelled: "キャンセル",
 };
@@ -109,12 +110,11 @@ function extBusinessDateTime(reservationDate: string, startTime: string): { date
 }
 
 // 当日ステータスボード：予約詳細と同じステータス種別に統一（キャンセルは日別表示から除外）
-const BOARD_STATUSES = ["pending", "sms_waiting", "confirmed", "completed"] as const;
+const BOARD_STATUSES = ["confirmed", "hold", "completed"] as const;
 
 const BOARD_STATUS_STYLE: Record<string, { header: string; border: string }> = {
-  pending: { header: "bg-amber-100 text-amber-800", border: "border-amber-300" },
-  sms_waiting: { header: "bg-purple-100 text-purple-800", border: "border-purple-300" },
   confirmed: { header: "bg-blue-100 text-blue-800", border: "border-blue-300" },
+  hold: { header: "bg-amber-100 text-amber-800", border: "border-amber-300" },
   completed: { header: "bg-emerald-100 text-emerald-800", border: "border-emerald-300" },
 };
 
@@ -401,6 +401,7 @@ export default function Schedule() {
         payment_details: formData.payment_details || null,
         notes: formData.notes || null,
         room: formData.room || null,
+        status: "confirmed",
         created_by: user.id,
       }]);
       if (error) throw error;

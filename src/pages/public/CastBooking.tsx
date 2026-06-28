@@ -160,7 +160,7 @@ export default function CastBooking() {
         payment_method: "現金",
         notes: notes.trim() || null,
         referral_source: `${cast.name}専用フォーム`,
-        status: "pending",
+        status: "confirmed",
         payment_status: "unpaid",
         created_by: null,
         store_id: storeId,
