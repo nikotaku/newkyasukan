@@ -33,11 +33,11 @@ interface Cast {
   photo: string | null;
 }
 
-// 30分刻みの希望時間候補（13:00〜28:00）。深夜は24:00〜28:00表記で表示し、
+// 30分刻みの希望時間候補（13:00〜25:00）。深夜は24:00・24:30・25:00表記で表示し、
 // 保存は「翌カレンダー日付＋実時刻（24:00→翌0:00 …）」に変換する（管理タイムラインと整合）。
 const TIME_OPTIONS: { label: string; value: string; dayOffset: number }[] = (() => {
   const out: { label: string; value: string; dayOffset: number }[] = [];
-  for (let m = 13 * 60; m <= 28 * 60; m += 30) {
+  for (let m = 13 * 60; m <= 25 * 60; m += 30) {
     const dh = Math.floor(m / 60);
     const dm = m % 60;
     const label = `${dh}:${String(dm).padStart(2, "0")}`; // 表示（24:00〜28:00もそのまま）
@@ -343,10 +343,11 @@ export default function CastBooking() {
                       : "bg-pink-50 text-rose-400 hover:bg-pink-100"
                   }`}
                 >
-                  {r.duration}分<br />¥{r.customer_price.toLocaleString()}
+                  {r.duration}分<br />¥{(r.customer_price + nominationFee).toLocaleString()}
                 </button>
               ))}
             </div>
+            <p className="text-[11px] text-gray-400 mt-1.5">※ 料金はすべて指名料込みです</p>
           </div>
 
           {/* オプション（延長含む） */}
