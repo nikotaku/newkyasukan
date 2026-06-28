@@ -70,17 +70,18 @@ interface NominationRate { id: string; nomination_type: string; customer_price: 
 interface Discount { id: string; name: string; discount_type: "fixed" | "percentage"; discount_value: number; is_active: boolean; }
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-900",
-  sms_waiting: "bg-purple-100 text-purple-900",
   confirmed: "bg-blue-100 text-blue-900",
+  hold: "bg-amber-100 text-amber-900",
   completed: "bg-emerald-100 text-emerald-900",
   cancelled: "bg-rose-100 text-rose-700",
+  // 旧ステータス（後方互換）
+  pending: "bg-blue-100 text-blue-900",
+  sms_waiting: "bg-blue-100 text-blue-900",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: "確認中",
-  sms_waiting: "SMS送信待ち",
   confirmed: "確定",
+  hold: "保留",
   completed: "完了",
   cancelled: "キャンセル",
 };
@@ -502,9 +503,8 @@ export default function ReservationsList() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">全て</SelectItem>
-                    <SelectItem value="pending">確認中</SelectItem>
-                    <SelectItem value="sms_waiting">SMS送信待ち</SelectItem>
-                    <SelectItem value="confirmed">来店待ち</SelectItem>
+                    <SelectItem value="confirmed">確定</SelectItem>
+                    <SelectItem value="hold">保留</SelectItem>
                     <SelectItem value="completed">完了</SelectItem>
                     <SelectItem value="cancelled">キャンセル</SelectItem>
                   </SelectContent>

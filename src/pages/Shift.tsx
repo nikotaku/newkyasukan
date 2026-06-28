@@ -390,7 +390,8 @@ const Shift = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "pending": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
+      case "hold": return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300";
+      case "pending": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
       case "confirmed": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
       case "completed": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
       case "cancelled": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
@@ -401,8 +402,9 @@ const Shift = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "pending": return "予約確認中";
-      case "confirmed": return "予約確定";
+      case "hold": return "保留";
+      case "pending": return "確定";
+      case "confirmed": return "確定";
       case "completed": return "完了";
       case "cancelled": return "キャンセル";
       case "no_show": return "No Show";
@@ -491,7 +493,7 @@ const Shift = () => {
           course_type: reservationFormData.course_type,
           price: reservationFormData.price,
           notes: reservationFormData.notes || null,
-          status: "pending",
+          status: "confirmed",
           payment_status: "unpaid",
           created_by: user!.id,
         }]);
@@ -1052,8 +1054,8 @@ const Shift = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">すべて</SelectItem>
-                        <SelectItem value="pending">予約確認中</SelectItem>
-                        <SelectItem value="confirmed">予約確定</SelectItem>
+                        <SelectItem value="confirmed">確定</SelectItem>
+                        <SelectItem value="hold">保留</SelectItem>
                         <SelectItem value="completed">完了</SelectItem>
                         <SelectItem value="cancelled">キャンセル</SelectItem>
                       </SelectContent>
@@ -1133,8 +1135,8 @@ const Shift = () => {
                                         <SelectValue />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="pending">確認中</SelectItem>
                                         <SelectItem value="confirmed">確定</SelectItem>
+                                        <SelectItem value="hold">保留</SelectItem>
                                         <SelectItem value="completed">完了</SelectItem>
                                         <SelectItem value="cancelled">キャンセル</SelectItem>
                                         <SelectItem value="no_show">No Show</SelectItem>
