@@ -175,6 +175,7 @@ const menuItems: MenuItem[] = [
       { href: "/panel-manual", label: "パネル撮影マニュアル" },
       { href: "/service-manual", label: "接客マニュアル" },
       { href: "/recruitment-criteria", label: "採用基準確認シート" },
+      { href: "/recruit-talk", label: "面談用ページ（画面共有）" },
     ],
   },
   {
