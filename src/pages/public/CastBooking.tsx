@@ -52,7 +52,7 @@ const TIME_OPTIONS: { label: string; value: string; dayOffset: number }[] = (() 
 
 // オプションの内容説明（空文字の間は表示しない）
 const OPTION_DESCRIPTIONS: Record<string, string> = {
-  "全力PKG": "",
+  "全力PKG": "極液・DR30分・マイクロビキニが全てセットになったお得なパッケージ。\n迷ったらこれを入れておけば間違いナシです‼︎",
 };
 
 // おすすめオプション＆掲載順（延長20→延長40→全力PKG→DR30→衣装MB→極液→その他）
