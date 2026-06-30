@@ -124,6 +124,76 @@ Deno.serve(async (req: Request) => {
       lines.push(`合計予約：${total}件 / 出勤 ${grouped.size}名`);
     }
 
+    // ===== 来月の空き状況（シフトベース）=====
+    try {
+      const nowD = new Date();
+      const jstNow = new Date(nowD.getTime() + 9 * 60 * 60 * 1000);
+      const y = jstNow.getUTCFullYear();
+      const m = jstNow.getUTCMonth();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const firstNext = new Date(Date.UTC(y, m + 1, 1));
+      const lastNext = new Date(Date.UTC(y, m + 2, 0));
+      const fmt = (d: Date) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+      const firstStr = fmt(firstNext);
+      const lastStr = fmt(lastNext);
+      const nextMonthLabel = `${firstNext.getUTCMonth() + 1}月`;
+
+      const [{ data: nmShifts }, { data: nmRes }] = await Promise.all([
+        supabase
+          .from("shifts")
+          .select("shift_date, cast_id, approval_status")
+          .gte("shift_date", firstStr)
+          .lte("shift_date", lastStr)
+          .neq("approval_status", "rejected"),
+        supabase
+          .from("reservations")
+          .select("reservation_date, status")
+          .gte("reservation_date", firstStr)
+          .lte("reservation_date", lastStr)
+          .neq("status", "cancelled"),
+      ]);
+
+      const castsByDate = new Map<string, Set<string>>();
+      for (const s of (nmShifts ?? []) as any[]) {
+        if (!s.cast_id) continue;
+        if (!castsByDate.has(s.shift_date)) castsByDate.set(s.shift_date, new Set());
+        castsByDate.get(s.shift_date)!.add(s.cast_id);
+      }
+      const resByDate = new Map<string, number>();
+      for (const r of (nmRes ?? []) as any[]) {
+        resByDate.set(r.reservation_date, (resByDate.get(r.reservation_date) ?? 0) + 1);
+      }
+
+      const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+      lines.push("");
+      lines.push("━━━━━━━━━━━━━");
+      lines.push(`🗓️ 来月（${nextMonthLabel}）の空き状況`);
+      lines.push("※ シフトベースの出勤/予約数");
+      lines.push("");
+
+      const shiftDates = Array.from(castsByDate.keys()).sort();
+      if (shiftDates.length === 0) {
+        lines.push("来月の出勤シフトはまだありません。");
+      } else {
+        let totalCastDays = 0;
+        let totalRes = 0;
+        for (const dateStr of shiftDates) {
+          const castCount = castsByDate.get(dateStr)!.size;
+          const resCount = resByDate.get(dateStr) ?? 0;
+          totalCastDays += castCount;
+          totalRes += resCount;
+          const d = new Date(`${dateStr}T00:00:00Z`);
+          const label = `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${dayNames[d.getUTCDay()]})`;
+          const mark = resCount === 0 ? "◎空き多" : resCount < castCount * 2 ? "○空きあり" : "△";
+          lines.push(`${label} 出勤${castCount}名・予約${resCount}件 ${mark}`);
+        }
+        lines.push("");
+        lines.push(`合計：出勤のべ${totalCastDays}名・予約${totalRes}件`);
+      }
+    } catch (e) {
+      console.error("next-month availability error:", e);
+    }
+
     const message = lines.join("\n").trim();
 
     if (!lineToken || !groupId) {
