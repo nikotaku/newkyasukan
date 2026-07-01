@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -156,19 +156,71 @@ export default function InterviewGuide() {
         </Card>
       </Section>
 
-      {/* 女子給 */}
-      <Section icon={Banknote} title="女子給（バック）" tone="amber">
-        <Card>
-          <p className="text-xs text-gray-400 mb-1">アロマオイルコース（全身オイルマッサージ）</p>
-          <KV k="本指名 / 姫予約" v="2,000円" hl />
-          <div className="pt-2 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 mt-2">
-            ※ ネット指名はバックが発生しません。
-          </div>
-        </Card>
+      {/* 女子給（バック表） */}
+      <Section icon={Banknote} title="女子給（バック）" sub="全力エステ 料金・バック表" tone="amber">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <table className="w-full text-xs tabular-nums">
+            <thead>
+              <tr className="bg-gray-100 text-gray-500">
+                <th className="text-left px-2.5 py-2 font-semibold"> </th>
+                <th className="px-1.5 py-2 font-semibold text-right">お客様</th>
+                <th className="px-1.5 py-2 font-semibold text-right">セラピスト</th>
+                <th className="px-2.5 py-2 font-semibold text-right">店</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { cat: "アロマオイルコース", rows: [
+                  ["80分", "12,000", "6,000", "6,000"],
+                  ["100分", "15,000", "8,000", "7,000"],
+                  ["120分", "18,000", "9,000", "9,000"],
+                ]},
+                { cat: "全力コース（ハンドあり）", rows: [
+                  ["60分", "15,000", "8,000", "7,000"],
+                  ["80分", "19,000", "10,000", "9,000", "hl"],
+                ]},
+                { cat: "オプション", rows: [
+                  ["延長20分", "5,000", "3,000", "2,000"],
+                  ["DR10分", "1,000", "1,000", "—"],
+                  ["衣装MB", "5,000", "5,000", "—"],
+                  ["極液", "2,000", "2,000", "—"],
+                ]},
+                { cat: "指名", rows: [
+                  ["ネット指名", "1,000", "—", "1,000"],
+                  ["本指名/姫予約", "2,000", "2,000", "—"],
+                ]},
+                { cat: "雑費 / 宿泊費 / 交通費", rows: [
+                  ["雑費 1日", "—", "-2,000", "2,000"],
+                  ["宿泊費 1日", "—", "-2,000", "2,000"],
+                  ["交通費 3日〜", "—", "5,000", "-5,000"],
+                  ["交通費 5日〜", "—", "10,000", "-10,000"],
+                ]},
+              ].map((g) => (
+                <Fragment key={g.cat}>
+                  <tr className="bg-amber-100/70">
+                    <td colSpan={4} className="px-2.5 py-1.5 font-bold text-amber-800 text-[11px]">{g.cat}</td>
+                  </tr>
+                  {g.rows.map((r) => {
+                    const hl = r[4] === "hl";
+                    return (
+                      <tr key={g.cat + r[0]} className={`border-b border-gray-50 last:border-0 ${hl ? "bg-rose-50" : ""}`}>
+                        <td className={`px-2.5 py-1.5 ${hl ? "font-bold text-rose-600" : "text-gray-600"}`}>{r[0]}</td>
+                        <td className={`px-1.5 py-1.5 text-right ${hl ? "font-bold text-rose-600" : "text-gray-800"}`}>{r[1]}</td>
+                        <td className={`px-1.5 py-1.5 text-right ${hl ? "font-bold text-rose-600" : "text-gray-800"}`}>{r[2]}</td>
+                        <td className={`px-2.5 py-1.5 text-right ${hl ? "font-bold text-rose-600" : "text-gray-800"}`}>{r[3]}</td>
+                      </tr>
+                    );
+                  })}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[11px] text-gray-400 mt-2">※ 金額はすべて円。セラピスト列がバック（お給料）です。</p>
         <div className="mt-3">
           <Card className="py-4">
             <p className="text-xs text-gray-400 mb-1">メニュー例</p>
-            <p className="text-sm text-gray-700">全力コース80分 + MB・極液・DR で <span className="font-bold text-rose-600">29,000円</span>（ハンドあり）</p>
+            <p className="text-sm text-gray-700">全力コース80分 + MB・極液・DR30 で <span className="font-bold text-rose-600">29,000円</span>（ハンドあり）</p>
           </Card>
         </div>
       </Section>
