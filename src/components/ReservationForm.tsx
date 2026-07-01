@@ -763,98 +763,124 @@ export function ReservationForm({
         </Select>
       </div>
 
-      {/* 10. コースタイプ */}
+      {/* 10. コースタイプ（ボタン選択） */}
       <div>
         <Label>コースタイプ</Label>
-        <Select
-          value={formData.course_type}
-          onValueChange={(value) => setFormData({ ...formData, course_type: value })}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {courseTypes.map((type) => (
-              <SelectItem key={type} value={type}>{type}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap gap-2 mt-1.5">
+          {courseTypes.map((type) => {
+            const on = formData.course_type === type;
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setFormData({ ...formData, course_type: type })}
+                className={`px-4 py-2.5 rounded-lg text-sm font-semibold border-2 transition-colors ${
+                  on ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:bg-muted"
+                }`}
+              >
+                {type}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* 11. 時間 */}
+      {/* 11. 時間（ボタン選択） */}
       <div>
         <Label>時間</Label>
-        <Select
-          value={formData.duration.toString()}
-          onValueChange={(value) =>
-            setFormData({
-              ...formData,
-              duration: parseInt(value),
-              course_name: `${formData.course_type} ${value}分`,
-            })
-          }
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {backRates
-              .filter((rate) => rate.course_type === formData.course_type)
-              .map((rate) => (
-                <SelectItem key={rate.id} value={rate.duration.toString()}>
-                  {rate.duration}分 (¥{rate.customer_price.toLocaleString()})
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1.5">
+          {backRates
+            .filter((rate) => rate.course_type === formData.course_type)
+            .sort((a, b) => a.duration - b.duration)
+            .map((rate) => {
+              const on = formData.duration === rate.duration;
+              return (
+                <button
+                  key={rate.id}
+                  type="button"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      duration: rate.duration,
+                      course_name: `${formData.course_type} ${rate.duration}分`,
+                    })
+                  }
+                  className={`py-2.5 rounded-lg text-sm border-2 transition-colors leading-tight ${
+                    on ? "bg-primary text-primary-foreground border-primary font-bold" : "bg-background border-border hover:bg-muted"
+                  }`}
+                >
+                  {rate.duration}分<br />
+                  <span className={on ? "" : "text-muted-foreground"}>¥{rate.customer_price.toLocaleString()}</span>
+                </button>
+              );
+            })}
+        </div>
       </div>
 
-      {/* 12. DR Option - Select */}
+      {/* 12. DR Option（ボタン選択） */}
       {drOptions.length > 0 && (
         <div>
           <Label>DR（ディープリンパ）</Label>
-          <Select value={selectedDR} onValueChange={handleDRChange}>
-            <SelectTrigger className="mt-1">
-              <SelectValue placeholder="なし" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">なし</SelectItem>
-              {drOptions
-                .sort((a, b) => {
-                  const aMin = parseInt(a.option_name.replace(/\D/g, "")) || 0;
-                  const bMin = parseInt(b.option_name.replace(/\D/g, "")) || 0;
-                  return aMin - bMin;
-                })
-                .map((rate) => (
-                  <SelectItem key={rate.id} value={rate.option_name}>
-                    {rate.option_name}（+¥{rate.customer_price.toLocaleString()}）
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap gap-2 mt-1.5">
+            <button
+              type="button"
+              onClick={() => handleDRChange("none")}
+              className={`px-3 py-2 rounded-lg text-sm border-2 transition-colors ${
+                selectedDR === "none" ? "bg-primary text-primary-foreground border-primary font-semibold" : "bg-background border-border hover:bg-muted"
+              }`}
+            >
+              なし
+            </button>
+            {drOptions
+              .sort((a, b) => {
+                const aMin = parseInt(a.option_name.replace(/\D/g, "")) || 0;
+                const bMin = parseInt(b.option_name.replace(/\D/g, "")) || 0;
+                return aMin - bMin;
+              })
+              .map((rate) => {
+                const on = selectedDR === rate.option_name;
+                return (
+                  <button
+                    key={rate.id}
+                    type="button"
+                    onClick={() => handleDRChange(rate.option_name)}
+                    className={`px-3 py-2 rounded-lg text-sm border-2 transition-colors ${
+                      on ? "bg-primary text-primary-foreground border-primary font-semibold" : "bg-background border-border hover:bg-muted"
+                    }`}
+                  >
+                    {rate.option_name}
+                    <span className={on ? "" : "text-muted-foreground"}> +¥{rate.customer_price.toLocaleString()}</span>
+                  </button>
+                );
+              })}
+          </div>
         </div>
       )}
 
-      {/* 13. Other Options - Checkbox */}
+      {/* 13. Other Options - カード型トグル（複数選択可） */}
       <div>
-        <Label>オプション</Label>
-        <div className="space-y-2 mt-2">
+        <div className="flex items-center gap-2">
+          <Label>オプション</Label>
+          <span className="text-[10px] text-muted-foreground">複数選択可</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 mt-1.5">
           {availableOptions.map((optionName) => {
             const rate = optionRates.find((r) => r.option_name === optionName);
+            const on = formData.selectedOptions.includes(optionName);
             return (
-              <div key={optionName} className="flex items-center space-x-2">
-                <Checkbox
-                  id={optionName}
-                  checked={formData.selectedOptions.includes(optionName)}
-                  onCheckedChange={() => handleOptionToggle(optionName)}
-                />
-                <label
-                  htmlFor={optionName}
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  {optionName} (+¥{rate?.customer_price.toLocaleString()})
-                </label>
-              </div>
+              <button
+                key={optionName}
+                type="button"
+                onClick={() => handleOptionToggle(optionName)}
+                className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm border-2 transition-colors text-left ${
+                  on ? "bg-primary/10 border-primary text-foreground" : "bg-background border-border hover:bg-muted"
+                }`}
+              >
+                <span className="font-medium leading-tight">{optionName}</span>
+                <span className={`text-xs shrink-0 ${on ? "text-primary font-bold" : "text-muted-foreground"}`}>
+                  +¥{rate?.customer_price.toLocaleString()}
+                </span>
+              </button>
             );
           })}
         </div>
@@ -915,21 +941,30 @@ export function ReservationForm({
           )}
         </div>
 
-        {/* 通常（単一支払い）モード */}
+        {/* 通常（単一支払い）モード：ボタン選択 */}
         {!formData.payment_details && (
-          <Select
-            value={formData.payment_method || "cash"}
-            onValueChange={(value) => setFormData({ ...formData, payment_method: value })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cash">現金</SelectItem>
-              <SelectItem value="card">カード{cardFeePct > 0 ? `（手数料${cardFeePct}%）` : ""}</SelectItem>
-              <SelectItem value="paypay">PayPay{paypayFeePct > 0 ? `（手数料${paypayFeePct}%）` : ""}</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { value: "cash", label: "現金", note: "" },
+              { value: "card", label: "カード", note: cardFeePct > 0 ? `手数料${cardFeePct}%` : "" },
+              { value: "paypay", label: "PayPay", note: paypayFeePct > 0 ? `手数料${paypayFeePct}%` : "" },
+            ].map((pm) => {
+              const on = (formData.payment_method || "cash") === pm.value;
+              return (
+                <button
+                  key={pm.value}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, payment_method: pm.value })}
+                  className={`py-2.5 rounded-lg text-sm font-semibold border-2 transition-colors leading-tight ${
+                    on ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:bg-muted"
+                  }`}
+                >
+                  {pm.label}
+                  {pm.note && <span className={`block text-[10px] font-normal ${on ? "opacity-90" : "text-muted-foreground"}`}>{pm.note}</span>}
+                </button>
+              );
+            })}
+          </div>
         )}
 
         {/* 分割払いモード */}

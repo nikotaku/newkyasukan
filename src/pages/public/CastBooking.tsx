@@ -289,7 +289,7 @@ export default function CastBooking() {
             <label className="flex items-center gap-1.5 text-sm font-bold text-rose-500 mb-2">
               <Heart size={14} className="fill-rose-300 text-rose-300" />希望時間
             </label>
-            <div className="grid grid-cols-4 gap-2 max-h-44 overflow-y-auto pr-1">
+            <div className="grid grid-cols-4 gap-2">
               {TIME_OPTIONS.map((t) => (
                 <button
                   key={t.label}
