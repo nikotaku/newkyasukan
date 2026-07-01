@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { format, addDays } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Heart, Sparkles, Check, Loader2 } from "lucide-react";
+import { Heart, Sparkles, Check, Loader2, CalendarDays, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/hooks/useStore";
 import { driveImgUrl } from "@/lib/drive";
@@ -106,8 +106,9 @@ export default function CastBooking() {
         setOptionRates((data || []) as OptionRate[]);
       });
     supabase.from("nomination_rates").select("nomination_type, customer_price").then(({ data }) => {
-      const net = (data || []).find((n: any) => n.nomination_type === "ネット指名");
-      if (net) setNominationFee(net.customer_price ?? 0);
+      // 専用予約ページは指名前提のため、本指名料（2,000円）を最初から含める
+      const hon = (data || []).find((n: any) => n.nomination_type === "本指名");
+      if (hon) setNominationFee(hon.customer_price ?? 0);
     });
   }, [castId]);
 
@@ -155,7 +156,7 @@ export default function CastBooking() {
         course_type: courseType,
         course_name: courseName,
         options: selectedOptions.length > 0 ? selectedOptions : null,
-        nomination_type: "ネット指名",
+        nomination_type: "本指名",
         price: total,
         payment_method: "現金",
         notes: notes.trim() || null,
@@ -179,7 +180,7 @@ export default function CastBooking() {
             start_time: selectedTime?.label ?? time,
             course_name: courseName,
             options: selectedOptions.length > 0 ? selectedOptions : null,
-            nomination_type: "ネット指名",
+            nomination_type: "本指名",
             price: total,
             payment_method: "現金",
             notes: `【${cast.name}専用フォーム】${notes.trim()}`,
@@ -275,13 +276,17 @@ export default function CastBooking() {
             <label className="flex items-center gap-1.5 text-sm font-bold text-rose-500 mb-2">
               <Heart size={14} className="fill-rose-300 text-rose-300" />希望日
             </label>
-            <input
-              type="date"
-              value={date}
-              min={format(new Date(), "yyyy-MM-dd")}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full rounded-2xl border-2 border-pink-100 focus:border-pink-300 bg-pink-50/50 px-4 py-3 text-sm focus:outline-none"
-            />
+            <div className="relative">
+              <CalendarDays size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-400 pointer-events-none" />
+              <input
+                type="date"
+                value={date}
+                min={format(new Date(), "yyyy-MM-dd")}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full rounded-2xl border-2 border-pink-100 focus:border-pink-300 bg-pink-50/50 pl-11 pr-4 py-3 text-sm font-medium focus:outline-none"
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1.5">📅 タップして日にちを選んでね</p>
           </div>
 
           {/* 希望時間 */}
@@ -332,20 +337,31 @@ export default function CastBooking() {
               </div>
             )}
             <div className="grid grid-cols-3 gap-2">
-              {durationsFor(courseType).map((r) => (
-                <button
-                  key={r.duration}
-                  type="button"
-                  onClick={() => setDuration(r.duration)}
-                  className={`py-2.5 rounded-xl text-xs font-medium leading-tight transition-all ${
-                    duration === r.duration
-                      ? "bg-gradient-to-br from-pink-400 to-rose-400 text-white shadow-md scale-105"
-                      : "bg-pink-50 text-rose-400 hover:bg-pink-100"
-                  }`}
-                >
-                  {r.duration}分<br />¥{(r.customer_price + nominationFee).toLocaleString()}
-                </button>
-              ))}
+              {durationsFor(courseType).map((r) => {
+                const on = duration === r.duration;
+                const recommended = courseType === "全力" && r.duration === 80;
+                return (
+                  <button
+                    key={r.duration}
+                    type="button"
+                    onClick={() => setDuration(r.duration)}
+                    className={`relative py-2.5 rounded-xl text-xs font-medium leading-tight transition-all ${
+                      on
+                        ? "bg-gradient-to-br from-pink-400 to-rose-400 text-white shadow-md scale-105"
+                        : recommended
+                          ? "bg-rose-50 text-rose-500 ring-1 ring-rose-300 hover:bg-rose-100"
+                          : "bg-pink-50 text-rose-400 hover:bg-pink-100"
+                    }`}
+                  >
+                    {recommended && (
+                      <span className={`absolute -top-1.5 -right-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm ${on ? "bg-white text-rose-500" : "bg-rose-400 text-white"}`}>
+                        ⭐おすすめ
+                      </span>
+                    )}
+                    {r.duration}分<br />¥{(r.customer_price + nominationFee).toLocaleString()}
+                  </button>
+                );
+              })}
             </div>
             <p className="text-[11px] text-gray-400 mt-1.5">※ 料金はすべて指名料込みです</p>
           </div>
@@ -441,7 +457,10 @@ export default function CastBooking() {
           {/* 合計目安 */}
           {total > 0 && (
             <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-2xl p-4 flex items-center justify-between border border-pink-100">
-              <span className="text-sm font-bold text-rose-500">ご料金（目安）</span>
+              <span>
+                <span className="text-sm font-bold text-rose-500 block">ご料金（目安）</span>
+                <span className="text-[10px] text-gray-400">指名料2,000円込み</span>
+              </span>
               <span className="text-2xl font-bold text-rose-500">¥{total.toLocaleString()}</span>
             </div>
           )}
