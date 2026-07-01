@@ -225,6 +225,9 @@ export default function Staff() {
   const [estamaShowConsole, setEstamaShowConsole] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  // AIメモ登録
+  const [memoText, setMemoText] = useState("");
+  const [parsingMemo, setParsingMemo] = useState(false);
   const dragCastId = useRef<string | null>(null);
   const dragPhotoIdxRef = useRef<number | null>(null);
   const addPhotoInputRef = useRef<HTMLInputElement>(null);
@@ -572,6 +575,45 @@ export default function Staff() {
         description: error?.message || "キャストの更新に失敗しました",
         variant: "destructive",
       });
+    }
+  };
+
+  // 面接メモをAIで各項目に振り分け → 新規追加ダイアログを下書き済みで開く
+  const handleParseMemo = async () => {
+    if (!memoText.trim()) {
+      toast({ title: "メモを入力してください", variant: "destructive" });
+      return;
+    }
+    setParsingMemo(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-cast-content', {
+        body: { type: 'parse_memo', memo: memoText.trim() },
+      });
+      if (error) throw error;
+      let raw = (data?.content ?? "").trim();
+      // 念のためコードフェンスを除去
+      raw = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+      const jsonStart = raw.indexOf("{");
+      const jsonEnd = raw.lastIndexOf("}");
+      if (jsonStart === -1 || jsonEnd === -1) throw new Error("解析結果が不正です");
+      const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
+
+      // emptyForm をベースに、AIが返した項目だけ上書き
+      const next: any = { ...emptyForm };
+      for (const [k, v] of Object.entries(parsed)) {
+        if (v === null || v === undefined || v === "") continue;
+        if (k in next) next[k] = v as any;
+      }
+      setFormData(next);
+      setShowProfileDetailAdd(true);
+      setMemoText("");
+      setIsAddDialogOpen(true);
+      toast({ title: "AIが下書きしました", description: "内容を確認して登録してください" });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: "解析に失敗しました", description: e?.message ?? "もう一度お試しください", variant: "destructive" });
+    } finally {
+      setParsingMemo(false);
     }
   };
 
@@ -1061,6 +1103,27 @@ export default function Staff() {
         
         <main className="flex-1 p-4 md:p-6 md:ml-[240px] overflow-x-hidden">
           <div className="max-w-7xl mx-auto">
+            {isAdmin && (
+              <div className="mb-6 rounded-xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-rose-50 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🤖</span>
+                  <p className="font-bold text-rose-600">AIメモ登録</p>
+                  <span className="text-xs text-muted-foreground">面接メモを貼るだけでAIが各項目を下書きします</span>
+                </div>
+                <Textarea
+                  value={memoText}
+                  onChange={(e) => setMemoText(e.target.value)}
+                  rows={3}
+                  placeholder="例）さくら 25歳 158cm B84W58H84 Dカップ 出身宮城 趣味カフェ巡り アロマ得意 似てる芸能人◯◯ X:@sakura ..."
+                  className="bg-white/80 border-pink-200"
+                />
+                <div className="flex justify-end mt-2">
+                  <Button onClick={handleParseMemo} disabled={parsingMemo || !memoText.trim()} className="bg-rose-500 hover:bg-rose-600">
+                    {parsingMemo ? "AI解析中..." : "AIで登録内容を下書き"}
+                  </Button>
+                </div>
+              </div>
+            )}
             <Tabs defaultValue="management" className="w-full">
               <div className="flex justify-between items-center mb-6">
                 <div>

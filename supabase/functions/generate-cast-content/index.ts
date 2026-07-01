@@ -101,6 +101,8 @@ serve(async (req) => {
       scheduleDate, scheduleNote,
       // newstaff
       staffName, staffProfile, staffMessage,
+      // parse_memo（面接メモから各項目を抽出）
+      memo,
     } = await req.json();
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
@@ -160,6 +162,22 @@ serve(async (req) => {
       case "newstaff":
         systemPrompt = "あなたはメンズエステの新人入店情報記事を作成する専門のライターです。新人スタッフの魅力を伝え、お客様の期待感を高める入店案内を日本語で作成してください。";
         userPrompt = `スタッフ名: ${staffName}\n${staffProfile ? `プロフィール: ${staffProfile}\n` : ""}${staffMessage ? `本人からのメッセージ: ${staffMessage}\n` : ""}上記の情報を元に、新人入店のお知らせ記事を250〜400文字で作成してください。スタッフの個性と魅力を引き出した内容にしてください。`;
+        break;
+
+      case "parse_memo":
+        systemPrompt =
+          "あなたはメンズエステの面接メモから、セラピスト登録フォームの各項目を抽出するアシスタントです。" +
+          "与えられたメモから読み取れる項目だけをJSONで返してください。読み取れない項目はキー自体を含めないこと。" +
+          "数値項目は数値型で返すこと。JSON以外のテキスト（説明・コードブロック記号など）は一切出力しないこと。\n" +
+          "対象キー: name(名前), name_kana(フリガナ カタカナ), age(年齢/数値), height(身長cm/数値), weight(体重kg/数値), " +
+          "bust_size(カップ 例:D), body_size(3サイズ B/W/H 例:84/58/84), blood_type(A/B/O/AB), hometown(出身地), " +
+          "favorite_techniques(得意な施術), favorite_food(好きな食べ物), ideal_type(好きな男性のタイプ), " +
+          "celebrity_lookalike(似ている芸能人), day_off_activities(休日の過ごし方), hobbies(趣味), " +
+          "therapist_experience(セラピスト経験・経歴), x_account(XのIDまたはURL), instagram_url(Instagram URL), " +
+          "shop_comment(お店からの紹介コメント。メモを元に魅力的に80〜120字で作成), " +
+          "profile(自己紹介/プロフィール文。メモを元に自然に150〜250字で作成)。" +
+          "shop_comment と profile はメモに直接無くても、読み取れた情報を元に作成してよい。";
+        userPrompt = `以下の面接メモから項目を抽出し、JSONオブジェクトだけを返してください。\n\n===== メモ =====\n${memo ?? ""}\n================`;
         break;
 
       default:
