@@ -228,6 +228,8 @@ export default function Staff() {
   // AIメモ登録
   const [memoText, setMemoText] = useState("");
   const [parsingMemo, setParsingMemo] = useState(false);
+  const [memoMode, setMemoMode] = useState<"new" | "existing">("new");
+  const [memoTargetCastId, setMemoTargetCastId] = useState("");
   const dragCastId = useRef<string | null>(null);
   const dragPhotoIdxRef = useRef<number | null>(null);
   const addPhotoInputRef = useRef<HTMLInputElement>(null);
@@ -578,27 +580,26 @@ export default function Staff() {
     }
   };
 
-  // 面接メモをAIで各項目に振り分け → 新規追加ダイアログを下書き済みで開く
-  const handleParseMemo = async () => {
-    if (!memoText.trim()) {
-      toast({ title: "メモを入力してください", variant: "destructive" });
-      return;
-    }
+  // メモをAI解析してJSONを返す共通処理
+  const parseMemoToFields = async (): Promise<Record<string, any>> => {
+    const { data, error } = await supabase.functions.invoke('generate-cast-content', {
+      body: { type: 'parse_memo', memo: memoText.trim() },
+    });
+    if (error) throw error;
+    let raw = (data?.content ?? "").trim();
+    raw = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    const jsonStart = raw.indexOf("{");
+    const jsonEnd = raw.lastIndexOf("}");
+    if (jsonStart === -1 || jsonEnd === -1) throw new Error("解析結果が不正です");
+    return JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
+  };
+
+  // ① 新規登録: メモから新規追加ダイアログを下書き済みで開く
+  const handleMemoNew = async () => {
+    if (!memoText.trim()) { toast({ title: "メモを入力してください", variant: "destructive" }); return; }
     setParsingMemo(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-cast-content', {
-        body: { type: 'parse_memo', memo: memoText.trim() },
-      });
-      if (error) throw error;
-      let raw = (data?.content ?? "").trim();
-      // 念のためコードフェンスを除去
-      raw = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-      const jsonStart = raw.indexOf("{");
-      const jsonEnd = raw.lastIndexOf("}");
-      if (jsonStart === -1 || jsonEnd === -1) throw new Error("解析結果が不正です");
-      const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
-
-      // emptyForm をベースに、AIが返した項目だけ上書き
+      const parsed = await parseMemoToFields();
       const next: any = { ...emptyForm };
       for (const [k, v] of Object.entries(parsed)) {
         if (v === null || v === undefined || v === "") continue;
@@ -608,10 +609,46 @@ export default function Staff() {
       setShowProfileDetailAdd(true);
       setMemoText("");
       setIsAddDialogOpen(true);
-      toast({ title: "AIが下書きしました", description: "内容を確認して登録してください" });
+      toast({ title: "AIが新規登録を下書きしました", description: "内容を確認して登録してください" });
     } catch (e: any) {
       console.error(e);
       toast({ title: "解析に失敗しました", description: e?.message ?? "もう一度お試しください", variant: "destructive" });
+    } finally {
+      setParsingMemo(false);
+    }
+  };
+
+  // ② 既存に追加: 選択したセラピストの空き項目をメモの内容で補完し、編集ダイアログを開く
+  const handleMemoExisting = async () => {
+    if (!memoText.trim()) { toast({ title: "メモを入力してください", variant: "destructive" }); return; }
+    if (!memoTargetCastId) { toast({ title: "追加先のセラピストを選んでください", variant: "destructive" }); return; }
+    setParsingMemo(true);
+    try {
+      const parsed = await parseMemoToFields();
+      const { data: cast, error: fetchErr } = await supabase.from("casts").select("*").eq("id", memoTargetCastId).single();
+      if (fetchErr) throw fetchErr;
+      // 既存が空の項目のみメモの値で補完（既存の情報は上書きしない）
+      const merged: any = { ...(cast as any) };
+      for (const [k, v] of Object.entries(parsed)) {
+        if (v === null || v === undefined || v === "") continue;
+        const cur = merged[k];
+        if (cur === null || cur === undefined || cur === "" || (Array.isArray(cur) && cur.length === 0)) {
+          merged[k] = v as any;
+        }
+      }
+      setEditingCast(merged as Cast);
+      const cf = (cast as any).custom_fields || {};
+      setBlogIconUrl(cf.blog_icon || "");
+      setSkebiyIconUrl(cf.skebiy_icon || "");
+      setCustomTagInput("");
+      setMgmtProps(Object.entries(cf).filter(([k]) => !['blog_icon','skebiy_icon'].includes(k)).map(([key, value]) => ({ key, value: String(value) })));
+      setShowProfileDetail(true);
+      setMemoText("");
+      setIsEditDialogOpen(true);
+      toast({ title: "既存セラピストに反映しました", description: "空き項目を補完しました。確認して保存してください" });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: "反映に失敗しました", description: e?.message ?? "もう一度お試しください", variant: "destructive" });
     } finally {
       setParsingMemo(false);
     }
@@ -1108,20 +1145,70 @@ export default function Staff() {
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">🤖</span>
                   <p className="font-bold text-rose-600">AIメモ登録</p>
-                  <span className="text-xs text-muted-foreground">面接メモを貼るだけでAIが各項目を下書きします</span>
+                  <span className="text-xs text-muted-foreground">メモを貼るだけでAIが下書きします</span>
                 </div>
+
+                {/* モード切替 */}
+                <div className="flex gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setMemoMode("new")}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold border-2 transition-colors ${
+                      memoMode === "new" ? "bg-rose-500 text-white border-rose-500" : "bg-white text-rose-500 border-pink-200 hover:bg-pink-100"
+                    }`}
+                  >
+                    新規登録
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMemoMode("existing")}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold border-2 transition-colors ${
+                      memoMode === "existing" ? "bg-rose-500 text-white border-rose-500" : "bg-white text-rose-500 border-pink-200 hover:bg-pink-100"
+                    }`}
+                  >
+                    既存のセラピストに追加
+                  </button>
+                </div>
+
+                {/* 既存モード時は追加先を選択 */}
+                {memoMode === "existing" && (
+                  <div className="mb-2">
+                    <Select value={memoTargetCastId} onValueChange={setMemoTargetCastId}>
+                      <SelectTrigger className="bg-white/80 border-pink-200">
+                        <SelectValue placeholder="追加先のセラピストを選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[...casts].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <Textarea
                   value={memoText}
                   onChange={(e) => setMemoText(e.target.value)}
                   rows={3}
-                  placeholder="例）さくら 25歳 158cm B84W58H84 Dカップ 出身宮城 趣味カフェ巡り アロマ得意 似てる芸能人◯◯ X:@sakura ..."
+                  placeholder={memoMode === "new"
+                    ? "例）さくら 25歳 158cm B84W58H84 Dカップ 出身宮城 趣味カフェ巡り アロマ得意 X:@sakura ..."
+                    : "追加・更新したい情報を入力（例）SNS追加 X:@sakura / 得意な施術：リンパ / 好きな食べ物：抹茶 ..."}
                   className="bg-white/80 border-pink-200"
                 />
                 <div className="flex justify-end mt-2">
-                  <Button onClick={handleParseMemo} disabled={parsingMemo || !memoText.trim()} className="bg-rose-500 hover:bg-rose-600">
-                    {parsingMemo ? "AI解析中..." : "AIで登録内容を下書き"}
-                  </Button>
+                  {memoMode === "new" ? (
+                    <Button onClick={handleMemoNew} disabled={parsingMemo || !memoText.trim()} className="bg-rose-500 hover:bg-rose-600">
+                      {parsingMemo ? "AI解析中..." : "AIで新規登録を下書き"}
+                    </Button>
+                  ) : (
+                    <Button onClick={handleMemoExisting} disabled={parsingMemo || !memoText.trim() || !memoTargetCastId} className="bg-rose-500 hover:bg-rose-600">
+                      {parsingMemo ? "AI解析中..." : "AIで既存に追加"}
+                    </Button>
+                  )}
                 </div>
+                {memoMode === "existing" && (
+                  <p className="text-[11px] text-muted-foreground mt-1">※ 既存の情報は上書きせず、空いている項目だけをメモの内容で補完します。</p>
+                )}
               </div>
             )}
             <Tabs defaultValue="management" className="w-full">
