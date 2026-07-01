@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PublicFooter } from "@/components/public/PublicFooter";
@@ -68,6 +68,57 @@ const cleanContent = (md: string): string =>
     })
     .replace(/\n{3,}/g, "\n\n")               // 余分な空行を圧縮
     .trim();
+
+// **強調** をアクセント色の太字に変換（インライン）
+const renderInline = (text: string, kp: string): ReactNode[] => {
+  const nodes: ReactNode[] = [];
+  const re = /\*\*(.+?)\*\*/g;
+  let last = 0; let m: RegExpExecArray | null; let i = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    nodes.push(<strong key={`${kp}-${i}`} className="font-bold" style={{ color: "#c49480" }}>{m[1]}</strong>);
+    i++; last = re.lastIndex;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+};
+
+// ニュース本文をHTML風に装飾して描画（💡ハイライト / ◆小見出し / **太字**）
+const NewsContent = ({ content }: { content: string }) => {
+  const cleaned = content
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-=]{3,}\s*$/gm, "")
+    .replace(/`([^`]+)`/g, "$1");
+  const lines = cleaned.split("\n");
+  return (
+    <div className="space-y-1.5">
+      {lines.map((raw, idx) => {
+        const line = raw.replace(/^\s*[-*]\s+/, "・").trimEnd();
+        if (!line.trim()) return <div key={idx} className="h-1" />;
+        if (line.startsWith("💡")) {
+          return (
+            <div key={idx} className="rounded-lg px-3 py-2 text-[13px] font-bold my-1"
+              style={{ background: "#fbeee6", color: "#b5794f", borderLeft: "3px solid #c49480" }}>
+              {renderInline(line, `h${idx}`)}
+            </div>
+          );
+        }
+        if (/^[◆■●▶]/.test(line)) {
+          return (
+            <p key={idx} className="mt-2.5 mb-0.5 font-bold text-[15px]" style={{ color: "#c49480" }}>
+              {renderInline(line.replace(/^[◆■●▶]\s*/, ""), `hd${idx}`)}
+            </p>
+          );
+        }
+        return (
+          <p key={idx} className="text-sm leading-relaxed" style={{ color: "#5a5550" }}>
+            {renderInline(line, `p${idx}`)}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
 
 const Top = () => {
   const [snsContent, setSnsContent] = useState<Record<string, string>>({});
@@ -284,11 +335,7 @@ const Top = () => {
                           ))}
                         </div>
                       )}
-                      {a.content && (
-                        <div className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#7a706c" }}>
-                          {cleanContent(a.content)}
-                        </div>
-                      )}
+                      {a.content && <NewsContent content={a.content} />}
                     </div>
                   )}
                 </div>
