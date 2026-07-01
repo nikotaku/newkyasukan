@@ -282,14 +282,14 @@ export default function CastBooking() {
             <label className="flex items-center gap-1.5 text-sm font-bold text-rose-500 mb-2">
               <Heart size={14} className="fill-rose-300 text-rose-300" />希望日
             </label>
-            <div className="relative">
-              <CalendarDays size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-400 pointer-events-none" />
+            <div className="relative w-full">
+              <CalendarDays size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-400 pointer-events-none z-10" />
               <input
                 type="date"
                 value={date}
                 min={format(new Date(), "yyyy-MM-dd")}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-2xl border-2 border-pink-100 focus:border-pink-300 bg-pink-50/50 pl-11 pr-4 py-3 text-sm font-medium focus:outline-none"
+                className="block w-full min-w-0 max-w-full box-border appearance-none rounded-2xl border-2 border-pink-100 focus:border-pink-300 bg-pink-50/50 pl-11 pr-4 py-3 text-sm font-medium text-left focus:outline-none [color-scheme:light]"
               />
             </div>
             <p className="text-[11px] text-gray-400 mt-1.5">📅 タップして日にちを選んでね</p>
