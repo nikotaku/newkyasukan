@@ -151,7 +151,7 @@ export default function InterviewGuide() {
           <Twitter size={15} className="text-sky-500" />保証支給条件
         </p>
         <Card>
-          <KV k="X（Twitter）更新" v={<>写真付き 1日3件<br />ショート動画 1日1件</>} hl />
+          <KV k="XまたはO2の更新" v={<>写真付き 1日3件<br />ショート動画 1日1件</>} hl />
           <KV k="待機" v="12時間待機" />
         </Card>
       </Section>
