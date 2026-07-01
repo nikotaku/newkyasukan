@@ -114,6 +114,7 @@ import CustomerServiceManual from "./pages/CustomerServiceManual";
 import ZenryokuBookManual from "./pages/ZenryokuBookManual";
 import RecruitmentCriteria from "./pages/RecruitmentCriteria";
 import RecruitTalk from "./pages/RecruitTalk";
+import InterviewGuide from "./pages/InterviewGuide";
 import BusinessVendors from "./pages/BusinessVendors";
 import BusinessLogins from "./pages/BusinessLogins";
 import BusinessFixedCosts from "./pages/BusinessFixedCosts";
@@ -242,6 +243,7 @@ const App = () => {
           <Route path="/zenryoku-book" element={<ZenryokuBookManual />} />
           <Route path="/recruitment-criteria" element={<RecruitmentCriteria />} />
           <Route path="/recruit-talk" element={<RecruitTalk />} />
+          <Route path="/interview" element={<InterviewGuide />} />
           <Route path="/education" element={<Education />} />
 
           <Route path="/business-continuity" element={<BusinessContinuity />} />
