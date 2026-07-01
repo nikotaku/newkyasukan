@@ -1179,16 +1179,20 @@ export function ReservationForm({
             </>
           )
         )}
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground mb-1">合計金額</p>
-          <p className="text-2xl font-bold text-primary">¥{(formData.price + (formData.payment_fee || 0)).toLocaleString()}</p>
-        </div>
       </div>
 
-      {/* 19. 予約追加ボタン */}
-      <Button onClick={handleSubmit} className="w-full" size="lg">
-        {submitLabel}
-      </Button>
+      {/* 19. 合計金額＋登録ボタン（下部固定バー） */}
+      <div className="sticky bottom-0 z-20 mt-2 flex items-center gap-3 border-t border-border bg-background/95 backdrop-blur py-3 -mb-1">
+        <div className="shrink-0">
+          <p className="text-[11px] text-muted-foreground leading-none mb-0.5">合計金額</p>
+          <p className="text-2xl font-bold text-primary leading-none tabular-nums">
+            ¥{(formData.price + (formData.payment_fee || 0)).toLocaleString()}
+          </p>
+        </div>
+        <Button onClick={handleSubmit} size="lg" className="flex-1 h-12 text-base">
+          {submitLabel}
+        </Button>
+      </div>
     </div>
   );
 }
