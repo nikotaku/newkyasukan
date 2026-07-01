@@ -742,25 +742,26 @@ export function ReservationForm({
         />
       </div>
 
-      {/* 9. ルーム */}
+      {/* 9. ルーム（ボタン選択） */}
       <div>
-        <Label htmlFor="room">ルーム</Label>
-        <Select
-          value={formData.room}
-          onValueChange={(value) => setFormData({ ...formData, room: value })}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="ルームを選択" />
-          </SelectTrigger>
-          <SelectContent>
-            {rooms.map((room) => (
-              <SelectItem key={room.id} value={room.name}>
+        <Label>ルーム</Label>
+        <div className="flex flex-wrap gap-2 mt-1.5">
+          {rooms.map((room) => {
+            const on = formData.room === room.name;
+            return (
+              <button
+                key={room.id}
+                type="button"
+                onClick={() => setFormData({ ...formData, room: on ? "" : room.name })}
+                className={`px-4 py-2.5 rounded-lg text-sm font-semibold border-2 transition-colors ${
+                  on ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:bg-muted"
+                }`}
+              >
                 {room.name}
-                {room.address && ` - ${room.address}`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* 10. コースタイプ（ボタン選択） */}
