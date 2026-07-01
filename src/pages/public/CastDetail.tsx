@@ -480,6 +480,12 @@ const CastDetail = () => {
                   ))}
                 </div>
               )}
+              {/* お客様の声（口コミ一覧）への導線 */}
+              <div className="px-5 py-4 border-t border-[#f0e4df] text-center">
+                <Link to="/voice" className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline" style={{ color: "#c49480" }}>
+                  お客様の声（口コミ一覧）を見る →
+                </Link>
+              </div>
             </>
 
           </div>
