@@ -55,9 +55,8 @@ const OPTION_DESCRIPTIONS: Record<string, string> = {
   "全力PKG": "極液・DR30分・マイクロビキニが全てセットになったお得なパッケージ。\n迷ったらこれを入れておけば間違いナシです‼︎",
 };
 
-// おすすめオプション＆掲載順（延長20→延長40→全力PKG→DR30→衣装MB→極液→その他）
-const OPTION_ORDER = ["延長20分", "延長40分", "全力PKG", "DR30分", "衣装MB", "極液"];
-const RECOMMENDED = new Set(OPTION_ORDER);
+// 全力PKG以外の掲載順（全力PKGは別枠で最上部に大きく表示）
+const OPTION_ORDER = ["延長20分", "延長40分", "DR30分", "衣装MB", "極液"];
 const optionSortKey = (name: string) => {
   const i = OPTION_ORDER.indexOf(name);
   return i === -1 ? OPTION_ORDER.length : i;
@@ -389,42 +388,65 @@ export default function CastBooking() {
               <label className="flex items-center gap-1.5 text-sm font-bold text-rose-500 mb-2">
                 <Heart size={14} className="fill-rose-300 text-rose-300" />オプション（延長など・任意）
               </label>
+
+              {/* 全力PKG：おすすめとして最上部に大きく表示 */}
+              {(() => {
+                const pkg = optionRates.find((o) => o.option_name === "全力PKG");
+                if (!pkg) return null;
+                const on = selectedOptions.includes("全力PKG");
+                return (
+                  <button
+                    type="button"
+                    onClick={() => toggleOption("全力PKG")}
+                    className={`relative w-full text-left rounded-2xl p-4 mb-3 border-2 transition-all ${
+                      on
+                        ? "bg-gradient-to-br from-pink-400 to-rose-400 text-white border-rose-400 shadow-lg"
+                        : "bg-rose-50 border-rose-300 hover:bg-rose-100"
+                    }`}
+                  >
+                    <span className={`absolute -top-2 left-4 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm ${on ? "bg-white text-rose-500" : "bg-rose-400 text-white"}`}>
+                      ⭐一番人気
+                    </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-lg font-bold ${on ? "text-white" : "text-rose-600"}`}>全力PKG</span>
+                      <span className={`text-lg font-bold ${on ? "text-white" : "text-rose-500"}`}>+¥{pkg.customer_price.toLocaleString()}</span>
+                    </div>
+                    {OPTION_DESCRIPTIONS["全力PKG"] && (
+                      <p className={`text-xs mt-1.5 leading-relaxed whitespace-pre-wrap ${on ? "text-white/90" : "text-gray-600"}`}>
+                        {OPTION_DESCRIPTIONS["全力PKG"]}
+                      </p>
+                    )}
+                    <p className={`text-[11px] mt-2 font-medium ${on ? "text-white" : "text-rose-500"}`}>
+                      {on ? "✓ 選択中" : "タップで追加"}
+                    </p>
+                  </button>
+                );
+              })()}
+
+              {/* その他オプション */}
               <div className="flex flex-wrap gap-2">
                 {[...optionRates]
+                  .filter((o) => o.option_name !== "全力PKG")
                   .sort((a, b) => optionSortKey(a.option_name) - optionSortKey(b.option_name) || a.display_order - b.display_order)
                   .map((o) => {
                   const on = selectedOptions.includes(o.option_name);
-                  const recommended = RECOMMENDED.has(o.option_name);
                   return (
                     <button
                       key={o.option_name}
                       type="button"
                       onClick={() => toggleOption(o.option_name)}
-                      className={`relative px-3 py-2 rounded-full text-xs font-medium transition-all ${
+                      className={`px-3 py-2 rounded-full text-xs font-medium transition-all ${
                         on
                           ? "bg-gradient-to-br from-pink-400 to-rose-400 text-white shadow-md scale-105"
-                          : recommended
-                            ? "bg-rose-50 text-rose-500 ring-1 ring-rose-200 hover:bg-rose-100"
-                            : "bg-pink-50 text-rose-400 hover:bg-pink-100"
+                          : "bg-pink-50 text-rose-400 hover:bg-pink-100"
                       }`}
                     >
-                      {recommended && (
-                        <span className={`mr-1 ${on ? "text-yellow-200" : "text-rose-400"}`}>⭐</span>
-                      )}
                       {o.option_name} +¥{o.customer_price.toLocaleString()}
                     </button>
                   );
                 })}
               </div>
-              <p className="text-[11px] text-gray-400 mt-1.5">⭐ はおすすめオプション♡ ご希望があればタップしてね</p>
-
-              {/* 全力PKG の内容説明 */}
-              {optionRates.some((o) => o.option_name === "全力PKG") && OPTION_DESCRIPTIONS["全力PKG"] && (
-                <div className="mt-3 rounded-xl bg-rose-50 border border-rose-100 p-3">
-                  <p className="text-xs font-bold text-rose-500 mb-1">⭐ 全力PKGとは？</p>
-                  <p className="text-[11px] text-gray-600 whitespace-pre-wrap leading-relaxed">{OPTION_DESCRIPTIONS["全力PKG"]}</p>
-                </div>
-              )}
+              <p className="text-[11px] text-gray-400 mt-1.5">ご希望があればタップしてね♡</p>
             </div>
           )}
 
