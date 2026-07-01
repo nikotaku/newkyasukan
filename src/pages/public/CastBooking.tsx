@@ -98,8 +98,14 @@ export default function CastBooking() {
     supabase.rpc("get_public_back_rates").then(({ data }) => {
       const rates = (data || []) as BackRate[];
       setBackRates(rates);
-      const aroma = rates.find((r) => r.course_type === "アロマオイル");
-      if (aroma) setCourseType(aroma.course_type);
+      // おすすめの全力コース80分を初期選択（誘導）
+      const zenryoku80 = rates.find((r) => r.course_type === "全力" && r.duration === 80);
+      if (zenryoku80) {
+        setCourseType("全力");
+        setDuration(80);
+      } else if (rates[0]) {
+        setCourseType(rates[0].course_type);
+      }
     });
     supabase.from("option_rates").select("option_name, customer_price, display_order")
       .order("display_order").then(({ data }) => {
@@ -320,20 +326,31 @@ export default function CastBooking() {
             </label>
             {courseTypes.length > 1 && (
               <div className="flex gap-2 mb-3">
-                {courseTypes.map((ct) => (
-                  <button
-                    key={ct}
-                    type="button"
-                    onClick={() => { setCourseType(ct); setDuration(0); }}
-                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${
-                      courseType === ct
-                        ? "bg-gradient-to-br from-pink-400 to-rose-400 text-white shadow-md"
-                        : "bg-pink-50 text-rose-400 hover:bg-pink-100"
-                    }`}
-                  >
-                    {ct}
-                  </button>
-                ))}
+                {courseTypes.map((ct) => {
+                  const on = courseType === ct;
+                  const recommended = ct === "全力";
+                  return (
+                    <button
+                      key={ct}
+                      type="button"
+                      onClick={() => { setCourseType(ct); setDuration(ct === "全力" ? 80 : 0); }}
+                      className={`relative flex-1 py-2 rounded-xl text-sm font-bold transition-all ${
+                        on
+                          ? "bg-gradient-to-br from-pink-400 to-rose-400 text-white shadow-md"
+                          : recommended
+                            ? "bg-rose-50 text-rose-500 ring-1 ring-rose-300 hover:bg-rose-100"
+                            : "bg-pink-50 text-rose-400 hover:bg-pink-100"
+                      }`}
+                    >
+                      {recommended && (
+                        <span className={`absolute -top-1.5 -right-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm ${on ? "bg-white text-rose-500" : "bg-rose-400 text-white"}`}>
+                          ⭐おすすめ
+                        </span>
+                      )}
+                      {ct}
+                    </button>
+                  );
+                })}
               </div>
             )}
             <div className="grid grid-cols-3 gap-2">
