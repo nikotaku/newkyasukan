@@ -470,13 +470,7 @@ export default function Schedule() {
       roomCautionText ? `\n【注意事項】\n${roomCautionText}` : null,
       castName
         ? [
-            `\n▼本日担当するセラピストからのメッセージ`,
-            `━━━━━━━━━━`,
-            `本日担当いたします、${castName}です✨`,
-            `いっぱい癒しますので、よろしくお願い致します！`,
-            `もしよろしければ、施術後に私への一言を口コミで`,
-            `いただけたらとても励みになります🙇‍♀️`,
-            `▼口コミはこちら`,
+            `\n▼口コミはこちら`,
             `https://zenryokuesthe.com/review`,
             `（担当名に「${castName}」とご記入いただけると嬉しいです）`,
           ].join("\n")
