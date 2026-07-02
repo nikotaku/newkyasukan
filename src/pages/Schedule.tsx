@@ -954,14 +954,24 @@ export default function Schedule() {
                 <>
                   <div>
                     <Label>ステータス</Label>
-                    <Select value={editStatus} onValueChange={setEditStatus}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                          <SelectItem key={k} value={k}>{v}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex flex-wrap gap-2 mt-1.5">
+                      {Object.entries(STATUS_LABELS).map(([k, v]) => {
+                        const on = editStatus === k;
+                        return (
+                          <button
+                            key={k}
+                            type="button"
+                            onClick={() => setEditStatus(k)}
+                            className={cn(
+                              "px-4 py-2.5 rounded-lg text-sm font-semibold border-2 transition-colors",
+                              on ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:bg-muted"
+                            )}
+                          >
+                            {v}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                   <ReservationForm
                     formData={editFormData}
