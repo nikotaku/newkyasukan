@@ -1185,9 +1185,18 @@ export function ReservationForm({
       {/* 19. 合計金額＋登録ボタン（下部固定バー） */}
       <div className="sticky bottom-0 z-20 mt-2 flex items-center gap-3 border-t border-border bg-background/95 backdrop-blur py-3 -mb-1">
         <div className="shrink-0">
-          <p className="text-[11px] text-muted-foreground leading-none mb-0.5">合計金額</p>
+          <p className="text-[11px] text-muted-foreground leading-none mb-0.5">合計金額（総額）</p>
           <p className="text-2xl font-bold text-primary leading-none tabular-nums">
-            ¥{(formData.price + (formData.payment_fee || 0)).toLocaleString()}
+            ¥{(() => {
+              // 決済手数料込みの総額を都度計算（分割払いにも対応）
+              const base = formData.payment_details
+                ? formData.payment_details.reduce((s, d) => s + (d.amount || 0), 0)
+                : formData.price;
+              const fee = formData.payment_details
+                ? formData.payment_details.reduce((s, d) => s + calcPaymentFee(d.amount, paymentSettings, d.method), 0)
+                : calcPaymentFee(formData.price, paymentSettings, formData.payment_method);
+              return (base + fee).toLocaleString();
+            })()}
           </p>
         </div>
         <Button onClick={handleSubmit} size="lg" className="flex-1 h-12 text-base">
