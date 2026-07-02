@@ -72,6 +72,7 @@ interface Cast {
   id: string;
   name: string;
   name_kana: string | null;
+  real_name: string | null;
   name_en: string | null;
   type: string;
   status: string;
@@ -168,6 +169,7 @@ export default function Staff() {
   const emptyForm = {
     name: "",
     name_kana: "",
+    real_name: "",
     name_en: "",
     type: "インルーム",
     room: "インルーム",
@@ -388,6 +390,7 @@ export default function Staff() {
       if (inserted?.id) {
         await supabase.from('casts').update({
           name_kana: formData.name_kana || null,
+          real_name: formData.real_name || null,
           name_en: formData.name_en || null,
           blood_type: formData.blood_type || null,
           height: formData.height !== "" ? Number(formData.height) : null,
@@ -530,6 +533,7 @@ export default function Staff() {
       // Step 2: update new profile fields (requires migration SQL) — silent fail if columns missing
       const profilePayload: Record<string, any> = {
         name_kana: editingCast.name_kana || null,
+        real_name: editingCast.real_name || null,
         name_en: editingCast.name_en || null,
         blood_type: editingCast.blood_type || null,
         height: editingCast.height || null,
@@ -1300,6 +1304,11 @@ export default function Staff() {
                             <Label htmlFor="add-name-kana">フリガナ</Label>
                             <Input id="add-name-kana" placeholder="例：サクラ" value={formData.name_kana} onChange={(e) => setFormData({...formData, name_kana: e.target.value})} />
                           </div>
+                          <div>
+                            <Label htmlFor="add-real-name">本名</Label>
+                            <Input id="add-real-name" placeholder="例：佐藤 花子" value={formData.real_name} onChange={(e) => setFormData({...formData, real_name: e.target.value})} />
+                            <p className="text-[10px] text-muted-foreground mt-0.5">紹介費明細などの内部書類に使用（公開されません）</p>
+                          </div>
                         </div>
                         <div>
                           <Label htmlFor="add-age">年齢</Label>
@@ -1544,6 +1553,11 @@ export default function Staff() {
                         <div>
                           <Label htmlFor="e-name-kana">フリガナ</Label>
                           <Input id="e-name-kana" value={editingCast.name_kana || ""} onChange={(e) => setEditingCast({...editingCast, name_kana: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-real-name">本名</Label>
+                          <Input id="e-real-name" placeholder="例：佐藤 花子" value={editingCast.real_name || ""} onChange={(e) => setEditingCast({...editingCast, real_name: e.target.value})} />
+                          <p className="text-[10px] text-muted-foreground mt-0.5">紹介費明細などの内部書類に使用（公開されません）</p>
                         </div>
                         <div>
                           <Label htmlFor="e-age">年齢</Label>

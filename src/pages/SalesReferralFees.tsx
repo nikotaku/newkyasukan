@@ -45,7 +45,7 @@ export default function SalesReferralFees() {
       const monthEnd = format(endOfMonth(selectedMonth), "yyyy-MM-dd");
 
       const [castsRes, rewardsRes, resvRes] = await Promise.all([
-        supabase.from("casts").select("id, name, referral_reward_id").not("referral_reward_id", "is", null),
+        supabase.from("casts").select("id, name, real_name, referral_reward_id").not("referral_reward_id", "is", null),
         supabase.from("referral_rewards").select("id, name, amount"),
         supabase
           .from("reservations")
@@ -62,7 +62,7 @@ export default function SalesReferralFees() {
       const targetCasts = (castsRes.data || []).filter((c: any) => c.referral_reward_id && rewardMap.has(c.referral_reward_id));
       const castInfo = new Map<string, { name: string; rule: { name: string; amount: number } }>();
       for (const c of targetCasts as any[]) {
-        castInfo.set(c.id, { name: c.name, rule: rewardMap.get(c.referral_reward_id)! });
+        castInfo.set(c.id, { name: c.real_name ? `${c.name}/${c.real_name}` : c.name, rule: rewardMap.get(c.referral_reward_id)! });
       }
 
       // 完了予約を対象キャストで集計
