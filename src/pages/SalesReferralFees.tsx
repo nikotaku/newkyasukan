@@ -8,7 +8,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, isSameMonth } from "date-fns";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Download } from "lucide-react";
+import { downloadReferralReceipt } from "@/lib/referralReceipt";
+import { toast } from "sonner";
 
 interface Row {
   castId: string;
@@ -27,6 +29,7 @@ export default function SalesReferralFees() {
   const [selectedMonth, setSelectedMonth] = useState(startOfMonth(new Date()));
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeRule, setActiveRule] = useState("すべて");
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -100,10 +103,38 @@ export default function SalesReferralFees() {
     if (user) fetchData();
   }, [user, fetchData]);
 
-  const totalFees = rows.reduce((s, r) => s + r.fee, 0);
-  const totalSales = rows.reduce((s, r) => s + r.sales, 0);
-  const totalCount = rows.reduce((s, r) => s + r.count, 0);
+  const ruleNames = Array.from(new Set(rows.map((r) => r.ruleName))).sort();
+  const tabs = ["すべて", ...ruleNames];
+  const displayedRows = activeRule === "すべて" ? rows : rows.filter((r) => r.ruleName === activeRule);
+
+  const totalFees = displayedRows.reduce((s, r) => s + r.fee, 0);
+  const totalSales = displayedRows.reduce((s, r) => s + r.sales, 0);
+  const totalCount = displayedRows.reduce((s, r) => s + r.count, 0);
   const isCurrentMonth = isSameMonth(selectedMonth, new Date());
+
+  const handleReceipt = () => {
+    if (displayedRows.length === 0) {
+      toast.error("この月の対象データがありません");
+      return;
+    }
+    downloadReferralReceipt({
+      month: selectedMonth,
+      ruleLabel: activeRule,
+      rows: displayedRows.map((r) => ({
+        castName: r.castName,
+        ruleName: r.ruleName,
+        unitAmount: r.unitAmount,
+        count: r.count,
+        fee: r.fee,
+      })),
+    });
+    toast.success("紹介費明細を作成しました");
+  };
+
+  // 月やデータが変わったら選択タブが消えていた場合すべてに戻す
+  useEffect(() => {
+    if (activeRule !== "すべて" && !ruleNames.includes(activeRule)) setActiveRule("すべて");
+  }, [rows]); // eslint-disable-line
 
   return (
     <div className="min-h-screen bg-background">
@@ -129,6 +160,28 @@ export default function SalesReferralFees() {
               </Button>
             </div>
           </div>
+
+          {/* 紹介元ルール別タブ ＋ 明細 */}
+          {!loading && rows.length > 0 && (
+            <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+              <div className="flex gap-2 flex-wrap">
+                {tabs.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setActiveRule(t)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      activeRule === t ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <Button variant="outline" onClick={handleReceipt}>
+                <Download size={15} className="mr-1.5" />明細
+              </Button>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card>
@@ -170,7 +223,7 @@ export default function SalesReferralFees() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {rows.map((r) => (
+                      {displayedRows.map((r) => (
                         <tr key={r.castId} className="hover:bg-muted/20 transition-colors">
                           <td className="px-4 py-2.5 font-medium">{r.castName}</td>
                           <td className="px-4 py-2.5 text-muted-foreground">{r.ruleName}</td>
