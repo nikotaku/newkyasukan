@@ -33,7 +33,6 @@ export function downloadReferralReceipt(data: ReferralReceiptData): void {
   let H = pad;
   H += 30; // タイトル
   H += 22; // 期間
-  H += 26; // 紹介元
   H += 20; // 区切り
   H += 26; // テーブルヘッダ
   H += data.rows.length * rowH;
@@ -72,12 +71,6 @@ export function downloadReferralReceipt(data: ReferralReceiptData): void {
   ctx.fillText(`対象期間：${format(data.month, "yyyy年M月", { locale: ja })}`, pad, y + 16);
   y += 22;
 
-  // 紹介元
-  ctx.fillStyle = ink;
-  ctx.font = `bold 15px ${FONT}`;
-  ctx.fillText(`紹介元：${data.ruleLabel}`, pad, y + 18);
-  y += 26;
-
   // 区切り
   ctx.strokeStyle = line;
   ctx.lineWidth = 1;
@@ -96,7 +89,7 @@ export function downloadReferralReceipt(data: ReferralReceiptData): void {
   ctx.fillStyle = muted;
   ctx.fillText("セラピスト", colCast, y + 16);
   ctx.textAlign = "right";
-  ctx.fillText("本数", colCount, y + 16);
+  ctx.fillText("shot", colCount, y + 16);
   ctx.fillText("単価", colUnit, y + 16);
   ctx.fillText("広告費", colFee, y + 16);
   ctx.textAlign = "left";
@@ -115,7 +108,7 @@ export function downloadReferralReceipt(data: ReferralReceiptData): void {
     ctx.fillStyle = ink;
     ctx.font = `13px ${FONT}`;
     ctx.textAlign = "right";
-    ctx.fillText(`${r.count}本`, colCount, y + 20);
+    ctx.fillText(`${r.count}shot`, colCount, y + 20);
     ctx.fillText(yen(r.unitAmount), colUnit, y + 20);
     ctx.font = `bold 14px ${FONT}`;
     ctx.fillText(yen(r.fee), colFee, y + 20);
@@ -142,7 +135,7 @@ export function downloadReferralReceipt(data: ReferralReceiptData): void {
   ctx.fillStyle = muted;
   ctx.font = `13px ${FONT}`;
   ctx.textAlign = "left";
-  ctx.fillText(`合計本数 ${totalCount}本`, pad + 12, y + 30);
+  ctx.fillText(`合計 ${totalCount}shot`, pad + 12, y + 30);
   ctx.fillStyle = ink;
   ctx.font = `13px ${FONT}`;
   ctx.textAlign = "right";
