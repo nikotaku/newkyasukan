@@ -888,6 +888,19 @@ export default function Schedule() {
                                         {res.duration}分 ¥{res.price.toLocaleString()}
                                       </div>
                                     )}
+                                    {/* 完了へ移行ボタン */}
+                                    {res.status !== "completed" && res.status !== "cancelled" && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleQuickStatusChange(res.id, "completed");
+                                        }}
+                                        className="absolute top-1 right-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 active:scale-95 transition"
+                                        title="完了にする"
+                                      >
+                                        完了
+                                      </button>
+                                    )}
                                   </div>
                                 );
                               })}
