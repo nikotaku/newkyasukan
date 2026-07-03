@@ -63,12 +63,7 @@ export function downloadReferralReceipt(data: ReferralReceiptData): void {
   ctx.font = `bold 22px ${FONT}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText("紹介費 明細書", pad, y + 22);
-  ctx.font = `13px ${FONT}`;
-  ctx.fillStyle = muted;
-  ctx.textAlign = "right";
-  ctx.fillText("全力エステ 仙台", right, y + 20);
-  ctx.textAlign = "left";
+  ctx.fillText("広告費 明細書", pad, y + 22);
   y += 30;
 
   // 期間
@@ -103,7 +98,7 @@ export function downloadReferralReceipt(data: ReferralReceiptData): void {
   ctx.textAlign = "right";
   ctx.fillText("本数", colCount, y + 16);
   ctx.fillText("単価", colUnit, y + 16);
-  ctx.fillText("紹介費", colFee, y + 16);
+  ctx.fillText("広告費", colFee, y + 16);
   ctx.textAlign = "left";
   y += 26;
 
@@ -117,11 +112,6 @@ export function downloadReferralReceipt(data: ReferralReceiptData): void {
     ctx.font = `bold 14px ${FONT}`;
     ctx.textAlign = "left";
     ctx.fillText(r.castName, colCast, y + 20);
-    if (data.ruleLabel === "すべて" || data.ruleLabel === "全紹介元") {
-      ctx.fillStyle = muted;
-      ctx.font = `11px ${FONT}`;
-      ctx.fillText(r.ruleName, colCast, y + 34);
-    }
     ctx.fillStyle = ink;
     ctx.font = `13px ${FONT}`;
     ctx.textAlign = "right";
@@ -156,7 +146,7 @@ export function downloadReferralReceipt(data: ReferralReceiptData): void {
   ctx.fillStyle = ink;
   ctx.font = `13px ${FONT}`;
   ctx.textAlign = "right";
-  ctx.fillText("紹介費合計", right - 150, y + 30);
+  ctx.fillText("広告費合計", right - 150, y + 30);
   ctx.fillStyle = primary;
   ctx.font = `bold 22px ${FONT}`;
   ctx.fillText(yen(totalFee), right - 12, y + 32);
@@ -172,7 +162,7 @@ export function downloadReferralReceipt(data: ReferralReceiptData): void {
 
   const monthStr = format(data.month, "yyyyMM");
   const ruleStr = data.ruleLabel.replace(/[\\/:*?"<>|\s]/g, "");
-  const fileName = `紹介費明細_${ruleStr}_${monthStr}.png`;
+  const fileName = `広告費明細_${ruleStr}_${monthStr}.png`;
 
   canvas.toBlob(async (blob) => {
     if (!blob) return;
@@ -180,7 +170,7 @@ export function downloadReferralReceipt(data: ReferralReceiptData): void {
       const file = new File([blob], fileName, { type: "image/png" });
       if (navigator.canShare({ files: [file] })) {
         try {
-          await navigator.share({ files: [file], title: `紹介費明細 ${data.ruleLabel}` });
+          await navigator.share({ files: [file], title: `広告費明細 ${data.ruleLabel}` });
           return;
         } catch (e) {
           if ((e as Error).name === "AbortError") return;
