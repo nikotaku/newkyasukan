@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { format, addDays, subDays, addMonths, subMonths, parse, addMinutes, startOfMonth, endOfMonth, startOfWeek, eachDayOfInterval } from "date-fns";
 import { toExtTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, MessageSquare, Heart } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, MessageSquare, Heart, Zap } from "lucide-react";
 import paypayGuideUrl from "@/assets/paypay-guide.jpeg";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
@@ -360,6 +360,57 @@ export default function Schedule() {
     });
     return Array.from(map.values());
   }, [shifts, reservations]);
+
+  // セラピスト別の最短ご案内時間（60分枠が入る最初の時刻を探索）
+  const earliestSlots = useMemo(() => {
+    const DUR = 60;           // 最短案内の目安コース時間
+    const INTERVAL = 30;      // 予約後のインターバル
+    const ceil10 = (m: number) => Math.ceil(m / 10) * 10;
+    const nowD = new Date();
+    const rawNow = nowD.getHours() * 60 + nowD.getMinutes();
+    const nowExt = nowD.getHours() < 6 ? rawNow + 1440 : rawNow;
+    const todaySel = format(selectedDate, "yyyy-MM-dd") === format(nowD, "yyyy-MM-dd");
+
+    return castRows.map(({ cast }) => {
+      const castShifts = shifts
+        .filter((sh) => sh.cast_id === cast.id)
+        .map((sh) => {
+          const st = timeToMinutes(sh.start_time);
+          let en = timeToMinutes(sh.end_time);
+          if (en <= st) en += 1440;
+          return { st, en };
+        })
+        .sort((a, b) => a.st - b.st);
+      const resv = reservations
+        .filter((r) => r.cast_id === cast.id && r.status !== "cancelled")
+        .map((r) => {
+          const st = timeToMinutes(r.start_time);
+          return { st, en: st + r.duration + INTERVAL };
+        })
+        .sort((a, b) => a.st - b.st);
+
+      for (const sh of castShifts) {
+        let cand = ceil10(Math.max(sh.st, todaySel ? nowExt : sh.st));
+        let moved = true;
+        while (moved) {
+          moved = false;
+          for (const r of resv) {
+            if (cand + DUR > r.st && cand < r.en) {
+              cand = ceil10(r.en);
+              moved = true;
+            }
+          }
+        }
+        if (cand + DUR <= sh.en) {
+          const isNow = todaySel && cand <= nowExt + 10;
+          const h = Math.floor(cand / 60);
+          const mm = String(cand % 60).padStart(2, "0");
+          return { castId: cast.id, name: cast.name, label: isNow ? "今すぐOK" : `${h}:${mm}〜`, now: isNow };
+        }
+      }
+      return { castId: cast.id, name: cast.name, label: "受付終了", now: false };
+    });
+  }, [castRows, shifts, reservations, selectedDate]);
 
   const hours = Array.from({ length: TIME_END - TIME_START }, (_, i) => TIME_START + i);
 
@@ -744,6 +795,34 @@ export default function Schedule() {
                   </div>
                 </Card>
               </div>
+
+              {/* 最短ご案内時間 */}
+              {earliestSlots.length > 0 && (
+                <Card className="p-3 mb-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Zap size={14} className="text-amber-500" />
+                    <span className="text-[11px] font-semibold text-muted-foreground">最短ご案内時間</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {earliestSlots.map((sl) => (
+                      <span
+                        key={sl.castId}
+                        className={cn(
+                          "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border",
+                          sl.now
+                            ? "bg-green-50 border-green-300 text-green-700 font-bold"
+                            : sl.label === "受付終了"
+                              ? "bg-muted border-border text-muted-foreground"
+                              : "bg-blue-50 border-blue-200 text-blue-800"
+                        )}
+                      >
+                        <span className="font-medium">{sl.name}</span>
+                        <span className={sl.now ? "" : "font-bold"}>{sl.label}</span>
+                      </span>
+                    ))}
+                  </div>
+                </Card>
+              )}
 
               {/* 当日ステータス */}
               <div className="mb-3">
