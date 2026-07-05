@@ -78,6 +78,7 @@ import SalesReferralFees from "./pages/SalesReferralFees";
 import SalesMonthlySalesTarget from "./pages/SalesMonthlySalesTarget";
 import SalesDailySalesTarget from "./pages/SalesDailySalesTarget";
 import SalesExpenseInput from "./pages/SalesExpenseInput";
+import SalesMonthlyClosing from "./pages/SalesMonthlyClosing";
 import SystemCourses from "./pages/SystemCourses";
 import SystemOptions from "./pages/SystemOptions";
 import SystemDiscounts from "./pages/SystemDiscounts";
@@ -200,6 +201,7 @@ const App = () => {
           <Route path="/sales/price-analysis" element={<SalesPriceAnalysis />} />
           <Route path="/sales/monthly-sales" element={<SalesMonthlySales />} />
           <Route path="/sales/daily-sales" element={<SalesDailySales />} />
+          <Route path="/sales/monthly-closing" element={<SalesMonthlyClosing />} />
           <Route path="/sales/pending-reports" element={<SalesPendingReports />} />
           <Route path="/sales/deduction-summary" element={<SalesDeductionSummary />} />
           <Route path="/sales/card-sales" element={<SalesCardSales />} />
