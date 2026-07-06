@@ -530,11 +530,34 @@ export default function Schedule() {
   };
 
   // コピーしつつ端末のSMS送信画面を開く（宛先＝予約の電話番号、本文プリセット）
+  // 同時にセラピストのグループLINEへも予約内容を自動共有（送り忘れ防止）
   const openReservationSms = (d: Reservation) => {
     const body = buildReservationSms(d);
     navigator.clipboard.writeText(body).catch(() => {});
     toast({ title: "SMS送信画面を開きます", description: "本文はコピー済みです" });
     openSmsApp(d.customer_phone, body);
+
+    const { dateStr, timeStr } = extBusinessDateTime(d.reservation_date, d.start_time);
+    supabase.functions
+      .invoke("notify-line-therapist", {
+        body: {
+          customer_name: d.customer_name,
+          cast_name: castNameMap.get(d.cast_id) ?? "未設定",
+          reservation_date: dateStr,
+          start_time: timeStr,
+          course_name: d.course_name,
+          room: d.room,
+          options: d.options,
+          notes: d.notes,
+        },
+      })
+      .then(({ error }) => {
+        if (error) {
+          toast({ title: "セラピストLINEへの共有に失敗", description: "グループLINE未設定の可能性があります", variant: "destructive" });
+        } else {
+          toast({ title: "セラピストLINEへ共有しました" });
+        }
+      });
   };
 
   const buildThanksSms = (d: Reservation): string | null => {
