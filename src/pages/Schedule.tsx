@@ -327,18 +327,41 @@ export default function Schedule() {
     const monthStart = format(startOfMonth(selectedDate), "yyyy-MM-dd");
     const monthEnd = format(endOfMonth(selectedDate), "yyyy-MM-dd");
 
-    const [{ data: shiftsData }, { data: reservationsData }, { data: nextResData }, { data: monthData }] = await Promise.all([
+    // 深夜またぎ分（翌月1日の営業開始前＝当月末の営業日扱い）まで含めて取得
+    const monthEndNext = format(addDays(endOfMonth(selectedDate), 1), "yyyy-MM-dd");
+
+    const [{ data: shiftsData }, { data: reservationsData }, { data: nextResData }, { data: clearanceData }, { data: monthResData }] = await Promise.all([
       supabase.from("shifts").select("*, cast:casts(id, name, photo)").eq("shift_date", dateStr),
       supabase.from("reservations").select("*").eq("reservation_date", dateStr).gte("start_time", dayStartTime).neq("status", "cancelled"),
       // 深夜またぎ：翌日日付で保存されているが営業開始前の予約は当日扱い
       supabase.from("reservations").select("*").eq("reservation_date", nextDateStr).lt("start_time", dayStartTime).neq("status", "cancelled"),
-      // 月次合計は実績（完了）のみ集計。確定・保留の未消化分は含めない
-      supabase.from("reservations").select("price").gte("reservation_date", monthStart).lte("reservation_date", monthEnd).eq("status", "completed"),
+      // 月次合計は日別精算（実額）を正とする
+      supabase.from("daily_clearances").select("date, total_sales").gte("date", monthStart).lte("date", monthEnd),
+      // 精算未入力の日（当日など）は完了予約の金額で補完する
+      supabase.from("reservations").select("price, reservation_date, start_time").gte("reservation_date", monthStart).lte("reservation_date", monthEndNext).eq("status", "completed"),
     ]);
 
     setShifts((shiftsData as any) || []);
     setReservations([...(reservationsData || []), ...(nextResData || [])]);
-    setMonthlyTotal((monthData || []).reduce((sum, r: any) => sum + (r.price || 0), 0));
+
+    // 営業日単位で「精算があれば精算合計、なければ完了予約合計」を積み上げる
+    const clearanceByDay = new Map<string, number>();
+    for (const c of (clearanceData || []) as any[]) {
+      clearanceByDay.set(c.date, (clearanceByDay.get(c.date) || 0) + (c.total_sales || 0));
+    }
+    const resByDay = new Map<string, number>();
+    for (const r of (monthResData || []) as any[]) {
+      const bday = r.start_time < dayStartTime
+        ? format(addDays(new Date(`${r.reservation_date}T12:00:00`), -1), "yyyy-MM-dd")
+        : r.reservation_date;
+      if (bday < monthStart || bday > monthEnd) continue;
+      resByDay.set(bday, (resByDay.get(bday) || 0) + (r.price || 0));
+    }
+    let monthTotal = 0;
+    for (const day of new Set([...clearanceByDay.keys(), ...resByDay.keys()])) {
+      monthTotal += clearanceByDay.has(day) ? clearanceByDay.get(day)! : (resByDay.get(day) || 0);
+    }
+    setMonthlyTotal(monthTotal);
     setLoading(false);
   };
 
@@ -816,7 +839,7 @@ export default function Schedule() {
                   <div className="min-w-0">
                     <div className="text-[10px] text-muted-foreground">{format(selectedDate, "M月", { locale: ja })}の売上合計</div>
                     <div className="text-base font-bold truncate">¥{monthlyTotal.toLocaleString()}</div>
-                    <div className="text-[10px] text-muted-foreground">月次累計（完了実績）</div>
+                    <div className="text-[10px] text-muted-foreground">月次累計（精算ベース・未精算日は完了予約で補完）</div>
                   </div>
                 </Card>
               </div>
