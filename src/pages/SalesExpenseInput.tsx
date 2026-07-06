@@ -90,9 +90,9 @@ function ExpenseForm({
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from("sales_expenses").insert([{
-      date: form.date,
-      category: form.category,
+    const { error } = await supabase.from("expenses").insert([{
+      expense_date: form.date,
+      expense_type: form.category,
       amount: form.amount,
       description: form.description,
       payment_method: form.payment_method,
@@ -215,16 +215,25 @@ export default function SalesExpenseInput() {
   const fetchExpenses = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from("sales_expenses")
-      .select("*")
-      .order("date", { ascending: false })
+      .from("expenses")
+      .select("id, expense_date, expense_type, amount, description, payment_method")
+      .order("expense_date", { ascending: false })
       .limit(200);
-    if (!error) setExpenses(data || []);
+    if (!error) {
+      setExpenses((data || []).map((r) => ({
+        id: r.id,
+        date: r.expense_date,
+        category: r.expense_type,
+        amount: r.amount,
+        description: r.description || "",
+        payment_method: r.payment_method || "cash",
+      })));
+    }
     setLoading(false);
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("sales_expenses").delete().eq("id", id);
+    const { error } = await supabase.from("expenses").delete().eq("id", id);
     if (error) { toast.error("削除失敗"); return; }
     setExpenses((prev) => prev.filter((e) => e.id !== id));
     toast.success("削除しました");
