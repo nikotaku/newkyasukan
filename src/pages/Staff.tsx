@@ -55,11 +55,11 @@ const CATEGORY_LABELS: Record<CategoryTag, { main: string; sub?: string }> = {
 const LEVEL_TAGS = ["ビギナーズ", "スタンダード", "ソルジャー", "マスター"] as const;
 type LevelTag = typeof LEVEL_TAGS[number];
 
-const LEVEL_COLORS: Record<LevelTag, string> = {
-  "ビギナーズ": "bg-gray-400",
-  "スタンダード": "bg-blue-400",
-  "ソルジャー": "bg-orange-500",
-  "マスター": "bg-purple-600",
+const LEVEL_BADGES: Record<LevelTag, { icon: string; className: string }> = {
+  "ビギナーズ": { icon: "🌱", className: "bg-emerald-100 text-emerald-700 border border-emerald-300" },
+  "スタンダード": { icon: "🎖️", className: "bg-blue-100 text-blue-700 border border-blue-300" },
+  "ソルジャー": { icon: "🔥", className: "bg-orange-100 text-orange-700 border border-orange-300" },
+  "マスター": { icon: "👑", className: "bg-gradient-to-r from-amber-400 to-yellow-500 text-white shadow-sm" },
 };
 
 const ALL_SYSTEM_TAGS = [...CATEGORY_TAGS, ...LEVEL_TAGS] as readonly string[];
@@ -330,6 +330,7 @@ export default function Staff() {
     const otherTags = (cast.tags || []).filter(t => !LEVEL_TAGS.includes(t as LevelTag));
     const newTags = level ? [...otherTags, level] : otherTags;
     setCasts(prev => prev.map(c => c.id === castId ? { ...c, tags: newTags } : c));
+    setEditingCast(prev => prev && prev.id === castId ? { ...prev, tags: newTags } : prev);
     const { error } = await supabase.from('casts').update({ tags: newTags }).eq('id', castId);
     if (error) {
       toast({ title: "エラー", description: "レベルの更新に失敗しました", variant: "destructive" });
@@ -753,8 +754,10 @@ export default function Staff() {
         title: "キャスト削除",
         description: "キャストが削除されました",
       });
-      
+
       setDeleteConfirmId(null);
+      setIsEditDialogOpen(false);
+      setEditingCast(null);
     } catch (error) {
       console.error('Error deleting cast:', error);
       toast({
@@ -794,6 +797,7 @@ export default function Staff() {
     const otherTags = (cast.tags || []).filter(t => !CATEGORY_TAGS.includes(t as CategoryTag));
     const newTags = [...otherTags, category];
     setCasts(prev => prev.map(c => c.id === castId ? { ...c, tags: newTags } : c));
+    setEditingCast(prev => prev && prev.id === castId ? { ...prev, tags: newTags } : prev);
     const { error } = await supabase.from('casts').update({ tags: newTags }).eq('id', castId);
     if (error) {
       toast({ title: "エラー", description: "タグの更新に失敗しました", variant: "destructive" });
@@ -820,6 +824,7 @@ export default function Staff() {
 
       if (error) throw error;
 
+      setEditingCast(prev => prev && prev.id === castId ? { ...prev, access_token: token } : prev);
       toast({
         title: "トークン生成完了",
         description: "専用リンクが生成されました",
@@ -1463,8 +1468,93 @@ export default function Staff() {
               <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>セラピスト編集</DialogTitle>
+                    <DialogTitle className="flex items-center gap-2 flex-wrap">
+                      セラピスト編集
+                      {getCastLevel(editingCast) && (
+                        <span className={`inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full font-semibold ${LEVEL_BADGES[getCastLevel(editingCast)!].className}`}>
+                          <span>{LEVEL_BADGES[getCastLevel(editingCast)!].icon}</span>
+                          {getCastLevel(editingCast)}
+                        </span>
+                      )}
+                    </DialogTitle>
                   </DialogHeader>
+
+                  {/* ステータス・操作（一覧から移設） */}
+                  {isAdmin && (
+                    <div className="rounded-lg border bg-muted/30 p-3 space-y-2.5">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">レベル</Label>
+                          <Select
+                            value={getCastLevel(editingCast) ?? "__none__"}
+                            onValueChange={(v) => handleSetLevelTag(editingCast.id, v === "__none__" ? "" : v as LevelTag)}
+                          >
+                            <SelectTrigger className="h-8 text-xs mt-0.5">
+                              <SelectValue placeholder="レベル" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">未設定</SelectItem>
+                              {LEVEL_TAGS.map(lv => (
+                                <SelectItem key={lv} value={lv}>{LEVEL_BADGES[lv].icon} {lv}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">ステータス</Label>
+                          <Select
+                            value={getCastCategory(editingCast)}
+                            onValueChange={(v) => handleSetCategoryTag(editingCast.id, v as CategoryTag)}
+                          >
+                            <SelectTrigger className="h-8 text-xs mt-0.5">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CATEGORY_TAGS.map(cat => (
+                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {editingCast.access_token ? (
+                          <>
+                            <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => copyPortalLink(editingCast.access_token!)}>
+                              <Copy size={13} />ポータルURL
+                            </Button>
+                            <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => copyShiftLink(editingCast.access_token!)}>
+                              <CalendarPlus size={13} />シフト提出URL
+                            </Button>
+                          </>
+                        ) : (
+                          <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => generateAccessToken(editingCast.id)}>
+                            <LinkIcon size={13} />専用リンク発行
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1 text-pink-600 border-pink-200 hover:bg-pink-50 hover:text-pink-700"
+                          onClick={() => handleSyncEstama(editingCast)}
+                        >
+                          <ExternalLink size={13} />エスたま転記
+                        </Button>
+                        {deleteConfirmId === editingCast.id ? (
+                          <>
+                            <Button type="button" variant="destructive" size="sm" className="h-8 text-xs" onClick={() => handleDeleteCast(editingCast.id)}>削除を確定</Button>
+                            <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setDeleteConfirmId(null)}>キャンセル</Button>
+                          </>
+                        ) : (
+                          <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive hover:text-destructive-foreground ml-auto" onClick={() => setDeleteConfirmId(editingCast.id)}>
+                            <Trash2 size={13} />削除
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <Tabs defaultValue="profile" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 mb-2">
                       <TabsTrigger value="profile">プロフィール</TabsTrigger>
@@ -2014,7 +2104,8 @@ export default function Staff() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm truncate">{cast.name}</span>
                       {getCastLevel(cast) && (
-                        <span className={`text-[10px] text-white px-1.5 py-0.5 rounded-full font-medium ${LEVEL_COLORS[getCastLevel(cast)!]}`}>
+                        <span className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${LEVEL_BADGES[getCastLevel(cast)!].className}`}>
+                          <span>{LEVEL_BADGES[getCastLevel(cast)!].icon}</span>
                           {getCastLevel(cast)}
                         </span>
                       )}
@@ -2026,83 +2117,8 @@ export default function Staff() {
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  {isAdmin && (
-                    <div className="flex items-center gap-1 flex-shrink-0 overflow-x-auto max-w-[calc(100vw-160px)] md:max-w-none pb-0.5">
-                      {/* Level tag selector */}
-                      <Select
-                        value={getCastLevel(cast) ?? "__none__"}
-                        onValueChange={(v) => handleSetLevelTag(cast.id, v === "__none__" ? "" : v as LevelTag)}
-                      >
-                        <SelectTrigger
-                          className="h-7 w-20 text-xs shrink-0"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <SelectValue placeholder="レベル" />
-                        </SelectTrigger>
-                        <SelectContent onClick={(e) => e.stopPropagation()}>
-                          <SelectItem value="__none__">未設定</SelectItem>
-                          {LEVEL_TAGS.map(lv => (
-                            <SelectItem key={lv} value={lv}>{lv}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {/* Category tag selector */}
-                      <Select
-                        value={getCastCategory(cast)}
-                        onValueChange={(v) => handleSetCategoryTag(cast.id, v as CategoryTag)}
-                      >
-                        <SelectTrigger
-                          className="h-7 w-24 text-xs shrink-0"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent onClick={(e) => e.stopPropagation()}>
-                          {CATEGORY_TAGS.map(cat => (
-                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {cast.access_token ? (
-                        <>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="ポータルURLをコピー" onClick={(e) => { e.stopPropagation(); copyPortalLink(cast.access_token!); }}>
-                            <Copy size={14} />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="シフト提出URLをコピー" onClick={(e) => { e.stopPropagation(); copyShiftLink(cast.access_token!); }}>
-                            <CalendarPlus size={14} />
-                          </Button>
-                        </>
-                      ) : (
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="アクセストークン発行" onClick={(e) => { e.stopPropagation(); generateAccessToken(cast.id); }}>
-                          <LinkIcon size={14} />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-1.5 text-xs gap-1 text-pink-600 hover:bg-pink-50 hover:text-pink-700"
-                        title="エスたまに転記"
-                        onClick={(e) => { e.stopPropagation(); handleSyncEstama(cast); }}
-                      >
-                        <ExternalLink size={13} />
-                        <span className="hidden sm:inline">エスたま</span>
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); handleEditCast(cast); }}>
-                        <Edit size={14} />
-                      </Button>
-                      {deleteConfirmId === cast.id ? (
-                        <>
-                          <Button variant="destructive" size="sm" className="h-7 text-xs px-2" onClick={(e) => { e.stopPropagation(); handleDeleteCast(cast.id); }}>確認</Button>
-                          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(null); }}>×</Button>
-                        </>
-                      ) : (
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-destructive hover:text-destructive-foreground" onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(cast.id); }}>
-                          <Trash2 size={14} />
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                  {/* 詳細へ */}
+                  <ChevronRight size={16} className="flex-shrink-0 text-muted-foreground" />
                 </div>
               ))}
             </div>
