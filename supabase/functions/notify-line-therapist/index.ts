@@ -1,12 +1,16 @@
-// 予約確認SMS送信と同時に、セラピストのグループLINEへ予約内容を共有する。
+// 予約確認SMS送信と同時に、担当セラピストのグループLINEへ予約内容を共有する。
 // 管理画面（Schedule）のSMSボタンから呼び出される。
-// 送信先: LINE_THERAPIST_GROUP_ID（セラピスト用グループ。未設定時はエラーを返す）
+// 送信先: casts.line_group_id（セラピストごとのグループ）。
+// 未登録の場合は LINE_THERAPIST_GROUP_ID（共通グループ）にフォールバック。
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 interface Payload {
+  cast_id?: string | null;
   customer_name: string;
   cast_name: string;
   reservation_date: string; // 表示用（例: 7月6日(月)）
@@ -22,20 +26,27 @@ Deno.serve(async (req: Request) => {
 
   try {
     const token = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN");
-    const groupId = Deno.env.get("LINE_THERAPIST_GROUP_ID");
-
     if (!token) {
       return new Response(JSON.stringify({ error: "LINE token not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const p: Payload = await req.json();
+
+    // 担当セラピストのグループIDを取得（未登録なら共通グループにフォールバック）
+    let groupId: string | null = null;
+    if (p.cast_id) {
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const { data } = await sb.from("casts").select("line_group_id").eq("id", p.cast_id).maybeSingle();
+      groupId = (data as any)?.line_group_id ?? null;
+    }
+    if (!groupId) groupId = Deno.env.get("LINE_THERAPIST_GROUP_ID") ?? null;
     if (!groupId) {
-      return new Response(JSON.stringify({ error: "LINE_THERAPIST_GROUP_ID not configured" }), {
+      return new Response(JSON.stringify({ error: "このセラピストのLINEグループが未登録です（グループ内で「連携 名前」を送信してください）" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const p: Payload = await req.json();
 
     const lines = [
       "🔔 新規予約のご案内",

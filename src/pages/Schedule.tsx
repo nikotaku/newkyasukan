@@ -541,6 +541,7 @@ export default function Schedule() {
     supabase.functions
       .invoke("notify-line-therapist", {
         body: {
+          cast_id: d.cast_id,
           customer_name: d.customer_name,
           cast_name: castNameMap.get(d.cast_id) ?? "未設定",
           reservation_date: dateStr,
@@ -553,7 +554,7 @@ export default function Schedule() {
       })
       .then(({ error }) => {
         if (error) {
-          toast({ title: "セラピストLINEへの共有に失敗", description: "グループLINE未設定の可能性があります", variant: "destructive" });
+          toast({ title: "セラピストLINEへの共有に失敗", description: "このセラピストのグループが未連携の可能性があります（グループ内で「連携 名前」を送信）", variant: "destructive" });
         } else {
           toast({ title: "セラピストLINEへ共有しました" });
         }
