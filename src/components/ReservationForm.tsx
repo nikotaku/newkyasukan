@@ -162,7 +162,8 @@ export function ReservationForm({
     return types;
   }, [backRates]);
 
-  useEffect(() => {
+  // 合計はレンダリング中に即時計算（クリック→反映のラグをなくす）
+  const liveTotals = useMemo(() => {
     let subtotal = 0;
 
     const backRate = backRates.find(
@@ -216,6 +217,12 @@ export function ReservationForm({
     // コース名はコースタイプ＋時間から常に自動生成し、デフォルト値が残らないようにする
     const courseName = `${formData.course_type} ${formData.duration}分`;
 
+    return { totalPrice, discountAmount, fee, courseName };
+  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.discount_ids, formData.payment_method, formData.payment_details, backRates, optionRates, nominationRates, discounts, paymentSettings]);
+
+  // 保存用に formData へ同期（表示は liveTotals を直接参照するため遅延しない）
+  useEffect(() => {
+    const { totalPrice, discountAmount, fee, courseName } = liveTotals;
     if (
       totalPrice !== formData.price ||
       discountAmount !== formData.discount ||
@@ -224,7 +231,7 @@ export function ReservationForm({
     ) {
       setFormData({ ...formData, price: totalPrice, discount: discountAmount, payment_fee: fee, course_name: courseName });
     }
-  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.discount_ids, formData.payment_method, formData.payment_details, backRates, optionRates, nominationRates, discounts, paymentSettings]);
+  }, [liveTotals]); // eslint-disable-line
 
   // 開始時間とコース時間（分）から終了時間を自動計算
   useEffect(() => {
@@ -1145,10 +1152,10 @@ export function ReservationForm({
 
       {/* 18. 合計金額表示 */}
       <div className="pt-4 border-t space-y-1">
-        {formData.discount > 0 && (
+        {liveTotals.discountAmount > 0 && (
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>割引</span>
-            <span className="text-rose-600">-¥{formData.discount.toLocaleString()}</span>
+            <span className="text-rose-600">-¥{liveTotals.discountAmount.toLocaleString()}</span>
           </div>
         )}
         {formData.payment_details ? (
@@ -1167,15 +1174,15 @@ export function ReservationForm({
             );
           })
         ) : (
-          formData.payment_fee > 0 && (
+          liveTotals.fee > 0 && (
             <>
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>小計</span>
-                <span>¥{formData.price.toLocaleString()}</span>
+                <span>¥{liveTotals.totalPrice.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>決済手数料</span>
-                <span>+¥{formData.payment_fee.toLocaleString()}</span>
+                <span>+¥{liveTotals.fee.toLocaleString()}</span>
               </div>
             </>
           )
@@ -1188,14 +1195,11 @@ export function ReservationForm({
           <p className="text-[11px] text-muted-foreground leading-none mb-0.5">合計金額（総額）</p>
           <p className="text-2xl font-bold text-primary leading-none tabular-nums">
             ¥{(() => {
-              // 決済手数料込みの総額を都度計算（分割払いにも対応）
+              // 決済手数料込みの総額（liveTotalsで即時反映・分割払いにも対応）
               const base = formData.payment_details
                 ? formData.payment_details.reduce((s, d) => s + (d.amount || 0), 0)
-                : formData.price;
-              const fee = formData.payment_details
-                ? formData.payment_details.reduce((s, d) => s + calcPaymentFee(d.amount, paymentSettings, d.method), 0)
-                : calcPaymentFee(formData.price, paymentSettings, formData.payment_method);
-              return (base + fee).toLocaleString();
+                : liveTotals.totalPrice;
+              return (base + liveTotals.fee).toLocaleString();
             })()}
           </p>
         </div>
