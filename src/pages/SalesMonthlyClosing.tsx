@@ -14,7 +14,7 @@ import { toast } from "sonner";
 
 /**
  * 月別清算：毎月の締め作業。固定費の各項目について、その月の入力
- * （sales_expenses への記録）が済んでいるかをチェックリスト形式で表示し、
+ * （expenses への記録）が済んでいるかをチェックリスト形式で表示し、
  * 未入力・未払いの項目はその場で金額を入れて登録できる。
  */
 
@@ -62,11 +62,18 @@ export default function SalesMonthlyClosing() {
     const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
     const monthEnd = format(endOfMonth(selectedMonth), "yyyy-MM-dd");
     const { data, error } = await supabase
-      .from("sales_expenses")
-      .select("id, date, category, amount")
-      .gte("date", monthStart)
-      .lte("date", monthEnd);
-    if (!error) setRecords((data || []) as ExpenseRec[]);
+      .from("expenses")
+      .select("id, expense_date, expense_type, amount")
+      .gte("expense_date", monthStart)
+      .lte("expense_date", monthEnd);
+    if (!error) {
+      setRecords((data || []).map((r) => ({
+        id: r.id,
+        date: r.expense_date,
+        category: r.expense_type,
+        amount: r.amount,
+      })));
+    }
     setLoading(false);
   }, [selectedMonth]);
 
@@ -96,9 +103,9 @@ export default function SalesMonthlyClosing() {
     const date = isCurrentMonth
       ? format(new Date(), "yyyy-MM-dd")
       : format(endOfMonth(selectedMonth), "yyyy-MM-dd");
-    const { error } = await supabase.from("sales_expenses").insert([{
-      date,
-      category: item,
+    const { error } = await supabase.from("expenses").insert([{
+      expense_date: date,
+      expense_type: item,
       amount,
       description: `${format(selectedMonth, "M月", { locale: ja })}分 ${item}`,
       payment_method: "bank_transfer",
