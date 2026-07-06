@@ -135,6 +135,7 @@ const BookingReservation = () => {
   const [referralOther, setReferralOther] = useState<string>("");
   const [totalPrice, setTotalPrice] = useState<number>(0);
   const [paymentSettings, setPaymentSettings] = useState<PaymentSetting[]>([]);
+  const [intervalMinutes, setIntervalMinutes] = useState(30);
 
   useEffect(() => {
     document.title = "全力エステ - WEB予約";
@@ -147,6 +148,9 @@ const BookingReservation = () => {
   useEffect(() => {
     fetchRates();
     fetchBanners();
+    supabase.rpc("get_reservation_interval" as any).then(({ data }) => {
+      if (typeof data === "number") setIntervalMinutes(data);
+    });
   }, []);
 
   const fetchBanners = async () => {
@@ -366,7 +370,7 @@ const BookingReservation = () => {
     let shiftEnd = shiftEndHour * 60 + shiftEndMinute;
     // 深夜またぎ（終了時刻が開始より前 = 翌日）
     if (shiftEnd <= shiftStart) shiftEnd += 24 * 60;
-    const intervalMinutes = 30;
+    // intervalMinutes は店舗設定から取得済み
     const checkDuration = 60; // Use 60min as default check duration for overview
 
     const slots: { time: string; available: boolean }[] = [];
@@ -465,7 +469,7 @@ const BookingReservation = () => {
     if (shiftEnd <= shiftStart) shiftEnd += 24 * 60;
 
     // インターバル時間（分）- 予約と予約の間に必要な準備時間
-    const intervalMinutes = 30;
+    // intervalMinutes は店舗設定から取得済み
 
     // 10分刻みで可能な時間を生成
     const slots: string[] = [];

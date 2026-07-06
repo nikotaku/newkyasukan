@@ -58,6 +58,7 @@ interface ShopSettings {
   shop_address: string | null;
   business_hours: string | null;
   business_day_start: string;
+  reservation_interval_minutes: number;
   description: string | null;
   logo_url: string | null;
   line_reminder_enabled?: boolean;
@@ -134,6 +135,7 @@ export default function Settings() {
           shop_address: settings.shop_address,
           business_hours: settings.business_hours,
           business_day_start: settings.business_day_start,
+          reservation_interval_minutes: settings.reservation_interval_minutes ?? 30,
           description: settings.description,
           logo_url: settings.logo_url,
           line_reminder_enabled: settings.line_reminder_enabled ?? true,
@@ -282,6 +284,25 @@ export default function Settings() {
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       この時刻以前の予約は前日扱いになります（例: 10:00 → 深夜01:00の予約は前日として集計）
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="reservation_interval" className="flex items-center gap-2">
+                      <Clock size={14} />
+                      予約インターバル（分）
+                    </Label>
+                    <Input
+                      id="reservation_interval"
+                      type="number"
+                      min="0"
+                      step="5"
+                      value={settings.reservation_interval_minutes ?? 30}
+                      onChange={(e) => setSettings({...settings, reservation_interval_minutes: Number(e.target.value) || 0})}
+                      disabled={!isAdmin}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      予約と次の予約の間に空ける準備時間。最短ご案内時間・Web予約の空き枠計算に使われます
                     </p>
                   </div>
 

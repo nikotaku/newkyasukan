@@ -221,7 +221,7 @@ export default function Schedule() {
   const [editStatus, setEditStatus] = useState<string>("confirmed");
 
   const { user, loading: authLoading, isAdmin } = useAuth();
-  const { dayStartTime, loaded: settingsLoaded, businessToday } = useShopSettings();
+  const { dayStartTime, loaded: settingsLoaded, businessToday, intervalMinutes } = useShopSettings();
   useEffect(() => {
     if (settingsLoaded) setSelectedDate(businessToday);
   }, [settingsLoaded]); // eslint-disable-line
@@ -364,7 +364,7 @@ export default function Schedule() {
   // セラピスト別の最短ご案内時間（60分枠が入る最初の時刻を探索）
   const earliestSlots = useMemo(() => {
     const DUR = 60;           // 最短案内の目安コース時間
-    const INTERVAL = 30;      // 予約後のインターバル
+    const INTERVAL = intervalMinutes; // 予約後のインターバル（店舗設定）
     const ceil10 = (m: number) => Math.ceil(m / 10) * 10;
     const nowD = new Date();
     const rawNow = nowD.getHours() * 60 + nowD.getMinutes();
@@ -410,7 +410,7 @@ export default function Schedule() {
       }
       return { castId: cast.id, name: cast.name, label: "受付終了", now: false };
     });
-  }, [castRows, shifts, reservations, selectedDate]);
+  }, [castRows, shifts, reservations, selectedDate, intervalMinutes]);
 
   const hours = Array.from({ length: TIME_END - TIME_START }, (_, i) => TIME_START + i);
 
