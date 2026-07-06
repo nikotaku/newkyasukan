@@ -332,7 +332,8 @@ export default function Schedule() {
       supabase.from("reservations").select("*").eq("reservation_date", dateStr).gte("start_time", dayStartTime).neq("status", "cancelled"),
       // 深夜またぎ：翌日日付で保存されているが営業開始前の予約は当日扱い
       supabase.from("reservations").select("*").eq("reservation_date", nextDateStr).lt("start_time", dayStartTime).neq("status", "cancelled"),
-      supabase.from("reservations").select("price").gte("reservation_date", monthStart).lte("reservation_date", monthEnd).neq("status", "cancelled"),
+      // 月次合計は実績（完了）のみ集計。確定・保留の未消化分は含めない
+      supabase.from("reservations").select("price").gte("reservation_date", monthStart).lte("reservation_date", monthEnd).eq("status", "completed"),
     ]);
 
     setShifts((shiftsData as any) || []);
@@ -815,7 +816,7 @@ export default function Schedule() {
                   <div className="min-w-0">
                     <div className="text-[10px] text-muted-foreground">{format(selectedDate, "M月", { locale: ja })}の売上合計</div>
                     <div className="text-base font-bold truncate">¥{monthlyTotal.toLocaleString()}</div>
-                    <div className="text-[10px] text-muted-foreground">月次累計</div>
+                    <div className="text-[10px] text-muted-foreground">月次累計（完了実績）</div>
                   </div>
                 </Card>
               </div>
