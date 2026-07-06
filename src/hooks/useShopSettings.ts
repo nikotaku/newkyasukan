@@ -4,10 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface ShopSettings {
   business_day_start: string;
+  reservation_interval_minutes: number;
 }
 
 const DEFAULT_SETTINGS: ShopSettings = {
   business_day_start: "10:00",
+  reservation_interval_minutes: 30,
 };
 
 let cachedSettings: ShopSettings | null = null;
@@ -28,12 +30,14 @@ export function useShopSettings() {
     if (cachedSettings) return;
     supabase
       .from("shop_settings" as any)
-      .select("business_day_start")
+      .select("business_day_start, reservation_interval_minutes")
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
         const s = data as ShopSettings | null;
-        const resolved = s?.business_day_start ? s : DEFAULT_SETTINGS;
+        const resolved = s?.business_day_start
+          ? { ...s, reservation_interval_minutes: s.reservation_interval_minutes ?? 30 }
+          : DEFAULT_SETTINGS;
         cachedSettings = resolved;
         setSettings(resolved);
         setLoaded(true);
@@ -52,5 +56,7 @@ export function useShopSettings() {
     return now.getHours() < h ? subDays(now, 1) : now;
   }, [settings.business_day_start]);
 
-  return { settings, loaded, dayStartTime, businessToday };
+  const intervalMinutes = settings.reservation_interval_minutes ?? 30;
+
+  return { settings, loaded, dayStartTime, businessToday, intervalMinutes };
 }
