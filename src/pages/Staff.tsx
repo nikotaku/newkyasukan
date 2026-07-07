@@ -1633,6 +1633,48 @@ export default function Staff() {
                         </div>
                       </div>
 
+                      {/* 画像ストック（非公開・枚数無制限） */}
+                      <div className="border rounded-lg p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="font-semibold">
+                            画像ストック
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+                              {(editingCast.management_photos || []).length}枚
+                            </span>
+                          </Label>
+                          <Button type="button" variant="outline" size="sm" onClick={() => managementPhotoInputRef.current?.click()} disabled={uploadingPhoto}>
+                            <Camera className="h-4 w-4 mr-1.5" />
+                            {uploadingPhoto ? "アップロード中..." : "画像を追加"}
+                          </Button>
+                        </div>
+                        <input ref={managementPhotoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleManagementPhotoUpload} />
+                        <p className="text-xs text-muted-foreground">
+                          投稿・広告用などの画像を何枚でもストックできます（複数選択OK）。HPには公開されません。タップで拡大表示。
+                        </p>
+                        {(editingCast.management_photos || []).length === 0 ? (
+                          <p className="text-center text-xs text-muted-foreground py-6 border border-dashed rounded-md">
+                            まだ画像がありません
+                          </p>
+                        ) : (
+                          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                            {(editingCast.management_photos || []).map((url, i) => (
+                              <div key={i} className="relative aspect-square rounded-md overflow-hidden border bg-muted/30">
+                                <img
+                                  src={url}
+                                  alt={`ストック画像${i + 1}`}
+                                  loading="lazy"
+                                  className="w-full h-full object-cover cursor-pointer"
+                                  onClick={() => window.open(url, "_blank")}
+                                />
+                                <Button type="button" variant="destructive" size="sm" className="absolute top-1 right-1 h-6 w-6 p-0" onClick={() => handleRemoveManagementPhoto(i)}>
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* 基本情報 */}
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">基本情報</Label>
@@ -1971,27 +2013,10 @@ export default function Staff() {
                           </div>
                         </div>
                         <div>
-                          <Label>管理用写真（表に出さない）</Label>
-                          <input ref={managementPhotoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleManagementPhotoUpload} />
-                          <div className="mt-1 space-y-2">
-                            {(editingCast.management_photos || []).length > 0 && (
-                              <div className="flex flex-wrap gap-2">
-                                {(editingCast.management_photos || []).map((url, i) => (
-                                  <div key={i} className="relative inline-block">
-                                    <img src={url} alt={`管理用写真${i + 1}`} className="h-24 w-24 object-cover rounded border" />
-                                    <Button type="button" variant="destructive" size="sm" className="absolute top-1 right-1 h-6 w-6 p-0" onClick={() => handleRemoveManagementPhoto(i)}>
-                                      <X className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            <Button type="button" variant="outline" size="sm" onClick={() => managementPhotoInputRef.current?.click()} disabled={uploadingPhoto}>
-                              <Camera className="h-4 w-4 mr-1.5" />
-                              {uploadingPhoto ? "アップロード中..." : "写真を追加"}
-                            </Button>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">管理用の画像です。HPなど表側には表示されません（複数枚登録可）</p>
+                          <Label>画像ストック</Label>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            「プロフィール」タブの画像ストック欄に移動しました（{(editingCast.management_photos || []).length}枚登録済み）
+                          </p>
                         </div>
                       </div>
 
