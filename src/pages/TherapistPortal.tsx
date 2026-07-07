@@ -9,7 +9,8 @@ import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, Ch
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import backRatesImage from "@/assets/back-rates-table.jpg";
-import { format, startOfMonth, endOfMonth, isSameDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, isSameDay, addDays } from "date-fns";
+import { toExtTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
 
 interface PendingClearance {
@@ -145,6 +146,10 @@ export default function TherapistPortal() {
   const [upcoming, setUpcoming] = useState<UpcomingReservation[]>([]);
   const [upcomingLoading, setUpcomingLoading] = useState(false);
 
+  // 本日の予約タイムライン（メニュー上部）
+  const [menuTodayRes, setMenuTodayRes] = useState<UpcomingReservation[]>([]);
+  const [menuTodayLoading, setMenuTodayLoading] = useState(true);
+
   // Settlement
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [settlementLoading, setSettlementLoading] = useState(false);
@@ -225,6 +230,26 @@ export default function TherapistPortal() {
       }).then(({ data }) => {
         setMenuShiftRows((data || []) as ShiftRow[]);
         setMenuShiftLoading(false);
+      });
+
+      // 本日の予約タイムライン（営業日基準：深夜6時までは前日の営業日扱い）
+      const bizBase = now.getHours() < 6 ? addDays(now, -1) : now;
+      const bizToday = format(bizBase, "yyyy-MM-dd");
+      const bizNext = format(addDays(bizBase, 1), "yyyy-MM-dd");
+      supabase.rpc("get_therapist_upcoming_reservations" as any, { p_token: token }).then(({ data }) => {
+        const rows = ((data || []) as UpcomingReservation[]).filter((r) =>
+          (r.reservation_date === bizToday && r.start_time >= "06:00") ||
+          (r.reservation_date === bizNext && r.start_time < "06:00")
+        );
+        rows.sort((a, b) => {
+          const ext = (r: UpcomingReservation) => {
+            const [h, m] = r.start_time.split(":").map(Number);
+            return (h < 6 ? h + 24 : h) * 60 + m;
+          };
+          return ext(a) - ext(b);
+        });
+        setMenuTodayRes(rows);
+        setMenuTodayLoading(false);
       });
     });
   }, [token, navigate]);
@@ -518,6 +543,46 @@ export default function TherapistPortal() {
                     残り{menuShiftRows.filter(s => s.approval_status !== "rejected").length - 5}件をすべて表示
                   </button>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* 本日の予約タイムライン */}
+          <div className="rounded-xl border bg-card overflow-hidden">
+            <div className="px-4 py-3 flex items-center gap-2 bg-muted/30">
+              <Calendar size={15} className="text-primary" />
+              <span className="font-semibold text-sm">本日の予約</span>
+              {!menuTodayLoading && (
+                <span className="text-xs text-muted-foreground">（{menuTodayRes.length}件）</span>
+              )}
+            </div>
+            {menuTodayLoading ? (
+              <div className="py-4 text-center"><Loader2 size={16} className="animate-spin text-primary mx-auto" /></div>
+            ) : menuTodayRes.length === 0 ? (
+              <p className="text-center text-muted-foreground text-xs py-4">本日の予約はまだありません</p>
+            ) : (
+              <div className="divide-y">
+                {menuTodayRes.map((r) => (
+                  <div key={r.id} className="px-4 py-2.5 flex gap-3 items-start">
+                    <span className="text-sm font-bold tabular-nums text-primary w-12 shrink-0 pt-0.5">
+                      {toExtTime(r.start_time)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">
+                        {r.customer_name} 様
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">{r.duration}分</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {r.course_name}
+                        {r.nomination_type ? ` · ${r.nomination_type}` : ""}
+                        {r.room ? ` · ${r.room}` : ""}
+                      </p>
+                      {r.options && r.options.length > 0 && (
+                        <p className="text-xs text-muted-foreground truncate">➕ {r.options.join("、")}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
