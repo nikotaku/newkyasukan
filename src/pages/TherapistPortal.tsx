@@ -66,7 +66,20 @@ interface Room {
   entry_photos: string[] | null;
 }
 
-type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers";
+type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers" | "upcoming";
+
+interface UpcomingReservation {
+  id: string;
+  reservation_date: string;
+  start_time: string;
+  duration: number;
+  course_name: string;
+  room: string | null;
+  options: string[] | null;
+  nomination_type: string | null;
+  customer_name: string;
+  status: string;
+}
 
 interface TherapistCustomer {
   customer_id: string;
@@ -127,6 +140,10 @@ export default function TherapistPortal() {
   const [linkSite, setLinkSite] = useState<"o2" | "x" | "esutama" | "ranking" | null>(null);
   const [linkForm, setLinkForm] = useState({ login_id: "", password: "" });
   const [linkSaving, setLinkSaving] = useState(false);
+
+  // Upcoming reservations（事前予約）
+  const [upcoming, setUpcoming] = useState<UpcomingReservation[]>([]);
+  const [upcomingLoading, setUpcomingLoading] = useState(false);
 
   // Settlement
   const [settlements, setSettlements] = useState<Settlement[]>([]);
@@ -217,6 +234,7 @@ export default function TherapistPortal() {
     if (view === "transport" && cast) fetchExpenses();
     if (view === "shift" && cast) fetchShifts();
     if (view === "customers" && cast && therapistCustomers.length === 0) fetchCustomers();
+    if (view === "upcoming" && cast) fetchUpcoming();
   }, [view, year, month, cast]);
 
   useEffect(() => {
@@ -248,6 +266,14 @@ export default function TherapistPortal() {
     if (error) toast.error("シフトの取得に失敗しました");
     else setShiftRows((data || []) as ShiftRow[]);
     setShiftsLoading(false);
+  };
+
+  const fetchUpcoming = async () => {
+    setUpcomingLoading(true);
+    const { data, error } = await supabase.rpc("get_therapist_upcoming_reservations" as any, { p_token: token });
+    if (error) toast.error("予約の取得に失敗しました");
+    else setUpcoming((data || []) as UpcomingReservation[]);
+    setUpcomingLoading(false);
   };
 
   const fetchSettlements = async () => {
@@ -357,6 +383,7 @@ export default function TherapistPortal() {
   const menuItems = [
     { title: "シフト提出", description: "希望シフトをカレンダーから提出", icon: CalendarPlus, action: () => navigate(`/therapist/${token}/shift`) },
     { title: "シフト確認", description: "確定したシフトと出勤ルームを確認", icon: Calendar, action: () => setView("shift") },
+    { title: "事前予約", description: "今日以降に入っている予約を確認", icon: CalendarPlus, action: () => setView("upcoming") },
     { title: "投稿管理", description: "O2・エスたまの魂への投稿", icon: Edit, action: () => navigate(`/therapist/${token}/posts`) },
     { title: "バック表", description: "コース別・オプション別のバック率を確認", icon: Receipt, action: () => setShowBackRates(true) },
     { title: "交通費申請", description: "交通費の申請・申請履歴を確認", icon: Plane, action: () => setView("transport") },
@@ -419,7 +446,7 @@ export default function TherapistPortal() {
           <div className="min-w-0">
             <p className="font-bold text-base leading-tight truncate">{cast.name}様</p>
             <p className="text-xs text-muted-foreground">
-              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : "交通費申請"}
+              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : view === "upcoming" ? "事前予約" : "交通費申請"}
             </p>
           </div>
         </div>
@@ -708,6 +735,63 @@ export default function TherapistPortal() {
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* ── UPCOMING RESERVATIONS（事前予約） ── */}
+        {view === "upcoming" && (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              今日以降に入っている確定予約の一覧です。深夜（24時以降）の予約は翌日の日付で表示されます。
+            </p>
+            {upcomingLoading ? (
+              <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>
+            ) : upcoming.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">今後の予約はまだありません</div>
+            ) : (
+              (() => {
+                const byDate = new Map<string, UpcomingReservation[]>();
+                for (const r of upcoming) {
+                  if (!byDate.has(r.reservation_date)) byDate.set(r.reservation_date, []);
+                  byDate.get(r.reservation_date)!.push(r);
+                }
+                return (
+                  <div className="space-y-3">
+                    {[...byDate.entries()].map(([date, rows]) => {
+                      const isToday = isSameDay(new Date(date), now);
+                      return (
+                        <div key={date} className="rounded-xl border bg-card overflow-hidden">
+                          <div className={`px-4 py-2 text-sm font-bold flex items-center gap-2 ${isToday ? "bg-primary/10 text-primary" : "bg-muted/40"}`}>
+                            {format(new Date(date), "M月d日(E)", { locale: ja })}
+                            {isToday && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">今日</span>}
+                            <span className="ml-auto text-xs font-normal text-muted-foreground">{rows.length}件</span>
+                          </div>
+                          <div className="divide-y">
+                            {rows.map((r) => (
+                              <div key={r.id} className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-base font-bold tabular-nums">{r.start_time}〜</span>
+                                  <span className="text-sm font-medium truncate">{r.course_name}</span>
+                                  <span className="text-xs text-muted-foreground shrink-0">{r.duration}分</span>
+                                </div>
+                                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                                  <span>{r.customer_name} 様</span>
+                                  {r.nomination_type && <span>{r.nomination_type}</span>}
+                                  {r.room && <span className="text-primary">🏠 {r.room}</span>}
+                                </div>
+                                {r.options && r.options.length > 0 && (
+                                  <p className="mt-1 text-xs text-muted-foreground">➕ {r.options.join("、")}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
             )}
           </div>
         )}
