@@ -254,10 +254,11 @@ export function downloadClearanceReceipt(data: ClearanceReceiptData): void {
     y += rh;
   };
 
+  // 投函金額 = 現金預かり額 − セラピスト給与
   const cashPayout = data.cashTotal - data.salary;
   payoutRow("❶", "現金預かり額", data.cashTotal);
-  payoutRow("❷", "店落ち", data.payout);
-  payoutRow("❸", "投函", cashPayout, { highlight: true });
+  payoutRow("❷", "セラピスト給与", data.salary);
+  payoutRow("❸", "投函金額", cashPayout, { highlight: true });
   y += 8;
 
   // 投函方法
