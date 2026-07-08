@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import {
   Sparkles, Banknote, Clock, Shield, Heart, Check, ChevronDown,
-  Home, Train, CalendarDays, UserCheck, MessageCircle, ArrowLeft, Star,
+  Home, Train, CalendarDays, UserCheck, MessageCircle, Star,
 } from "lucide-react";
 
 /**
- * 面談用の採用LP。管理画面（セラピスト＞面談用ページ）からアクセスし、
- * ビデオ通話で画面共有しながら見せる想定。縦スクロールで見やすい構成。
+ * 採用LP。HPの「求人情報」からリンクされる公開ページ。
+ * 面談時にビデオ通話で画面共有しながら見せる用途も兼ねる。縦スクロール構成。
  */
 
 interface BackRate {
@@ -22,14 +20,8 @@ interface BackRate {
 const yen = (v: number) => `¥${v.toLocaleString()}`;
 
 export default function RecruitTalk() {
-  const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
   const [backRates, setBackRates] = useState<BackRate[]>([]);
   const [castCount, setCastCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!authLoading && !user) navigate("/login");
-  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     document.title = "全力エステ 採用案内";
@@ -62,14 +54,6 @@ export default function RecruitTalk() {
 
   return (
     <div className="min-h-screen bg-white text-gray-800">
-      {/* 管理者向け：戻る（画面共有時は基本フルスクリーン推奨） */}
-      <button
-        onClick={() => navigate("/staff")}
-        className="fixed top-3 left-3 z-50 flex items-center gap-1 text-xs bg-white/80 backdrop-blur px-3 py-1.5 rounded-full shadow text-gray-500 hover:text-gray-800 print:hidden"
-      >
-        <ArrowLeft size={13} /> 管理画面へ
-      </button>
-
       {/* ===== HERO ===== */}
       <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-gradient-to-br from-rose-400 via-pink-400 to-amber-300">
         <div className="absolute inset-0 opacity-20 pointer-events-none">

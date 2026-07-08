@@ -62,46 +62,46 @@ const Access = () => {
   const lineUrl = store.line_url || DEFAULTS.line_url!;
 
   return (
-    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#0f0c09" }}>
       <PublicNavigation />
 
       <div className="container mx-auto px-3 md:px-4 py-5 md:py-10">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl md:text-4xl font-bold text-center mb-2 md:mb-4" style={{ color: "#7a706c" }}>ACCESS</h1>
-          <p className="text-center text-[#a89586] mb-5 md:mb-10 text-sm md:text-base">アクセス</p>
+          <h1 className="text-2xl md:text-4xl font-bold text-center mb-2 md:mb-4" style={{ color: "#f0e6d2" }}>ACCESS</h1>
+          <p className="text-center text-[#a3987f] mb-5 md:mb-10 text-sm md:text-base">アクセス</p>
 
-          <Card className="mb-8 border-[#e5d5cc] bg-white">
+          <Card className="mb-8 border-[#3a2f1c] bg-[#1a150f]">
             <CardHeader>
-              <CardTitle className="text-2xl" style={{ color: "#7a706c" }}>店舗情報</CardTitle>
+              <CardTitle className="text-2xl" style={{ color: "#f0e6d2" }}>店舗情報</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-start gap-4">
-                <MapPin className="w-6 h-6 mt-1 flex-shrink-0" style={{ color: "#c49480" }} />
+                <MapPin className="w-6 h-6 mt-1 flex-shrink-0" style={{ color: "#c6a15b" }} />
                 <div>
-                  <h3 className="font-semibold mb-2" style={{ color: "#7a706c" }}>所在地</h3>
-                  <p className="text-[#6b5b4a]">{store.address}</p>
+                  <h3 className="font-semibold mb-2" style={{ color: "#f0e6d2" }}>所在地</h3>
+                  <p className="text-[#f0e6d2]">{store.address}</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
-                <Train className="w-6 h-6 mt-1 flex-shrink-0" style={{ color: "#c49480" }} />
+                <Train className="w-6 h-6 mt-1 flex-shrink-0" style={{ color: "#c6a15b" }} />
                 <div>
-                  <h3 className="font-semibold mb-2" style={{ color: "#7a706c" }}>最寄り駅</h3>
-                  <p className="text-[#6b5b4a]">北四番丁駅｜勾当台公園駅｜仙台駅</p>
+                  <h3 className="font-semibold mb-2" style={{ color: "#f0e6d2" }}>最寄り駅</h3>
+                  <p className="text-[#f0e6d2]">北四番丁駅｜勾当台公園駅｜仙台駅</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
-                <Clock className="w-6 h-6 mt-1 flex-shrink-0" style={{ color: "#c49480" }} />
+                <Clock className="w-6 h-6 mt-1 flex-shrink-0" style={{ color: "#c6a15b" }} />
                 <div>
-                  <h3 className="font-semibold mb-2" style={{ color: "#7a706c" }}>営業時間</h3>
-                  <p className="text-[#6b5b4a]">{store.hours}</p>
-                  <p className="text-sm text-[#a89586]">定休日：{store.holiday}</p>
+                  <h3 className="font-semibold mb-2" style={{ color: "#f0e6d2" }}>営業時間</h3>
+                  <p className="text-[#f0e6d2]">{store.hours}</p>
+                  <p className="text-sm text-[#a3987f]">定休日：{store.holiday}</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
-                <Phone className="w-6 h-6 mt-1 flex-shrink-0" style={{ color: "#c49480" }} />
+                <Phone className="w-6 h-6 mt-1 flex-shrink-0" style={{ color: "#c6a15b" }} />
                 <div>
-                  <h3 className="font-semibold mb-2" style={{ color: "#7a706c" }}>電話番号</h3>
-                  <a href={`tel:${phoneRaw}`} className="text-[#6b5b4a] hover:underline">
+                  <h3 className="font-semibold mb-2" style={{ color: "#f0e6d2" }}>電話番号</h3>
+                  <a href={`tel:${phoneRaw}`} className="text-[#f0e6d2] hover:underline">
                     {store.phone}
                   </a>
                 </div>
@@ -109,12 +109,12 @@ const Access = () => {
             </CardContent>
           </Card>
 
-          <Card className="mb-8 border-[#e5d5cc] bg-white">
+          <Card className="mb-8 border-[#3a2f1c] bg-[#1a150f]">
             <CardHeader>
-              <CardTitle className="text-2xl" style={{ color: "#7a706c" }}>エリア</CardTitle>
+              <CardTitle className="text-2xl" style={{ color: "#f0e6d2" }}>エリア</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="w-full h-[400px] bg-[#f8f6f3] rounded-lg">
+              <div className="w-full h-[400px] bg-[#221b12] rounded-lg">
                 <iframe
                   src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3131.8!2d140.8697!3d38.2721!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2z5LuZ5Y-w5biC6Z2S6JGJ5Yy65LqM5pel55S6!5e0!3m2!1sja!2sjp!4v1"
                   width="100%"
@@ -129,10 +129,10 @@ const Access = () => {
             </CardContent>
           </Card>
 
-          <Card className="border-[#e5d5cc]" style={{ backgroundColor: "#fff9f5" }}>
+          <Card className="border-[#3a2f1c]" style={{ backgroundColor: "#221b12" }}>
             <CardContent className="pt-6">
-              <h3 className="font-semibold mb-4 text-lg" style={{ color: "#7a706c" }}>アクセスに関して</h3>
-              <ul className="space-y-2 text-[#6b5b4a]">
+              <h3 className="font-semibold mb-4 text-lg" style={{ color: "#f0e6d2" }}>アクセスに関して</h3>
+              <ul className="space-y-2 text-[#f0e6d2]">
                 <li className="flex items-start"><span className="mr-2">•</span><span>詳細な場所は予約確定後にご案内いたします</span></li>
                 <li className="flex items-start"><span className="mr-2">•</span><span>迷われた際はお気軽にお電話ください</span></li>
               </ul>
@@ -141,9 +141,9 @@ const Access = () => {
         </div>
       </div>
 
-      <div className="py-8 md:py-14 text-center" style={{ backgroundColor: "#edddd6" }}>
+      <div className="py-8 md:py-14 text-center" style={{ backgroundColor: "#221b12" }}>
         <div className="container mx-auto px-3 md:px-4">
-          <h2 className="text-xl md:text-3xl font-bold mb-5 md:mb-8" style={{ color: "#7a706c" }}>ご予約・お問い合わせ</h2>
+          <h2 className="text-xl md:text-3xl font-bold mb-5 md:mb-8" style={{ color: "#f0e6d2" }}>ご予約・お問い合わせ</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <a href={lineUrl} target="_blank" rel="noopener noreferrer">
               <Button size="lg" className="gap-2 px-8 py-6 text-lg" style={{ backgroundColor: "#06C755", color: "white" }}>
@@ -158,7 +158,7 @@ const Access = () => {
           </div>
           <div className="mt-8">
             <Link to="/booking">
-              <Button size="lg" className="px-8 py-6 text-lg" style={{ backgroundColor: "#c49480", color: "white" }}>WEB予約はこちら</Button>
+              <Button size="lg" className="px-8 py-6 text-lg" style={{ backgroundColor: "#c6a15b", color: "white" }}>WEB予約はこちら</Button>
             </Link>
           </div>
         </div>
