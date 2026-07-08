@@ -2,11 +2,11 @@ import { Link } from "react-router-dom";
 
 export const FixedBottomBar = () => {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#e5d5cc] shadow-[0_-2px_10px_rgba(0,0,0,0.1)] md:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#1a150f] border-t border-[#3a2f1c] shadow-[0_-2px_10px_rgba(0,0,0,0.1)] md:hidden">
       <div className="flex items-stretch">
         <a
           href="tel:09081264042"
-          className="flex-1 flex flex-col items-center justify-center py-2 text-[#7a706c] hover:bg-[#f2e4de] transition-colors"
+          className="flex-1 flex flex-col items-center justify-center py-2 text-[#f0e6d2] hover:bg-[#221b12] transition-colors"
         >
           <span className="text-lg">📞</span>
           <span className="text-[10px] font-semibold">電話する</span>
@@ -28,7 +28,7 @@ export const FixedBottomBar = () => {
         <Link
           to="/booking"
           className="flex-1 flex flex-col items-center justify-center py-2 text-white"
-          style={{ background: "linear-gradient(135deg, #c49480, #a87b65)" }}
+          style={{ background: "linear-gradient(135deg, #c6a15b, #a87c2a)" }}
         >
           <span className="text-lg">📅</span>
           <span className="text-[10px] font-semibold">Web予約</span>

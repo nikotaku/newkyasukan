@@ -72,17 +72,17 @@ const Stars = ({ rating }: { rating: number }) => (
       <Star
         key={i}
         size={14}
-        fill={i <= rating ? "#c49480" : "none"}
-        stroke={i <= rating ? "#c49480" : "#d1c4be"}
+        fill={i <= rating ? "#c6a15b" : "none"}
+        stroke={i <= rating ? "#c6a15b" : "#3a2f1c"}
       />
     ))}
   </div>
 );
 
 const SectionHeader = ({ label, sub }: { label: string; sub?: string }) => (
-  <div className="px-5 py-3 border-b border-[#f0e4df]" style={{ background: "#2a2320" }}>
-    <h3 className="text-sm font-bold tracking-widest" style={{ color: "#c49480" }}>{label}</h3>
-    {sub && <p className="text-[10px] mt-0.5" style={{ color: "#7a706c" }}>{sub}</p>}
+  <div className="px-5 py-3 border-b border-[#3a2f1c]" style={{ background: "#2a2320" }}>
+    <h3 className="text-sm font-bold tracking-widest" style={{ color: "#c6a15b" }}>{label}</h3>
+    {sub && <p className="text-[10px] mt-0.5" style={{ color: "#f0e6d2" }}>{sub}</p>}
   </div>
 );
 
@@ -129,8 +129,8 @@ const CastDetail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#f8f6f3" }}>
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#c49480]" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#0f0c09" }}>
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#c6a15b]" />
       </div>
     );
   }
@@ -191,7 +191,7 @@ const CastDetail = () => {
     : null;
 
   return (
-    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#0f0c09" }}>
       <PublicNavigation />
 
       <main className="container py-3 md:py-6 px-2 md:px-4">
@@ -200,13 +200,13 @@ const CastDetail = () => {
           <button
             onClick={() => navigate("/casts")}
             className="flex items-center gap-1 text-sm mb-4 hover:underline"
-            style={{ color: "#7a706c" }}
+            style={{ color: "#f0e6d2" }}
           >
             <ArrowLeft size={14} />
             セラピスト一覧に戻る
           </button>
 
-          <div className="bg-white rounded-lg overflow-hidden shadow-md">
+          <div className="bg-[#1a150f] rounded-lg overflow-hidden shadow-md">
 
             {/* ── Photo carousel ── */}
             <div className="relative bg-black">
@@ -238,7 +238,7 @@ const CastDetail = () => {
                   )}
                 </>
               ) : (
-                <div className="w-full h-72 flex items-center justify-center" style={{ background: "linear-gradient(135deg, #d4b5a8, #c5a89b)" }}>
+                <div className="w-full h-72 flex items-center justify-center" style={{ background: "linear-gradient(135deg, #3a2f1c, #221b12)" }}>
                   <span className="text-7xl font-bold text-white/60">{cast.name.charAt(0)}</span>
                 </div>
               )}
@@ -256,11 +256,11 @@ const CastDetail = () => {
 
             {/* Thumbnail strip */}
             {allPhotos.length > 1 && (
-              <div className="flex gap-1.5 px-3 py-2 overflow-x-auto bg-[#f9f4f2]">
+              <div className="flex gap-1.5 px-3 py-2 overflow-x-auto bg-[#221b12]">
                 {allPhotos.map((photo, i) => (
                   <button key={i} onClick={() => emblaApi?.scrollTo(i)}
                     className="flex-shrink-0 rounded overflow-hidden border-2 transition-all"
-                    style={{ width: 52, height: 52, borderColor: i === selectedIndex ? "#c49480" : "transparent", opacity: i === selectedIndex ? 1 : 0.55 }}>
+                    style={{ width: 52, height: 52, borderColor: i === selectedIndex ? "#c6a15b" : "transparent", opacity: i === selectedIndex ? 1 : 0.55 }}>
                     <img src={driveImgUrl(photo, 400)} alt="" className="w-full h-full object-cover object-top" />
                   </button>
                 ))}
@@ -268,17 +268,17 @@ const CastDetail = () => {
             )}
 
             {/* ── Name & status ── */}
-            <div className="px-5 pt-5 pb-3 border-b border-[#f0e4df]">
+            <div className="px-5 pt-5 pb-3 border-b border-[#3a2f1c]">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
-                  <h1 className="text-2xl font-bold" style={{ color: "#1a1817" }}>{cast.name}</h1>
-                  {displayAge && <p className="text-sm mt-0.5" style={{ color: "#a89586" }}>{displayAge}歳</p>}
+                  <h1 className="text-2xl font-bold" style={{ color: "#f0e6d2" }}>{cast.name}</h1>
+                  {displayAge && <p className="text-sm mt-0.5" style={{ color: "#a3987f" }}>{displayAge}歳</p>}
                 </div>
                 <div className="flex items-center gap-3">
                   {avgRating && (
                     <div className="flex items-center gap-1">
                       <Stars rating={Math.round(Number(avgRating))} />
-                      <span className="text-sm font-bold" style={{ color: "#c49480" }}>{avgRating}</span>
+                      <span className="text-sm font-bold" style={{ color: "#c6a15b" }}>{avgRating}</span>
                     </div>
                   )}
                   {cast.status !== "offline" && (
@@ -293,45 +293,45 @@ const CastDetail = () => {
 
             {/* ── Stats grid ── */}
             {(displayHeight || cast.bust_size || displayWaist || displayHip || displayWeight || displayBlood) && (
-              <div className="border-b border-[#f0e4df]">
-                <div className={`grid divide-x divide-[#f0e4df] ${[displayHeight, cast.bust_size, displayWaist, displayHip].filter(Boolean).length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
+              <div className="border-b border-[#3a2f1c]">
+                <div className={`grid divide-x divide-[#3a2f1c] ${[displayHeight, cast.bust_size, displayWaist, displayHip].filter(Boolean).length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
                   {displayHeight && (
                     <div className="py-3 text-center">
-                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>身長</p>
-                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayHeight}cm</p>
+                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#a3987f" }}>身長</p>
+                      <p className="text-sm font-bold" style={{ color: "#f0e6d2" }}>{displayHeight}cm</p>
                     </div>
                   )}
                   {cast.bust_size && (
                     <div className="py-3 text-center">
-                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>カップ</p>
-                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{cast.bust_size}カップ</p>
+                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#a3987f" }}>カップ</p>
+                      <p className="text-sm font-bold" style={{ color: "#f0e6d2" }}>{cast.bust_size}カップ</p>
                     </div>
                   )}
                   {displayWaist && (
                     <div className="py-3 text-center">
-                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>ウエスト</p>
-                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayWaist}</p>
+                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#a3987f" }}>ウエスト</p>
+                      <p className="text-sm font-bold" style={{ color: "#f0e6d2" }}>{displayWaist}</p>
                     </div>
                   )}
                   {displayHip && (
                     <div className="py-3 text-center">
-                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>ヒップ</p>
-                      <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayHip}</p>
+                      <p className="text-[10px] font-medium mb-0.5" style={{ color: "#a3987f" }}>ヒップ</p>
+                      <p className="text-sm font-bold" style={{ color: "#f0e6d2" }}>{displayHip}</p>
                     </div>
                   )}
                 </div>
                 {(displayWeight || displayBlood) && (
-                  <div className="grid grid-cols-2 divide-x divide-[#f0e4df] border-t border-[#f0e4df]">
+                  <div className="grid grid-cols-2 divide-x divide-[#3a2f1c] border-t border-[#3a2f1c]">
                     {displayWeight && (
                       <div className="py-3 text-center">
-                        <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>体重</p>
-                        <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayWeight}kg</p>
+                        <p className="text-[10px] font-medium mb-0.5" style={{ color: "#a3987f" }}>体重</p>
+                        <p className="text-sm font-bold" style={{ color: "#f0e6d2" }}>{displayWeight}kg</p>
                       </div>
                     )}
                     {displayBlood && (
                       <div className="py-3 text-center">
-                        <p className="text-[10px] font-medium mb-0.5" style={{ color: "#b8a49a" }}>血液型</p>
-                        <p className="text-sm font-bold" style={{ color: "#1a1817" }}>{displayBlood}型</p>
+                        <p className="text-[10px] font-medium mb-0.5" style={{ color: "#a3987f" }}>血液型</p>
+                        <p className="text-sm font-bold" style={{ color: "#f0e6d2" }}>{displayBlood}型</p>
                       </div>
                     )}
                   </div>
@@ -340,15 +340,15 @@ const CastDetail = () => {
             )}
 
             {/* ── CTA buttons ── */}
-            <div className="px-5 py-4 flex flex-col gap-3 border-b border-[#f0e4df]">
+            <div className="px-5 py-4 flex flex-col gap-3 border-b border-[#3a2f1c]">
               <a href="tel:09081264042"
                 className="flex items-center justify-center gap-2 py-3.5 rounded-lg text-white font-bold text-base transition-opacity hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #c49480, #a87b65)" }}>
+                style={{ background: "linear-gradient(135deg, #c6a15b, #a87c2a)" }}>
                 <Phone size={17} />電話で予約する
               </a>
               <Link to="/booking"
-                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[#f2e4de]"
-                style={{ borderColor: "#c49480", color: "#7a706c" }}>
+                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[#221b12]"
+                style={{ borderColor: "#c6a15b", color: "#f0e6d2" }}>
                 <Calendar size={15} />Web予約はこちら
               </Link>
             </div>
@@ -357,11 +357,11 @@ const CastDetail = () => {
             {interviewItems.length > 0 && (
               <>
                 <SectionHeader label="INTERVIEW" sub="セラピストインタビュー" />
-                <div className="divide-y divide-[#f0e4df]">
+                <div className="divide-y divide-[#3a2f1c]">
                   {interviewItems.map(({ q, a }) => (
                     <div key={q} className="px-5 py-3 flex gap-4 text-sm">
-                      <dt className="shrink-0 font-semibold w-28 text-[#a89586]">Q. {q}</dt>
-                      <dd className="leading-relaxed text-[#1a1817] whitespace-pre-wrap">{a}</dd>
+                      <dt className="shrink-0 font-semibold w-28 text-[#a3987f]">Q. {q}</dt>
+                      <dd className="leading-relaxed text-[#f0e6d2] whitespace-pre-wrap">{a}</dd>
                     </div>
                   ))}
                 </div>
@@ -372,8 +372,8 @@ const CastDetail = () => {
             {therapistComment && (
               <>
                 <SectionHeader label="THERAPIST COMMENT" sub="セラピストコメント" />
-                <div className="px-5 py-4" style={{ background: "#fffaf8" }}>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>
+                <div className="px-5 py-4" style={{ background: "#221b12" }}>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#f0e6d2" }}>
                     {therapistComment}
                   </p>
                 </div>
@@ -384,8 +384,8 @@ const CastDetail = () => {
             {shopComment && (
               <>
                 <SectionHeader label="SHOP COMMENT" sub="ショップコメント" />
-                <div className="px-5 py-4" style={{ background: "#f5f0ee" }}>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>
+                <div className="px-5 py-4" style={{ background: "#221b12" }}>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#f0e6d2" }}>
                     {shopComment}
                   </p>
                 </div>
@@ -397,7 +397,7 @@ const CastDetail = () => {
               <>
                 <SectionHeader label="PROFILE" sub="プロフィール" />
                 <div className="px-5 py-4">
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>{profileText}</p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#f0e6d2" }}>{profileText}</p>
                 </div>
               </>
             )}
@@ -411,8 +411,8 @@ const CastDetail = () => {
                     <a
                       href={cast.x_account.startsWith("http") ? cast.x_account : `https://twitter.com/${cast.x_account}`}
                       target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#f2e4de]"
-                      style={{ borderColor: "#d1c4be", color: "#1a1817" }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#221b12]"
+                      style={{ borderColor: "#3a2f1c", color: "#f0e6d2" }}
                     >
                       <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-4 h-4" />
                       X（Twitter）
@@ -422,7 +422,7 @@ const CastDetail = () => {
                     <a
                       href={cast.line_url}
                       target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#f0fff0]"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#221b12]"
                       style={{ borderColor: "#06c755", color: "#06c755" }}
                     >
                       <img src="https://storage.googleapis.com/caskan/asset/line_icon.png" alt="LINE" className="w-4 h-4" />
@@ -433,8 +433,8 @@ const CastDetail = () => {
                     <a
                       href={cast.litlink_url}
                       target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#f2e4de]"
-                      style={{ borderColor: "#c49480", color: "#c49480" }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#221b12]"
+                      style={{ borderColor: "#c6a15b", color: "#c6a15b" }}
                     >
                       <span className="text-xs font-bold">lit.</span>
                       リットリンク
@@ -444,7 +444,7 @@ const CastDetail = () => {
                     <a
                       href={cast.o2_url}
                       target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#fff0f0]"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#221b12]"
                       style={{ borderColor: "#e85298", color: "#e85298" }}
                     >
                       <span className="text-xs font-bold">O2</span>
@@ -459,30 +459,30 @@ const CastDetail = () => {
             <>
               <SectionHeader label="VOICE" sub={`口コミ（${reviews.length}件）`} />
               {reviews.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm" style={{ color: "#b8a49a" }}>
+                <div className="px-5 py-8 text-center text-sm" style={{ color: "#a3987f" }}>
                   まだ口コミがありません
                 </div>
               ) : (
-                <div className="divide-y divide-[#f0e4df]">
+                <div className="divide-y divide-[#3a2f1c]">
                   {reviews.map((r) => (
                     <div key={r.id} className="px-5 py-4">
                       <div className="flex items-center gap-2 mb-1">
                         <Stars rating={r.rating} />
-                        <span className="text-xs font-bold" style={{ color: "#c49480" }}>{r.rating}.0</span>
-                        <span className="text-xs" style={{ color: "#b8a49a" }}>
+                        <span className="text-xs font-bold" style={{ color: "#c6a15b" }}>{r.rating}.0</span>
+                        <span className="text-xs" style={{ color: "#a3987f" }}>
                           {r.reviewer_name}
                           {r.visit_date && ` · ${r.visit_date}`}
                           {r.course && ` · ${r.course}`}
                         </span>
                       </div>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#1a1817" }}>{r.body}</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#f0e6d2" }}>{r.body}</p>
                     </div>
                   ))}
                 </div>
               )}
               {/* お客様の声（口コミ一覧）への導線 */}
-              <div className="px-5 py-4 border-t border-[#f0e4df] text-center">
-                <Link to="/voice" className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline" style={{ color: "#c49480" }}>
+              <div className="px-5 py-4 border-t border-[#3a2f1c] text-center">
+                <Link to="/voice" className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline" style={{ color: "#c6a15b" }}>
                   お客様の声（口コミ一覧）を見る →
                 </Link>
               </div>
@@ -491,7 +491,7 @@ const CastDetail = () => {
           </div>
 
           <div className="text-center mt-6 mb-2">
-            <Link to="/casts" className="text-sm hover:underline" style={{ color: "#a89586" }}>
+            <Link to="/casts" className="text-sm hover:underline" style={{ color: "#a3987f" }}>
               ← セラピスト一覧に戻る
             </Link>
           </div>

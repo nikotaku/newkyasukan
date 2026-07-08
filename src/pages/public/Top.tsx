@@ -11,7 +11,6 @@ import { ExternalLink, Menu } from "lucide-react";
 import { format } from "date-fns";
 import "@/styles/zrtop.css";
 
-const RECRUIT_URL = "https://esjob.jp/shop/43923/";
 const NAV_ITEMS = [
   { to: "/", label: "TOP", sub: "トップ", external: false },
   { to: "/schedule", label: "SCHEDULE", sub: "出勤情報", external: false },
@@ -19,7 +18,7 @@ const NAV_ITEMS = [
   { to: "/voice", label: "VOICE", sub: "口コミ", external: false },
   { to: "/system", label: "SYSTEM", sub: "料金システム", external: false },
   { to: "/access", label: "ACCESS", sub: "アクセス", external: false },
-  { to: RECRUIT_URL, label: "RECRUIT", sub: "求人情報", external: true },
+  { to: "/recruit-talk", label: "RECRUIT", sub: "求人情報", external: false },
   { to: "/booking", label: "RESERVE", sub: "Web予約", external: false },
 ];
 
