@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, isSameMonth } from "date-fns";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, ChevronDown, Loader2, CheckCircle, AlertCircle, Users, Receipt, Wallet } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Loader2, CheckCircle, AlertCircle, Users, Receipt, Wallet, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
 /**
@@ -24,14 +24,13 @@ import { toast } from "sonner";
 const FIXED_ITEMS = [
   "賃借料（ラズルーム）",
   "賃借料（インルーム）",
-  "広告媒体費（キャスカン）",
   "広告媒体費（エスたま）",
   "広告媒体費（エスラン）",
-  "水道光熱費（①電気）",
-  "水道光熱費（①水道）",
-  "水道光熱費（①ガス）",
-  "水道光熱費（②電気）",
-  "水道光熱費（②水道）",
+  "ラズルーム電気代",
+  "ラズルームガス代",
+  "ラズルーム水道代",
+  "インルーム電気代",
+  "インルーム水道代",
   "通信費",
 ];
 
@@ -44,6 +43,7 @@ interface ExpenseRec {
 
 interface ClearanceRec {
   cast_name: string;
+  total_sales: number;
   therapist_back: number;
   misc_expenses: number;
   accommodation_fee: number;
@@ -82,7 +82,7 @@ export default function SalesMonthlyClosing() {
         .lte("expense_date", monthEnd),
       supabase
         .from("daily_clearances")
-        .select("therapist_back, misc_expenses, accommodation_fee, transportation_fee, other_expenses, casts(name)")
+        .select("total_sales, therapist_back, misc_expenses, accommodation_fee, transportation_fee, other_expenses, casts(name)")
         .gte("date", monthStart)
         .lte("date", monthEnd),
     ]);
@@ -97,6 +97,7 @@ export default function SalesMonthlyClosing() {
     if (!clrRes.error) {
       setClearances((clrRes.data || []).map((r: any) => ({
         cast_name: r.casts?.name ?? "不明",
+        total_sales: r.total_sales ?? 0,
         therapist_back: r.therapist_back ?? 0,
         misc_expenses: r.misc_expenses ?? 0,
         accommodation_fee: r.accommodation_fee ?? 0,
@@ -130,6 +131,9 @@ export default function SalesMonthlyClosing() {
   }
   const castRows = [...backByCast.entries()].sort((a, b) => b[1].total - a[1].total);
   const totalBack = clearances.reduce((s, c) => s + c.therapist_back, 0);
+
+  // ── 売上（日別精算の売上合計） ──
+  const totalSales = clearances.reduce((s, c) => s + c.total_sales, 0);
 
   // ── 雑費・宿泊費・交通費 ──
   const totalMisc = clearances.reduce((s, c) => s + c.misc_expenses, 0);
@@ -228,6 +232,18 @@ export default function SalesMonthlyClosing() {
             <div className="flex justify-center py-16"><Loader2 className="animate-spin text-muted-foreground" /></div>
           ) : (
             <div className="space-y-3">
+
+              {/* ── 売上（日別精算ベース） ── */}
+              <Card>
+                <div className="px-4 py-3.5 flex items-center gap-3">
+                  <span className="p-2 rounded-lg bg-primary/10 text-primary shrink-0"><TrendingUp size={16} /></span>
+                  <span className="text-left min-w-0 flex-1">
+                    <span className="font-bold text-sm block">売上</span>
+                    <span className="text-[11px] text-muted-foreground">日別精算の売上合計（{clearances.length}件）</span>
+                  </span>
+                  <span className="font-bold tabular-nums text-lg text-primary">{yen(totalSales)}</span>
+                </div>
+              </Card>
 
               {/* ── セラピスト報酬 ── */}
               <Card>
