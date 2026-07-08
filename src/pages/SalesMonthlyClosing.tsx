@@ -64,6 +64,8 @@ export default function SalesMonthlyClosing() {
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [savingItem, setSavingItem] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(["expenses"]));
+  // 紹介広告費の推奨額（完了予約 × 紹介ルール単価）
+  const [referralSuggested, setReferralSuggested] = useState(0);
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -76,7 +78,7 @@ export default function SalesMonthlyClosing() {
     setLoading(true);
     const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
     const monthEnd = format(endOfMonth(selectedMonth), "yyyy-MM-dd");
-    const [expRes, clrRes] = await Promise.all([
+    const [expRes, clrRes, castsRes, rewardsRes, resvRes] = await Promise.all([
       supabase
         .from("expenses")
         .select("id, expense_date, expense_type, amount")
@@ -87,6 +89,11 @@ export default function SalesMonthlyClosing() {
         .select("total_sales, therapist_back, misc_expenses, accommodation_fee, transportation_fee, other_expenses, casts(name)")
         .gte("date", monthStart)
         .lte("date", monthEnd),
+      // 紹介広告費の推奨額算出用
+      supabase.from("casts").select("id, referral_reward_id").not("referral_reward_id", "is", null),
+      supabase.from("referral_rewards").select("id, amount"),
+      supabase.from("reservations").select("cast_id, status, reservation_date")
+        .gte("reservation_date", monthStart).lte("reservation_date", monthEnd).eq("status", "completed"),
     ]);
     if (!expRes.error) {
       setRecords((expRes.data || []).map((r: any) => ({
@@ -108,6 +115,20 @@ export default function SalesMonthlyClosing() {
           .reduce((s: number, o: any) => s + (o?.amount ?? 0), 0),
       })));
     }
+    // 紹介広告費の推奨額 = Σ（紹介ルール紐付きキャストの完了予約数 × 1本単価）
+    const rewardAmt = new Map<string, number>();
+    for (const r of rewardsRes.data || []) rewardAmt.set(r.id, (r as any).amount ?? 0);
+    const castUnit = new Map<string, number>();
+    for (const c of castsRes.data || []) {
+      const amt = rewardAmt.get((c as any).referral_reward_id);
+      if (amt) castUnit.set((c as any).id, amt);
+    }
+    let refTotal = 0;
+    for (const r of resvRes.data || []) {
+      const unit = castUnit.get((r as any).cast_id);
+      if (unit) refTotal += unit;
+    }
+    setReferralSuggested(refTotal);
     setLoading(false);
   }, [selectedMonth]);
 
@@ -366,15 +387,29 @@ export default function SalesMonthlyClosing() {
                           未入力・未払い（{pendingItems.length}件）
                         </div>
                         <div className="divide-y">
-                          {pendingItems.map((item) => (
+                          {pendingItems.map((item) => {
+                            const showSuggest = item === "紹介広告費" && referralSuggested > 0;
+                            return (
                             <div key={item} className="px-4 py-3 flex items-center gap-3 flex-wrap">
-                              <span className="flex-1 min-w-[160px] text-sm font-medium">{item}</span>
+                              <div className="flex-1 min-w-[160px]">
+                                <span className="text-sm font-medium">{item}</span>
+                                {showSuggest && (
+                                  <button
+                                    type="button"
+                                    className="ml-2 text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium hover:bg-primary/20 transition-colors"
+                                    onClick={() => setInputs((p) => ({ ...p, [item]: String(referralSuggested) }))}
+                                    title="タップで金額欄にセット"
+                                  >
+                                    推奨 {yen(referralSuggested)}（完了予約から自動計算）
+                                  </button>
+                                )}
+                              </div>
                               <div className="flex items-center gap-2">
                                 <Input
                                   type="number"
                                   inputMode="numeric"
                                   min="0"
-                                  placeholder="金額"
+                                  placeholder={showSuggest ? String(referralSuggested) : "金額"}
                                   className="w-32 h-9 text-sm"
                                   value={inputs[item] ?? ""}
                                   onChange={(e) => setInputs((p) => ({ ...p, [item]: e.target.value }))}
@@ -389,7 +424,8 @@ export default function SalesMonthlyClosing() {
                                 </Button>
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
