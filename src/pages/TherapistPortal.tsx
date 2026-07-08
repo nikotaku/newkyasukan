@@ -149,6 +149,9 @@ export default function TherapistPortal() {
   // 本日の予約タイムライン（メニュー上部）
   const [menuTodayRes, setMenuTodayRes] = useState<UpcomingReservation[]>([]);
   const [menuTodayLoading, setMenuTodayLoading] = useState(true);
+  // 今日以降の全予約（シフトの日付タップで内訳表示）
+  const [menuAllUpcoming, setMenuAllUpcoming] = useState<UpcomingReservation[]>([]);
+  const [expandedShiftDate, setExpandedShiftDate] = useState<string | null>(null);
 
   // Settlement
   const [settlements, setSettlements] = useState<Settlement[]>([]);
@@ -237,6 +240,7 @@ export default function TherapistPortal() {
       const bizToday = format(bizBase, "yyyy-MM-dd");
       const bizNext = format(addDays(bizBase, 1), "yyyy-MM-dd");
       supabase.rpc("get_therapist_upcoming_reservations" as any, { p_token: token }).then(({ data }) => {
+        setMenuAllUpcoming((data || []) as UpcomingReservation[]);
         const rows = ((data || []) as UpcomingReservation[]).filter((r) =>
           (r.reservation_date === bizToday && r.start_time >= "06:00") ||
           (r.reservation_date === bizNext && r.start_time < "06:00")
@@ -512,26 +516,79 @@ export default function TherapistPortal() {
               <div className="divide-y">
                 {(shiftExpanded ? menuShiftRows : menuShiftRows.filter(s => s.approval_status !== "rejected").slice(0, 5)).map((s) => {
                   const isToday = isSameDay(new Date(s.shift_date), now);
+                  const dateStr = format(new Date(s.shift_date), "yyyy-MM-dd");
+                  const isOpen = expandedShiftDate === dateStr;
+                  // その営業日の予約（深夜またぎ：翌日の06時前を含む）
+                  const nextStr = format(addDays(new Date(s.shift_date), 1), "yyyy-MM-dd");
+                  const dayResv = menuAllUpcoming
+                    .filter((r) =>
+                      (r.reservation_date === dateStr && r.start_time >= "06:00") ||
+                      (r.reservation_date === nextStr && r.start_time < "06:00"))
+                    .sort((a, b) => {
+                      const ext = (r: UpcomingReservation) => {
+                        const [h, m] = r.start_time.split(":").map(Number);
+                        return (h < 6 ? h + 24 : h) * 60 + m;
+                      };
+                      return ext(a) - ext(b);
+                    });
                   return (
-                    <div key={s.id} className={`px-4 py-2.5 flex items-center gap-3 ${isToday ? "bg-primary/5" : ""}`}>
-                      <div className="text-xs whitespace-nowrap w-14">
-                        <p className={`font-bold ${isToday ? "text-primary" : "text-foreground"}`}>
-                          {format(new Date(s.shift_date), "M/d", { locale: ja })}
-                          {isToday && <span className="ml-1 text-[10px]">今日</span>}
-                        </p>
-                        <p className="text-muted-foreground">{format(new Date(s.shift_date), "(E)", { locale: ja })}</p>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${s.approval_status === "rejected" ? "line-through text-muted-foreground" : "font-medium"}`}>
-                          {s.start_time.slice(0, 5)}〜 {s.end_time.slice(0, 5)}
-                        </p>
-                        {s.room && s.approval_status === "approved" && (
-                          <p className="text-xs text-primary">{s.room}</p>
-                        )}
-                      </div>
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${shiftStatusBadge[s.approval_status] ?? "bg-muted text-muted-foreground"}`}>
-                        {shiftStatusLabel[s.approval_status] ?? s.approval_status}
-                      </span>
+                    <div key={s.id}>
+                      <button
+                        className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${isToday ? "bg-primary/5" : ""} ${isOpen ? "bg-muted/40" : "hover:bg-muted/20"}`}
+                        onClick={() => setExpandedShiftDate(isOpen ? null : dateStr)}
+                      >
+                        <div className="text-xs whitespace-nowrap w-14">
+                          <p className={`font-bold ${isToday ? "text-primary" : "text-foreground"}`}>
+                            {format(new Date(s.shift_date), "M/d", { locale: ja })}
+                            {isToday && <span className="ml-1 text-[10px]">今日</span>}
+                          </p>
+                          <p className="text-muted-foreground">{format(new Date(s.shift_date), "(E)", { locale: ja })}</p>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm ${s.approval_status === "rejected" ? "line-through text-muted-foreground" : "font-medium"}`}>
+                            {s.start_time.slice(0, 5)}〜 {s.end_time.slice(0, 5)}
+                          </p>
+                          <p className="text-xs">
+                            {s.room && s.approval_status === "approved" && <span className="text-primary">{s.room}</span>}
+                            {dayResv.length > 0 && (
+                              <span className="text-muted-foreground">{s.room && s.approval_status === "approved" ? " ・ " : ""}予約{dayResv.length}件</span>
+                            )}
+                          </p>
+                        </div>
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${shiftStatusBadge[s.approval_status] ?? "bg-muted text-muted-foreground"}`}>
+                          {shiftStatusLabel[s.approval_status] ?? s.approval_status}
+                        </span>
+                        <ChevronDown size={14} className={`text-muted-foreground shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                      </button>
+                      {isOpen && (
+                        <div className="px-4 pb-3 pt-1 bg-muted/20">
+                          {dayResv.length === 0 ? (
+                            <p className="text-xs text-muted-foreground py-2 text-center">この日の予約はまだありません</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {dayResv.map((r) => (
+                                <div key={r.id} className="rounded-lg bg-card border px-3 py-2 flex gap-2">
+                                  <span className="text-sm font-bold text-primary tabular-nums shrink-0">{toExtTime(r.start_time)}〜</span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium truncate">
+                                      {r.customer_name} 様
+                                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">{r.duration}分</span>
+                                    </p>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {r.course_name}
+                                      {r.nomination_type ? ` ・ ${r.nomination_type}` : ""}
+                                      {r.room ? ` ・ ${r.room}` : ""}
+                                    </p>
+                                    {r.options && r.options.length > 0 && (
+                                      <p className="text-xs text-muted-foreground truncate">➕ {r.options.join("、")}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
