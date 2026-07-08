@@ -28,14 +28,13 @@ interface Expense {
 const FIXED_CATEGORIES: Record<string, string> = {
   "賃借料（ラズルーム）": "賃借料（ラズルーム）",
   "賃借料（インルーム）": "賃借料（インルーム）",
-  "広告媒体費（キャスカン）": "広告媒体費（キャスカン）",
   "広告媒体費（エスたま）": "広告媒体費（エスたま）",
   "広告媒体費（エスラン）": "広告媒体費（エスラン）",
-  "水道光熱費（①電気）": "水道光熱費（①電気）",
-  "水道光熱費（①水道）": "水道光熱費（①水道）",
-  "水道光熱費（①ガス）": "水道光熱費（①ガス）",
-  "水道光熱費（②電気）": "水道光熱費（②電気）",
-  "水道光熱費（②水道）": "水道光熱費（②水道）",
+  "ラズルーム電気代": "ラズルーム電気代",
+  "ラズルームガス代": "ラズルームガス代",
+  "ラズルーム水道代": "ラズルーム水道代",
+  "インルーム電気代": "インルーム電気代",
+  "インルーム水道代": "インルーム水道代",
   "通信費": "通信費",
 };
 
@@ -50,14 +49,22 @@ const VARIABLE_CATEGORIES: Record<string, string> = {
   "その他": "その他",
 };
 
-// 旧カテゴリキー（過去データ表示用）
+// 旧カテゴリキー（過去データ表示用。選択肢には出さず固定費として扱う）
 const LEGACY_CATEGORIES: Record<string, string> = {
   rent: "賃貸料", utilities: "光熱費", wifi_tel: "Wi-Fi・通信費", maintenance: "保守費・定期契約",
   consumption: "消耗品", supplies: "備品", advertising: "広告費", transport: "交通費", other: "その他",
+  "広告媒体費（キャスカン）": "広告媒体費（キャスカン）",
+  "水道光熱費（①電気）": "水道光熱費（①電気）", "水道光熱費（①水道）": "水道光熱費（①水道）",
+  "水道光熱費（①ガス）": "水道光熱費（①ガス）", "水道光熱費（②電気）": "水道光熱費（②電気）",
+  "水道光熱費（②水道）": "水道光熱費（②水道）",
 };
 
 const ALL_CATEGORIES = { ...FIXED_CATEGORIES, ...VARIABLE_CATEGORIES, ...LEGACY_CATEGORIES };
-const FIXED_KEYS = new Set([...Object.keys(FIXED_CATEGORIES), "rent", "utilities", "wifi_tel", "maintenance"]);
+const FIXED_KEYS = new Set([
+  ...Object.keys(FIXED_CATEGORIES), "rent", "utilities", "wifi_tel", "maintenance",
+  "広告媒体費（キャスカン）", "水道光熱費（①電気）", "水道光熱費（①水道）",
+  "水道光熱費（①ガス）", "水道光熱費（②電気）", "水道光熱費（②水道）",
+]);
 
 function isFixed(category: string) {
   return FIXED_KEYS.has(category);
