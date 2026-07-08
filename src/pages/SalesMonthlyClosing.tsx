@@ -136,7 +136,10 @@ export default function SalesMonthlyClosing() {
   const totalAccom = clearances.reduce((s, c) => s + c.accommodation_fee, 0);
   const totalTransport = clearances.reduce((s, c) => s + c.transportation_fee, 0);
   const totalOther = clearances.reduce((s, c) => s + c.other_expenses, 0);
-  const totalAllowance = totalMisc + totalAccom + totalTransport + totalOther;
+  // 回収＝セラピストのバックから差し引いた諸費（店側のプラス）
+  const totalRecovered = totalMisc + totalAccom + totalOther;
+  // 実支払給与 = バック − 雑費 − 宿泊費 − その他 ＋ 交通費（日別精算の給与式と同一）
+  const totalSalaryPaid = totalBack - totalRecovered + totalTransport;
 
   // ── 経費（固定費チェックリスト） ──
   const sumFor = (item: string) =>
@@ -232,7 +235,7 @@ export default function SalesMonthlyClosing() {
                   id="back"
                   icon={<Users size={16} />}
                   title="セラピスト報酬"
-                  sub={`日別精算のバック合計（${clearances.length}件）`}
+                  sub={`バック合計・相殺前（実支払 ${yen(totalSalaryPaid)}）`}
                   total={totalBack}
                 />
                 {openSections.has("back") && (
@@ -251,8 +254,20 @@ export default function SalesMonthlyClosing() {
                           </div>
                         ))}
                         <div className="px-4 py-3 flex items-center justify-between bg-muted/30 font-bold">
-                          <span className="text-sm">合計</span>
-                          <span className="tabular-nums text-primary">{yen(totalBack)}</span>
+                          <span className="text-sm">バック合計（相殺前）</span>
+                          <span className="tabular-nums">{yen(totalBack)}</span>
+                        </div>
+                        <div className="px-4 py-2 flex items-center justify-between text-sm text-muted-foreground">
+                          <span>回収（雑費・宿泊費・その他）</span>
+                          <span className="tabular-nums">−{yen(totalRecovered)}</span>
+                        </div>
+                        <div className="px-4 py-2 flex items-center justify-between text-sm text-muted-foreground">
+                          <span>交通費（追加支給）</span>
+                          <span className="tabular-nums">＋{yen(totalTransport)}</span>
+                        </div>
+                        <div className="px-4 py-3 flex items-center justify-between bg-primary/5 font-bold">
+                          <span className="text-sm">実際に支払った給与合計</span>
+                          <span className="tabular-nums text-primary">{yen(totalSalaryPaid)}</span>
                         </div>
                       </div>
                     )}
@@ -266,16 +281,18 @@ export default function SalesMonthlyClosing() {
                   id="allowance"
                   icon={<Wallet size={16} />}
                   title="雑費・宿泊費・交通費"
-                  sub="日別精算で支払った諸費の合計"
-                  total={totalAllowance}
+                  sub={`回収 ${yen(totalRecovered)} ／ 交通費支払 ${yen(totalTransport)}`}
+                  total={totalRecovered}
                 />
                 {openSections.has("allowance") && (
                   <CardContent className="p-0 border-t">
                     <div className="divide-y">
+                      <div className="px-4 py-2 bg-muted/40 text-xs font-bold text-muted-foreground">
+                        回収した諸費（セラピストのバックから差引）
+                      </div>
                       {[
                         ["雑費", totalMisc],
                         ["宿泊費", totalAccom],
-                        ["交通費", totalTransport],
                         ["その他（清算時入力）", totalOther],
                       ].map(([label, v]) => (
                         <div key={label as string} className="px-4 py-2.5 flex items-center justify-between">
@@ -284,8 +301,15 @@ export default function SalesMonthlyClosing() {
                         </div>
                       ))}
                       <div className="px-4 py-3 flex items-center justify-between bg-muted/30 font-bold">
-                        <span className="text-sm">合計</span>
-                        <span className="tabular-nums text-primary">{yen(totalAllowance)}</span>
+                        <span className="text-sm">回収合計</span>
+                        <span className="tabular-nums text-green-600">{yen(totalRecovered)}</span>
+                      </div>
+                      <div className="px-4 py-2 bg-muted/40 text-xs font-bold text-muted-foreground">
+                        店から支払った費用
+                      </div>
+                      <div className="px-4 py-3 flex items-center justify-between font-bold">
+                        <span className="text-sm">交通費 合計</span>
+                        <span className="tabular-nums text-rose-600">{yen(totalTransport)}</span>
                       </div>
                     </div>
                   </CardContent>
