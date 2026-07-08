@@ -62,6 +62,40 @@ const LEVEL_BADGES: Record<LevelTag, { icon: string; className: string }> = {
   "マスター": { icon: "👑", className: "bg-gradient-to-r from-amber-400 to-yellow-500 text-white shadow-sm" },
 };
 
+// レベル別特典表（習熟度に応じた待遇アップ）
+const LEVEL_PERKS: { label: string; values: Record<LevelTag, string> }[] = [
+  {
+    label: "昇格条件",
+    values: {
+      "ビギナーズ": "講習中・デビュー前",
+      "スタンダード": "初出勤済み・SNS教育中",
+      "ソルジャー": "SNS投稿こなし、日7〜8万水準",
+      "マスター": "本指名率30%以上・皆勤・クレームなし",
+    },
+  },
+  {
+    label: "雑費",
+    values: {
+      "ビギナーズ": "通常",
+      "スタンダード": "通常",
+      "ソルジャー": "半額",
+      "マスター": "無料",
+    },
+  },
+  {
+    label: "姫予約バック",
+    values: {
+      "ビギナーズ": "—",
+      "スタンダード": "+1,000円",
+      "ソルジャー": "+3,000円",
+      "マスター": "+5,000円",
+    },
+  },
+];
+
+// 特典セルの強調表示（無料・最高額など）
+const PERK_HIGHLIGHT = new Set(["無料", "半額", "+5,000円", "+3,000円"]);
+
 const ALL_SYSTEM_TAGS = [...CATEGORY_TAGS, ...LEVEL_TAGS] as readonly string[];
 
 const THERAPIST_EXPERIENCE_OPTIONS = ["1年未満", "1〜3年", "3〜5年", "5年以上"];
@@ -219,6 +253,7 @@ export default function Staff() {
   // フォーム用の状態
   const [formData, setFormData] = useState({ ...emptyForm });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [perksOpen, setPerksOpen] = useState(false);
   const [estamaDialogOpen, setEstamaDialogOpen] = useState(false);
   const [estamaScript, setEstamaScript] = useState("");
   const [estamaData, setEstamaData] = useState("");
@@ -2074,6 +2109,60 @@ export default function Staff() {
                   );
                 })}
               </div>
+
+              {/* レベル別特典表 */}
+              <Card>
+                <button
+                  type="button"
+                  className="w-full px-4 py-3 flex items-center justify-between"
+                  onClick={() => setPerksOpen(v => !v)}
+                >
+                  <span className="font-semibold text-sm flex items-center gap-2">
+                    🏆 レベル別特典表
+                    <span className="text-xs font-normal text-muted-foreground">習熟度で待遇アップ</span>
+                  </span>
+                  {perksOpen ? <ChevronDown size={16} className="text-muted-foreground" /> : <ChevronRight size={16} className="text-muted-foreground" />}
+                </button>
+                {perksOpen && (
+                  <CardContent className="p-0 pb-1">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs min-w-[640px]">
+                        <thead>
+                          <tr className="bg-muted/40">
+                            <th className="px-3 py-2 text-left font-semibold w-24"></th>
+                            {LEVEL_TAGS.map(lv => (
+                              <th key={lv} className="px-3 py-2 text-center">
+                                <span className={`inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full font-semibold ${LEVEL_BADGES[lv].className}`}>
+                                  <span>{LEVEL_BADGES[lv].icon}</span>{lv}
+                                </span>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {LEVEL_PERKS.map(row => (
+                            <tr key={row.label}>
+                              <td className="px-3 py-2.5 font-semibold text-muted-foreground whitespace-nowrap">{row.label}</td>
+                              {LEVEL_TAGS.map(lv => {
+                                const v = row.values[lv];
+                                const hot = PERK_HIGHLIGHT.has(v);
+                                return (
+                                  <td key={lv} className={`px-3 py-2.5 text-center ${hot ? "font-bold text-amber-600" : row.label === "昇格条件" ? "text-muted-foreground text-[11px]" : ""}`}>
+                                    {v}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="px-4 py-2 text-[11px] text-muted-foreground">
+                      ※ 姫予約バック＝自分で獲得した予約（専用リンク・SNS経由）1件あたりの追加バック。レベルはセラピスト詳細から設定できます。
+                    </p>
+                  </CardContent>
+                )}
+              </Card>
 
               {/* Search and Filter */}
               <Card>
