@@ -4,12 +4,13 @@ import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, isSameMonth } from "date-fns";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, ChevronDown, Loader2, CheckCircle, AlertCircle, Users, Receipt, Wallet, TrendingUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Loader2, CheckCircle, AlertCircle, Users, Receipt, Wallet, TrendingUp, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 /**
@@ -35,6 +36,18 @@ const FIXED_ITEMS = [
   "固定交際費",
   "通信費",
 ];
+
+// 変動費（月内に複数回計上しうる。登録ごとに合算されていく）
+const VARIABLE_ITEMS = [
+  "接待交際費",
+  "備品購入費",
+  "オイル代",
+  "外注費",
+  "内部留保",
+  "特別損害金",
+  "その他",
+];
+const FIXED_SET = new Set(FIXED_ITEMS);
 
 interface ExpenseRec {
   id: string;
@@ -66,6 +79,10 @@ export default function SalesMonthlyClosing() {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(["expenses"]));
   // 紹介広告費の推奨額（完了予約 × 紹介ルール単価）
   const [referralSuggested, setReferralSuggested] = useState(0);
+  // 変動費の入力
+  const [varCategory, setVarCategory] = useState<string>(VARIABLE_ITEMS[0]);
+  const [varAmount, setVarAmount] = useState("");
+  const [varSaving, setVarSaving] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -178,6 +195,13 @@ export default function SalesMonthlyClosing() {
   const isCurrentMonth = isSameMonth(selectedMonth, new Date());
   const allDone = pendingItems.length === 0;
 
+  // ── 変動費（固定費以外の当月経費。登録ごとに合算） ──
+  const variableRecs = records
+    .filter((r) => !FIXED_SET.has(r.category))
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+  const totalVariable = variableRecs.reduce((s, r) => s + (r.amount || 0), 0);
+  const totalExpenses = totalFixed + totalVariable;
+
   const handleRegister = async (item: string) => {
     const amount = Number(inputs[item] || 0);
     if (!amount || amount <= 0) {
@@ -204,6 +228,43 @@ export default function SalesMonthlyClosing() {
     toast.success(`${item} を登録しました`);
     setInputs((p) => ({ ...p, [item]: "" }));
     fetchData();
+  };
+
+  const handleAddVariable = async () => {
+    const amount = Number(varAmount || 0);
+    if (!amount || amount <= 0) {
+      toast.error("金額を入力してください");
+      return;
+    }
+    setVarSaving(true);
+    const date = isCurrentMonth
+      ? format(new Date(), "yyyy-MM-dd")
+      : format(endOfMonth(selectedMonth), "yyyy-MM-dd");
+    const { error } = await supabase.from("expenses").insert([{
+      expense_date: date,
+      expense_type: varCategory,
+      amount,
+      description: `${format(selectedMonth, "M月", { locale: ja })}分 ${varCategory}`,
+      payment_method: "cash",
+    }]);
+    setVarSaving(false);
+    if (error) {
+      toast.error(`登録失敗: ${error.message}`);
+      return;
+    }
+    toast.success(`${varCategory} ${yen(amount)} を追加しました`);
+    setVarAmount("");
+    fetchData();
+  };
+
+  const handleDeleteVariable = async (id: string) => {
+    const { error } = await supabase.from("expenses").delete().eq("id", id);
+    if (error) {
+      toast.error("削除に失敗しました");
+      return;
+    }
+    setRecords((prev) => prev.filter((r) => r.id !== id));
+    toast.success("削除しました");
   };
 
   const SectionHeader = ({
@@ -361,10 +422,8 @@ export default function SalesMonthlyClosing() {
                   id="expenses"
                   icon={<Receipt size={16} />}
                   title="経費"
-                  sub={allDone
-                    ? "固定費はすべて入力済み"
-                    : `未入力・未払い ${pendingItems.length}件（入力済み ${doneItems.length}/${FIXED_ITEMS.length}件）`}
-                  total={totalFixed}
+                  sub={`固定費 ${yen(totalFixed)}${totalVariable > 0 ? ` ／ 変動費 ${yen(totalVariable)}` : ""}${allDone ? "" : `（固定費 未入力${pendingItems.length}件）`}`}
+                  total={totalExpenses}
                 />
                 {openSections.has("expenses") && (
                   <CardContent className="p-3 border-t space-y-3">
@@ -456,8 +515,79 @@ export default function SalesMonthlyClosing() {
                       )}
                     </div>
 
+                    {/* 変動費（登録ごとに合算） */}
+                    <div className="rounded-lg border overflow-hidden">
+                      <div className="px-4 py-2.5 bg-muted/40 font-bold text-sm text-muted-foreground">
+                        変動費（都度計上・登録ごとに合算）
+                      </div>
+                      {/* 入力行 */}
+                      <div className="px-4 py-3 flex items-center gap-2 flex-wrap border-b">
+                        <Select value={varCategory} onValueChange={setVarCategory}>
+                          <SelectTrigger className="h-9 w-40 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {VARIABLE_ITEMS.map((v) => (
+                              <SelectItem key={v} value={v}>{v}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          placeholder="金額"
+                          className="w-28 h-9 text-sm"
+                          value={varAmount}
+                          onChange={(e) => setVarAmount(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleAddVariable()}
+                        />
+                        <Button
+                          size="sm"
+                          className="h-9"
+                          disabled={varSaving || !Number(varAmount || 0)}
+                          onClick={handleAddVariable}
+                        >
+                          {varSaving ? <Loader2 size={13} className="animate-spin" /> : <><Plus size={14} className="mr-1" />追加</>}
+                        </Button>
+                      </div>
+                      {/* 登録済み一覧 */}
+                      {variableRecs.length === 0 ? (
+                        <p className="text-center text-muted-foreground text-sm py-6">まだ登録がありません</p>
+                      ) : (
+                        <div className="divide-y">
+                          {variableRecs.map((r) => (
+                            <div key={r.id} className="px-4 py-2.5 flex items-center justify-between gap-3">
+                              <span className="text-sm min-w-0">
+                                {r.category}
+                                <span className="ml-2 text-xs text-muted-foreground">{format(new Date(r.date), "M/d", { locale: ja })}</span>
+                              </span>
+                              <span className="flex items-center gap-3 shrink-0">
+                                <span className="font-semibold tabular-nums">{yen(r.amount)}</span>
+                                <button
+                                  className="text-muted-foreground hover:text-destructive transition-colors"
+                                  onClick={() => handleDeleteVariable(r.id)}
+                                  title="削除"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </span>
+                            </div>
+                          ))}
+                          <div className="px-4 py-3 flex items-center justify-between bg-muted/30 font-bold">
+                            <span className="text-sm">変動費 合計</span>
+                            <span className="tabular-nums text-primary">{yen(totalVariable)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 経費合計 */}
+                    <div className="rounded-lg bg-primary/5 px-4 py-3 flex items-center justify-between font-bold">
+                      <span className="text-sm">経費 合計（固定費＋変動費）</span>
+                      <span className="tabular-nums text-primary text-lg">{yen(totalExpenses)}</span>
+                    </div>
+
                     <p className="text-xs text-muted-foreground">
-                      ※ 登録すると「経費入力」の固定費として記録されます。同月に複数回の支払いがある場合は経費入力から追加できます。
+                      ※ 固定費は毎月の未払いチェック、変動費は「追加」を押すごとに同じ月へ合算されます。いずれも「経費入力」に記録されます。
                     </p>
                   </CardContent>
                 )}
