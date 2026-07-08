@@ -119,7 +119,7 @@ const BookingReservation = () => {
     time: searchParams.get("time"),
   });
   const [selectedCastId, setSelectedCastId] = useState<string>("");
-  const [courseType, setCourseType] = useState<string>("アロマオイル");
+  const [courseType, setCourseType] = useState<string>("全力"); // おすすめ（全力80分）を初期選択
   const [startTime, setStartTime] = useState<string>("");
   const [duration, setDuration] = useState<number>(80);
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
@@ -1103,8 +1103,8 @@ const BookingReservation = () => {
                     {(() => {
                       const courseTypes = [...new Set(backRates.map(r => r.course_type))];
                       const courseDescriptions: Record<string, string> = {
-                        "アロマオイル": "クイーンオイルを使用して全身で全身をアロマオイルトリートメントしていきます。",
-                        "全力コース": "疲れも悩みも全てを出し切るSPコース",
+                        "アロマオイルトリートメント": "クイーンオイルを使用して全身をアロマオイルトリートメントしていきます。",
+                        "全力": "疲れも悩みも全てを出し切るSPコース",
                         "DR": "ドクターズリラックスコース",
                       };
                       return courseTypes.map((type) => {
@@ -1125,7 +1125,14 @@ const BookingReservation = () => {
                               }
                             }}
                           >
-                            <h3 className="text-lg font-bold mb-2">{type}コース</h3>
+                            <h3 className="text-lg font-bold mb-2 flex items-center gap-2 flex-wrap">
+                              {type}コース
+                              {type === "全力" && (
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 text-white shadow-sm">
+                                  ⭐ おすすめ
+                                </span>
+                              )}
+                            </h3>
                             {courseDescriptions[type] && (
                               <p className="text-sm text-muted-foreground mb-3">{courseDescriptions[type]}</p>
                             )}
@@ -1134,13 +1141,14 @@ const BookingReservation = () => {
                                 <Button
                                   key={rate.id}
                                   variant={courseType === type && duration === rate.duration ? "default" : "outline"}
+                                  className={cn(type === "全力" && rate.duration === 80 && "ring-2 ring-amber-400 ring-offset-1")}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setCourseType(type);
                                     setDuration(rate.duration);
                                   }}
                                 >
-                                  {rate.duration}分<br/>¥{rate.customer_price.toLocaleString()}
+                                  {type === "全力" && rate.duration === 80 ? "⭐ " : ""}{rate.duration}分<br/>¥{rate.customer_price.toLocaleString()}
                                 </Button>
                               ))}
                             </div>
