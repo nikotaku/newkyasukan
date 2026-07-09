@@ -226,6 +226,7 @@ export default function SalesMonthlyClosing() {
   // ── 会計サマリー（利益） ──
   const netProfit = totalSales - totalSalaryPaid - totalExpenses;
   const profitRate = totalSales > 0 ? (netProfit / totalSales) * 100 : 0;
+  // 実質手元現金 = 投函合計 − 販管費（実際に支払った経費）
 
   // ── 販管費 費目別内訳 ──
   const EXPENSE_GROUPS: { label: string; cats: string[] }[] = [
@@ -321,6 +322,7 @@ export default function SalesMonthlyClosing() {
     totalSales, therapistPaid: totalSalaryPaid, expensesTotal: totalExpenses,
     netProfit, profitRate,
     cash: pay.cash, card: pay.card, paypay: pay.paypay, cashOnHand: pay.cashOnHand,
+    cashRemaining: pay.cashOnHand - totalExpenses,
     breakdown: expenseBreakdown,
   });
 
@@ -337,6 +339,7 @@ export default function SalesMonthlyClosing() {
       card_sales: pay.card,
       paypay_sales: pay.paypay,
       cash_on_hand: pay.cashOnHand,
+      cash_remaining: pay.cashOnHand - totalExpenses,
       breakdown: expenseBreakdown,
       closed_at: new Date().toISOString(),
     }, { onConflict: "store_id,month_date" }).select().maybeSingle();
@@ -440,7 +443,11 @@ export default function SalesMonthlyClosing() {
                 </div>
                 <div className="px-4 py-2.5 border-t flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">手元現金（投函合計）</span>
-                  <span className="font-bold tabular-nums text-primary">{yen(pay.cashOnHand)}</span>
+                  <span className="font-semibold tabular-nums">{yen(pay.cashOnHand)}</span>
+                </div>
+                <div className="px-4 py-2.5 border-t flex items-center justify-between text-sm bg-primary/5">
+                  <span className="font-medium">実質手元現金<span className="text-[11px] text-muted-foreground ml-1">（− 販管費）</span></span>
+                  <span className="font-bold tabular-nums text-primary">{yen(pay.cashOnHand - totalExpenses)}</span>
                 </div>
               </Card>
 

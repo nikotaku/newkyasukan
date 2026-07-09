@@ -12,6 +12,7 @@ export interface MonthlyReportData {
   card: number;
   paypay: number;
   cashOnHand: number;
+  cashRemaining: number;
   breakdown: { label: string; amount: number }[];
 }
 
@@ -41,7 +42,7 @@ export function downloadMonthlyReport(data: MonthlyReportData): void {
   H += 44;                             // 純利益ハイライト
   H += 20 + 3 * 24 + 12;              // 支払方法別（見出し+3行）
   H += 20 + data.breakdown.length * 22 + 12; // 費目別
-  H += 20 + 26;                        // 手元現金
+  H += 20 + 26 + 26;                   // 手元現金（投函合計＋実質残）
   H += 30 + pad;                       // フッター
 
   const canvas = document.createElement("canvas");
@@ -116,10 +117,16 @@ export function downloadMonthlyReport(data: MonthlyReportData): void {
 
   // 手元現金
   ctx.fillStyle = muted; ctx.font = `bold 12px ${FONT}`;
-  ctx.fillText("手元現金（投函合計）", pad, y + 14); y += 20;
-  ctx.font = `bold 16px ${FONT}`; ctx.fillStyle = primary; ctx.textAlign = "right";
-  ctx.fillText(yen(data.cashOnHand), right, y + 12); ctx.textAlign = "left";
-  y += 30;
+  ctx.fillText("手元現金", pad, y + 14); y += 20;
+  ctx.font = `13px ${FONT}`; ctx.fillStyle = ink; ctx.textAlign = "left";
+  ctx.fillText("投函合計", pad, y + 16);
+  ctx.textAlign = "right"; ctx.fillText(yen(data.cashOnHand), right, y + 16);
+  ctx.textAlign = "left"; y += 26;
+  ctx.font = `bold 14px ${FONT}`; ctx.fillStyle = ink; ctx.textAlign = "left";
+  ctx.fillText("実質手元現金（− 販管費）", pad, y + 16);
+  ctx.fillStyle = primary; ctx.textAlign = "right"; ctx.font = `bold 16px ${FONT}`;
+  ctx.fillText(yen(data.cashRemaining), right, y + 16);
+  ctx.textAlign = "left"; y += 30;
 
   ctx.fillStyle = muted; ctx.font = `11px ${FONT}`; ctx.textAlign = "right";
   ctx.fillText(`発行日時 ${format(new Date(), "yyyy/MM/dd HH:mm")}`, right, y + 8);
