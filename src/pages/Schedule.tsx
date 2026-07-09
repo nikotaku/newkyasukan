@@ -93,6 +93,15 @@ function timeToMinutes(time: string) {
   return (h < 6 ? h + 24 : h) * 60 + m;
 }
 
+// 延長オプションによる追加施術分数（option_rates.extension_minutes の合計）
+function getExtMinutes(options: string[] | null | undefined, optionRates: any[]): number {
+  if (!options || options.length === 0) return 0;
+  return options.reduce((sum, name) => {
+    const o = optionRates.find((r) => r.option_name === name);
+    return sum + (o?.extension_minutes ?? 0);
+  }, 0);
+}
+
 function minutesToPx(minutes: number) {
   return ((minutes - TIME_START * 60) / 60) * HOUR_HEIGHT;
 }
@@ -409,7 +418,7 @@ export default function Schedule() {
         .filter((r) => r.cast_id === cast.id && r.status !== "cancelled")
         .map((r) => {
           const st = timeToMinutes(r.start_time);
-          return { st, en: st + r.duration + INTERVAL };
+          return { st, en: st + r.duration + getExtMinutes(r.options, optionRates) + INTERVAL };
         })
         .sort((a, b) => a.st - b.st);
 
@@ -985,10 +994,12 @@ export default function Schedule() {
                               {castRes.map((res) => {
                                 const resStartMin = timeToMinutes(res.start_time);
                                 const resTop = minutesToPx(resStartMin);
-                                const resH = Math.max((res.duration / 60) * HOUR_HEIGHT, 28);
+                                // 延長オプション込みの実施術時間
+                                const effDuration = res.duration + getExtMinutes(res.options, optionRates);
+                                const resH = Math.max((effDuration / 60) * HOUR_HEIGHT, 28);
                                 const statusClass = STATUS_COLORS[res.status] || STATUS_COLORS.pending;
                                 const endTime = format(
-                                  addMinutes(parse(res.start_time.slice(0, 5), "HH:mm", new Date()), res.duration),
+                                  addMinutes(parse(res.start_time.slice(0, 5), "HH:mm", new Date()), effDuration),
                                   "HH:mm"
                                 );
                                 return (
@@ -1012,7 +1023,7 @@ export default function Schedule() {
                                     </div>
                                     {resH > 40 && (
                                       <div className="text-[10px] truncate leading-tight">
-                                        {res.duration}分 ¥{res.price.toLocaleString()}
+                                        {effDuration > res.duration ? `${effDuration}分（延長込）` : `${res.duration}分`} ¥{res.price.toLocaleString()}
                                       </div>
                                     )}
                                     {/* 完了へ移行ボタン */}
