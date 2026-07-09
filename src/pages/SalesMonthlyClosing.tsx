@@ -203,9 +203,14 @@ export default function SalesMonthlyClosing() {
   const totalExpenses = totalFixed + totalVariable;
 
   const handleRegister = async (item: string) => {
-    const amount = Number(inputs[item] || 0);
-    if (!amount || amount <= 0) {
-      toast.error("金額を入力してください");
+    const raw = (inputs[item] ?? "").trim();
+    if (raw === "") {
+      toast.error("金額を入力してください（隔月請求などで請求が無い月は 0 を入力）");
+      return;
+    }
+    const amount = Number(raw);
+    if (isNaN(amount) || amount < 0) {
+      toast.error("金額を正しく入力してください");
       return;
     }
     setSavingItem(item);
@@ -476,7 +481,7 @@ export default function SalesMonthlyClosing() {
                                 <Button
                                   size="sm"
                                   className="h-9"
-                                  disabled={savingItem === item || !Number(inputs[item] || 0)}
+                                  disabled={savingItem === item || (inputs[item] ?? "").trim() === ""}
                                   onClick={() => handleRegister(item)}
                                 >
                                   {savingItem === item ? <Loader2 size={13} className="animate-spin" /> : "支払・登録"}
