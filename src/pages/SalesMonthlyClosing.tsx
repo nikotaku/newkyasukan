@@ -10,8 +10,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, isSameMonth } from "date-fns";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, ChevronDown, Loader2, CheckCircle, AlertCircle, Users, Receipt, Wallet, TrendingUp, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Loader2, CheckCircle, AlertCircle, Users, Receipt, Wallet, TrendingUp, Plus, Trash2, Lock, Download, PieChart } from "lucide-react";
 import { toast } from "sonner";
+import { downloadMonthlyReport } from "@/lib/monthlyClosingReport";
 
 /**
  * 月別清算：毎月の締め作業。
@@ -83,6 +84,11 @@ export default function SalesMonthlyClosing() {
   const [varCategory, setVarCategory] = useState<string>(VARIABLE_ITEMS[0]);
   const [varAmount, setVarAmount] = useState("");
   const [varSaving, setVarSaving] = useState(false);
+  // 支払方法別・投函合計
+  const [pay, setPay] = useState({ cash: 0, card: 0, paypay: 0, cashOnHand: 0 });
+  // 締め状態
+  const [closing, setClosing] = useState<any>(null);
+  const [closingBusy, setClosingBusy] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -95,7 +101,7 @@ export default function SalesMonthlyClosing() {
     setLoading(true);
     const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
     const monthEnd = format(endOfMonth(selectedMonth), "yyyy-MM-dd");
-    const [expRes, clrRes, castsRes, rewardsRes, resvRes] = await Promise.all([
+    const [expRes, clrRes, castsRes, rewardsRes, resvRes, closeRes] = await Promise.all([
       supabase
         .from("expenses")
         .select("id, expense_date, expense_type, amount")
@@ -103,15 +109,30 @@ export default function SalesMonthlyClosing() {
         .lte("expense_date", monthEnd),
       supabase
         .from("daily_clearances")
-        .select("total_sales, therapist_back, misc_expenses, accommodation_fee, transportation_fee, other_expenses, casts(name)")
+        .select("total_sales, therapist_back, misc_expenses, accommodation_fee, transportation_fee, other_expenses, payout_amount, casts(name)")
         .gte("date", monthStart)
         .lte("date", monthEnd),
       // 紹介広告費の推奨額算出用
       supabase.from("casts").select("id, referral_reward_id").not("referral_reward_id", "is", null),
       supabase.from("referral_rewards").select("id, amount"),
-      supabase.from("reservations").select("cast_id, status, reservation_date")
+      // 支払方法別＋紹介広告費算出用
+      supabase.from("reservations").select("cast_id, status, reservation_date, price, payment_method")
         .gte("reservation_date", monthStart).lte("reservation_date", monthEnd).eq("status", "completed"),
+      // 締め状態
+      supabase.from("monthly_closings").select("*").eq("month_date", monthStart).maybeSingle(),
     ]);
+    setClosing((closeRes as any)?.data ?? null);
+    // 支払方法別売上
+    const payAgg = { cash: 0, card: 0, paypay: 0, cashOnHand: 0 };
+    for (const r of (resvRes.data || []) as any[]) {
+      const m = r.payment_method;
+      const p = r.price ?? 0;
+      if (m === "card") payAgg.card += p;
+      else if (m === "paypay") payAgg.paypay += p;
+      else payAgg.cash += p; // cash / null は現金扱い
+    }
+    payAgg.cashOnHand = ((clrRes.data || []) as any[]).reduce((s, r) => s + (r.payout_amount ?? 0), 0);
+    setPay(payAgg);
     if (!expRes.error) {
       setRecords((expRes.data || []).map((r: any) => ({
         id: r.id,
@@ -202,6 +223,29 @@ export default function SalesMonthlyClosing() {
   const totalVariable = variableRecs.reduce((s, r) => s + (r.amount || 0), 0);
   const totalExpenses = totalFixed + totalVariable;
 
+  // ── 会計サマリー（利益） ──
+  const netProfit = totalSales - totalSalaryPaid - totalExpenses;
+  const profitRate = totalSales > 0 ? (netProfit / totalSales) * 100 : 0;
+
+  // ── 販管費 費目別内訳 ──
+  const EXPENSE_GROUPS: { label: string; cats: string[] }[] = [
+    { label: "賃借料", cats: ["賃借料（ラズルーム）", "賃借料（インルーム）"] },
+    { label: "広告費", cats: ["広告媒体費（エスたま）", "広告媒体費（エスラン）", "紹介広告費", "広告媒体費（キャスカン）"] },
+    { label: "水道光熱費", cats: ["ラズルーム電気代", "ラズルームガス代", "ラズルーム水道代", "インルーム電気代", "インルーム水道代", "水道光熱費（①電気）", "水道光熱費（①水道）", "水道光熱費（①ガス）", "水道光熱費（②電気）", "水道光熱費（②水道）"] },
+    { label: "通信費", cats: ["通信費"] },
+    { label: "接待交際費", cats: ["固定交際費", "接待交際費"] },
+    { label: "備品購入費", cats: ["備品購入費"] },
+    { label: "オイル代", cats: ["オイル代"] },
+  ];
+  const groupedCats = new Set(EXPENSE_GROUPS.flatMap((g) => g.cats));
+  const sumCats = (cats: string[]) =>
+    records.filter((r) => cats.includes(r.category)).reduce((s, r) => s + (r.amount || 0), 0);
+  const expenseBreakdown = EXPENSE_GROUPS
+    .map((g) => ({ label: g.label, amount: sumCats(g.cats) }))
+    .filter((g) => g.amount > 0);
+  const otherExpense = records.filter((r) => !groupedCats.has(r.category)).reduce((s, r) => s + (r.amount || 0), 0);
+  if (otherExpense > 0) expenseBreakdown.push({ label: "その他", amount: otherExpense });
+
   const handleRegister = async (item: string) => {
     const raw = (inputs[item] ?? "").trim();
     if (raw === "") {
@@ -272,6 +316,42 @@ export default function SalesMonthlyClosing() {
     toast.success("削除しました");
   };
 
+  const reportData = () => ({
+    month: selectedMonth,
+    totalSales, therapistPaid: totalSalaryPaid, expensesTotal: totalExpenses,
+    netProfit, profitRate,
+    cash: pay.cash, card: pay.card, paypay: pay.paypay, cashOnHand: pay.cashOnHand,
+    breakdown: expenseBreakdown,
+  });
+
+  const handleClose = async () => {
+    setClosingBusy(true);
+    const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
+    const { data, error } = await supabase.from("monthly_closings").upsert({
+      month_date: monthStart,
+      total_sales: totalSales,
+      therapist_paid: totalSalaryPaid,
+      expenses_total: totalExpenses,
+      net_profit: netProfit,
+      cash_sales: pay.cash,
+      card_sales: pay.card,
+      paypay_sales: pay.paypay,
+      cash_on_hand: pay.cashOnHand,
+      breakdown: expenseBreakdown,
+      closed_at: new Date().toISOString(),
+    }, { onConflict: "store_id,month_date" }).select().maybeSingle();
+    setClosingBusy(false);
+    if (error) { toast.error(`締めに失敗しました: ${error.message}`); return; }
+    setClosing(data);
+    toast.success(`${format(selectedMonth, "M月", { locale: ja })}を締めました（純利益 ${yen(netProfit)}）`);
+  };
+
+  const handleReport = () => {
+    if (totalSales === 0) { toast.error("この月の精算データがありません"); return; }
+    downloadMonthlyReport(reportData());
+    toast.success("月次レポートを作成しました");
+  };
+
   const SectionHeader = ({
     id, icon, title, total, sub,
   }: { id: string; icon: React.ReactNode; title: string; total: number; sub?: string }) => (
@@ -321,6 +401,58 @@ export default function SalesMonthlyClosing() {
             <div className="flex justify-center py-16"><Loader2 className="animate-spin text-muted-foreground" /></div>
           ) : (
             <div className="space-y-3">
+
+              {/* ── 締め済みバナー ── */}
+              {closing && (
+                <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-2 text-sm text-green-800">
+                  <CheckCircle size={16} className="text-green-600 shrink-0" />
+                  <span>
+                    {format(selectedMonth, "M月", { locale: ja })}は締め済みです
+                    {closing.closed_at && `（${format(new Date(closing.closed_at), "M/d HH:mm")}）`}。数字を変更した場合は再度「締める」で更新してください。
+                  </span>
+                </div>
+              )}
+
+              {/* ── 会計サマリー（純利益・利益率） ── */}
+              <Card className="border-primary/30">
+                <div className="px-4 py-3 border-b bg-primary/5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm">純利益</span>
+                    <span className="tabular-nums font-bold text-xl text-primary">
+                      {yen(netProfit)}<span className="text-sm ml-1">（{profitRate.toFixed(1)}%）</span>
+                    </span>
+                  </div>
+                </div>
+                <div className="divide-y text-sm">
+                  <div className="px-4 py-2 flex justify-between"><span>売上</span><span className="tabular-nums font-semibold">{yen(totalSales)}</span></div>
+                  <div className="px-4 py-2 flex justify-between text-muted-foreground"><span>− セラピスト給与（実支払）</span><span className="tabular-nums">{yen(totalSalaryPaid)}</span></div>
+                  <div className="px-4 py-2 flex justify-between text-muted-foreground"><span>− 販管費（経費合計）</span><span className="tabular-nums">{yen(totalExpenses)}</span></div>
+                </div>
+              </Card>
+
+              {/* ── 支払方法別 ── */}
+              <Card>
+                <div className="px-4 py-2.5 border-b bg-muted/40 font-bold text-xs text-muted-foreground">売上内訳（支払方法別）</div>
+                <div className="grid grid-cols-3 divide-x text-center">
+                  <div className="py-3"><p className="text-[11px] text-muted-foreground">現金</p><p className="font-bold tabular-nums text-sm mt-0.5">{yen(pay.cash)}</p></div>
+                  <div className="py-3"><p className="text-[11px] text-muted-foreground">カード</p><p className="font-bold tabular-nums text-sm mt-0.5">{yen(pay.card)}</p></div>
+                  <div className="py-3"><p className="text-[11px] text-muted-foreground">PayPay</p><p className="font-bold tabular-nums text-sm mt-0.5">{yen(pay.paypay)}</p></div>
+                </div>
+                <div className="px-4 py-2.5 border-t flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">手元現金（投函合計）</span>
+                  <span className="font-bold tabular-nums text-primary">{yen(pay.cashOnHand)}</span>
+                </div>
+              </Card>
+
+              {/* ── 締め・レポート ── */}
+              <div className="flex gap-2">
+                <Button className="flex-1 h-11" onClick={handleClose} disabled={closingBusy}>
+                  {closingBusy ? <Loader2 size={15} className="animate-spin" /> : <><Lock size={15} className="mr-1.5" />{closing ? "再度締める" : "データを締める"}</>}
+                </Button>
+                <Button variant="outline" className="flex-1 h-11" onClick={handleReport}>
+                  <Download size={15} className="mr-1.5" />レポート出力
+                </Button>
+              </div>
 
               {/* ── 売上（日別精算ベース） ── */}
               <Card>
@@ -590,6 +722,23 @@ export default function SalesMonthlyClosing() {
                       <span className="text-sm">経費 合計（固定費＋変動費）</span>
                       <span className="tabular-nums text-primary text-lg">{yen(totalExpenses)}</span>
                     </div>
+
+                    {/* 費目別内訳 */}
+                    {expenseBreakdown.length > 0 && (
+                      <div className="rounded-lg border overflow-hidden">
+                        <div className="px-4 py-2.5 bg-muted/40 font-bold text-sm text-muted-foreground flex items-center gap-1.5">
+                          <PieChart size={14} />販管費 費目別内訳
+                        </div>
+                        <div className="divide-y">
+                          {expenseBreakdown.map((b) => (
+                            <div key={b.label} className="px-4 py-2 flex items-center justify-between text-sm">
+                              <span>{b.label}</span>
+                              <span className="font-semibold tabular-nums">{yen(b.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <p className="text-xs text-muted-foreground">
                       ※ 固定費は毎月の未払いチェック、変動費は「追加」を押すごとに同じ月へ合算されます。いずれも「経費入力」に記録されます。
