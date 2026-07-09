@@ -27,6 +27,7 @@ interface OptionRate {
   customer_price: number;
   therapist_back: number;
   shop_back: number | null;
+  extension_minutes: number | null;
 }
 
 interface NominationRate {
@@ -52,7 +53,7 @@ export default function Pricing() {
   const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
 
   const [courseForm, setCourseForm] = useState({ course_type: "", duration: 60, customer_price: 0, therapist_back: 0, shop_back: 0 });
-  const [optionForm, setOptionForm] = useState({ option_name: "", customer_price: 0, therapist_back: 0, shop_back: 0 });
+  const [optionForm, setOptionForm] = useState({ option_name: "", customer_price: 0, therapist_back: 0, shop_back: 0, extension_minutes: 0 });
   const [nominationForm, setNominationForm] = useState({ nomination_type: "", customer_price: 0, therapist_back: 0, shop_back: 0 });
 
   const { toast } = useToast();
@@ -151,7 +152,7 @@ export default function Pricing() {
       if (error) throw error;
       toast({ title: "追加完了" });
       setIsAddOptionOpen(false);
-      setOptionForm({ option_name: "", customer_price: 0, therapist_back: 0, shop_back: 0 });
+      setOptionForm({ option_name: "", customer_price: 0, therapist_back: 0, shop_back: 0, extension_minutes: 0 });
       fetchData();
     } catch (error) {
       console.error('Error:', error);
@@ -337,6 +338,7 @@ export default function Pricing() {
                         <div><Label>お客様料金</Label><Input type="number" value={optionForm.customer_price} onChange={(e) => setOptionForm({ ...optionForm, customer_price: parseInt(e.target.value) })} /></div>
                         <div><Label>セラピストバック</Label><Input type="number" value={optionForm.therapist_back} onChange={(e) => setOptionForm({ ...optionForm, therapist_back: parseInt(e.target.value) })} /></div>
                         <div><Label>店バック</Label><Input type="number" value={optionForm.shop_back} onChange={(e) => setOptionForm({ ...optionForm, shop_back: parseInt(e.target.value) })} /></div>
+                        <div><Label>延長時間（分・0＝なし）</Label><Input type="number" min="0" value={optionForm.extension_minutes} onChange={(e) => setOptionForm({ ...optionForm, extension_minutes: parseInt(e.target.value) || 0 })} /><p className="text-xs text-muted-foreground mt-1">施術時間が延びるオプション（例：延長20分）のみ設定。DR等は0のまま</p></div>
                         <Button onClick={handleAddOption} className="w-full">追加</Button>
                       </div>
                     </DialogContent>
@@ -352,6 +354,7 @@ export default function Pricing() {
                         <th className="text-right py-2 px-2">お客様料金</th>
                         <th className="text-right py-2 px-2">セラピストバック</th>
                         <th className="text-right py-2 px-2">店バック</th>
+                        <th className="text-right py-2 px-2">延長時間</th>
                         <th className="text-right py-2 px-2">操作</th>
                       </tr>
                     </thead>
@@ -376,6 +379,12 @@ export default function Pricing() {
                               <Input type="number" className="w-24 ml-auto" defaultValue={opt.shop_back || 0}
                                 onChange={(e) => setEditOptionValues({ ...editOptionValues, shop_back: parseInt(e.target.value) })} />
                             ) : `¥${(opt.shop_back || 0).toLocaleString()}`}
+                          </td>
+                          <td className="py-3 px-2 text-right">
+                            {editingOptionId === opt.id ? (
+                              <Input type="number" min="0" className="w-20 ml-auto" defaultValue={opt.extension_minutes || 0}
+                                onChange={(e) => setEditOptionValues({ ...editOptionValues, extension_minutes: parseInt(e.target.value) || 0 })} />
+                            ) : (opt.extension_minutes ? `${opt.extension_minutes}分` : "—")}
                           </td>
                           <td className="py-3 px-2 text-right">
                             {isAdmin && (
