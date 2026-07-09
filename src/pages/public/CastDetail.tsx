@@ -31,6 +31,7 @@ interface Cast {
   ideal_type: string | null;
   room: string | null;
   x_account: string | null;
+  instagram_url: string | null;
   line_url: string | null;
   litlink_url: string | null;
   o2_url: string | null;
@@ -403,7 +404,7 @@ const CastDetail = () => {
             )}
 
             {/* ── SNS links ── */}
-            {(cast.x_account || cast.line_url || cast.litlink_url || cast.o2_url) && (
+            {(cast.x_account || cast.instagram_url || cast.line_url || cast.litlink_url || cast.o2_url) && (
               <>
                 <SectionHeader label="SNS / LINKS" sub="各種リンク" />
                 <div className="px-5 py-4 flex flex-wrap gap-3">
@@ -416,6 +417,17 @@ const CastDetail = () => {
                     >
                       <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-4 h-4" />
                       X（Twitter）
+                    </a>
+                  )}
+                  {cast.instagram_url && (
+                    <a
+                      href={cast.instagram_url.startsWith("http") ? cast.instagram_url : `https://instagram.com/${cast.instagram_url.replace(/^@/, "")}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#221b12]"
+                      style={{ borderColor: "#d6336c", color: "#e1568f" }}
+                    >
+                      <span className="text-xs font-bold">IG</span>
+                      Instagram
                     </a>
                   )}
                   {cast.line_url && (
