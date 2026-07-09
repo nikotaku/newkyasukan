@@ -35,6 +35,8 @@ interface Cast {
   line_url: string | null;
   litlink_url: string | null;
   o2_url: string | null;
+  blog_url: string | null;
+  skebiy_url: string | null;
   tags: string[] | null;
   shop_comment: string | null;
 }
@@ -111,16 +113,31 @@ const CastDetail = () => {
 
   const fetchAll = async () => {
     try {
-      const [castRes, profileRes, reviewsRes] = await Promise.all([
+      const [castRes, profileRes] = await Promise.all([
         supabase.from("casts").select("*").eq("id", id).single(),
         supabase.from("therapist_profiles").select("*").eq("cast_id", id).maybeSingle(),
-        supabase.from("cast_reviews").select("*").eq("cast_id", id).eq("is_visible", true).order("created_at", { ascending: false }),
       ]);
       if (castRes.error) throw castRes.error;
       setCast(castRes.data);
       setProfile(profileRes.data ?? null);
-      setReviews(reviewsRes.data ?? []);
       document.title = `${castRes.data.name} | 全力エステ`;
+
+      // 口コミは担当セラピスト（この人）宛のお客様投稿のみ表示
+      const { data: revData } = await supabase
+        .from("customer_reviews")
+        .select("id, rating, therapist_name, review_text, created_at")
+        .eq("is_published", true)
+        .eq("therapist_name", castRes.data.name)
+        .order("created_at", { ascending: false });
+      setReviews((revData ?? []).map((r: any) => ({
+        id: r.id,
+        reviewer_name: "お客様",
+        rating: r.rating ?? 5,
+        body: r.review_text ?? "",
+        visit_date: null,
+        course: null,
+        created_at: r.created_at,
+      })));
     } catch {
       navigate("/casts");
     } finally {
@@ -404,7 +421,7 @@ const CastDetail = () => {
             )}
 
             {/* ── SNS links ── */}
-            {(cast.x_account || cast.instagram_url || cast.line_url || cast.litlink_url || cast.o2_url) && (
+            {(cast.x_account || cast.instagram_url || cast.line_url || cast.litlink_url || cast.o2_url || cast.blog_url || cast.skebiy_url) && (
               <>
                 <SectionHeader label="SNS / LINKS" sub="各種リンク" />
                 <div className="px-5 py-4 flex flex-wrap gap-3">
@@ -461,6 +478,28 @@ const CastDetail = () => {
                     >
                       <span className="text-xs font-bold">O2</span>
                       口コミ（O2）
+                    </a>
+                  )}
+                  {cast.blog_url && (
+                    <a
+                      href={cast.blog_url}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#221b12]"
+                      style={{ borderColor: "#e85298", color: "#e85298" }}
+                    >
+                      <span className="text-xs font-bold">O2</span>
+                      プロフィール（O2）
+                    </a>
+                  )}
+                  {cast.skebiy_url && (
+                    <a
+                      href={cast.skebiy_url}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[#221b12]"
+                      style={{ borderColor: "#c6a15b", color: "#c6a15b" }}
+                    >
+                      <span className="text-xs font-bold">S</span>
+                      Skebiy
                     </a>
                   )}
                 </div>
