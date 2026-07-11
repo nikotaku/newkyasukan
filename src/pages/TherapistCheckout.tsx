@@ -23,7 +23,7 @@ import checkoutLaundryImg from "@/assets/checkout-laundry.png";
 import checkoutClosetImg from "@/assets/checkout-closet.jpeg";
 import checkoutSandalsImg from "@/assets/checkout-sandals.jpeg";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, addDays, parseISO } from "date-fns";
 import { getBusinessDateFromCache, useShopSettings } from "@/hooks/useShopSettings";
 import { ja } from "date-fns/locale";
 import { calcPaymentFee, findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
@@ -115,7 +115,7 @@ export default function TherapistCheckout() {
   const [paymentEdits, setPaymentEdits] = useState<Record<string, string>>({});
   const [reservationsLoading, setReservationsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => format(getBusinessDateFromCache(), "yyyy-MM-dd"));
-  const { loaded: settingsLoaded, businessToday } = useShopSettings();
+  const { loaded: settingsLoaded, businessToday, dayStartTime } = useShopSettings();
   useEffect(() => {
     if (settingsLoaded) setSelectedDate(format(businessToday, "yyyy-MM-dd"));
   }, [settingsLoaded]); // eslint-disable-line
@@ -217,14 +217,22 @@ export default function TherapistCheckout() {
     if (!cast) return;
     setReservationsLoading(true);
     try {
+      // 営業日基準：当日は営業開始以降＋翌日の深夜(営業開始前)を当日扱い。
+      // 当日の早朝(営業開始前)は前営業日の分なので除外する。
+      const dayStart = dayStartTime || "06:00";
+      const nextDate = format(addDays(parseISO(selectedDate), 1), "yyyy-MM-dd");
       const { data, error } = await supabase
         .from("reservations")
-        .select("id, customer_name, start_time, course_name, course_type, duration, options, discount, discount_ids, price, payment_method, payment_details, payment_fee, status, nomination_type")
+        .select("id, reservation_date, customer_name, start_time, course_name, course_type, duration, options, discount, discount_ids, price, payment_method, payment_details, payment_fee, status, nomination_type")
         .eq("cast_id", cast.id)
-        .eq("reservation_date", selectedDate)
+        .in("reservation_date", [selectedDate, nextDate])
+        .order("reservation_date")
         .order("start_time");
       if (error) throw error;
-      const list = (data || []) as Reservation[];
+      const list = ((data || []) as any[]).filter((r) =>
+        (r.reservation_date === selectedDate && (r.start_time || "") >= dayStart) ||
+        (r.reservation_date === nextDate && (r.start_time || "") < dayStart)
+      ) as Reservation[];
       setReservations(list);
       const edits: Record<string, string> = {};
       list.forEach((r) => { edits[r.id] = r.payment_method || "cash"; });
@@ -234,7 +242,7 @@ export default function TherapistCheckout() {
     } finally {
       setReservationsLoading(false);
     }
-  }, [cast, selectedDate]);
+  }, [cast, selectedDate, dayStartTime]);
 
   useEffect(() => {
     if (cast) fetchReservations();
