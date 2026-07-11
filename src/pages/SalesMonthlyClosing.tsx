@@ -55,6 +55,7 @@ interface ExpenseRec {
   date: string;
   category: string;
   amount: number;
+  is_paid: boolean;
 }
 
 interface ClearanceRec {
@@ -84,6 +85,7 @@ export default function SalesMonthlyClosing() {
   const [varCategory, setVarCategory] = useState<string>(VARIABLE_ITEMS[0]);
   const [varAmount, setVarAmount] = useState("");
   const [varSaving, setVarSaving] = useState(false);
+  const [varUnpaid, setVarUnpaid] = useState(false);
   // 支払方法別・投函合計
   const [pay, setPay] = useState({ cash: 0, card: 0, paypay: 0, cashOnHand: 0 });
   // 締め状態
@@ -104,7 +106,7 @@ export default function SalesMonthlyClosing() {
     const [expRes, clrRes, castsRes, rewardsRes, resvRes, closeRes] = await Promise.all([
       supabase
         .from("expenses")
-        .select("id, expense_date, expense_type, amount")
+        .select("id, expense_date, expense_type, amount, is_paid")
         .gte("expense_date", monthStart)
         .lte("expense_date", monthEnd),
       supabase
@@ -139,6 +141,7 @@ export default function SalesMonthlyClosing() {
         date: r.expense_date,
         category: r.expense_type,
         amount: r.amount,
+        is_paid: r.is_paid ?? true,
       })));
     }
     if (!clrRes.error) {
@@ -222,6 +225,7 @@ export default function SalesMonthlyClosing() {
     .sort((a, b) => (a.date < b.date ? 1 : -1));
   const totalVariable = variableRecs.reduce((s, r) => s + (r.amount || 0), 0);
   const totalExpenses = totalFixed + totalVariable;
+  const totalUnpaid = records.filter((r) => !r.is_paid).reduce((s, r) => s + (r.amount || 0), 0);
 
   // ── 会計サマリー（利益） ──
   const netProfit = totalSales - totalSalaryPaid - totalExpenses;
@@ -247,7 +251,7 @@ export default function SalesMonthlyClosing() {
   const otherExpense = records.filter((r) => !groupedCats.has(r.category)).reduce((s, r) => s + (r.amount || 0), 0);
   if (otherExpense > 0) expenseBreakdown.push({ label: "その他", amount: otherExpense });
 
-  const handleRegister = async (item: string) => {
+  const handleRegister = async (item: string, paid = true) => {
     const raw = (inputs[item] ?? "").trim();
     if (raw === "") {
       toast.error("金額を入力してください（隔月請求などで請求が無い月は 0 を入力）");
@@ -269,15 +273,23 @@ export default function SalesMonthlyClosing() {
       amount,
       description: `${format(selectedMonth, "M月", { locale: ja })}分 ${item}`,
       payment_method: "bank_transfer",
+      is_paid: paid,
     }]);
     setSavingItem(null);
     if (error) {
       toast.error(`登録失敗: ${error.message}`);
       return;
     }
-    toast.success(`${item} を登録しました`);
+    toast.success(paid ? `${item} を登録しました` : `${item} を未払いで記録しました`);
     setInputs((p) => ({ ...p, [item]: "" }));
     fetchData();
+  };
+
+  const handleTogglePaid = async (rec: ExpenseRec) => {
+    const { error } = await supabase.from("expenses").update({ is_paid: !rec.is_paid }).eq("id", rec.id);
+    if (error) { toast.error("更新に失敗しました"); return; }
+    setRecords((prev) => prev.map((r) => r.id === rec.id ? { ...r, is_paid: !r.is_paid } : r));
+    toast.success(!rec.is_paid ? "支払済みにしました" : "未払いに戻しました");
   };
 
   const handleAddVariable = async () => {
@@ -296,13 +308,14 @@ export default function SalesMonthlyClosing() {
       amount,
       description: `${format(selectedMonth, "M月", { locale: ja })}分 ${varCategory}`,
       payment_method: "cash",
+      is_paid: !varUnpaid,
     }]);
     setVarSaving(false);
     if (error) {
       toast.error(`登録失敗: ${error.message}`);
       return;
     }
-    toast.success(`${varCategory} ${yen(amount)} を追加しました`);
+    toast.success(`${varCategory} ${yen(amount)} を${varUnpaid ? "未払いで記録" : "追加"}しました`);
     setVarAmount("");
     fetchData();
   };
@@ -619,9 +632,19 @@ export default function SalesMonthlyClosing() {
                                 />
                                 <Button
                                   size="sm"
+                                  variant="outline"
+                                  className="h-9 px-2 text-xs"
+                                  disabled={savingItem === item || (inputs[item] ?? "").trim() === ""}
+                                  onClick={() => handleRegister(item, false)}
+                                  title="支払い前でも金額だけ記録"
+                                >
+                                  未払いで記録
+                                </Button>
+                                <Button
+                                  size="sm"
                                   className="h-9"
                                   disabled={savingItem === item || (inputs[item] ?? "").trim() === ""}
-                                  onClick={() => handleRegister(item)}
+                                  onClick={() => handleRegister(item, true)}
                                 >
                                   {savingItem === item ? <Loader2 size={13} className="animate-spin" /> : "支払・登録"}
                                 </Button>
@@ -642,15 +665,33 @@ export default function SalesMonthlyClosing() {
                         <p className="text-center text-muted-foreground text-sm py-8">まだ入力がありません</p>
                       ) : (
                         <div className="divide-y">
-                          {doneItems.map((item) => (
+                          {doneItems.map((item) => {
+                            const rec = records.find((r) => r.category === item);
+                            const unpaid = !!rec && !rec.is_paid;
+                            return (
                             <div key={item} className="px-4 py-3 flex items-center justify-between gap-3">
-                              <span className="text-sm flex items-center gap-2">
-                                <CheckCircle size={14} className="text-green-600 shrink-0" />
-                                {item}
+                              <span className="text-sm flex items-center gap-2 min-w-0">
+                                {unpaid
+                                  ? <AlertCircle size={14} className="text-amber-500 shrink-0" />
+                                  : <CheckCircle size={14} className="text-green-600 shrink-0" />}
+                                <span className="truncate">{item}</span>
+                                {unpaid && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 shrink-0">未払い</span>}
                               </span>
-                              <span className="font-bold tabular-nums">{yen(sumFor(item))}</span>
+                              <span className="flex items-center gap-2 shrink-0">
+                                <span className="font-bold tabular-nums">{yen(sumFor(item))}</span>
+                                {rec && (
+                                  <button
+                                    className="text-[11px] px-2 py-0.5 rounded border border-muted-foreground/30 text-muted-foreground hover:bg-muted transition-colors"
+                                    onClick={() => handleTogglePaid(rec)}
+                                    title={unpaid ? "支払済みにする" : "未払いに戻す"}
+                                  >
+                                    {unpaid ? "支払済みに" : "未払いに"}
+                                  </button>
+                                )}
+                              </span>
                             </div>
-                          ))}
+                            );
+                          })}
                           <div className="px-4 py-3 flex items-center justify-between bg-muted/30 font-bold">
                             <span className="text-sm">固定費 合計</span>
                             <span className="tabular-nums text-primary">{yen(totalFixed)}</span>
@@ -692,6 +733,10 @@ export default function SalesMonthlyClosing() {
                         >
                           {varSaving ? <Loader2 size={13} className="animate-spin" /> : <><Plus size={14} className="mr-1" />追加</>}
                         </Button>
+                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer ml-1 select-none">
+                          <input type="checkbox" checked={varUnpaid} onChange={(e) => setVarUnpaid(e.target.checked)} className="accent-amber-500" />
+                          未払いで記録
+                        </label>
                       </div>
                       {/* 登録済み一覧 */}
                       {variableRecs.length === 0 ? (
@@ -700,11 +745,19 @@ export default function SalesMonthlyClosing() {
                         <div className="divide-y">
                           {variableRecs.map((r) => (
                             <div key={r.id} className="px-4 py-2.5 flex items-center justify-between gap-3">
-                              <span className="text-sm min-w-0">
-                                {r.category}
-                                <span className="ml-2 text-xs text-muted-foreground">{format(new Date(r.date), "M/d", { locale: ja })}</span>
+                              <span className="text-sm min-w-0 flex items-center gap-2">
+                                <span className="truncate">{r.category}</span>
+                                <span className="text-xs text-muted-foreground shrink-0">{format(new Date(r.date), "M/d", { locale: ja })}</span>
+                                {!r.is_paid && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 shrink-0">未払い</span>}
                               </span>
-                              <span className="flex items-center gap-3 shrink-0">
+                              <span className="flex items-center gap-2.5 shrink-0">
+                                <button
+                                  className="text-[11px] px-2 py-0.5 rounded border border-muted-foreground/30 text-muted-foreground hover:bg-muted transition-colors"
+                                  onClick={() => handleTogglePaid(r)}
+                                  title={!r.is_paid ? "支払済みにする" : "未払いに戻す"}
+                                >
+                                  {!r.is_paid ? "支払済みに" : "未払いに"}
+                                </button>
                                 <span className="font-semibold tabular-nums">{yen(r.amount)}</span>
                                 <button
                                   className="text-muted-foreground hover:text-destructive transition-colors"
@@ -725,9 +778,17 @@ export default function SalesMonthlyClosing() {
                     </div>
 
                     {/* 経費合計 */}
-                    <div className="rounded-lg bg-primary/5 px-4 py-3 flex items-center justify-between font-bold">
-                      <span className="text-sm">経費 合計（固定費＋変動費）</span>
-                      <span className="tabular-nums text-primary text-lg">{yen(totalExpenses)}</span>
+                    <div className="rounded-lg bg-primary/5 px-4 py-3 font-bold">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">経費 合計（固定費＋変動費）</span>
+                        <span className="tabular-nums text-primary text-lg">{yen(totalExpenses)}</span>
+                      </div>
+                      {totalUnpaid > 0 && (
+                        <div className="flex items-center justify-between mt-1 text-xs font-normal text-amber-700">
+                          <span>うち未払い</span>
+                          <span className="tabular-nums font-semibold">{yen(totalUnpaid)}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* 費目別内訳 */}
@@ -748,7 +809,7 @@ export default function SalesMonthlyClosing() {
                     )}
 
                     <p className="text-xs text-muted-foreground">
-                      ※ 固定費は毎月の未払いチェック、変動費は「追加」を押すごとに同じ月へ合算されます。いずれも「経費入力」に記録されます。
+                      ※ 支払い前でも金額だけ先に記録したい場合は「未払いで記録」（変動費は「未払いで記録」にチェックして追加）。あとで「支払済みに」で切り替えられます。金額は集計に含まれます。
                     </p>
                   </CardContent>
                 )}
