@@ -70,13 +70,6 @@ interface OptionRate {
   customer_price: number;
 }
 
-interface DiscountItem {
-  id: string;
-  name: string;
-  discount_type: "fixed" | "percentage";
-  discount_value: number;
-}
-
 interface NominationRate {
   id: string;
   nomination_type: string;
@@ -87,10 +80,13 @@ interface EditState {
   course_type: string;
   duration: number;
   selectedOptions: string[];
-  discount_id: string;
+  discount_amount: number;
   payment_method: string;
   nomination_type: string;
 }
+
+// 割引プルダウンの選択肢（1,000円〜5,000円）
+const DISCOUNT_OPTIONS = [0, 1000, 2000, 3000, 4000, 5000];
 
 const PAYMENT_METHODS = [
   { value: "cash", label: "現金" },
@@ -123,7 +119,6 @@ export default function TherapistCheckout() {
   // マスターデータ
   const [backRates, setBackRates] = useState<BackRate[]>([]);
   const [optionRates, setOptionRates] = useState<OptionRate[]>([]);
-  const [discounts, setDiscounts] = useState<DiscountItem[]>([]);
   const [paymentSettings, setPaymentSettings] = useState<PaymentSetting[]>([]);
   const [nominationRates, setNominationRates] = useState<NominationRate[]>([]);
 
@@ -193,13 +188,11 @@ export default function TherapistCheckout() {
     Promise.all([
       supabase.from("back_rates").select("id, course_type, duration, customer_price, display_order").order("display_order"),
       supabase.from("option_rates").select("id, option_name, customer_price, display_order").order("display_order"),
-      supabase.from("discounts").select("id, name, discount_type, discount_value, is_active").eq("is_active", true).order("name"),
       supabase.from("payment_settings").select("id, payment_method, payment_link, fee_percentage"),
       supabase.from("nomination_rates" as any).select("id, nomination_type, customer_price").order("customer_price"),
-    ]).then(([br, or, dc, ps, nr]) => {
+    ]).then(([br, or, ps, nr]) => {
       if (br.data) setBackRates(br.data as BackRate[]);
       if (or.data) setOptionRates(or.data as OptionRate[]);
-      if (dc.data) setDiscounts(dc.data as DiscountItem[]);
       if (ps.data) setPaymentSettings(ps.data as PaymentSetting[]);
       if (nr.data) setNominationRates(nr.data as NominationRate[]);
     });
@@ -259,33 +252,8 @@ export default function TherapistCheckout() {
       const courseType = r.course_type ?? (courseTypes[0] || "");
       const duration = r.duration ?? (backRates.find(b => b.course_type === courseType)?.duration ?? 60);
 
-      // discount_ids から直接取得（なければ金額で逆引き）
-      let discount_id = "none";
-      const storedDiscountId = r.discount_ids?.[0];
-      if (storedDiscountId && discounts.find(d => d.id === storedDiscountId)) {
-        discount_id = storedDiscountId;
-      } else if ((r.discount ?? 0) > 0) {
-        const basePrice = backRates.find(b => b.course_type === courseType && b.duration === duration)?.customer_price ?? 0;
-        const optionTotal = (r.options ?? []).reduce((s, o) => {
-          const or = optionRates.find(x => x.option_name === o);
-          return s + (or?.customer_price ?? 0);
-        }, 0);
-        const nominationFee = (r.nomination_type && r.nomination_type !== "none")
-          ? (nominationRates.find(nr => nr.nomination_type === r.nomination_type)?.customer_price ?? 0)
-          : 0;
-        const subtotal = basePrice + optionTotal + nominationFee;
-
-        const fixedMatch = discounts.find(d => d.discount_type === "fixed" && d.discount_value === r.discount);
-        if (fixedMatch) {
-          discount_id = fixedMatch.id;
-        } else {
-          const pctMatch = discounts.find(d =>
-            d.discount_type === "percentage" &&
-            Math.round((subtotal * d.discount_value) / 100) === r.discount
-          );
-          if (pctMatch) discount_id = pctMatch.id;
-        }
-      }
+      // 保存済みの割引額をそのまま初期値にする（プルダウン選択肢に無い額でも保持）
+      const discount_amount = r.discount ?? 0;
 
       setEditStates(prev => ({
         ...prev,
@@ -293,7 +261,7 @@ export default function TherapistCheckout() {
           course_type: courseType,
           duration,
           selectedOptions: r.options ?? [],
-          discount_id,
+          discount_amount,
           payment_method: r.payment_method || "cash",
           nomination_type: r.nomination_type ?? "none",
         },
@@ -319,20 +287,11 @@ export default function TherapistCheckout() {
       if (nr) nominationFee = nr.customer_price;
     }
     subtotal += nominationFee;
-    let discountAmt = 0;
-    if (state.discount_id !== "none") {
-      const d = discounts.find(x => x.id === state.discount_id);
-      if (d) {
-        discountAmt = d.discount_type === "percentage"
-          ? Math.round((subtotal * d.discount_value) / 100)
-          : d.discount_value;
-      }
-    }
-    discountAmt = Math.min(discountAmt, subtotal);
+    const discountAmt = Math.min(state.discount_amount || 0, subtotal);
     const price = subtotal - discountAmt;
     const fee = calcPaymentFee(price, paymentSettings, state.payment_method);
     return { subtotal, nominationFee, discount: discountAmt, fee, total: price + fee };
-  }, [backRates, optionRates, discounts, paymentSettings, nominationRates]);
+  }, [backRates, optionRates, paymentSettings, nominationRates]);
 
   const handleSaveEdit = async (r: Reservation) => {
     const state = editStates[r.id];
@@ -342,7 +301,7 @@ export default function TherapistCheckout() {
     const backRate = backRates.find(b => b.course_type === state.course_type && b.duration === state.duration);
     const courseName = backRate ? `${state.course_type} ${state.duration}分` : r.course_name;
     try {
-      const discountIds = state.discount_id !== "none" ? [state.discount_id] : [];
+      const discountIds: string[] = [];
       // セラピストポータルは anon 権限のため、token 検証付きRPC経由で予約を直接更新する
       const { error } = await supabase.rpc("therapist_update_reservation", {
         p_token: token,
@@ -847,17 +806,22 @@ export default function TherapistCheckout() {
                                   <div>
                                     <Label className="text-xs">割引</Label>
                                     <Select
-                                      value={state.discount_id}
-                                      onValueChange={(v) => updateEdit(r.id, { discount_id: v })}
+                                      value={state.discount_amount.toString()}
+                                      onValueChange={(v) => updateEdit(r.id, { discount_amount: parseInt(v) })}
                                     >
                                       <SelectTrigger className="h-8 text-xs mt-1">
                                         <SelectValue placeholder="割引なし" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="none" className="text-xs">割引なし</SelectItem>
-                                        {discounts.map(d => (
-                                          <SelectItem key={d.id} value={d.id} className="text-xs">
-                                            {d.name}（{d.discount_type === "percentage" ? `-${d.discount_value}%` : `-¥${d.discount_value.toLocaleString()}`}）
+                                        {/* 保存済みの額がプルダウン選択肢に無い場合も表示できるようにする */}
+                                        {!DISCOUNT_OPTIONS.includes(state.discount_amount) && (
+                                          <SelectItem value={state.discount_amount.toString()} className="text-xs">
+                                            -¥{state.discount_amount.toLocaleString()}
+                                          </SelectItem>
+                                        )}
+                                        {DISCOUNT_OPTIONS.map(amt => (
+                                          <SelectItem key={amt} value={amt.toString()} className="text-xs">
+                                            {amt === 0 ? "割引なし" : `-¥${amt.toLocaleString()}`}
                                           </SelectItem>
                                         ))}
                                       </SelectContent>
