@@ -98,6 +98,7 @@ interface TherapistCustomer {
   preference_notes: string | null;
   my_visit_count: number;
   my_last_visit: string | null;
+  my_visit_dates: string[] | null;
 }
 
 const now = new Date();
@@ -1141,6 +1142,25 @@ export default function TherapistPortal() {
                             {c.notes && (
                               <p className="text-xs text-muted-foreground border-t pt-1.5">管理メモ：{c.notes}</p>
                             )}
+
+                            {/* 接客した日（毎回の来店日） */}
+                            {c.my_visit_dates?.length ? (
+                              <div className="border-t pt-2">
+                                <p className="text-xs font-semibold text-muted-foreground mb-1.5">
+                                  接客した日（{c.my_visit_count}回）
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {c.my_visit_dates.map((d) => (
+                                    <span
+                                      key={d}
+                                      className="text-xs bg-muted rounded-md px-1.5 py-0.5 text-muted-foreground"
+                                    >
+                                      {format(new Date(d), "yyyy/M/d(E)", { locale: ja })}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
 
                             {/* セラピストメモ（編集可） */}
                             <div className="border-t pt-2">
