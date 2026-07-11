@@ -996,13 +996,18 @@ export default function Schedule() {
                                 const resStartMin = timeToMinutes(res.start_time);
                                 const resTop = minutesToPx(resStartMin);
                                 // 延長オプション込みの実施術時間
-                                const effDuration = res.duration + getExtMinutes(res.options, optionRates);
+                                const extMin = getExtMinutes(res.options, optionRates);
+                                const effDuration = res.duration + extMin;
                                 const resH = Math.max((effDuration / 60) * HOUR_HEIGHT, 28);
                                 const statusClass = STATUS_COLORS[res.status] || STATUS_COLORS.pending;
                                 const endTime = format(
                                   addMinutes(parse(res.start_time.slice(0, 5), "HH:mm", new Date()), effDuration),
                                   "HH:mm"
                                 );
+                                // 延長系オプションと通常オプションを分離
+                                const extNames = new Set(optionRates.filter((o) => (o.extension_minutes ?? 0) > 0).map((o) => o.option_name));
+                                const otherOpts = (res.options ?? []).filter((n) => !extNames.has(n));
+                                const durLabel = extMin > 0 ? `${res.duration}分＋延長${extMin}分` : `${res.duration}分`;
                                 return (
                                   <div
                                     key={res.id}
@@ -1016,15 +1021,22 @@ export default function Schedule() {
                                       openDetail(res);
                                     }}
                                   >
-                                    <div className="text-[10px] font-bold leading-tight">
+                                    <div className="text-[10px] font-bold leading-tight pr-9">
                                       {toExtTime(res.start_time)}~{endTime}
                                     </div>
-                                    <div className="text-xs font-semibold truncate leading-tight">
+                                    <div className="text-xs font-semibold truncate leading-tight pr-9">
                                       {res.customer_name}
+                                      {res.nomination_type && res.nomination_type !== "none" && (
+                                        <span className="ml-1 text-[9px] font-normal opacity-70">{res.nomination_type}</span>
+                                      )}
                                     </div>
                                     {resH > 40 && (
-                                      <div className="text-[10px] truncate leading-tight">
-                                        {effDuration > res.duration ? `${effDuration}分（延長込）` : `${res.duration}分`} ¥{res.price.toLocaleString()}
+                                      <div className="text-[10px] leading-snug mt-0.5">
+                                        <div className="truncate">{res.course_type} {durLabel}</div>
+                                        {resH > 62 && otherOpts.length > 0 && (
+                                          <div className="truncate opacity-80">＋{otherOpts.join("、")}</div>
+                                        )}
+                                        <div className="font-semibold">¥{res.price.toLocaleString()}</div>
                                       </div>
                                     )}
                                     {/* 完了へ移行ボタン */}
