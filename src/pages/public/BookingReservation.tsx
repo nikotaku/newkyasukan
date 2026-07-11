@@ -570,7 +570,7 @@ const BookingReservation = () => {
           options: selectedOptions.length > 0 ? selectedOptions : null,
           nomination_type: finalNominationType !== 'none' ? finalNominationType : null,
           price: finalPrice,
-          payment_method: paymentMethod || null,
+          payment_method: paymentMethod || "cash",
           payment_fee: finalPaymentFee || 0,
           notes: notes.trim() || null,
           status: "confirmed",

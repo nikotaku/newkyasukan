@@ -163,7 +163,7 @@ export default function CastBooking() {
         options: selectedOptions.length > 0 ? selectedOptions : null,
         nomination_type: "本指名",
         price: total,
-        payment_method: "現金",
+        payment_method: "cash",
         notes: notes.trim() || null,
         referral_source: `${cast.name}専用フォーム`,
         status: "confirmed",
