@@ -214,7 +214,8 @@ export default function SalesDailySales() {
         // 現金集計: payment_details がある場合は cash エントリのみ合算
         if (r.payment_details && r.payment_details.length > 0) {
           groups[castId].cashSales += r.payment_details.filter(d => d.method === "cash").reduce((s, d) => s + d.amount, 0);
-        } else if ((r.payment_method ?? "cash") === "cash") {
+        } else if (r.payment_method !== "card" && r.payment_method !== "paypay") {
+          // 明示的にカード/PayPayのもの以外（null・未入力含む）はデフォルトで現金扱い
           groups[castId].cashSales += totalPrice;
         }
         groups[castId].autoBack += totalBack;
