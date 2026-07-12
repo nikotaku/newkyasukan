@@ -1,6 +1,5 @@
 import { useEffect, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
 import {
   ArrowLeft, MapPin, Clock, Train, ShieldCheck, Banknote, Wallet, Car,
   Home, IdCard, Camera, AlertTriangle, Sparkles, Twitter, Check, ChevronDown,
@@ -15,12 +14,8 @@ import {
 
 export default function InterviewGuide() {
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    if (!loading && !user) navigate("/login");
-  }, [user, loading, navigate]);
-
+  // 面談時の画面共有用ページのため、ログインなしで閲覧可能にしている
   useEffect(() => { document.title = "全力エステ 仙台｜面談資料"; }, []);
 
   const Section = ({ id, icon: Icon, title, sub, children, tone = "rose" }: {
