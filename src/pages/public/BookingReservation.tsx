@@ -409,8 +409,9 @@ const BookingReservation = () => {
         .from('payment_settings')
         .select('id, payment_method, payment_link, fee_percentage');
 
-      if (backData) setBackRates(backData as any);
-      if (optionData) setOptionRates(optionData);
+      // Wセラピスト専用コース・オプションは専用フォーム（/book/ペアキャスト）のみで販売
+      if (backData) setBackRates((backData as any[]).filter((r) => r.course_type !== "全力W") as any);
+      if (optionData) setOptionRates(optionData.filter((o: any) => !["全力PKG1W", "全力PKG2W"].includes(o.option_name)));
       if (nominationData) setNominationRates(nominationData);
       if (paymentData) setPaymentSettings(paymentData as PaymentSetting[]);
     } catch (error) {

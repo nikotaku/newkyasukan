@@ -50,8 +50,9 @@ const System = () => {
       if (backRes.error) throw backRes.error;
       if (optionRes.error) throw optionRes.error;
       if (nominationRes.error) throw nominationRes.error;
-      setBackRates((backRes.data || []) as any);
-      setOptionRates(optionRes.data || []);
+      // Wセラピスト専用コース・オプションはHPには掲載しない（専用フォーム限定）
+      setBackRates(((backRes.data || []) as any[]).filter((r) => r.course_type !== "全力W") as any);
+      setOptionRates((optionRes.data || []).filter((o: any) => !["全力PKG1W", "全力PKG2W"].includes(o.option_name)));
       setNominationRates(nominationRes.data || []);
       const map: Record<string, string> = {};
       (contentRes.data || []).forEach((r: { key: string; value: string }) => { map[r.key] = r.value; });
