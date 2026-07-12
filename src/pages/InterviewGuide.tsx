@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   ArrowLeft, MapPin, Clock, Train, ShieldCheck, Banknote, Wallet, Car,
   Home, IdCard, Camera, AlertTriangle, Sparkles, Twitter, Check, ChevronDown,
+  KeyRound, Footprints, Archive, Tablet,
 } from "lucide-react";
 
 /**
@@ -110,17 +111,81 @@ export default function InterviewGuide() {
           <KV k="所在地" v="宮城県仙台市" />
           <KV k="HP" v={<a href="https://zenryoku-esthe.com/" target="_blank" rel="noreferrer" className="text-rose-500 underline">zenryoku-esthe.com</a>} />
         </Card>
-        <div className="grid grid-cols-2 gap-3 mt-3">
-          <Card className="py-4 text-center">
+        <div className="grid grid-cols-3 gap-3 mt-3">
+          <Card className="py-4 text-center px-2">
             <Train size={18} className="text-rose-500 mx-auto mb-1" />
-            <p className="text-xs text-gray-400">インルーム 最寄り</p>
-            <p className="text-sm font-bold mt-0.5">地下鉄 北四番丁駅</p>
+            <p className="text-xs text-gray-400">サンルーム</p>
+            <p className="text-sm font-bold mt-0.5">勾当台公園駅<br /><span className="text-xs font-medium text-gray-500">徒歩3分</span></p>
           </Card>
-          <Card className="py-4 text-center">
+          <Card className="py-4 text-center px-2">
             <Train size={18} className="text-rose-500 mx-auto mb-1" />
-            <p className="text-xs text-gray-400">ラズルーム 最寄り</p>
-            <p className="text-sm font-bold mt-0.5">地下鉄 勾当台公園駅</p>
+            <p className="text-xs text-gray-400">ラズルーム</p>
+            <p className="text-sm font-bold mt-0.5">北四番丁駅<br /><span className="text-xs font-medium text-gray-500">徒歩8分</span></p>
           </Card>
+          <Card className="py-4 text-center px-2">
+            <Train size={18} className="text-rose-500 mx-auto mb-1" />
+            <p className="text-xs text-gray-400">インルーム</p>
+            <p className="text-sm font-bold mt-0.5">北四番丁駅<br /><span className="text-xs font-medium text-gray-500">徒歩3分</span></p>
+          </Card>
+        </div>
+      </Section>
+
+      {/* 各ルームの住所と鍵（全力BOOKより） */}
+      <Section icon={MapPin} title="各ルームの住所・アクセス・鍵" sub="全力BOOKより" tone="amber">
+        <div className="space-y-4">
+          {[
+            {
+              name: "サンルーム",
+              zip: "〒980-0803",
+              address: "仙台市 青葉区 国分町 3-6-13 アルモニー勾当台 203",
+              access: [
+                "地下鉄南北線／勾当台公園駅前 徒歩3分",
+                "仙台駅西口タクシー乗り場から車で7分",
+              ],
+              keyNote: "建物正面入り口のキーボックスに鍵があります",
+            },
+            {
+              name: "ラズルーム",
+              zip: "〒980-0821",
+              address: "宮城県仙台市青葉区春日町 11-12 ラジュール仙台（L'AZURE SENDAI）",
+              access: [
+                "地下鉄南北線／北四番丁駅 徒歩8分",
+                "地下鉄東西線／大町西公園駅 徒歩13分",
+                "地下鉄南北線／広瀬通駅 徒歩19分",
+              ],
+              keyNote: "建物脇のキーボックスに鍵があります",
+            },
+            {
+              name: "インルーム",
+              zip: "〒980-0802",
+              address: "宮城県仙台市青葉区二日町 11-15 In-Towner二日町 201号",
+              access: [
+                "地下鉄南北線／北四番丁駅 徒歩3分",
+                "JR線／仙台駅 徒歩25分",
+              ],
+              keyNote: "建物脇の配管に付いたキーボックスに鍵があります",
+            },
+          ].map((room) => (
+            <Card key={room.name} className="py-4">
+              <p className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
+                <Home size={16} className="text-amber-500" />{room.name}
+              </p>
+              <p className="text-xs text-gray-400">{room.zip}</p>
+              <p className="text-sm font-medium text-gray-800 mb-2">{room.address}</p>
+              <ul className="space-y-1 text-xs text-gray-500 mb-3">
+                {room.access.map((a) => (
+                  <li key={a} className="flex items-center gap-1.5">
+                    <Train size={12} className="text-rose-400 shrink-0" />{a}
+                  </li>
+                ))}
+              </ul>
+              <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 text-xs text-amber-800">
+                <p className="font-bold flex items-center gap-1.5 mb-1"><KeyRound size={13} />鍵の案内</p>
+                <p>{room.keyNote}</p>
+                <p className="mt-1">キーボックスは <span className="font-bold">【1209】</span> で解除 ／ 閉める時は <span className="font-bold">【0000】</span> に戻す</p>
+              </div>
+            </Card>
+          ))}
         </div>
       </Section>
 
@@ -246,17 +311,63 @@ export default function InterviewGuide() {
       </Section>
 
       {/* ルーム環境 */}
-      <Section icon={Home} title="ルーム環境・設備" tone="gray">
+      <Section icon={Home} title="ルーム環境・設備" sub="各ルーム共通" tone="gray">
         <div className="flex flex-wrap gap-2">
           {[
             "WiFi", "冷蔵庫", "電子レンジ", "布団セット", "ケトル", "電気毛布",
             "置型ヒーター", "ドラム洗濯機", "ドライヤー", "ヘアアイロン",
-            "貸出MB", "iPad", "お出迎え着",
+            "ホットアイマスク", "貸出MB", "iPad", "お出迎え着",
           ].map((x) => (
             <span key={x} className="text-sm bg-white border border-gray-200 rounded-full px-3 py-1.5 flex items-center gap-1">
               <Check size={13} className="text-rose-500" />{x}
             </span>
           ))}
+        </div>
+
+        {/* 備え付け設備の使い方（全力BOOKより） */}
+        <div className="space-y-3 mt-5">
+          <Card className="py-4">
+            <p className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
+              <Footprints size={16} className="text-rose-500" />サンダル（各ルーム合計3足）
+            </p>
+            <ul className="space-y-1.5 text-sm text-gray-700">
+              <li className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-white border border-gray-300 shrink-0" />セラピスト用（白）</li>
+              <li className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-gray-800 shrink-0" />お客様用❶（黒）</li>
+              <li className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-white border border-gray-300 shrink-0" />お客様用❷（白）</li>
+            </ul>
+            <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-2">
+              ❷の白サンダルは、施術後などオイルがついている時専用で使います。
+            </p>
+          </Card>
+
+          <Card className="py-4">
+            <p className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
+              <Archive size={16} className="text-rose-500" />レジスターBOX
+            </p>
+            <ul className="space-y-1.5 text-sm text-gray-700">
+              {["釣り銭・預かり金 保管袋", "店落ち投函用封筒", "ボールペン・マッキー"].map((x, i) => (
+                <li key={x} className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-rose-100 text-rose-600 text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                  {x}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-2">
+              釣り銭はセラピストご用意です。千円札×10枚ほどお持ちください。
+            </p>
+          </Card>
+
+          <Card className="py-4">
+            <p className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
+              <Tablet size={16} className="text-rose-500" />店舗備え付け iPad
+            </p>
+            <ul className="space-y-1.5 text-sm text-gray-700">
+              <li className="flex items-center gap-2"><Check size={14} className="text-rose-500 shrink-0" />ボタンひとつで音楽再生</li>
+              <li className="flex items-center gap-2"><Check size={14} className="text-rose-500 shrink-0" />メニュー表の表示（お客様への提示用）</li>
+              <li className="flex items-center gap-2"><Check size={14} className="text-rose-500 shrink-0" />清掃チェックシートの送信</li>
+              <li className="flex items-center gap-2"><Check size={14} className="text-rose-500 shrink-0" />誓約書の記入（電子ペーパー）</li>
+            </ul>
+          </Card>
         </div>
       </Section>
 
