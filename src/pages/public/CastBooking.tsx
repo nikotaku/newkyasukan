@@ -53,7 +53,15 @@ const TIME_OPTIONS: { label: string; value: string; dayOffset: number }[] = (() 
 // オプションの内容説明（空文字の間は表示しない）
 const OPTION_DESCRIPTIONS: Record<string, string> = {
   "全力PKG": "極液・DR30分・マイクロビキニが全てセットになったお得なパッケージ。\n迷ったらこれを入れておけば間違いナシです‼︎",
+  "全力PKG1W": "極液・マイクロビキニ・Wハンドリンパが全てセットになった\nW施術ならではのスペシャルパッケージ‼︎",
+  "全力PKG2W": "極液・カルバンクラインがセットになったお得なパッケージ✨",
 };
+
+// Wセラピスト（2人同時施術）専用の料金体系。
+// ペア名義のキャスト（名前に「&」を含む）の専用フォームだけに表示し、
+// 通常のキャストのフォームには出さない（is_visible=false のため公開HPにも出ない）。
+const W_COURSE_TYPE = "全力W";
+const W_OPTION_NAMES = ["全力PKG1W", "全力PKG2W"];
 
 // 全力PKG以外の掲載順（全力PKGは別枠で最上部に大きく表示）
 const OPTION_ORDER = ["延長20分", "延長40分", "DR30分", "衣装MB", "極液"];
@@ -84,6 +92,9 @@ export default function CastBooking() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
+  // ペア名義（Wセラピスト）のフォームかどうか
+  const isPairCast = !!cast?.name?.includes("&");
+
   useEffect(() => {
     if (!castId) { setCastLoading(false); return; }
     supabase.from("casts").select("id, name, photo").eq("id", castId).maybeSingle()
@@ -94,28 +105,51 @@ export default function CastBooking() {
         }
         setCastLoading(false);
       });
-    supabase.rpc("get_public_back_rates").then(({ data }) => {
-      const rates = (data || []) as BackRate[];
-      setBackRates(rates);
-      // おすすめの全力コース80分を初期選択（誘導）
-      const zenryoku80 = rates.find((r) => r.course_type === "全力" && r.duration === 80);
-      if (zenryoku80) {
-        setCourseType("全力");
-        setDuration(80);
-      } else if (rates[0]) {
-        setCourseType(rates[0].course_type);
-      }
-    });
-    supabase.from("option_rates").select("option_name, customer_price, display_order")
-      .order("display_order").then(({ data }) => {
-        setOptionRates((data || []) as OptionRate[]);
+  }, [castId]);
+
+  // 料金データはキャスト判明後に取得（ペア名義はWコースのみ／通常キャストは既存コースのみ）
+  useEffect(() => {
+    if (!cast) return;
+    const pair = cast.name.includes("&");
+    if (pair) {
+      // Wコースは is_visible=false のため RPC には載らず、直接参照する
+      supabase.from("back_rates").select("course_type, duration, customer_price")
+        .eq("course_type", W_COURSE_TYPE).order("duration").then(({ data }) => {
+          const rates = (data || []) as BackRate[];
+          setBackRates(rates);
+          if (rates[0]) {
+            setCourseType(W_COURSE_TYPE);
+            setDuration(rates[0].duration);
+          }
+        });
+      supabase.from("option_rates").select("option_name, customer_price, display_order")
+        .in("option_name", W_OPTION_NAMES).order("display_order").then(({ data }) => {
+          setOptionRates((data || []) as OptionRate[]);
+        });
+    } else {
+      supabase.rpc("get_public_back_rates").then(({ data }) => {
+        const rates = ((data || []) as BackRate[]).filter((r) => r.course_type !== W_COURSE_TYPE);
+        setBackRates(rates);
+        // おすすめの全力コース80分を初期選択（誘導）
+        const zenryoku80 = rates.find((r) => r.course_type === "全力" && r.duration === 80);
+        if (zenryoku80) {
+          setCourseType("全力");
+          setDuration(80);
+        } else if (rates[0]) {
+          setCourseType(rates[0].course_type);
+        }
       });
+      supabase.from("option_rates").select("option_name, customer_price, display_order")
+        .order("display_order").then(({ data }) => {
+          setOptionRates(((data || []) as OptionRate[]).filter((o) => !W_OPTION_NAMES.includes(o.option_name)));
+        });
+    }
     supabase.from("nomination_rates").select("nomination_type, customer_price").then(({ data }) => {
       // 専用予約ページは指名前提のため、本指名料（2,000円）を最初から含める
       const hon = (data || []).find((n: any) => n.nomination_type === "本指名");
       if (hon) setNominationFee(hon.customer_price ?? 0);
     });
-  }, [castId]);
+  }, [cast]);
 
   const courseTypes = [...new Set(backRates.map((r) => r.course_type))];
   const durationsFor = (ct: string) =>
@@ -268,8 +302,17 @@ export default function CastBooking() {
           <h1 className="mt-4 text-2xl font-bold text-rose-500 tracking-wide">
             {cast.name}<span className="text-base font-medium text-pink-400"> 専用予約ページ</span>
           </h1>
+          {isPairCast && (
+            <span className="inline-block mt-2 text-[11px] font-bold text-white bg-gradient-to-r from-pink-400 to-rose-400 px-3 py-1 rounded-full shadow-sm">
+              👯‍♀️ 2人同時のWセラピストコース
+            </span>
+          )}
           <p className="mt-1.5 text-sm text-pink-500/80">
-            会いに来てくれて嬉しいな♡<br />下のフォームから予約してね💕
+            {isPairCast ? (
+              <>ふたりで全力でおもてなし♡<br />下のフォームから予約してね💕</>
+            ) : (
+              <>会いに来てくれて嬉しいな♡<br />下のフォームから予約してね💕</>
+            )}
           </p>
         </div>
       </header>
@@ -355,7 +398,7 @@ export default function CastBooking() {
             <div className="grid grid-cols-3 gap-2">
               {durationsFor(courseType).map((r) => {
                 const on = duration === r.duration;
-                const recommended = courseType === "全力" && r.duration === 80;
+                const recommended = (courseType === "全力" && r.duration === 80) || (isPairCast && r.duration === 100);
                 return (
                   <button
                     key={r.duration}
@@ -386,47 +429,53 @@ export default function CastBooking() {
           {optionRates.length > 0 && (
             <div>
               <label className="flex items-center gap-1.5 text-sm font-bold text-rose-500 mb-2">
-                <Heart size={14} className="fill-rose-300 text-rose-300" />オプション（延長など・任意）
+                <Heart size={14} className="fill-rose-300 text-rose-300" />オプション（{isPairCast ? "任意" : "延長など・任意"}）
               </label>
 
-              {/* 全力PKG：おすすめとして最上部に大きく表示 */}
+              {/* 目玉パッケージ：おすすめとして最上部に大きく表示（Wフォームは全力PKG1W） */}
               {(() => {
-                const pkg = optionRates.find((o) => o.option_name === "全力PKG");
-                if (!pkg) return null;
-                const on = selectedOptions.includes("全力PKG");
-                return (
-                  <button
-                    type="button"
-                    onClick={() => toggleOption("全力PKG")}
-                    className={`relative w-full text-left rounded-2xl p-4 mb-3 border-2 transition-all ${
-                      on
-                        ? "bg-gradient-to-br from-pink-400 to-rose-400 text-white border-rose-400 shadow-lg"
-                        : "bg-rose-50 border-rose-300 hover:bg-rose-100"
-                    }`}
-                  >
-                    <span className={`absolute -top-2 left-4 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm ${on ? "bg-white text-rose-500" : "bg-rose-400 text-white"}`}>
-                      ⭐一番人気
-                    </span>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`text-lg font-bold ${on ? "text-white" : "text-rose-600"}`}>全力PKG</span>
-                      <span className={`text-lg font-bold ${on ? "text-white" : "text-rose-500"}`}>+¥{pkg.customer_price.toLocaleString()}</span>
-                    </div>
-                    {OPTION_DESCRIPTIONS["全力PKG"] && (
-                      <p className={`text-xs mt-1.5 leading-relaxed whitespace-pre-wrap ${on ? "text-white/90" : "text-gray-600"}`}>
-                        {OPTION_DESCRIPTIONS["全力PKG"]}
+                const featuredNames = isPairCast ? W_OPTION_NAMES : ["全力PKG"];
+                return featuredNames.map((fname, i) => {
+                  const pkg = optionRates.find((o) => o.option_name === fname);
+                  if (!pkg) return null;
+                  const on = selectedOptions.includes(fname);
+                  return (
+                    <button
+                      key={fname}
+                      type="button"
+                      onClick={() => toggleOption(fname)}
+                      className={`relative w-full text-left rounded-2xl p-4 mb-3 border-2 transition-all ${
+                        on
+                          ? "bg-gradient-to-br from-pink-400 to-rose-400 text-white border-rose-400 shadow-lg"
+                          : "bg-rose-50 border-rose-300 hover:bg-rose-100"
+                      }`}
+                    >
+                      {i === 0 && (
+                        <span className={`absolute -top-2 left-4 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm ${on ? "bg-white text-rose-500" : "bg-rose-400 text-white"}`}>
+                          ⭐一番人気
+                        </span>
+                      )}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-lg font-bold ${on ? "text-white" : "text-rose-600"}`}>{fname}</span>
+                        <span className={`text-lg font-bold ${on ? "text-white" : "text-rose-500"}`}>+¥{pkg.customer_price.toLocaleString()}</span>
+                      </div>
+                      {OPTION_DESCRIPTIONS[fname] && (
+                        <p className={`text-xs mt-1.5 leading-relaxed whitespace-pre-wrap ${on ? "text-white/90" : "text-gray-600"}`}>
+                          {OPTION_DESCRIPTIONS[fname]}
+                        </p>
+                      )}
+                      <p className={`text-[11px] mt-2 font-medium ${on ? "text-white" : "text-rose-500"}`}>
+                        {on ? "✓ 選択中" : "タップで追加"}
                       </p>
-                    )}
-                    <p className={`text-[11px] mt-2 font-medium ${on ? "text-white" : "text-rose-500"}`}>
-                      {on ? "✓ 選択中" : "タップで追加"}
-                    </p>
-                  </button>
-                );
+                    </button>
+                  );
+                });
               })()}
 
               {/* その他オプション */}
               <div className="flex flex-wrap gap-2">
                 {[...optionRates]
-                  .filter((o) => o.option_name !== "全力PKG")
+                  .filter((o) => o.option_name !== "全力PKG" && !(isPairCast && W_OPTION_NAMES.includes(o.option_name)))
                   .sort((a, b) => optionSortKey(a.option_name) - optionSortKey(b.option_name) || a.display_order - b.display_order)
                   .map((o) => {
                   const on = selectedOptions.includes(o.option_name);
