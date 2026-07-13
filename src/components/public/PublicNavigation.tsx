@@ -50,23 +50,23 @@ export const PublicNavigation = () => {
               12:00〜26:00(24:40最終受付)
             </span>
             <a
-              href="tel:09081264042"
+              href="tel:09087493901"
               className="inline-flex items-center gap-1.5 font-semibold hover:text-[#e9d189]"
               style={{ color: "#c6a15b" }}
             >
               <Phone size={14} />
-              090-8126-4042
+              090-8749-3901
             </a>
           </div>
 
           {/* SP: phone + hamburger */}
           <div className="md:hidden flex items-center gap-3" style={{ color: "#c6a15b" }}>
             <a
-              href="tel:09081264042"
+              href="tel:09087493901"
               className="inline-flex items-center gap-1 font-semibold text-[10px]"
               style={{ color: "#c6a15b" }}
             >
-              <Phone size={11} /> 090-8126-4042
+              <Phone size={11} /> 090-8749-3901
             </a>
             <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
               <SheetTrigger asChild>

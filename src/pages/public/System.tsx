@@ -229,7 +229,7 @@ const System = () => {
                         {k === 'URL' ? (
                           <a href="https://zenryoku-esthe.com" className="text-[#c6a15b] hover:underline">https://zenryoku-esthe.com</a>
                         ) : k === 'TEL' ? (
-                          <a href="tel:09081264042" className="hover:underline">090-8126-4042</a>
+                          <a href="tel:09087493901" className="hover:underline">090-8749-3901</a>
                         ) : v}
                       </td>
                     </tr>
@@ -241,7 +241,7 @@ const System = () => {
 
           {/* CTA */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="tel:09081264042">
+            <a href="tel:09087493901">
               <Button size="lg" className="gap-2 min-w-[200px] bg-[#c6a15b] hover:bg-[#a87c2a]">
                 <Phone size={20} />電話で予約
               </Button>
