@@ -183,7 +183,7 @@ export default function Pricing() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="tel:09081264042">
+            <a href="tel:09087493901">
               <Button size="lg" className="gap-2 min-w-[200px] bg-[#c6a15b] hover:bg-[#a87c2a]">
                 <Phone size={20} />電話で予約
               </Button>

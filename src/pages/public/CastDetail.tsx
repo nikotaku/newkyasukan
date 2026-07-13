@@ -359,7 +359,7 @@ const CastDetail = () => {
 
             {/* ── CTA buttons ── */}
             <div className="px-5 py-4 flex flex-col gap-3 border-b border-[#3a2f1c]">
-              <a href="tel:09081264042"
+              <a href="tel:09087493901"
                 className="flex items-center justify-center gap-2 py-3.5 rounded-lg text-white font-bold text-base transition-opacity hover:opacity-90"
                 style={{ background: "linear-gradient(135deg, #c6a15b, #a87c2a)" }}>
                 <Phone size={17} />電話で予約する

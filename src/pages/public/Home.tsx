@@ -383,8 +383,8 @@ const Home = () => {
                     TEL
                   </td>
                   <td className="py-3 px-4 text-gray-700">
-                    <a href="tel:09081264042" className="hover:underline">
-                      090-8126-4042
+                    <a href="tel:09087493901" className="hover:underline">
+                      090-8749-3901
                     </a>
                   </td>
                 </tr>
