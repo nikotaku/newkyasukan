@@ -1,6 +1,7 @@
 import { Menu, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { CtiCallPopup } from "@/components/CtiCallPopup";
 import caskanLogo from "@/assets/caskan-logo.png";
 import {
   DropdownMenu,
@@ -77,6 +78,8 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
           )}
         </div>
       </div>
+      {/* CTI着信ポップ（全管理画面共通） */}
+      <CtiCallPopup />
     </header>
   );
 };
