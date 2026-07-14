@@ -131,6 +131,7 @@ import CustomerReview from "./pages/public/CustomerReview";
 import Voice from "./pages/public/Voice";
 import ReviewMaker from "./pages/public/ReviewMaker";
 import CastBooking from "./pages/public/CastBooking";
+import KeikaBooking from "./pages/public/KeikaBooking";
 import SurveysAdmin from "./pages/SurveysAdmin";
 import ReviewsAdmin from "./pages/ReviewsAdmin";
 
@@ -161,6 +162,7 @@ const App = () => {
           <Route path="/survey" element={<Survey />} />
           <Route path="/review" element={<CustomerReview />} />
           <Route path="/review-maker" element={<ReviewMaker />} />
+          <Route path="/book/keika" element={<KeikaBooking />} />
           <Route path="/book/:castId" element={<CastBooking />} />
           <Route path="/haru" element={<Navigate to="/book/4b2fc0c8-ccad-48a6-9a32-f7898381f68b" replace />} />
           <Route path="/voice" element={<Voice />} />
