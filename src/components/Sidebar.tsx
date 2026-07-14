@@ -14,6 +14,7 @@ import {
   UserCircle,
   ClipboardList,
   Images,
+  PhoneCall,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -79,6 +80,11 @@ const menuItems: MenuItem[] = [
     href: "/image-stock",
     label: "画像ストック",
     icon: Images,
+  },
+  {
+    href: "/cti-calls",
+    label: "着信履歴",
+    icon: PhoneCall,
   },
   {
     label: "システム",
