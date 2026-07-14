@@ -103,6 +103,7 @@ import ReservationImport from "./pages/ReservationImport";
 import CustomerImport from "./pages/CustomerImport";
 import SalesClosing from "./pages/SalesClosing";
 import TextTemplates from "./pages/TextTemplates";
+import ImageStock from "./pages/ImageStock";
 import CastPostManagement from "./pages/CastPostManagement";
 import TherapistPostPage from "./pages/TherapistPostPage";
 import RecommendedMenu from "./pages/RecommendedMenu";
@@ -193,6 +194,7 @@ const App = () => {
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/knowledge/passwords" element={<PasswordDatabase />} />
           <Route path="/templates" element={<TextTemplates />} />
+          <Route path="/image-stock" element={<ImageStock />} />
           <Route path="/sales" element={<SalesDashboard />} />
           <Route path="/sales/data" element={<SalesData />} />
           <Route path="/sales/customer-info" element={<SalesCustomerInfo />} />
