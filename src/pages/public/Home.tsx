@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { driveImgUrl } from "@/lib/drive";
+import { useStoreContact } from "@/hooks/useStoreContact";
 
 interface Cast {
   id: string;
@@ -43,6 +44,7 @@ interface Shift {
 }
 
 const Home = () => {
+  const { telHref, phoneDisplay } = useStoreContact();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [newFaceCasts, setNewFaceCasts] = useState<Cast[]>([]);
   const [todayShifts, setTodayShifts] = useState<Shift[]>([]);
@@ -383,8 +385,8 @@ const Home = () => {
                     TEL
                   </td>
                   <td className="py-3 px-4 text-gray-700">
-                    <a href="tel:09087493901" className="hover:underline">
-                      090-8749-3901
+                    <a href={telHref} className="hover:underline">
+                      {phoneDisplay}
                     </a>
                   </td>
                 </tr>

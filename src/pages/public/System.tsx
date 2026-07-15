@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
+import { useStoreContact } from "@/hooks/useStoreContact";
 
 interface BackRate {
   id: string;
@@ -27,6 +28,7 @@ interface NominationRate {
 }
 
 const System = () => {
+  const { telHref, phoneDisplay } = useStoreContact();
   const [backRates, setBackRates] = useState<BackRate[]>([]);
   const [optionRates, setOptionRates] = useState<OptionRate[]>([]);
   const [nominationRates, setNominationRates] = useState<NominationRate[]>([]);
@@ -229,7 +231,7 @@ const System = () => {
                         {k === 'URL' ? (
                           <a href="https://zenryoku-esthe.com" className="text-[#c6a15b] hover:underline">https://zenryoku-esthe.com</a>
                         ) : k === 'TEL' ? (
-                          <a href="tel:09087493901" className="hover:underline">090-8749-3901</a>
+                          <a href={telHref} className="hover:underline">{phoneDisplay}</a>
                         ) : v}
                       </td>
                     </tr>
@@ -241,7 +243,7 @@ const System = () => {
 
           {/* CTA */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="tel:09087493901">
+            <a href={telHref}>
               <Button size="lg" className="gap-2 min-w-[200px] bg-[#c6a15b] hover:bg-[#a87c2a]">
                 <Phone size={20} />電話で予約
               </Button>
