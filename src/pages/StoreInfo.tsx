@@ -88,6 +88,7 @@ export default function StoreInfo() {
       if (formData.id) {
         result = await supabase.from("store_info").update(payload).eq("id", formData.id);
       } else {
+        delete payload.id; // 新規作成時は空のidを送らない
         result = await supabase.from("store_info").insert([payload]);
       }
       if (result.error) throw result.error;
@@ -114,7 +115,7 @@ export default function StoreInfo() {
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-2xl font-bold">店舗情報</h1>
-              <p className="text-muted-foreground">フロントエンドのアクセスページに反映されます</p>
+              <p className="text-muted-foreground">電話番号・予約用LINEなどはHP全体に反映されます</p>
             </div>
             <Button onClick={handleSave} disabled={saving}>
               <Save size={16} className="mr-2" />
@@ -242,7 +243,7 @@ export default function StoreInfo() {
                     />
                   </div>
                   <div>
-                    <Label>LINE URL</Label>
+                    <Label>予約用LINE URL</Label>
                     <Input
                       value={formData.line_url || ""}
                       onChange={(e) => set("line_url", e.target.value)}
@@ -250,7 +251,7 @@ export default function StoreInfo() {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    ※ SNSリンクはフロントエンドのアクセスページのボタンに反映されます
+                    ※ 電話番号・予約用LINEはHP全体（ナビ・下部バー・各予約ボタン）に反映されます
                   </p>
                 </CardContent>
               </Card>

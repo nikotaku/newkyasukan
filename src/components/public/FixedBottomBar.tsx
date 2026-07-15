@@ -1,18 +1,20 @@
 import { Link } from "react-router-dom";
+import { useStoreContact } from "@/hooks/useStoreContact";
 
 export const FixedBottomBar = () => {
+  const { telHref, lineUrl } = useStoreContact();
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#1a150f] border-t border-[#3a2f1c] shadow-[0_-2px_10px_rgba(0,0,0,0.1)] md:hidden">
       <div className="flex items-stretch">
         <a
-          href="tel:09087493901"
+          href={telHref}
           className="flex-1 flex flex-col items-center justify-center py-2 text-[#f0e6d2] hover:bg-[#221b12] transition-colors"
         >
           <span className="text-lg">📞</span>
           <span className="text-[10px] font-semibold">電話する</span>
         </a>
         <a
-          href="https://lin.ee/RdRhmXw"
+          href={lineUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="flex-1 flex flex-col items-center justify-center py-2 text-white"

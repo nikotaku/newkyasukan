@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Clock, Phone, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { usePageTracking } from "@/hooks/usePageTracking";
+import { useStoreContact } from "@/hooks/useStoreContact";
 
 const SHOP_LOGO = "https://cdn2-caskan.com/caskan/img/shop_logo/1401_logo_1750237137.png";
 
@@ -20,6 +21,7 @@ const navItems = [
 export const PublicNavigation = () => {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { telHref, phoneDisplay } = useStoreContact();
   usePageTracking();
 
   return (
@@ -50,23 +52,23 @@ export const PublicNavigation = () => {
               12:00〜26:00(24:40最終受付)
             </span>
             <a
-              href="tel:09087493901"
+              href={telHref}
               className="inline-flex items-center gap-1.5 font-semibold hover:text-[#e9d189]"
               style={{ color: "#c6a15b" }}
             >
               <Phone size={14} />
-              090-8749-3901
+              {phoneDisplay}
             </a>
           </div>
 
           {/* SP: phone + hamburger */}
           <div className="md:hidden flex items-center gap-3" style={{ color: "#c6a15b" }}>
             <a
-              href="tel:09087493901"
+              href={telHref}
               className="inline-flex items-center gap-1 font-semibold text-[10px]"
               style={{ color: "#c6a15b" }}
             >
-              <Phone size={11} /> 090-8749-3901
+              <Phone size={11} /> {phoneDisplay}
             </a>
             <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
               <SheetTrigger asChild>

@@ -17,6 +17,7 @@ import { calcPaymentFee, findPaymentSetting, PaymentSetting } from "@/lib/paymen
 import { z } from "zod";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { useStore } from "@/hooks/useStore";
+import { useStoreContact } from "@/hooks/useStoreContact";
 
 interface Cast {
   id: string;
@@ -85,6 +86,7 @@ interface Banner {
 type BottomTab = "now" | "select" | "menu";
 
 const BookingReservation = () => {
+  const { phone: shopPhone } = useStoreContact();
   const [bottomTab, setBottomTab] = useState<BottomTab>("select");
   const [banners, setBanners] = useState<Banner[]>([]);
   const [casts, setCasts] = useState<Cast[]>([]);
@@ -1359,7 +1361,7 @@ const BookingReservation = () => {
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <h4 className="font-semibold mb-2">注意事項</h4>
                       <p className="text-sm text-muted-foreground">
-                        『09087493901』より予約詳細をショートメッセージにてお送りします。必ずショートメッセージを受け取れるように設定をお願いします。また、ひとこと返信をいただいた時点で予約確定となります。<br/>
+                        『{shopPhone}』より予約詳細をショートメッセージにてお送りします。必ずショートメッセージを受け取れるように設定をお願いします。また、ひとこと返信をいただいた時点で予約確定となります。<br/>
                         領収書の発行は出来かねます。ご了承ください。
                       </p>
                     </div>

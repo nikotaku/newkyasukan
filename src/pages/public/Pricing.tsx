@@ -7,6 +7,7 @@ import caskanLogo from "@/assets/caskan-logo.png";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
+import { useStoreContact } from "@/hooks/useStoreContact";
 
 interface BackRate {
   id: string;
@@ -29,6 +30,7 @@ interface NominationRate {
 }
 
 export default function Pricing() {
+  const { telHref } = useStoreContact();
   const [backRates, setBackRates] = useState<BackRate[]>([]);
   const [optionRates, setOptionRates] = useState<OptionRate[]>([]);
   const [nominationRates, setNominationRates] = useState<NominationRate[]>([]);
@@ -183,7 +185,7 @@ export default function Pricing() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="tel:09087493901">
+            <a href={telHref}>
               <Button size="lg" className="gap-2 min-w-[200px] bg-[#c6a15b] hover:bg-[#a87c2a]">
                 <Phone size={20} />電話で予約
               </Button>

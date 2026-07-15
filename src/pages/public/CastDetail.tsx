@@ -7,6 +7,7 @@ import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { ArrowLeft, Phone, Calendar, Star } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import { driveImgUrl } from "@/lib/drive";
+import { useStoreContact } from "@/hooks/useStoreContact";
 
 interface Cast {
   id: string;
@@ -90,6 +91,7 @@ const SectionHeader = ({ label, sub }: { label: string; sub?: string }) => (
 );
 
 const CastDetail = () => {
+  const { telHref } = useStoreContact();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [cast, setCast] = useState<Cast | null>(null);
@@ -359,7 +361,7 @@ const CastDetail = () => {
 
             {/* ── CTA buttons ── */}
             <div className="px-5 py-4 flex flex-col gap-3 border-b border-[#3a2f1c]">
-              <a href="tel:09087493901"
+              <a href={telHref}
                 className="flex items-center justify-center gap-2 py-3.5 rounded-lg text-white font-bold text-base transition-opacity hover:opacity-90"
                 style={{ background: "linear-gradient(135deg, #c6a15b, #a87c2a)" }}>
                 <Phone size={17} />電話で予約する

@@ -1,11 +1,14 @@
+import { useStoreContact } from "@/hooks/useStoreContact";
+
 export const PublicFooter = () => {
+  const { lineUrl } = useStoreContact();
   return (
     <footer className="text-white" style={{ backgroundColor: "#242220" }}>
       {/* SNS Icons */}
       <div className="container mx-auto px-4 py-5 max-w-4xl">
         <div className="flex justify-center gap-4">
           <a
-            href="https://lin.ee/RdRhmXw"
+            href={lineUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:opacity-80"
