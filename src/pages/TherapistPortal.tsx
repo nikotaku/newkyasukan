@@ -13,13 +13,6 @@ import { format, startOfMonth, endOfMonth, isSameDay, addDays } from "date-fns";
 import { toExtTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
 
-interface PendingClearance {
-  id: string;
-  date: string;
-  payout_amount: number;
-  payout_method: string | null;
-  status: string;
-}
 
 interface Cast {
   id: string;
@@ -173,7 +166,6 @@ export default function TherapistPortal() {
   const [rooms, setRooms] = useState<Room[]>([]);
 
   // Clearance notification
-  const [pendingClearance, setPendingClearance] = useState<PendingClearance | null>(null);
 
   // Customers (顧客カルテ)
   const [therapistCustomers, setTherapistCustomers] = useState<TherapistCustomer[]>([]);
@@ -214,17 +206,6 @@ export default function TherapistPortal() {
       const castRow = row as Cast;
       setCast(castRow);
       setLoading(false);
-      // Check for pending clearance
-      supabase
-        .from("daily_clearances" as any)
-        .select("id, date, payout_amount, payout_method, status")
-        .eq("cast_id", castRow.id)
-        .eq("status", "pending")
-        .order("date", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-        .then(({ data }) => setPendingClearance(data as PendingClearance | null));
-
       // Load current month shifts for menu top display
       setMenuShiftLoading(true);
       supabase.rpc("get_therapist_shifts", {
@@ -644,36 +625,6 @@ export default function TherapistPortal() {
               </div>
             )}
           </div>
-
-          {/* Clearance notification */}
-          {pendingClearance && (
-            <div className="rounded-xl border-2 border-primary/40 bg-primary/5 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Banknote className="text-primary shrink-0" size={20} />
-                <p className="font-bold text-base">清算のご連絡</p>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">投函金額</span>
-                  <span className="text-2xl font-bold text-primary">
-                    ¥{pendingClearance.payout_amount.toLocaleString()}
-                  </span>
-                </div>
-                {pendingClearance.payout_method && (
-                  <p className="text-sm bg-muted/50 rounded-lg p-2 mt-2">
-                    {pendingClearance.payout_method}
-                  </p>
-                )}
-              </div>
-              <Button
-                className="w-full"
-                onClick={() => navigate(`/therapist/${token}/checkout?step=cleaning`)}
-              >
-                <ClipboardCheck size={15} className="mr-2" />
-                投函したので清掃フォームを入力する
-              </Button>
-            </div>
-          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             {menuItems.map((item) => {
