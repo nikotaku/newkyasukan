@@ -329,15 +329,15 @@ export default function CustomerDetail() {
                               </p>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm truncate">
+                              <p className="text-sm break-words">
                                 {v.course_name ?? "コース未設定"}
                                 {v.cast_name && <span className="text-muted-foreground">　担当：{v.cast_name}</span>}
                               </p>
-                              <p className="text-xs text-muted-foreground truncate">
+                              <p className="text-xs text-muted-foreground break-words">
                                 {v.nomination_type ? `${v.nomination_type}` : ""}
                                 {v.options && v.options.length > 0 ? `${v.nomination_type ? " ・ " : ""}${v.options.join("、")}` : ""}
                               </p>
-                              {v.notes && <p className="text-[11px] text-muted-foreground truncate">📝 {v.notes}</p>}
+                              {v.notes && <p className="text-[11px] text-muted-foreground break-words whitespace-pre-wrap">📝 {v.notes}</p>}
                             </div>
                             <div className="text-right shrink-0">
                               <p className="text-sm font-bold tabular-nums">¥{(v.price ?? 0).toLocaleString()}</p>
