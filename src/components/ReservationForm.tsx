@@ -262,11 +262,12 @@ export function ReservationForm({
           .select("id, name, visit_count, last_visited, is_banned, ban_reason, customer_ng_casts(cast_id, reason, casts(name))")
           .or(`phone.eq.${phone},phone.eq.${formData.customer_phone}`)
           .maybeSingle(),
+        // 直近の来店＝実際に来店（完了）した予約のみ。未来のWEB予約は含めない
         supabase
           .from("reservations")
           .select("reservation_date, course_name, price, status, customer_name, cast_id")
           .or(`customer_phone.eq.${phone},customer_phone.eq.${formData.customer_phone}`)
-          .neq("status", "cancelled")
+          .eq("status", "completed")
           .order("reservation_date", { ascending: false })
           .limit(5),
       ]);
