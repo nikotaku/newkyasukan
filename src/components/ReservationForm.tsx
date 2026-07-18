@@ -536,9 +536,20 @@ export function ReservationForm({
           )}>
             {customerInfo ? (
               <>
-                <div className="flex items-center gap-2 font-semibold text-green-700 dark:text-green-400">
-                  <UserCheck size={14} />
-                  {customerInfo.name}（既存顧客）
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 font-semibold text-green-700 dark:text-green-400">
+                    <UserCheck size={14} />
+                    {customerInfo.name}（既存顧客）
+                  </div>
+                  {/* 顧客詳細ページ（好み登録・全来店履歴）を新しいタブで開く */}
+                  <a
+                    href={`/database/customers/${customerInfo.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-medium text-primary underline underline-offset-2 whitespace-nowrap shrink-0"
+                  >
+                    顧客詳細を開く ↗
+                  </a>
                 </div>
                 <div className="flex gap-4 text-xs text-muted-foreground">
                   <span>来店回数：<strong className="text-foreground">{customerInfo.visit_count ?? 0}回</strong></span>
