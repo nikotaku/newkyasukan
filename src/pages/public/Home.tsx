@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { driveImgUrl } from "@/lib/drive";
 import { useStoreContact } from "@/hooks/useStoreContact";
+import { CastTitleBadge, useTitleBadges } from "@/components/public/CastTitleBadge";
 
 interface Cast {
   id: string;
@@ -35,6 +36,7 @@ interface Shift {
     id: string;
     name: string;
     photo: string | null;
+    title_badge_id?: string | null;
     age: number | null;
     height: number | null;
     cup_size: string | null;
@@ -45,6 +47,7 @@ interface Shift {
 
 const Home = () => {
   const { telHref, phoneDisplay } = useStoreContact();
+  const titleBadgeMap = useTitleBadges();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [newFaceCasts, setNewFaceCasts] = useState<Cast[]>([]);
   const [todayShifts, setTodayShifts] = useState<Shift[]>([]);
@@ -85,7 +88,7 @@ const Home = () => {
         .from("shifts")
         .select(`
           id, cast_id, start_time, end_time, room,
-          casts (id, name, photo, age, height, cup_size, profile, x_account)
+          casts (id, name, photo, age, height, cup_size, profile, x_account, title_badge_id)
         `)
         .eq("shift_date", today)
         .order("start_time", { ascending: true }),
@@ -248,6 +251,9 @@ const Home = () => {
                           </span>
                         </div>
                       )}
+                      <div className="absolute top-2 right-2 z-10">
+                        <CastTitleBadge badge={titleBadgeMap.get(shift.casts.title_badge_id ?? "")} />
+                      </div>
                       {shift.casts.x_account && (
                         <div className="absolute bottom-2 right-2">
                           <a

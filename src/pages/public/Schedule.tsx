@@ -8,6 +8,7 @@ import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { useStore } from "@/hooks/useStore";
+import { CastTitleBadge, useTitleBadges } from "@/components/public/CastTitleBadge";
 
 interface Shift {
   id: string;
@@ -28,6 +29,7 @@ interface Shift {
     cup_size: string | null;
     tags: string[] | null;
     message: string | null;
+    title_badge_id?: string | null;
     x_account: string | null;
   };
 }
@@ -77,7 +79,7 @@ const Schedule = () => {
         supabase
           .from("shifts")
           .select(
-            `*, casts (name, photo, type, status, age, height, cup_size, tags, message, x_account)`
+            `*, casts (name, photo, type, status, age, height, cup_size, tags, message, x_account, title_badge_id)`
           )
           .eq("shift_date", dateStr)
           .eq("store_id", storeId)
@@ -103,6 +105,8 @@ const Schedule = () => {
       setLoading(false);
     }
   };
+
+  const titleBadgeMap = useTitleBadges();
 
   const stripDays = useMemo(
     () => Array.from({ length: VISIBLE_DAYS }, (_, i) => addDays(stripStart, i)),
@@ -272,21 +276,24 @@ const Schedule = () => {
                         {shift.casts.name.charAt(0)}
                       </div>
                     )}
-                    {shift.casts.x_account && (
-                      <a
-                        href={
-                          shift.casts.x_account.startsWith("http")
-                            ? shift.casts.x_account
-                            : `https://twitter.com/${shift.casts.x_account.replace(/^@/, "")}`
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="absolute top-1.5 right-1.5 bg-black/80 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold"
-                        aria-label="X"
-                      >
-                        𝕏
-                      </a>
-                    )}
+                    <div className="absolute top-1.5 right-1.5 z-10 flex flex-col items-end gap-1">
+                      <CastTitleBadge badge={titleBadgeMap.get(shift.casts.title_badge_id ?? "")} />
+                      {shift.casts.x_account && (
+                        <a
+                          href={
+                            shift.casts.x_account.startsWith("http")
+                              ? shift.casts.x_account
+                              : `https://twitter.com/${shift.casts.x_account.replace(/^@/, "")}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-black/80 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold"
+                          aria-label="X"
+                        >
+                          𝕏
+                        </a>
+                      )}
+                    </div>
                     {next && (
                       <div className="absolute bottom-0 inset-x-0 bg-black/55 text-white text-center py-1 text-xs font-semibold">
                         次回 {next}

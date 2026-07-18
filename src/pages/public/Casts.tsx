@@ -9,6 +9,7 @@ import { driveImgUrl } from "@/lib/drive";
 import o2LogoUrl from "@/assets/o2-logo.png";
 import o2BlogLogoUrl from "@/assets/o2-blog-logo.png";
 import { useStore } from "@/hooks/useStore";
+import { CastTitleBadge, useTitleBadges } from "@/components/public/CastTitleBadge";
 
 interface Cast {
   id: string;
@@ -23,6 +24,7 @@ interface Cast {
   status: string;
   photo: string | null;
   photos: string[] | null;
+  title_badge_id?: string | null;
   tags: string[] | null;
   join_date: string;
   profile: string | null;
@@ -104,6 +106,8 @@ const Casts = () => {
     return Math.ceil(Math.abs(now.getTime() - join.getTime()) / (1000 * 60 * 60 * 24)) <= 30;
   };
 
+  const titleBadgeMap = useTitleBadges();
+
   const filteredCasts = casts.filter((cast) => {
     if (filter === 'today') return todayShiftCastIds.has(cast.id);
     if (filter === 'newface') return isNewFace(cast.join_date);
@@ -173,6 +177,9 @@ const Casts = () => {
 
                         {/* photo */}
                         <div className="relative">
+                          <div className="absolute top-2 right-2 z-10">
+                            <CastTitleBadge badge={titleBadgeMap.get(cast.title_badge_id ?? "")} />
+                          </div>
                           {cast.photo ? (
                             <img src={driveImgUrl(cast.photo)} alt={cast.name} className="w-full aspect-[3/4] object-cover group-hover:scale-105 transition-transform duration-500" />
                           ) : (

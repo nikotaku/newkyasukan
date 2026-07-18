@@ -311,6 +311,13 @@ export default function Staff() {
     };
   }, []);
 
+  // 称号バッジマスタ（HP写真右上のバッジ）
+  const [titleBadges, setTitleBadges] = useState<{ id: string; label: string }[]>([]);
+  useEffect(() => {
+    supabase.from("cast_title_badges" as any).select("id, label").eq("is_active", true)
+      .order("display_order").then(({ data }) => setTitleBadges((data || []) as any));
+  }, []);
+
   const fetchCasts = async () => {
     try {
       const { data, error } = await supabase
@@ -554,6 +561,7 @@ export default function Staff() {
         referral_reward_id: editingCast.referral_reward_id || null,
         management_photos: editingCast.management_photos || [],
         is_visible: editingCast.is_visible,
+        title_badge_id: (editingCast as any).title_badge_id || null,
         tags: editingCast.tags || [],
         custom_fields: {
           ...Object.fromEntries(
@@ -1708,6 +1716,26 @@ export default function Staff() {
                             ))}
                           </div>
                         )}
+                      </div>
+
+                      {/* 称号バッジ（HPの写真右上に表示） */}
+                      <div className="border rounded-lg p-4 space-y-2">
+                        <Label className="font-semibold">称号バッジ</Label>
+                        <p className="text-xs text-muted-foreground">
+                          HPの出勤情報・セラピスト一覧の写真右上に表示されます（電撃入店⚡️など）
+                        </p>
+                        <Select
+                          value={(editingCast as any).title_badge_id ?? "none"}
+                          onValueChange={(v) => setEditingCast({ ...(editingCast as any), title_badge_id: v === "none" ? null : v })}
+                        >
+                          <SelectTrigger><SelectValue placeholder="なし" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">なし</SelectItem>
+                            {titleBadges.map((b) => (
+                              <SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {/* 基本情報 */}
