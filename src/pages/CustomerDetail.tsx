@@ -1,0 +1,361 @@
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { DashboardHeader } from "@/components/DashboardHeader";
+import { Sidebar } from "@/components/Sidebar";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { ja } from "date-fns/locale";
+import { ArrowLeft, Loader2, Save, Heart, History, Phone, User } from "lucide-react";
+import {
+  getCustomerRank, PRESSURE_OPTIONS, AREA_OPTIONS, CONVERSATION_OPTIONS,
+} from "@/lib/customerRank";
+
+/**
+ * 顧客詳細ページ（/database/customers/:id）。
+ * 好みの登録・編集と、全来店履歴（電話番号正規化マッチ）を表示する。
+ * 日別予約情報の顧客パネルなどからリンクされる。
+ */
+
+interface Customer {
+  id: string;
+  name: string;
+  phone: string | null;
+  visit_count: number | null;
+  total_spent: number | null;
+  last_visited: string | null;
+  tags: string[] | null;
+  notes: string | null;
+  is_banned: boolean | null;
+  ban_reason: string | null;
+}
+
+interface Profile {
+  preferred_pressure: string | null;
+  concern_areas: string[] | null;
+  conversation_level: string | null;
+  ng_items: string | null;
+  preference_notes: string | null;
+}
+
+const EMPTY_PROFILE: Profile = {
+  preferred_pressure: null,
+  concern_areas: null,
+  conversation_level: null,
+  ng_items: null,
+  preference_notes: null,
+};
+
+interface Visit {
+  id: string;
+  reservation_date: string;
+  start_time: string;
+  course_name: string | null;
+  options: string[] | null;
+  nomination_type: string | null;
+  price: number | null;
+  discount: number | null;
+  status: string;
+  cast_name: string | null;
+  notes: string | null;
+}
+
+const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+  completed: { label: "完了", cls: "bg-green-100 text-green-700" },
+  confirmed: { label: "確定", cls: "bg-blue-100 text-blue-700" },
+  pending: { label: "リクエスト", cls: "bg-amber-100 text-amber-700" },
+  cancelled: { label: "キャンセル", cls: "bg-gray-100 text-gray-500" },
+};
+
+export default function CustomerDetail() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
+  const [visits, setVisits] = useState<Visit[]>([]);
+  const [visitsLoading, setVisitsLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && !user) navigate("/login");
+  }, [user, authLoading, navigate]);
+
+  useEffect(() => { document.title = "顧客詳細"; }, []);
+
+  const fetchAll = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    setVisitsLoading(true);
+    const [custRes, profRes] = await Promise.all([
+      supabase.from("customers").select("id, name, phone, visit_count, total_spent, last_visited, tags, notes, is_banned, ban_reason").eq("id", id).maybeSingle(),
+      supabase.from("customer_profiles").select("preferred_pressure, concern_areas, conversation_level, ng_items, preference_notes").eq("customer_id", id).maybeSingle(),
+    ]);
+    if (!custRes.data) {
+      toast.error("顧客が見つかりませんでした");
+      setLoading(false);
+      setVisitsLoading(false);
+      return;
+    }
+    setCustomer(custRes.data as Customer);
+    setProfile((profRes.data as Profile) ?? EMPTY_PROFILE);
+    setLoading(false);
+
+    const { data: visitData, error: visitErr } = await supabase.rpc("get_customer_reservations" as any, { p_customer_id: id });
+    if (visitErr) toast.error("来店履歴の取得に失敗しました");
+    setVisits(((visitData || []) as Visit[]));
+    setVisitsLoading(false);
+  }, [id]);
+
+  useEffect(() => {
+    if (user && id) fetchAll();
+  }, [user, id, fetchAll]);
+
+  const handleSaveProfile = async () => {
+    if (!id) return;
+    setSaving(true);
+    const { error } = await supabase.from("customer_profiles").upsert(
+      {
+        customer_id: id,
+        preferred_pressure: profile.preferred_pressure,
+        concern_areas: profile.concern_areas,
+        conversation_level: profile.conversation_level,
+        ng_items: profile.ng_items,
+        preference_notes: profile.preference_notes,
+        updated_at: new Date().toISOString(),
+      } as any,
+      { onConflict: "customer_id" },
+    );
+    if (error) {
+      console.error(error);
+      toast.error("保存に失敗しました");
+    } else {
+      toast.success("好みを保存しました");
+    }
+    setSaving(false);
+  };
+
+  const toggleArea = (area: string) => {
+    const current = profile.concern_areas ?? [];
+    const next = current.includes(area) ? current.filter((a) => a !== area) : [...current, area];
+    setProfile({ ...profile, concern_areas: next.length > 0 ? next : null });
+  };
+
+  const completedVisits = visits.filter((v) => v.status === "completed");
+  const rank = customer ? getCustomerRank(customer) : null;
+
+  return (
+    <div className="min-h-screen bg-background">
+      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      <main className="pt-[60px] md:ml-[240px]">
+        <div className="container mx-auto px-4 py-6 max-w-3xl">
+          <Button variant="ghost" size="sm" className="mb-3 -ml-2" onClick={() => navigate("/database/customers")}>
+            <ArrowLeft size={15} className="mr-1" />顧客一覧
+          </Button>
+
+          {loading ? (
+            <div className="text-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>
+          ) : !customer ? (
+            <p className="text-center text-muted-foreground py-16">顧客が見つかりませんでした</p>
+          ) : (
+            <div className="space-y-5">
+              {/* 顧客ヘッダー */}
+              <Card>
+                <CardContent className="pt-5 pb-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h1 className="text-xl font-bold flex items-center gap-2">
+                          <User size={19} className="text-primary" />{customer.name} 様
+                        </h1>
+                        {rank && (
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${rank.className}`}>{rank.label}</span>
+                        )}
+                        {customer.is_banned && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">⛔ 出入り禁止</span>
+                        )}
+                        {(customer.tags ?? []).filter((t) => t !== "VIP").map((t) => (
+                          <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{t}</span>
+                        ))}
+                      </div>
+                      {customer.phone && (
+                        <a href={`tel:${customer.phone.replace(/\D/g, "")}`} className="text-sm text-muted-foreground mt-1 inline-flex items-center gap-1.5 hover:underline">
+                          <Phone size={13} />{customer.phone}
+                        </a>
+                      )}
+                      {customer.is_banned && customer.ban_reason && (
+                        <p className="text-xs text-red-600 mt-1">禁止理由：{customer.ban_reason}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 mt-4">
+                    <div className="rounded-lg bg-muted/40 px-3 py-2.5 text-center">
+                      <p className="text-[11px] text-muted-foreground">来店回数</p>
+                      <p className="text-lg font-bold">{customer.visit_count ?? 0}<span className="text-xs font-normal">回</span></p>
+                    </div>
+                    <div className="rounded-lg bg-muted/40 px-3 py-2.5 text-center">
+                      <p className="text-[11px] text-muted-foreground">累計利用額</p>
+                      <p className="text-lg font-bold">¥{(customer.total_spent ?? 0).toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/40 px-3 py-2.5 text-center">
+                      <p className="text-[11px] text-muted-foreground">最終来店</p>
+                      <p className="text-lg font-bold">
+                        {customer.last_visited ? format(new Date(customer.last_visited), "M/d") : "—"}
+                      </p>
+                    </div>
+                  </div>
+                  {customer.notes && (
+                    <p className="text-xs text-muted-foreground mt-3 bg-muted/30 rounded-lg px-3 py-2">管理メモ：{customer.notes}</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 好み（カルテ） */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Heart size={16} className="text-rose-500" />お客様の好み
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs">圧の好み</Label>
+                      <Select
+                        value={profile.preferred_pressure ?? "unset"}
+                        onValueChange={(v) => setProfile({ ...profile, preferred_pressure: v === "unset" ? null : v })}
+                      >
+                        <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="未設定" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unset">未設定</SelectItem>
+                          {PRESSURE_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">会話の好み</Label>
+                      <Select
+                        value={profile.conversation_level ?? "unset"}
+                        onValueChange={(v) => setProfile({ ...profile, conversation_level: v === "unset" ? null : v })}
+                      >
+                        <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="未設定" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unset">未設定</SelectItem>
+                          {CONVERSATION_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">気になる部位</Label>
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 mt-1.5">
+                      {AREA_OPTIONS.map((area) => (
+                        <label key={area} className="flex items-center gap-1.5 cursor-pointer">
+                          <Checkbox
+                            checked={(profile.concern_areas ?? []).includes(area)}
+                            onCheckedChange={() => toggleArea(area)}
+                          />
+                          <span className="text-sm">{area}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">NG・アレルギー</Label>
+                    <Textarea
+                      value={profile.ng_items ?? ""}
+                      onChange={(e) => setProfile({ ...profile, ng_items: e.target.value || null })}
+                      placeholder="例：強圧NG、オイルアレルギーあり"
+                      rows={2}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">好みメモ</Label>
+                    <Textarea
+                      value={profile.preference_notes ?? ""}
+                      onChange={(e) => setProfile({ ...profile, preference_notes: e.target.value || null })}
+                      placeholder="会話の話題、施術の好み、次回への引き継ぎなど"
+                      rows={3}
+                      className="mt-1"
+                    />
+                  </div>
+                  <Button onClick={handleSaveProfile} disabled={saving} className="w-full sm:w-auto">
+                    {saving ? <Loader2 size={15} className="mr-1.5 animate-spin" /> : <Save size={15} className="mr-1.5" />}
+                    好みを保存
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* 来店履歴（全件） */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <History size={16} className="text-primary" />来店履歴
+                    <span className="text-xs font-normal text-muted-foreground">
+                      完了{completedVisits.length}件／全{visits.length}件
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {visitsLoading ? (
+                    <div className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" /></div>
+                  ) : visits.length === 0 ? (
+                    <p className="text-center text-sm text-muted-foreground py-8">来店履歴がありません</p>
+                  ) : (
+                    <div className="divide-y">
+                      {visits.map((v) => {
+                        const badge = STATUS_BADGE[v.status] ?? { label: v.status, cls: "bg-gray-100 text-gray-600" };
+                        return (
+                          <div key={v.id} className="py-2.5 flex items-start gap-3">
+                            <div className="w-20 shrink-0">
+                              <p className="text-sm font-semibold tabular-nums">
+                                {format(new Date(`${v.reservation_date}T00:00:00`), "yy/M/d", { locale: ja })}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {format(new Date(`${v.reservation_date}T00:00:00`), "(E)", { locale: ja })} {v.start_time}
+                              </p>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm truncate">
+                                {v.course_name ?? "コース未設定"}
+                                {v.cast_name && <span className="text-muted-foreground">　担当：{v.cast_name}</span>}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {v.nomination_type ? `${v.nomination_type}` : ""}
+                                {v.options && v.options.length > 0 ? `${v.nomination_type ? " ・ " : ""}${v.options.join("、")}` : ""}
+                              </p>
+                              {v.notes && <p className="text-[11px] text-muted-foreground truncate">📝 {v.notes}</p>}
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-bold tabular-nums">¥{(v.price ?? 0).toLocaleString()}</p>
+                              <span className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded-full mt-0.5 ${badge.cls}`}>
+                                {badge.label}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}

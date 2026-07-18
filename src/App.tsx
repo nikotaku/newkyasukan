@@ -105,6 +105,7 @@ import SalesClosing from "./pages/SalesClosing";
 import TextTemplates from "./pages/TextTemplates";
 import ImageStock from "./pages/ImageStock";
 import CtiCalls from "./pages/CtiCalls";
+import CustomerDetail from "./pages/CustomerDetail";
 import CastPostManagement from "./pages/CastPostManagement";
 import TherapistPostPage from "./pages/TherapistPostPage";
 import RecommendedMenu from "./pages/RecommendedMenu";
@@ -230,6 +231,7 @@ const App = () => {
           <Route path="/database/knowledge/sns" element={<SNSDatabase />} />
           <Route path="/database/therapist/mypage" element={<TherapistMyPage />} />
           <Route path="/database/customers" element={<CustomerDatabase />} />
+          <Route path="/database/customers/:id" element={<CustomerDetail />} />
           <Route path="/database/surveys" element={<SurveysAdmin />} />
           <Route path="/database/reviews" element={<ReviewsAdmin />} />
           <Route path="/facilities/rooms" element={<FacilitiesRooms />} />
