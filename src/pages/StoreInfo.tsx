@@ -11,7 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
-import { DEFAULT_STORE_ID } from "@/hooks/useStore";
+import { useAdminStore } from "@/hooks/useAdminStore";
 
 interface StoreInfoData {
   id: string;
@@ -48,6 +48,7 @@ export default function StoreInfo() {
   });
 
   const { user, loading: authLoading } = useAuth();
+  const { storeId: adminStoreId, loading: storeLoading } = useAdminStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -55,14 +56,14 @@ export default function StoreInfo() {
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (user) fetchStoreInfo();
-  }, [user]);
+    if (user && !storeLoading) fetchStoreInfo();
+  }, [user, storeLoading, adminStoreId]);
 
   const fetchStoreInfo = async () => {
     setLoading(true);
     try {
-      // 店舗情報行が複数店舗分あるため、デフォルト店舗（全力エステ）の行を編集対象にする
-      const { data, error } = await supabase.from("store_info").select("*").eq("store_id", DEFAULT_STORE_ID).limit(1).maybeSingle();
+      // 店舗情報行が複数店舗分あるため、ログイン中ユーザーの所属店舗の行を編集対象にする
+      const { data, error } = await supabase.from("store_info").select("*").eq("store_id", adminStoreId).limit(1).maybeSingle();
       if (error && error.code !== "PGRST116") throw error;
       if (data) {
         setFormData({
@@ -91,6 +92,7 @@ export default function StoreInfo() {
         result = await supabase.from("store_info").update(payload).eq("id", formData.id);
       } else {
         delete payload.id; // 新規作成時は空のidを送らない
+        payload.store_id = adminStoreId;
         result = await supabase.from("store_info").insert([payload]);
       }
       if (result.error) throw result.error;
