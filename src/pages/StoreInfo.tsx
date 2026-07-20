@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
+import { DEFAULT_STORE_ID } from "@/hooks/useStore";
 
 interface StoreInfoData {
   id: string;
@@ -60,7 +61,8 @@ export default function StoreInfo() {
   const fetchStoreInfo = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from("store_info").select("*").single();
+      // 店舗情報行が複数店舗分あるため、デフォルト店舗（全力エステ）の行を編集対象にする
+      const { data, error } = await supabase.from("store_info").select("*").eq("store_id", DEFAULT_STORE_ID).limit(1).maybeSingle();
       if (error && error.code !== "PGRST116") throw error;
       if (data) {
         setFormData({

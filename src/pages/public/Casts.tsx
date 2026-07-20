@@ -52,7 +52,7 @@ const Casts = () => {
   const { storeId, loading: storeLoading } = useStore();
 
   useEffect(() => {
-    document.title = "全力エステ - セラピスト";
+    document.title = `${storeName} - セラピスト`;
   }, []);
 
   useEffect(() => {
@@ -107,6 +107,8 @@ const Casts = () => {
   };
 
   const titleBadgeMap = useTitleBadges();
+  const { store } = useStore();
+  const storeName = store?.name ?? "全力エステ 仙台";
 
   const filteredCasts = casts.filter((cast) => {
     if (filter === 'today') return todayShiftCastIds.has(cast.id);
@@ -131,17 +133,17 @@ const Casts = () => {
   }
 
   return (
-    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#0f0c09" }}>
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "var(--pub-bg,#0f0c09)" }}>
       <PublicNavigation />
 
       <main className="container py-4 md:py-8 px-3 md:px-4">
         <div className="max-w-7xl mx-auto">
           <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
-            <h2 className="text-lg md:text-2xl font-bold" style={{ color: "#f0e6d2" }}>
-              <small className="text-xs md:text-sm block mb-0.5 text-[#a3987f]">THERAPIST</small>
+            <h2 className="text-lg md:text-2xl font-bold" style={{ color: "var(--pub-text,#f0e6d2)" }}>
+              <small className="text-xs md:text-sm block mb-0.5 text-[var(--pub-text-muted,#a3987f)]">THERAPIST</small>
               セラピスト
             </h2>
-            <Link to="/schedule" className="inline-block bg-[#1a150f] hover:bg-[#221b12] text-[#f0e6d2] border border-[#c6a15b] px-4 py-1.5 text-sm rounded transition-colors">
+            <Link to="/schedule" className="inline-block bg-[var(--pub-card,#1a150f)] hover:bg-[var(--pub-card2,#221b12)] text-[var(--pub-text,#f0e6d2)] border border-[var(--pub-accent,#c6a15b)] px-4 py-1.5 text-sm rounded transition-colors">
               出勤表はこちら
             </Link>
           </div>
@@ -151,7 +153,7 @@ const Casts = () => {
               <Button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-4 py-2 text-sm ${filter === f ? 'bg-[#c6a15b] hover:bg-[#a87c2a] text-white' : 'bg-[#1a150f] hover:bg-[#221b12] text-[#f0e6d2] border border-[#c6a15b]'}`}
+                className={`px-4 py-2 text-sm ${filter === f ? 'bg-[var(--pub-accent,#c6a15b)] hover:bg-[var(--pub-accent-deep,#a87c2a)] text-white' : 'bg-[var(--pub-card,#1a150f)] hover:bg-[var(--pub-card2,#221b12)] text-[var(--pub-text,#f0e6d2)] border border-[var(--pub-accent,#c6a15b)]'}`}
               >
                 {f === 'all' ? 'すべて' : f === 'today' ? '本日出勤' : '新人'}
               </Button>
@@ -159,7 +161,7 @@ const Casts = () => {
           </div>
 
           {filteredCasts.length === 0 ? (
-            <div className="text-center py-12"><p className="text-[#a3987f]">該当するセラピストが見つかりませんでした</p></div>
+            <div className="text-center py-12"><p className="text-[var(--pub-text-muted,#a3987f)]">該当するセラピストが見つかりませんでした</p></div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {filteredCasts.map((cast) => {
@@ -167,7 +169,7 @@ const Casts = () => {
                 return (
                   <div key={cast.id} className="relative">
                     <Link to={`/casts/${cast.id}`} className="block group">
-                      <figure className="bg-[#1a150f] rounded overflow-hidden shadow hover:shadow-lg transition-shadow">
+                      <figure className="bg-[var(--pub-card,#1a150f)] rounded overflow-hidden shadow hover:shadow-lg transition-shadow">
                         {/* tag badges */}
                         <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
                           {cast.tags?.filter(t => !INTERNAL_TAGS.includes(t)).map((tag, idx) => (
@@ -183,7 +185,7 @@ const Casts = () => {
                           {cast.photo ? (
                             <img src={driveImgUrl(cast.photo)} alt={cast.name} className="w-full aspect-[3/4] object-cover group-hover:scale-105 transition-transform duration-500" />
                           ) : (
-                            <div className="w-full aspect-[3/4] bg-gradient-to-br from-[#c6a15b] to-[#a87c2a] flex items-center justify-center">
+                            <div className="w-full aspect-[3/4] bg-gradient-to-br from-[var(--pub-accent,#c6a15b)] to-[var(--pub-accent-deep,#a87c2a)] flex items-center justify-center">
                               <span className="text-4xl text-white">{cast.name.charAt(0)}</span>
                             </div>
                           )}
@@ -238,7 +240,7 @@ const Casts = () => {
                                     onClick={(e) => e.stopPropagation()} aria-label="リットリンク"
                                     className="flex flex-col items-center gap-0.5 group/sns"
                                   >
-                                    <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#c6a15b] text-[10px] font-bold shadow-md group-hover/sns:scale-110 transition-transform">
+                                    <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[var(--pub-accent,#c6a15b)] text-[10px] font-bold shadow-md group-hover/sns:scale-110 transition-transform">
                                       lit
                                     </span>
                                     <span className="text-[9px] text-white/80 leading-none">lit.link</span>
@@ -292,8 +294,8 @@ const Casts = () => {
 
                         {/* info below photo */}
                         <div className="p-2 md:p-3">
-                          <h4 className="font-bold text-[#f0e6d2] text-sm leading-tight">{cast.name}{cast.age ? `(${cast.age})` : ''}</h4>
-                          {formatSize(cast) && <p className="text-xs text-[#a3987f] mt-0.5 leading-tight">{formatSize(cast)}</p>}
+                          <h4 className="font-bold text-[var(--pub-text,#f0e6d2)] text-sm leading-tight">{cast.name}{cast.age ? `(${cast.age})` : ''}</h4>
+                          {formatSize(cast) && <p className="text-xs text-[var(--pub-text-muted,#a3987f)] mt-0.5 leading-tight">{formatSize(cast)}</p>}
                         </div>
                       </figure>
                     </Link>

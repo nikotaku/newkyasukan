@@ -76,12 +76,12 @@ export function WeeklyScheduleWidget() {
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-[10px] tracking-widest text-[#c6a15b] mb-0.5">WEEKLY SCHEDULE</p>
+            <p className="text-[10px] tracking-widest text-[var(--pub-accent,#c6a15b)] mb-0.5">WEEKLY SCHEDULE</p>
             <h2 className="text-base md:text-lg font-bold tracking-wider text-white">週間出勤予定</h2>
           </div>
           <Link
             to="/schedule"
-            className="text-xs text-[#c6a15b] border border-[#c6a15b]/50 px-2.5 py-1 rounded hover:bg-[#c6a15b]/10 transition"
+            className="text-xs text-[var(--pub-accent,#c6a15b)] border border-[var(--pub-accent-a50,#c6a15b80)] px-2.5 py-1 rounded hover:bg-[var(--pub-accent-a10,#c6a15b1a)] transition"
           >
             一覧を見る ▶
           </Link>
@@ -101,7 +101,7 @@ export function WeeklyScheduleWidget() {
                 onClick={() => setSelectedDate(d)}
                 className={`shrink-0 flex flex-col items-center rounded-full w-12 h-12 justify-center transition-all text-center ${
                   isSel
-                    ? "bg-[#c6a15b] text-white"
+                    ? "bg-[var(--pub-accent,#c6a15b)] text-white"
                     : "bg-white/10 hover:bg-white/20 text-white/80"
                 }`}
               >
@@ -128,7 +128,7 @@ export function WeeklyScheduleWidget() {
             ))}
           </div>
         ) : shifts.length === 0 ? (
-          <p className="text-center text-[#a3987f] py-8 text-sm">この日の出勤予定はありません</p>
+          <p className="text-center text-[var(--pub-text-muted,#a3987f)] py-8 text-sm">この日の出勤予定はありません</p>
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
             {shifts.map((shift) => {
@@ -151,14 +151,14 @@ export function WeeklyScheduleWidget() {
                           loading="lazy"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-2xl text-[#c6a15b]/40">
+                        <div className="w-full h-full flex items-center justify-center text-2xl text-[var(--pub-accent-a40,#c6a15b66)]">
                           {c.name.charAt(0)}
                         </div>
                       )}
                       {/* Time overlay */}
                       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent pt-4 pb-1 px-1">
                         <div className="flex items-center justify-center gap-0.5">
-                          <Clock size={8} className="text-[#c6a15b] shrink-0" />
+                          <Clock size={8} className="text-[var(--pub-accent,#c6a15b)] shrink-0" />
                           <span className="text-[9px] text-white font-medium leading-tight">
                             {shift.start_time.slice(0,5)}〜{shift.end_time.slice(0,5)}
                           </span>
@@ -172,7 +172,7 @@ export function WeeklyScheduleWidget() {
                       {c.name}{c.age ? `(${c.age}歳)` : ""}
                     </p>
                     {stats && (
-                      <p className="text-[9px] text-[#a3987f] truncate leading-tight mt-0.5">{stats}</p>
+                      <p className="text-[9px] text-[var(--pub-text-muted,#a3987f)] truncate leading-tight mt-0.5">{stats}</p>
                     )}
                   </div>
                 </Link>
