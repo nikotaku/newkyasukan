@@ -5,6 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 import caskanLogo from "@/assets/caskan-logo.png";
 
 const ADMIN_EMAIL = "saito.crow@gmail.com";
+// 同じログイン画面で、入力されたパスワードに応じて店舗アカウントを切り替える。
+// 全力エステのPWで失敗した場合は艶花の管理アカウントで再試行する。
+const STORE_ACCOUNTS = [ADMIN_EMAIL, "saito.crow+enka@gmail.com"];
 
 export default function Auth() {
   const [password, setPassword] = useState("");
@@ -30,15 +33,20 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: ADMIN_EMAIL,
-        password,
-      });
-      if (error) {
-        if (error.message.includes("Invalid login credentials")) {
+      // 入力されたパスワードで各店舗アカウントを順に試す（全力エステ→艶花）
+      let lastError: Error | null = null;
+      let success = false;
+      for (const email of STORE_ACCOUNTS) {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (!error) { success = true; break; }
+        lastError = error;
+        if (!error.message.includes("Invalid login credentials")) throw error;
+      }
+      if (!success) {
+        if (lastError?.message.includes("Invalid login credentials")) {
           throw new Error("パスワードが正しくありません");
         }
-        throw error;
+        throw lastError ?? new Error("ログインに失敗しました");
       }
       toast({ title: "ログイン成功" });
     } catch (error) {

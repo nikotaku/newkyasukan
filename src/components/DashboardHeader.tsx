@@ -1,6 +1,7 @@
 import { Menu, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminStore } from "@/hooks/useAdminStore";
 import { CtiCallPopup } from "@/components/CtiCallPopup";
 import caskanLogo from "@/assets/caskan-logo.png";
 import {
@@ -16,6 +17,7 @@ interface DashboardHeaderProps {
 
 export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
   const { user, signOut, isAdmin } = useAuth();
+  const { store: adminStore } = useAdminStore();
 
   return (
     <header className="fixed top-0 left-0 right-0 h-[52px] sm:h-[60px] bg-card border-b border-border z-40">
@@ -43,7 +45,7 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
         {/* Account info */}
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 whitespace-nowrap">
           <div className="hidden lg:block text-right">
-            <div className="text-xs text-muted-foreground">全力エステ..</div>
+            <div className="text-xs text-muted-foreground">{adminStore?.name ?? "全力エステ.."}</div>
             {isAdmin && (
               <div className="text-xs text-primary font-medium">管理者</div>
             )}
