@@ -12,6 +12,7 @@ import { ja } from "date-fns/locale";
 import { driveImgUrl } from "@/lib/drive";
 import { useStoreContact } from "@/hooks/useStoreContact";
 import { CastTitleBadge, useTitleBadges } from "@/components/public/CastTitleBadge";
+import { useStore } from "@/hooks/useStore";
 
 interface Cast {
   id: string;
@@ -47,6 +48,8 @@ interface Shift {
 
 const Home = () => {
   const { telHref, phoneDisplay } = useStoreContact();
+  const { store, storeId } = useStore();
+  const storeName = store?.name ?? "全力エステ 仙台";
   const titleBadgeMap = useTitleBadges();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [newFaceCasts, setNewFaceCasts] = useState<Cast[]>([]);
@@ -59,7 +62,7 @@ const Home = () => {
   ];
 
   useEffect(() => {
-    document.title = "全力エステ 仙台 | メンズエステ";
+    document.title = `${storeName} | メンズエステ`;
   }, []);
 
   useEffect(() => {
@@ -71,7 +74,7 @@ const Home = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [storeId]);
 
   const fetchData = async () => {
     const today = format(new Date(), "yyyy-MM-dd");
@@ -83,6 +86,7 @@ const Home = () => {
       supabase
         .from("casts")
         .select("id, name, age, height, cup_size, photo, profile, join_date, x_account, status")
+        .eq("store_id", storeId)
         .order("join_date", { ascending: false }),
       supabase
         .from("shifts")
@@ -91,6 +95,7 @@ const Home = () => {
           casts (id, name, photo, age, height, cup_size, profile, x_account, title_badge_id)
         `)
         .eq("shift_date", today)
+        .eq("store_id", storeId)
         .order("start_time", { ascending: true }),
     ]);
 
@@ -118,7 +123,7 @@ const Home = () => {
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
 
   return (
-    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "var(--pub-light-bg,#f8f6f3)" }}>
       <PublicNavigation />
 
       {/* Banner Slider */}
@@ -127,7 +132,7 @@ const Home = () => {
           <AspectRatio ratio={16 / 9}>
             <img
               src={slides[currentSlide]}
-              alt="トップバナー | 全力エステ 仙台"
+              alt={`トップバナー | ${storeName}`}
               className="w-full h-full object-cover transition-opacity duration-500"
             />
           </AspectRatio>
@@ -177,7 +182,7 @@ const Home = () => {
           <SectionHeading english="CONCEPT" japanese="コンセプト" />
           <div className="bg-white rounded-lg shadow-md p-8 md:p-12">
             <div className="space-y-4 text-center text-sm md:text-base" style={{ color: "#6b5d4f" }}>
-              <p className="text-lg md:text-xl font-semibold" style={{ color: "#7a706c" }}>
+              <p className="text-lg md:text-xl font-semibold" style={{ color: "var(--pub-light-text,#7a706c)" }}>
                 素直で愛嬌があり不器用でも全力心でサービス
               </p>
               <div className="pt-4 space-y-2">
@@ -186,8 +191,8 @@ const Home = () => {
                 <p>妥協のない接客</p>
               </div>
               <div className="pt-6 space-y-2">
-                <p className="font-semibold" style={{ color: "#c49480" }}>
-                  "全力エステ"は
+                <p className="font-semibold" style={{ color: "var(--pub-light-accent,#c49480)" }}>
+                  『{storeName}』は
                 </p>
                 <p>仙台のメンズエステ界における</p>
                 <p className="font-bold text-lg">「頂点」を本気で狙う</p>
@@ -196,7 +201,7 @@ const Home = () => {
               <div className="pt-6 space-y-2">
                 <p>ただ癒すだけじゃない。</p>
                 <p>あなたの五感すべてを圧倒する</p>
-                <p className="font-bold text-xl" style={{ color: "#c49480" }}>
+                <p className="font-bold text-xl" style={{ color: "var(--pub-light-accent,#c49480)" }}>
                   「全力の一撃」
                 </p>
                 <p>をご堪能ください。</p>
@@ -225,7 +230,7 @@ const Home = () => {
         <div className="container mx-auto max-w-5xl">
           <SectionHeading english="TODAY'S SCHEDULE" japanese="本日の出勤" />
           {todayShifts.length === 0 ? (
-            <div className="text-center text-[#a89586] py-8">
+            <div className="text-center text-[var(--pub-light-text-muted,#a89586)] py-8">
               <p>本日の出勤予定はありません</p>
             </div>
           ) : (
@@ -245,7 +250,7 @@ const Home = () => {
                           className="w-full aspect-[3/4] object-cover"
                         />
                       ) : (
-                        <div className="w-full aspect-[3/4] bg-gradient-to-br from-[#d4b5a8] to-[#c5a89b] flex items-center justify-center">
+                        <div className="w-full aspect-[3/4] bg-gradient-to-br from-[var(--pub-light-photo,#d4b5a8)] to-[var(--pub-light-photo2,#c5a89b)] flex items-center justify-center">
                           <span className="text-4xl text-white">
                             {shift.casts.name.charAt(0)}
                           </span>
@@ -272,15 +277,15 @@ const Home = () => {
                       )}
                     </div>
                     <div className="p-3">
-                      <h4 className="font-bold text-[#7a706c] text-sm">
+                      <h4 className="font-bold text-[var(--pub-light-text,#7a706c)] text-sm">
                         {shift.casts.name}
                       </h4>
                       {shift.casts.profile && (
-                        <p className="text-[10px] text-[#a89586] truncate">
+                        <p className="text-[10px] text-[var(--pub-light-text-muted,#a89586)] truncate">
                           {shift.casts.profile}
                         </p>
                       )}
-                      <div className="text-[10px] text-[#a89586] mt-1">
+                      <div className="text-[10px] text-[var(--pub-light-text-muted,#a89586)] mt-1">
                         {shift.casts.age && <span>{shift.casts.age}歳</span>}
                         {shift.casts.height && (
                           <span className="ml-1">{shift.casts.height}㎝</span>
@@ -289,12 +294,12 @@ const Home = () => {
                           <span className="ml-1">({shift.casts.cup_size})</span>
                         )}
                       </div>
-                      <div className="text-[10px] text-[#7a706c] mt-1">
+                      <div className="text-[10px] text-[var(--pub-light-text,#7a706c)] mt-1">
                         🕐 {shift.start_time.substring(0, 5)}〜
                         {shift.end_time.substring(0, 5)}
                       </div>
                       {shift.room && (
-                        <div className="text-[10px] text-[#a89586]">
+                        <div className="text-[10px] text-[var(--pub-light-text-muted,#a89586)]">
                           ■{shift.room}■
                         </div>
                       )}
@@ -307,7 +312,7 @@ const Home = () => {
           <div className="text-center mt-6">
             <Link
               to="/schedule"
-              className="text-[#7a706c] text-sm hover:underline"
+              className="text-[var(--pub-light-text,#7a706c)] text-sm hover:underline"
             >
               今週の出勤情報 →
             </Link>
@@ -319,7 +324,7 @@ const Home = () => {
       <div className="container mx-auto px-4 max-w-3xl py-4">
         <img
           src="https://cdn2-caskan.com/caskan/img/shop_custom_banner/1401_banner_1750164303.jpeg"
-          alt="バナー | 全力エステ 仙台"
+          alt={`バナー | ${storeName}`}
           className="w-full rounded"
         />
       </div>
@@ -331,7 +336,7 @@ const Home = () => {
           <div className="text-xs text-gray-600 leading-relaxed space-y-2">
             <p className="font-bold">【ご利用規則】</p>
             <p>
-              仙台リラクゼーションサロン【全力エステ】（以下「当店」といいます。）を、ご利用いただく際には、本利用規約に同意されたものとみなします。
+              仙台リラクゼーションサロン【{storeName}】（以下「当店」といいます。）を、ご利用いただく際には、本利用規約に同意されたものとみなします。
             </p>
             <p>※コース内にシャワーのお時間は含まれますのでご了承ください。</p>
             <p>
@@ -360,13 +365,13 @@ const Home = () => {
             <table className="w-full text-sm">
               <tbody>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-bold text-[#7a706c] w-1/3 bg-[#faf5f2]">
+                  <td className="py-3 px-4 font-bold text-[var(--pub-light-text,#7a706c)] w-1/3 bg-[var(--pub-light-bg,#faf5f2)]">
                     店舗名
                   </td>
-                  <td className="py-3 px-4 text-gray-700">全力エステ 仙台</td>
+                  <td className="py-3 px-4 text-gray-700">{storeName}</td>
                 </tr>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-bold text-[#7a706c] bg-[#faf5f2]">
+                  <td className="py-3 px-4 font-bold text-[var(--pub-light-text,#7a706c)] bg-[var(--pub-light-bg,#faf5f2)]">
                     URL
                   </td>
                   <td className="py-3 px-4 text-gray-700">
@@ -379,7 +384,7 @@ const Home = () => {
                   </td>
                 </tr>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-bold text-[#7a706c] bg-[#faf5f2]">
+                  <td className="py-3 px-4 font-bold text-[var(--pub-light-text,#7a706c)] bg-[var(--pub-light-bg,#faf5f2)]">
                     営業時間
                   </td>
                   <td className="py-3 px-4 text-gray-700">
@@ -387,7 +392,7 @@ const Home = () => {
                   </td>
                 </tr>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-bold text-[#7a706c] bg-[#faf5f2]">
+                  <td className="py-3 px-4 font-bold text-[var(--pub-light-text,#7a706c)] bg-[var(--pub-light-bg,#faf5f2)]">
                     TEL
                   </td>
                   <td className="py-3 px-4 text-gray-700">
@@ -397,7 +402,7 @@ const Home = () => {
                   </td>
                 </tr>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-bold text-[#7a706c] bg-[#faf5f2]">
+                  <td className="py-3 px-4 font-bold text-[var(--pub-light-text,#7a706c)] bg-[var(--pub-light-bg,#faf5f2)]">
                     最寄り駅
                   </td>
                   <td className="py-3 px-4 text-gray-700">
@@ -444,7 +449,7 @@ const TherapistCard = ({ cast }: { cast: Cast }) => {
               className="w-full aspect-[3/4] object-cover"
             />
           ) : (
-            <div className="w-full aspect-[3/4] bg-gradient-to-br from-[#d4b5a8] to-[#c5a89b] flex items-center justify-center">
+            <div className="w-full aspect-[3/4] bg-gradient-to-br from-[var(--pub-light-photo,#d4b5a8)] to-[var(--pub-light-photo2,#c5a89b)] flex items-center justify-center">
               <span className="text-4xl text-white">
                 {cast.name.charAt(0)}
               </span>
@@ -468,11 +473,11 @@ const TherapistCard = ({ cast }: { cast: Cast }) => {
           )}
         </div>
         <div className="p-2">
-          <h4 className="font-bold text-[#7a706c] text-sm">{cast.name}</h4>
+          <h4 className="font-bold text-[var(--pub-light-text,#7a706c)] text-sm">{cast.name}</h4>
           {cast.profile && (
-            <p className="text-[10px] text-[#a89586] truncate">{cast.profile}</p>
+            <p className="text-[10px] text-[var(--pub-light-text-muted,#a89586)] truncate">{cast.profile}</p>
           )}
-          <div className="text-[10px] text-[#a89586] mt-1">
+          <div className="text-[10px] text-[var(--pub-light-text-muted,#a89586)] mt-1">
             {cast.age && <span>{cast.age}歳</span>}
             {cast.height && <span className="ml-1">{cast.height}㎝</span>}
             {cast.cup_size && <span className="ml-1">({cast.cup_size})</span>}

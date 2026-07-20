@@ -75,7 +75,7 @@ const renderInline = (text: string, kp: string): ReactNode[] => {
   let last = 0; let m: RegExpExecArray | null; let i = 0;
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) nodes.push(text.slice(last, m.index));
-    nodes.push(<strong key={`${kp}-${i}`} className="font-bold" style={{ color: "#c49480" }}>{m[1]}</strong>);
+    nodes.push(<strong key={`${kp}-${i}`} className="font-bold" style={{ color: "var(--pub-light-accent,#c49480)" }}>{m[1]}</strong>);
     i++; last = re.lastIndex;
   }
   if (last < text.length) nodes.push(text.slice(last));
@@ -97,20 +97,20 @@ const NewsContent = ({ content }: { content: string }) => {
         if (line.startsWith("💡")) {
           return (
             <div key={idx} className="rounded-lg px-3 py-2 text-[13px] font-bold my-1"
-              style={{ background: "#fbeee6", color: "#b5794f", borderLeft: "3px solid #c49480" }}>
+              style={{ background: "var(--pub-light-soft,#fbeee6)", color: "var(--pub-light-accent-deep,#b5794f)", borderLeft: "3px solid var(--pub-light-accent,#c49480)" }}>
               {renderInline(line, `h${idx}`)}
             </div>
           );
         }
         if (/^[◆■●▶]/.test(line)) {
           return (
-            <p key={idx} className="mt-2.5 mb-0.5 font-bold text-[15px]" style={{ color: "#c49480" }}>
+            <p key={idx} className="mt-2.5 mb-0.5 font-bold text-[15px]" style={{ color: "var(--pub-light-accent,#c49480)" }}>
               {renderInline(line.replace(/^[◆■●▶]\s*/, ""), `hd${idx}`)}
             </p>
           );
         }
         return (
-          <p key={idx} className="text-sm leading-relaxed" style={{ color: "#5a5550" }}>
+          <p key={idx} className="text-sm leading-relaxed" style={{ color: "var(--pub-light-text-strong,#5a5550)" }}>
             {renderInline(line, `p${idx}`)}
           </p>
         );
@@ -120,6 +120,9 @@ const NewsContent = ({ content }: { content: string }) => {
 };
 
 const Top = () => {
+  const { store } = useStore();
+  const storeName = store?.name ?? "全力エステ 仙台";
+  const brandEn = (store?.settings as any)?.brand_en ?? "ZR";
   const [snsContent, setSnsContent] = useState<Record<string, string>>({});
   const [articles, setArticles] = useState<HpArticle[]>([]);
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
@@ -134,7 +137,7 @@ const Top = () => {
     .filter((d) => d.url);
 
   useEffect(() => {
-    document.title = "全力エステ 仙台店｜仙台のメンズエステ";
+    document.title = `${storeName}｜仙台のメンズエステ`;
     if (storeLoading) return;
     fetchAll();
   }, [storeLoading, storeId]);
@@ -162,7 +165,7 @@ const Top = () => {
   };
 
   return (
-    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "#f8f6f3" }}>
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "var(--pub-light-bg,#f8f6f3)" }}>
       {/* 左寄せハンバーガーメニュー（ヘッダー・ロゴなし） */}
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetTrigger asChild>
@@ -173,13 +176,13 @@ const Top = () => {
             <Menu size={22} />
           </button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-72 p-0 border-r border-[#3a3634] text-white" style={{ backgroundColor: "#242220" }}>
+        <SheetContent side="left" className="w-72 p-0 border-r border-[var(--pub-dark-border,#3a3634)] text-white" style={{ backgroundColor: "var(--pub-dark,#242220)" }}>
           <nav className="py-4">
             {NAV_ITEMS.map((item) => {
-              const cls = "flex items-baseline gap-2 px-5 py-3.5 border-b border-[#3a3634]/60 transition-colors hover:bg-[#3a3634]/60";
+              const cls = "flex items-baseline gap-2 px-5 py-3.5 border-b border-[var(--pub-dark-border-a60,#3a363499)] transition-colors hover:bg-[var(--pub-dark-border-a60,#3a363499)]";
               const inner = (
                 <>
-                  <span className="text-[#d8ceca] font-semibold text-sm tracking-wider">{item.label}</span>
+                  <span className="text-[var(--pub-light-border,#d8ceca)] font-semibold text-sm tracking-wider">{item.label}</span>
                   <span className="text-[11px] text-[#9a8c88]">{item.sub}</span>
                 </>
               );
@@ -199,7 +202,7 @@ const Top = () => {
         <section className="hero">
           <div className="mono">ZR</div>
           <div className="inner">
-            <div className="overline goldtext"><span className="dia" />ZR ｜ 全力エステ</div>
+            <div className="overline goldtext"><span className="dia" />{brandEn} ｜ {storeName}</div>
             <h1>また、<span className="goldtext">あの人</span>に<br />会いに。</h1>
             <p className="concept">至極のおもてなしは、人がつくる。<br />あなたを覚えている、ただ一人のセラピストへ。</p>
             <div className="cta-row">
@@ -212,7 +215,7 @@ const Top = () => {
 
         {/* 2枚目：理念 */}
         <section className="philo">
-          <div className="over goldtext">OUR PHILOSOPHY ｜ 全力エステ</div>
+          <div className="over goldtext">OUR PHILOSOPHY ｜ {storeName}</div>
           <h2>技術の前に、<span className="goldtext">人</span>がいる。</h2>
           <p>
             ただ疲れをほぐすだけではありません。<br />
@@ -283,13 +286,13 @@ const Top = () => {
       <div className="py-4 flex gap-2 justify-center flex-wrap" style={{ background: "#2e2b29" }}>
         <Link
           to="/booking"
-          className="inline-block bg-[#c49480] hover:bg-[#b08370] text-white font-bold text-sm px-6 py-2.5 rounded shadow transition"
+          className="inline-block bg-[var(--pub-light-accent,#c49480)] hover:bg-[#b08370] text-white font-bold text-sm px-6 py-2.5 rounded shadow transition"
         >
           Web予約はこちら
         </Link>
         <Link
           to="/schedule"
-          className="inline-block border border-[#c49480] text-[#c49480] hover:bg-[#c49480]/10 font-semibold text-sm px-6 py-2.5 rounded transition"
+          className="inline-block border border-[var(--pub-light-accent,#c49480)] text-[var(--pub-light-accent,#c49480)] hover:bg-[var(--pub-light-accent-a10,#c494801a)] font-semibold text-sm px-6 py-2.5 rounded transition"
         >
           出勤カレンダー
         </Link>
@@ -297,10 +300,10 @@ const Top = () => {
 
       {/* ===== ニュース ===== */}
       {articles.length > 0 && (
-        <section className="py-10 md:py-16" style={{ background: "#fdf8f5" }}>
+        <section className="py-10 md:py-16" style={{ background: "var(--pub-light-bg,#fdf8f5)" }}>
           <div className="container mx-auto max-w-3xl px-3 md:px-6">
             <SectionTitle en="NEWS" jp="新着情報" />
-            <div className="mt-6 space-y-0 divide-y divide-[#e5d5cc]">
+            <div className="mt-6 space-y-0 divide-y divide-[var(--pub-light-border,#e5d5cc)]">
               {articles.map((a) => (
                 <div key={a.id} className="py-4">
                   <button
@@ -308,13 +311,13 @@ const Top = () => {
                     onClick={() => setExpandedArticle(expandedArticle === a.id ? null : a.id)}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-xs text-[#a89586] whitespace-nowrap mt-0.5">
+                      <span className="text-xs text-[var(--pub-light-text-muted,#a89586)] whitespace-nowrap mt-0.5">
                         {format(new Date(a.created_at), "MM/dd")}
                       </span>
-                      <span className="text-xs px-2 py-0.5 rounded-full shrink-0 mt-0.5" style={{ background: "#f5e1d8", color: "#c49480" }}>
+                      <span className="text-xs px-2 py-0.5 rounded-full shrink-0 mt-0.5" style={{ background: "var(--pub-light-soft,#f5e1d8)", color: "var(--pub-light-accent,#c49480)" }}>
                         {CATEGORY_LABEL[a.category] ?? a.category}
                       </span>
-                      <span className="text-sm font-medium group-hover:text-[#c49480] transition-colors flex-1" style={{ color: "#5a5550" }}>
+                      <span className="text-sm font-medium group-hover:text-[var(--pub-light-accent,#c49480)] transition-colors flex-1" style={{ color: "var(--pub-light-text-strong,#5a5550)" }}>
                         {a.title}
                       </span>
                     </div>
@@ -329,7 +332,7 @@ const Top = () => {
                               src={url}
                               alt={`${a.title} 画像${i + 1}`}
                               loading="lazy"
-                              className="h-32 w-auto rounded-md object-cover shrink-0 border border-[#e5d5cc]"
+                              className="h-32 w-auto rounded-md object-cover shrink-0 border border-[var(--pub-light-border,#e5d5cc)]"
                             />
                           ))}
                         </div>
@@ -347,11 +350,11 @@ const Top = () => {
       {/* ===== 店舗公式SNS ===== */}
       <section
         className="py-10 md:py-16"
-        style={{ background: "linear-gradient(135deg, #efd0c2 0%, #f5e1d8 50%, #efd0c2 100%)" }}
+        style={{ background: "linear-gradient(135deg, var(--pub-light-soft,#efd0c2) 0%, var(--pub-light-soft,#f5e1d8) 50%, var(--pub-light-soft,#efd0c2) 100%)" }}
       >
         <div className="container mx-auto max-w-3xl px-3 md:px-6 text-center">
           <SectionTitle en="OFFICIAL SNS" jp="店舗公式SNS" />
-          <p className="text-sm mt-2" style={{ color: "#7a706c" }}>
+          <p className="text-sm mt-2" style={{ color: "var(--pub-light-text,#7a706c)" }}>
             最短のご案内情報はこちらからご確認いただけます。
           </p>
           <div className="grid gap-3 sm:grid-cols-2 mt-6 md:mt-8">
@@ -361,16 +364,16 @@ const Top = () => {
                 href={s.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center gap-4 bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition border border-[#e5d5cc]"
+                className="group flex items-center gap-4 bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition border border-[var(--pub-light-border,#e5d5cc)]"
               >
                 <span className="flex items-center justify-center w-11 h-11 rounded-full shrink-0 text-white font-bold" style={{ backgroundColor: s.color }}>
                   {s.short}
                 </span>
                 <span className="flex-1 text-left">
-                  <span className="block font-bold text-sm" style={{ color: "#7a706c" }}>{s.label}</span>
-                  <span className="text-xs text-[#a89586]">最新情報はこちら</span>
+                  <span className="block font-bold text-sm" style={{ color: "var(--pub-light-text,#7a706c)" }}>{s.label}</span>
+                  <span className="text-xs text-[var(--pub-light-text-muted,#a89586)]">最新情報はこちら</span>
                 </span>
-                <ExternalLink size={16} className="text-[#c49480] shrink-0" />
+                <ExternalLink size={16} className="text-[var(--pub-light-accent,#c49480)] shrink-0" />
               </a>
             ))}
           </div>
@@ -385,11 +388,11 @@ const Top = () => {
 
 const SectionTitle = ({ en, jp }: { en: string; jp: string }) => (
   <div className="text-center">
-    <h2 className="text-2xl md:text-4xl font-bold tracking-[0.3em]" style={{ color: "#7a706c" }}>
+    <h2 className="text-2xl md:text-4xl font-bold tracking-[0.3em]" style={{ color: "var(--pub-light-text,#7a706c)" }}>
       {en}
     </h2>
-    <p className="text-xs md:text-sm mt-1 tracking-widest text-[#a89586]">{jp}</p>
-    <div className="mx-auto mt-2 h-px w-12 bg-[#c49480]" />
+    <p className="text-xs md:text-sm mt-1 tracking-widest text-[var(--pub-light-text-muted,#a89586)]">{jp}</p>
+    <div className="mx-auto mt-2 h-px w-12 bg-[var(--pub-light-accent,#c49480)]" />
   </div>
 );
 

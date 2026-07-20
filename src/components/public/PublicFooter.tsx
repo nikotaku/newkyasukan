@@ -1,9 +1,12 @@
+import { useStore } from "@/hooks/useStore";
 import { useStoreContact } from "@/hooks/useStoreContact";
 
 export const PublicFooter = () => {
   const { lineUrl } = useStoreContact();
+  const { store } = useStore();
+  const storeName = store?.name ?? "全力エステ 仙台";
   return (
-    <footer className="text-white" style={{ backgroundColor: "#242220" }}>
+    <footer className="text-white" style={{ backgroundColor: "var(--pub-dark,#242220)" }}>
       {/* SNS Icons */}
       <div className="container mx-auto px-4 py-5 max-w-4xl">
         <div className="flex justify-center gap-4">
@@ -36,7 +39,7 @@ export const PublicFooter = () => {
 
       {/* Copyright */}
       <div className="border-t border-white/10 py-4 text-center text-xs text-white/50">
-        © 2025 全力エステ 仙台. All rights reserved.
+        © 2025 {storeName}. All rights reserved.
       </div>
     </footer>
   );

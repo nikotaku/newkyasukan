@@ -72,6 +72,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         document.documentElement.style.setProperty("--primary", data.theme_color);
       }
 
+      // 公開ページ用パレット（settings.public_theme）をCSS変数として適用。
+      // 未設定の店舗はコード側の fallback（全力エステの黒×金）が使われる。
+      const theme = (data?.settings as any)?.public_theme;
+      if (theme) {
+        const root = document.documentElement.style;
+        const KEY_MAP: Record<string, string> = {
+          bg: "--pub-bg", card: "--pub-card", card2: "--pub-card2", border: "--pub-border",
+          accent: "--pub-accent", accent_deep: "--pub-accent-deep", accent_light: "--pub-accent-light",
+          text: "--pub-text", text_mid: "--pub-text-mid", text_muted: "--pub-text-muted",
+          light_bg: "--pub-light-bg", light_accent: "--pub-light-accent", light_accent_deep: "--pub-light-accent-deep",
+          light_text: "--pub-light-text", light_text_muted: "--pub-light-text-muted", light_text_strong: "--pub-light-text-strong",
+          light_border: "--pub-light-border", light_soft: "--pub-light-soft",
+          light_photo: "--pub-light-photo", light_photo2: "--pub-light-photo2",
+          dark: "--pub-dark", dark_border: "--pub-dark-border",
+        };
+        for (const [key, cssVar] of Object.entries(KEY_MAP)) {
+          if (typeof theme[key] === "string") root.setProperty(cssVar, theme[key]);
+        }
+        // 不透明度付きバリアント（8桁hexでアルファを焼き込む）
+        if (theme.accent) {
+          root.setProperty("--pub-accent-a10", `${theme.accent}1a`);
+          root.setProperty("--pub-accent-a40", `${theme.accent}66`);
+          root.setProperty("--pub-accent-a50", `${theme.accent}80`);
+          root.setProperty("--pub-accent-a60", `${theme.accent}99`);
+        }
+        if (theme.border) root.setProperty("--pub-border-a60", `${theme.border}99`);
+        if (theme.dark_border) root.setProperty("--pub-dark-border-a60", `${theme.dark_border}99`);
+        if (theme.light_accent) root.setProperty("--pub-light-accent-a10", `${theme.light_accent}1a`);
+        if (theme.light_bg) root.setProperty("--pub-light-bg-a50", `${theme.light_bg}80`);
+      }
+
       setStore(data);
       setLoading(false);
     };
