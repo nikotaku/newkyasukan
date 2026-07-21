@@ -123,6 +123,10 @@ interface Cast {
   line_url: string | null;
   litlink_url: string | null;
   o2_url: string | null;
+  o2_login_url?: string | null;
+  o2_login_email?: string | null;
+  o2_login_id?: string | null;
+  o2_login_password?: string | null;
   join_date: string;
   access_token?: string | null;
   therapist_years: number | null;
@@ -513,6 +517,25 @@ export default function Staff() {
     setMgmtProps((p) => p.map((x, idx) => (idx === i ? { ...x, [field]: val } : x)));
   const removeMgmtProp = (i: number) => setMgmtProps((p) => p.filter((_, idx) => idx !== i));
 
+  // 02アカウント情報の共有文面をクリップボードへコピー
+  const handleCopyO2Account = (cast: Cast) => {
+    const text = [
+      `【${cast.name} 02アカウント】`,
+      "■管理画面URL",
+      cast.o2_login_url || "https://m-sns.net/cast/login/",
+      "■登録メールアドレス",
+      cast.o2_login_email || "（未登録）",
+      "■ID",
+      cast.o2_login_id || "（未登録）",
+      "■PW",
+      cast.o2_login_password || "（未登録）",
+    ].join("\n");
+    navigator.clipboard.writeText(text).then(
+      () => toast({ title: "コピーしました", description: "02アカウント情報をクリップボードにコピーしました" }),
+      () => toast({ title: "コピーに失敗しました", variant: "destructive" }),
+    );
+  };
+
   const handleUpdateCast = async () => {
     if (!isAdmin || !editingCast) {
       toast({
@@ -540,6 +563,10 @@ export default function Staff() {
         line_url: editingCast.line_url || null,
         litlink_url: editingCast.litlink_url || null,
         o2_url: editingCast.o2_url || null,
+        o2_login_url: editingCast.o2_login_url || 'https://m-sns.net/cast/login/',
+        o2_login_email: editingCast.o2_login_email || null,
+        o2_login_id: editingCast.o2_login_id || null,
+        o2_login_password: editingCast.o2_login_password || null,
         hp_notice: editingCast.hp_notice || null,
         therapist_years: editingCast.therapist_years || null,
         favorite_techniques: editingCast.favorite_techniques || null,
@@ -2009,6 +2036,37 @@ export default function Staff() {
                       <div>
                         <Label>口コミ（O2）URL</Label>
                         <Input placeholder="https://..." value={editingCast.o2_url || ""} onChange={(e) => setEditingCast({...editingCast, o2_url: e.target.value})} />
+                      </div>
+
+                      {/* 02アカウント情報（ワンクリック共有） */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="font-semibold">02アカウント情報</Label>
+                          <Button type="button" variant="outline" size="sm" onClick={() => handleCopyO2Account(editingCast)}>
+                            <Copy className="h-3.5 w-3.5 mr-1.5" />共有用にコピー
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          「【名前 02アカウント】■管理画面URL…」形式でコピーされます。セラピストへそのまま送れます。
+                        </p>
+                        <div>
+                          <Label className="text-xs">管理画面URL</Label>
+                          <Input className="mt-1" placeholder="https://m-sns.net/cast/login/" value={editingCast.o2_login_url ?? "https://m-sns.net/cast/login/"} onChange={(e) => setEditingCast({...editingCast, o2_login_url: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">登録メールアドレス</Label>
+                          <Input className="mt-1" placeholder="info@example.com" value={editingCast.o2_login_email || ""} onChange={(e) => setEditingCast({...editingCast, o2_login_email: e.target.value})} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">ID</Label>
+                            <Input className="mt-1" placeholder="hana_sendai" value={editingCast.o2_login_id || ""} onChange={(e) => setEditingCast({...editingCast, o2_login_id: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">PW</Label>
+                            <Input className="mt-1" placeholder="********" value={editingCast.o2_login_password || ""} onChange={(e) => setEditingCast({...editingCast, o2_login_password: e.target.value})} />
+                          </div>
+                        </div>
                       </div>
 
                       <div className="border rounded-lg p-4 space-y-3">
