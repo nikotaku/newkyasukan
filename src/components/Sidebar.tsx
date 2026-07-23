@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Images,
   PhoneCall,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -80,6 +81,11 @@ const menuItems: MenuItem[] = [
     href: "/image-stock",
     label: "画像ストック",
     icon: Images,
+  },
+  {
+    href: "/marketing/media",
+    label: "媒体攻略",
+    icon: Megaphone,
   },
   {
     href: "/cti-calls",
