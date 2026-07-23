@@ -104,6 +104,7 @@ import CustomerImport from "./pages/CustomerImport";
 import SalesClosing from "./pages/SalesClosing";
 import TextTemplates from "./pages/TextTemplates";
 import ImageStock from "./pages/ImageStock";
+import MediaStrategy from "./pages/MediaStrategy";
 import CtiCalls from "./pages/CtiCalls";
 import CustomerDetail from "./pages/CustomerDetail";
 import CastPostManagement from "./pages/CastPostManagement";
@@ -199,6 +200,7 @@ const App = () => {
           <Route path="/knowledge/passwords" element={<PasswordDatabase />} />
           <Route path="/templates" element={<TextTemplates />} />
           <Route path="/image-stock" element={<ImageStock />} />
+          <Route path="/marketing/media" element={<MediaStrategy />} />
           <Route path="/cti-calls" element={<CtiCalls />} />
           <Route path="/sales" element={<SalesDashboard />} />
           <Route path="/sales/data" element={<SalesData />} />
