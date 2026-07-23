@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Plus, Send, Loader2, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Plus, Send, Loader2, CheckCircle, XCircle, Clock, Link2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 
 interface Cast { id: string; name: string; }
@@ -54,16 +54,28 @@ export default function CastPostManagement() {
   const [showDialog, setShowDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ cast_id: "", title: "", body: "", image_urls: "" });
+  // 連携ステータス（cast_id -> 設定済みサイトの集合）
+  const [credsByCast, setCredsByCast] = useState<Record<string, Set<string>>>({});
+  const [showStatus, setShowStatus] = useState(true);
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => { if (!authLoading && !user) navigate("/login"); }, [user, authLoading, navigate]);
-  useEffect(() => { if (user) { fetchPosts(); fetchCasts(); } }, [user]);
+  useEffect(() => { if (user) { fetchPosts(); fetchCasts(); fetchCreds(); } }, [user]);
 
   const fetchCasts = async () => {
     const { data } = await supabase.from("casts").select("id, name").order("display_order", { ascending: true });
     setCasts(data || []);
+  };
+
+  const fetchCreds = async () => {
+    const { data } = await supabase.from("cast_site_credentials").select("cast_id, site");
+    const map: Record<string, Set<string>> = {};
+    (data || []).forEach((c: any) => {
+      (map[c.cast_id] ??= new Set()).add(c.site);
+    });
+    setCredsByCast(map);
   };
 
   const fetchPosts = async () => {
@@ -116,6 +128,54 @@ export default function CastPostManagement() {
             <Button onClick={() => setShowDialog(true)}>
               <Plus size={16} className="mr-1" />新規投稿
             </Button>
+          </div>
+
+          {/* 連携ステータス一覧 */}
+          <div className="border rounded-lg bg-card mb-4">
+            <button
+              className="w-full flex items-center justify-between px-4 py-3"
+              onClick={() => setShowStatus(!showStatus)}
+            >
+              <span className="flex items-center gap-2 font-semibold text-sm">
+                <Link2 size={16} className="text-primary" />
+                媒体連携ステータス
+                <span className="text-xs font-normal text-muted-foreground">
+                  （セラピストごとのO2・エスたまの魂ログイン設定）
+                </span>
+              </span>
+              {showStatus ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            {showStatus && (
+              <div className="px-4 pb-3 border-t pt-3">
+                {casts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">セラピストがいません</p>
+                ) : (
+                  <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5">
+                    {casts.map((c) => {
+                      const sites = credsByCast[c.id] ?? new Set<string>();
+                      const badge = (ok: boolean) =>
+                        ok ? (
+                          <span className="inline-flex items-center gap-0.5 text-green-600"><CheckCircle size={12} />連携済</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-0.5 text-muted-foreground"><XCircle size={12} />未連携</span>
+                        );
+                      return (
+                        <div key={c.id} className="flex items-center justify-between text-xs border-b border-dashed py-1">
+                          <span className="font-medium truncate">{c.name}</span>
+                          <span className="flex items-center gap-3 shrink-0">
+                            <span className="flex items-center gap-1"><span className="text-muted-foreground">O2</span>{badge(sites.has("o2"))}</span>
+                            <span className="flex items-center gap-1"><span className="text-muted-foreground">魂</span>{badge(sites.has("esutama"))}</span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  ※ ログイン情報の登録は各セラピストのポータル（投稿管理 → ⚙️）から行えます。「連携済」でも投稿の成否は各投稿のステータスで確認してください。
+                </p>
+              </div>
+            )}
           </div>
 
           {loading ? (
