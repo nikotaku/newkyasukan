@@ -62,10 +62,15 @@ const Home = () => {
   const [todayShifts, setTodayShifts] = useState<Shift[]>([]);
   const [allCasts, setAllCasts] = useState<Cast[]>([]);
 
-  const slides = [
-    "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750253573.png",
-    "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750762260.png",
-  ];
+  // 店舗ごとのヒーローバナー（stores.settings.hero_banners）。未設定なら全力エステの既定バナー。
+  const heroBanners = ((store?.settings as any)?.hero_banners as string[] | undefined) ?? [];
+  const usingCustomHero = heroBanners.length > 0;
+  const slides = usingCustomHero
+    ? heroBanners
+    : [
+        "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750253573.png",
+        "https://cdn2-caskan.com/caskan/img/shop_top_banner/1401_banner_1750762260.png",
+      ];
 
   useEffect(() => {
     document.title = `${storeName} | メンズエステ`;
@@ -134,12 +139,15 @@ const Home = () => {
 
       {/* Banner Slider */}
       <div className="relative">
-        <div className="relative overflow-hidden">
-          <AspectRatio ratio={16 / 9}>
+        <div
+          className="relative overflow-hidden"
+          style={usingCustomHero ? { backgroundColor: "var(--pub-bg,#150a11)" } : undefined}
+        >
+          <AspectRatio ratio={usingCustomHero ? 2 / 1 : 16 / 9}>
             <img
               src={slides[currentSlide]}
               alt={`トップバナー | ${storeName}`}
-              className="w-full h-full object-cover transition-opacity duration-500"
+              className={`w-full h-full transition-opacity duration-500 ${usingCustomHero ? "object-contain" : "object-cover"}`}
             />
           </AspectRatio>
           <button
