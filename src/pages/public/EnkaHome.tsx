@@ -139,11 +139,16 @@ export default function EnkaHome() {
         <div className="relative" style={{ backgroundColor: "var(--pub-bg,#150a11)" }}>
           <Link to="/system">
             <div className="relative w-full" style={{ aspectRatio: "2 / 1" }}>
-              <img
-                src={banners[slide]}
-                alt={`${storeName} プランバナー`}
-                className="w-full h-full object-contain transition-opacity duration-500"
-              />
+              {/* クロスフェード切替（全バナーを重ねて不透明度で遷移） */}
+              {banners.map((b, i) => (
+                <img
+                  key={b}
+                  src={b}
+                  alt={`${storeName} プランバナー${i + 1}`}
+                  className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000 ease-in-out"
+                  style={{ opacity: slide === i ? 1 : 0 }}
+                />
+              ))}
             </div>
           </Link>
           {banners.length > 1 && (
