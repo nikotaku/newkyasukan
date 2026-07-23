@@ -9,6 +9,7 @@ export interface Store {
   theme_color: string | null;
   settings: Record<string, unknown>;
   is_default: boolean;
+  custom_domain?: string | null;
 }
 
 // デフォルト店舗（既存データはすべてこの店舗に帰属）
