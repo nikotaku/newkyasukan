@@ -105,6 +105,7 @@ import SalesClosing from "./pages/SalesClosing";
 import TextTemplates from "./pages/TextTemplates";
 import ImageStock from "./pages/ImageStock";
 import MediaStrategy from "./pages/MediaStrategy";
+import InquiryStats from "./pages/InquiryStats";
 import CtiCalls from "./pages/CtiCalls";
 import CustomerDetail from "./pages/CustomerDetail";
 import CastPostManagement from "./pages/CastPostManagement";
@@ -201,6 +202,7 @@ const App = () => {
           <Route path="/templates" element={<TextTemplates />} />
           <Route path="/image-stock" element={<ImageStock />} />
           <Route path="/marketing/media" element={<MediaStrategy />} />
+          <Route path="/inquiry-stats" element={<InquiryStats />} />
           <Route path="/cti-calls" element={<CtiCalls />} />
           <Route path="/sales" element={<SalesDashboard />} />
           <Route path="/sales/data" element={<SalesData />} />

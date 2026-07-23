@@ -1,0 +1,311 @@
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { DashboardHeader } from "@/components/DashboardHeader";
+import { Sidebar } from "@/components/Sidebar";
+import { useAuth } from "@/hooks/useAuth";
+import { useAdminStore } from "@/hooks/useAdminStore";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { BarChart3, Plus, Loader2, Trash2, MessageCircle, Phone, Globe, HelpCircle } from "lucide-react";
+
+/**
+ * 問い合わせ集計：LINE bot・管理画面から記録した問い合わせ（電話/LINE/その他）と、
+ * WEB予約（公開フォーム経由の reservations = created_by が null。完了含む全ステータス）を
+ * 月別・日別に集計する。表示はログイン店舗のデータのみ（RLSで自動分離）。
+ */
+
+interface InquiryRow {
+  id: string;
+  channel: "phone" | "line" | "other";
+  memo: string | null;
+  source: "line" | "manual";
+  inquired_at: string;
+}
+
+const CHANNEL_LABEL: Record<string, string> = { phone: "電話", line: "LINE", other: "その他" };
+
+interface Counts { phone: number; line: number; other: number; web: number; }
+const emptyCounts = (): Counts => ({ phone: 0, line: 0, other: 0, web: 0 });
+const total = (c: Counts) => c.phone + c.line + c.other + c.web;
+
+export default function InquiryStats() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [inquiries, setInquiries] = useState<InquiryRow[]>([]);
+  const [webDates, setWebDates] = useState<Date[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), "yyyy-MM"));
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    date: format(new Date(), "yyyy-MM-dd"),
+    channel: "phone",
+    memo: "",
+  });
+
+  const { user, loading: authLoading } = useAuth();
+  const { store: adminStore } = useAdminStore();
+  const navigate = useNavigate();
+
+  useEffect(() => { if (!authLoading && !user) navigate("/login"); }, [user, authLoading, navigate]);
+  useEffect(() => { document.title = "問い合わせ集計"; }, []);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const from = new Date();
+    from.setMonth(from.getMonth() - 12);
+    const fromIso = from.toISOString();
+
+    const [inqRes, webRes] = await Promise.all([
+      supabase
+        .from("inquiries" as any)
+        .select("id, channel, memo, source, inquired_at")
+        .gte("inquired_at", fromIso)
+        .order("inquired_at", { ascending: false }),
+      supabase
+        .from("reservations")
+        .select("created_at")
+        .is("created_by", null)
+        .gte("created_at", fromIso),
+    ]);
+    setInquiries(((inqRes.data ?? []) as unknown as InquiryRow[]));
+    setWebDates(((webRes.data ?? []) as { created_at: string }[]).map((r) => new Date(r.created_at)));
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { if (user) fetchData(); }, [user, fetchData]);
+
+  // 月別集計（直近12ヶ月・降順）
+  const monthly = useMemo(() => {
+    const map = new Map<string, Counts>();
+    const add = (key: string, ch: keyof Counts) => {
+      if (!map.has(key)) map.set(key, emptyCounts());
+      map.get(key)![ch]++;
+    };
+    inquiries.forEach((i) => add(format(new Date(i.inquired_at), "yyyy-MM"), i.channel));
+    webDates.forEach((d) => add(format(d, "yyyy-MM"), "web"));
+    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [inquiries, webDates]);
+
+  // 選択月の日別集計（昇順）
+  const daily = useMemo(() => {
+    const map = new Map<string, Counts>();
+    const add = (d: Date, ch: keyof Counts) => {
+      if (format(d, "yyyy-MM") !== selectedMonth) return;
+      const key = format(d, "yyyy-MM-dd");
+      if (!map.has(key)) map.set(key, emptyCounts());
+      map.get(key)![ch]++;
+    };
+    inquiries.forEach((i) => add(new Date(i.inquired_at), i.channel));
+    webDates.forEach((d) => add(d, "web"));
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [inquiries, webDates, selectedMonth]);
+
+  // 選択月の記録一覧（手動・LINE入力分のみ。削除可能）
+  const monthEntries = useMemo(
+    () => inquiries.filter((i) => format(new Date(i.inquired_at), "yyyy-MM") === selectedMonth),
+    [inquiries, selectedMonth],
+  );
+
+  const handleAdd = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("inquiries" as any).insert({
+      channel: form.channel,
+      memo: form.memo || null,
+      source: "manual",
+      inquired_at: new Date(`${form.date}T12:00:00`).toISOString(),
+    } as any);
+    setSaving(false);
+    if (error) { console.error(error); toast.error("追加に失敗しました"); return; }
+    toast.success("問い合わせを記録しました");
+    setShowAdd(false);
+    setForm({ ...form, memo: "" });
+    fetchData();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("この記録を削除しますか？")) return;
+    const { error } = await supabase.from("inquiries" as any).delete().eq("id", id);
+    if (error) { toast.error("削除に失敗しました"); return; }
+    setInquiries((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  const CH_ICON = { phone: Phone, line: MessageCircle, other: HelpCircle } as const;
+
+  return (
+    <div className="min-h-screen bg-background">
+      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <main className="pt-[60px] md:ml-[240px] p-4 md:p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-1">
+            <h1 className="text-xl font-bold flex items-center gap-2">
+              <BarChart3 size={20} className="text-primary" />
+              問い合わせ集計
+              {adminStore?.name && (
+                <span className="text-sm font-normal text-muted-foreground">（{adminStore.name}）</span>
+              )}
+            </h1>
+            <Button onClick={() => setShowAdd(true)}>
+              <Plus size={15} className="mr-1" />手動で記録
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mb-5">
+            電話・LINE・その他はLINE bot（「問合せ 店舗 チャネル」）または手動入力。WEB予約は予約フォームの件数を自動集計（完了予約含む）。
+          </p>
+
+          {loading ? (
+            <div className="text-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>
+          ) : (
+            <>
+              {/* 月別 */}
+              <div className="rounded-xl border bg-card overflow-hidden mb-6">
+                <div className="px-4 py-2.5 border-b text-sm font-semibold">月別（直近12ヶ月）</div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/50 text-xs text-muted-foreground">
+                        <th className="text-left px-4 py-2">月</th>
+                        <th className="text-right px-3 py-2">電話</th>
+                        <th className="text-right px-3 py-2">LINE</th>
+                        <th className="text-right px-3 py-2">その他</th>
+                        <th className="text-right px-3 py-2">WEB予約</th>
+                        <th className="text-right px-4 py-2 font-bold">合計</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monthly.length === 0 && (
+                        <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">データがありません</td></tr>
+                      )}
+                      {monthly.map(([m, c]) => (
+                        <tr
+                          key={m}
+                          onClick={() => setSelectedMonth(m)}
+                          className={`border-t cursor-pointer hover:bg-muted/40 ${selectedMonth === m ? "bg-primary/5" : ""}`}
+                        >
+                          <td className="px-4 py-2 font-medium">{m.replace("-", "年")}月{selectedMonth === m && <span className="ml-1.5 text-[10px] text-primary">▼日別表示中</span>}</td>
+                          <td className="text-right px-3 py-2">{c.phone}</td>
+                          <td className="text-right px-3 py-2">{c.line}</td>
+                          <td className="text-right px-3 py-2">{c.other}</td>
+                          <td className="text-right px-3 py-2">{c.web}</td>
+                          <td className="text-right px-4 py-2 font-bold">{total(c)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 日別 */}
+              <div className="rounded-xl border bg-card overflow-hidden mb-6">
+                <div className="px-4 py-2.5 border-b text-sm font-semibold">
+                  {selectedMonth.replace("-", "年")}月の日別内訳
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/50 text-xs text-muted-foreground">
+                        <th className="text-left px-4 py-2">日付</th>
+                        <th className="text-right px-3 py-2">電話</th>
+                        <th className="text-right px-3 py-2">LINE</th>
+                        <th className="text-right px-3 py-2">その他</th>
+                        <th className="text-right px-3 py-2">WEB予約</th>
+                        <th className="text-right px-4 py-2 font-bold">合計</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {daily.length === 0 && (
+                        <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">この月のデータがありません</td></tr>
+                      )}
+                      {daily.map(([d, c]) => (
+                        <tr key={d} className="border-t">
+                          <td className="px-4 py-2">{format(new Date(d), "M/d")}</td>
+                          <td className="text-right px-3 py-2">{c.phone}</td>
+                          <td className="text-right px-3 py-2">{c.line}</td>
+                          <td className="text-right px-3 py-2">{c.other}</td>
+                          <td className="text-right px-3 py-2">{c.web}</td>
+                          <td className="text-right px-4 py-2 font-bold">{total(c)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 記録一覧（削除用） */}
+              <div className="rounded-xl border bg-card overflow-hidden">
+                <div className="px-4 py-2.5 border-b text-sm font-semibold">
+                  {selectedMonth.replace("-", "年")}月の記録一覧（電話・LINE・その他）
+                </div>
+                {monthEntries.length === 0 ? (
+                  <p className="text-center py-8 text-sm text-muted-foreground">記録がありません</p>
+                ) : (
+                  <div className="divide-y">
+                    {monthEntries.map((i) => {
+                      const Icon = CH_ICON[i.channel];
+                      return (
+                        <div key={i.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                          <Icon size={15} className="text-primary shrink-0" />
+                          <span className="w-24 shrink-0 text-muted-foreground">{format(new Date(i.inquired_at), "M/d HH:mm")}</span>
+                          <span className="w-14 shrink-0 font-medium">{CHANNEL_LABEL[i.channel]}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${i.source === "line" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+                            {i.source === "line" ? "LINE入力" : "手動"}
+                          </span>
+                          <span className="flex-1 truncate text-muted-foreground">{i.memo}</span>
+                          <button onClick={() => handleDelete(i.id)} className="text-muted-foreground hover:text-destructive shrink-0">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </main>
+
+      {/* 手動記録ダイアログ */}
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>問い合わせを手動で記録</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label>日付</Label>
+              <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+            </div>
+            <div>
+              <Label>チャネル</Label>
+              <Select value={form.channel} onValueChange={(v) => setForm({ ...form, channel: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="phone">電話</SelectItem>
+                  <SelectItem value="line">LINE</SelectItem>
+                  <SelectItem value="other">その他</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>メモ（任意）</Label>
+              <Textarea rows={2} value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} placeholder="新規のお客様 など" />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button className="flex-1" onClick={handleAdd} disabled={saving}>
+                {saving ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Plus size={14} className="mr-1" />}
+                記録する
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setShowAdd(false)}>キャンセル</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
