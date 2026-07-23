@@ -84,6 +84,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         data = byDefault as unknown as Store | null;
       }
 
+      // 店舗ごとのファビコン（stores.settings.favicon にパスを設定）
+      const favicon = (data?.settings as any)?.favicon;
+      if (favicon) {
+        document
+          .querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')
+          .forEach((link) => { link.href = favicon; });
+      }
+
       if (data?.theme_color) {
         // shadcn の --primary を店舗テーマ色（HSL値）で上書き
         document.documentElement.style.setProperty("--primary", data.theme_color);
