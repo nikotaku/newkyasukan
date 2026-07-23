@@ -278,6 +278,20 @@ const System = () => {
               </Button>
             </Link>
           </div>
+
+          {/* 特定商取引法に基づく表示（site_content: tokusho / 設定店舗のみ表示） */}
+          {c("tokusho").trim() && (
+            <div className="mt-12 pt-8 border-t border-[var(--pub-border,#3a2f1c)]">
+              <div className="text-center mb-4">
+                <h3 className="text-lg md:text-xl font-bold" style={{ color: "var(--pub-text,#f0e6d2)", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.15em" }}>
+                  特定商取引法に基づく表示
+                </h3>
+              </div>
+              <div className="text-xs leading-relaxed whitespace-pre-wrap max-w-2xl mx-auto" style={{ color: "var(--pub-text-muted,#a3987f)" }}>
+                {c("tokusho")}
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
