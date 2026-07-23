@@ -4,19 +4,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import caskanLogo from "@/assets/caskan-logo.png";
 
-const ADMIN_EMAIL = "saito.crow@gmail.com";
-// 同じログイン画面で、入力されたパスワードに応じて店舗アカウントを切り替える。
-// 全力エステのPWで失敗した場合は艶花の管理アカウントで再試行する。
-const STORE_ACCOUNTS = [ADMIN_EMAIL, "saito.crow+enka@gmail.com"];
+// 共通パスワードを入力後、どちらの店舗の管理画面に入るかを選ぶ。
+// 各店舗の管理アカウント（同一パスワード）へサインインする。
+const STORE_OPTIONS = [
+  { key: "zenryoku", label: "全力エステ 仙台", email: "saito.crow@gmail.com" },
+  { key: "enka", label: "艶華", email: "saito.crow+enka@gmail.com" },
+];
 
 export default function Auth() {
   const [password, setPassword] = useState("");
+  const [step, setStep] = useState<"password" | "store">("password");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    document.title = "全力エステ - ログイン";
+    document.title = "管理ログイン";
   }, []);
 
   useEffect(() => {
@@ -29,24 +32,23 @@ export default function Auth() {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // パスワード入力後、店舗選択へ進む
+  const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!password) return;
+    setStep("store");
+  };
+
+  // 選んだ店舗のアカウントでサインイン
+  const handleSelectStore = async (email: string) => {
     setLoading(true);
     try {
-      // 入力されたパスワードで各店舗アカウントを順に試す（全力エステ→艶花）
-      let lastError: Error | null = null;
-      let success = false;
-      for (const email of STORE_ACCOUNTS) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (!error) { success = true; break; }
-        lastError = error;
-        if (!error.message.includes("Invalid login credentials")) throw error;
-      }
-      if (!success) {
-        if (lastError?.message.includes("Invalid login credentials")) {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
           throw new Error("パスワードが正しくありません");
         }
-        throw lastError ?? new Error("ログインに失敗しました");
+        throw error;
       }
       toast({ title: "ログイン成功" });
     } catch (error) {
@@ -55,6 +57,8 @@ export default function Auth() {
         description: error instanceof Error ? error.message : "ログインに失敗しました",
         variant: "destructive",
       });
+      // パスワードが違う場合はパスワード入力に戻す
+      setStep("password");
     } finally {
       setLoading(false);
     }
@@ -68,36 +72,61 @@ export default function Auth() {
 
       <div className="w-full max-w-[500px] bg-white rounded shadow-sm border border-gray-200">
         <div className="px-6 py-3 border-b border-gray-200" style={{ backgroundColor: '#fafafa' }}>
-          <h2 className="text-base font-normal text-foreground">ログイン</h2>
+          <h2 className="text-base font-normal text-foreground">
+            {step === "password" ? "ログイン" : "店舗を選択"}
+          </h2>
         </div>
 
         <div className="px-6 py-5">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm text-muted-foreground mb-1">パスワード</label>
-              <input
-                type="password"
-                placeholder="パスワードを入力"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={loading}
-                autoFocus
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-400"
-              />
-            </div>
+          {step === "password" ? (
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm text-muted-foreground mb-1">パスワード</label>
+                <input
+                  type="password"
+                  placeholder="パスワードを入力"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoFocus
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-400"
+                />
+              </div>
 
-            <div className="flex justify-center pt-2">
+              <div className="flex justify-center pt-2">
+                <button
+                  type="submit"
+                  className="px-12 py-2 rounded text-white text-sm font-normal disabled:opacity-50"
+                  style={{ backgroundColor: '#6aab35' }}
+                >
+                  次へ
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground text-center mb-4">
+                入る店舗を選んでください
+              </p>
+              {STORE_OPTIONS.map((s) => (
+                <button
+                  key={s.key}
+                  onClick={() => handleSelectStore(s.email)}
+                  disabled={loading}
+                  className="w-full py-3 rounded border border-gray-300 text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  {s.label}
+                </button>
+              ))}
               <button
-                type="submit"
+                onClick={() => setStep("password")}
                 disabled={loading}
-                className="px-12 py-2 rounded text-white text-sm font-normal disabled:opacity-50"
-                style={{ backgroundColor: '#6aab35' }}
+                className="w-full py-2 text-xs text-gray-400 hover:text-gray-600"
               >
-                {loading ? "処理中..." : "ログイン"}
+                ← パスワード入力に戻る
               </button>
             </div>
-          </form>
+          )}
         </div>
       </div>
 
