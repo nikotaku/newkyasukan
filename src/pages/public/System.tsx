@@ -32,6 +32,14 @@ interface NominationRate {
 const System = () => {
   const { store, storeId } = useStore();
   const storeName = store?.name ?? "全力エステ 仙台";
+  const isDefaultStore = store?.is_default ?? true;
+  // 店舗情報テーブル用：独自ドメインがあればそれを、なければ既定値を表示
+  const siteUrl = store?.custom_domain
+    ? `https://${store.custom_domain}`
+    : isDefaultStore
+      ? "https://zenryoku-esthe.com"
+      : window.location.origin;
+  const areaLabel = isDefaultStore ? "出張専門" : "マンション（個室）";
   const { telHref, phoneDisplay } = useStoreContact();
   const [backRates, setBackRates] = useState<BackRate[]>([]);
   const [optionRates, setOptionRates] = useState<OptionRate[]>([]);
@@ -239,13 +247,13 @@ const System = () => {
                     ['TEL', null],
                     ['最寄り駅', '北四番丁駅｜勾当台公園駅｜仙台駅'],
                     ['定休日', '年中無休'],
-                    ['エリア', '出張専門'],
+                    ['エリア', areaLabel],
                   ].map(([k, v]) => (
                     <tr key={k} className="border-b border-[var(--pub-border,#3a2f1c)]">
                       <td className="py-3 px-4 font-bold text-[var(--pub-text,#f0e6d2)] w-1/3 bg-[var(--pub-card2,#221b12)] align-top">{k}</td>
                       <td className="py-3 px-4 text-[var(--pub-text-mid,#d9cdb4)]">
                         {k === 'URL' ? (
-                          <a href="https://zenryoku-esthe.com" className="text-[var(--pub-accent,#c6a15b)] hover:underline">https://zenryoku-esthe.com</a>
+                          <a href={siteUrl} className="text-[var(--pub-accent,#c6a15b)] hover:underline">{siteUrl}</a>
                         ) : k === 'TEL' ? (
                           <a href={telHref} className="hover:underline">{phoneDisplay}</a>
                         ) : v}
@@ -270,6 +278,20 @@ const System = () => {
               </Button>
             </Link>
           </div>
+
+          {/* 特定商取引法に基づく表示（site_content: tokusho / 設定店舗のみ表示） */}
+          {c("tokusho").trim() && (
+            <div className="mt-12 pt-8 border-t border-[var(--pub-border,#3a2f1c)]">
+              <div className="text-center mb-4">
+                <h3 className="text-lg md:text-xl font-bold" style={{ color: "var(--pub-text,#f0e6d2)", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.15em" }}>
+                  特定商取引法に基づく表示
+                </h3>
+              </div>
+              <div className="text-xs leading-relaxed whitespace-pre-wrap max-w-2xl mx-auto" style={{ color: "var(--pub-text-muted,#a3987f)" }}>
+                {c("tokusho")}
+              </div>
+            </div>
+          )}
         </div>
       </main>
 

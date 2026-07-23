@@ -50,6 +50,12 @@ const Home = () => {
   const { telHref, phoneDisplay } = useStoreContact();
   const { store, storeId } = useStore();
   const storeName = store?.name ?? "全力エステ 仙台";
+  // 店舗情報テーブル用：独自ドメインがあればそれを、なければ既定値を表示
+  const siteUrl = store?.custom_domain
+    ? `https://${store.custom_domain}`
+    : (store?.is_default ?? true)
+      ? "https://zenryoku-esthe.com"
+      : window.location.origin;
   const titleBadgeMap = useTitleBadges();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [newFaceCasts, setNewFaceCasts] = useState<Cast[]>([]);
@@ -376,10 +382,10 @@ const Home = () => {
                   </td>
                   <td className="py-3 px-4 text-gray-700">
                     <a
-                      href="https://zenryoku-esthe.com"
+                      href={siteUrl}
                       className="text-blue-600 hover:underline"
                     >
-                      https://zenryoku-esthe.com
+                      {siteUrl}
                     </a>
                   </td>
                 </tr>

@@ -9,6 +9,7 @@ export interface Store {
   theme_color: string | null;
   settings: Record<string, unknown>;
   is_default: boolean;
+  custom_domain?: string | null;
 }
 
 // デフォルト店舗（既存データはすべてこの店舗に帰属）
@@ -82,6 +83,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .eq("is_default", true)
           .maybeSingle();
         data = byDefault as unknown as Store | null;
+      }
+
+      // 店舗ごとのファビコン（stores.settings.favicon にパスを設定）
+      const favicon = (data?.settings as any)?.favicon;
+      if (favicon) {
+        document
+          .querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')
+          .forEach((link) => { link.href = favicon; });
       }
 
       if (data?.theme_color) {
