@@ -53,9 +53,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const slug = getSubdomainSlug();
       let data: Store | null = null;
 
+      // プレビュー確認用の店舗強制指定（?store=slug）。プレビューURLでは
+      // ホスト名から店舗を判定できないため、検証時のみ使用する。
+      const forcedSlug = new URLSearchParams(window.location.search).get("store");
+      if (forcedSlug) {
+        const { data: byForced } = await supabase
+          .from("stores" as any)
+          .select("*")
+          .eq("slug", forcedSlug)
+          .eq("is_active", true)
+          .maybeSingle();
+        data = byForced as unknown as Store | null;
+      }
+
       // 独自ドメイン（stores.custom_domain、www有無どちらでも）で店舗を解決
       const host = window.location.hostname;
-      if (!isGenericHost(host)) {
+      if (!data && !isGenericHost(host)) {
         const bare = host.replace(/^www\./, "");
         const { data: byDomain } = await supabase
           .from("stores" as any)

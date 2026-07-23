@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/hooks/useStore";
 import {
   Sparkles, Banknote, Clock, Shield, Heart, Check, ChevronDown,
   Home, Train, CalendarDays, UserCheck, MessageCircle, Star,
@@ -20,21 +21,30 @@ interface BackRate {
 const yen = (v: number) => `¥${v.toLocaleString()}`;
 
 export default function RecruitTalk() {
+  const { store, storeId } = useStore();
+  const storeName = store?.name ?? "全力エステ";
+  const isDefaultStore = store?.is_default ?? true;
+  const brandEn = isDefaultStore
+    ? "ZENRYOKU ESTHE"
+    : ((store?.settings as any)?.brand_en as string | undefined) ?? "ENKA";
   const [backRates, setBackRates] = useState<BackRate[]>([]);
   const [castCount, setCastCount] = useState<number | null>(null);
 
   useEffect(() => {
-    document.title = "全力エステ 採用案内";
+    document.title = `${storeName} 採用案内`;
+    // 店舗の料金・在籍数のみ表示（他店舗のデータを混在させない）
     supabase.from("back_rates").select("course_type, duration, customer_price, therapist_back")
+      .eq("store_id", storeId)
       .then(({ data }) => setBackRates((data || []) as BackRate[]));
     supabase.from("casts").select("id", { count: "exact", head: true })
+      .eq("store_id", storeId)
       .then(({ count }) => setCastCount(count ?? null));
-  }, []);
+  }, [storeId, storeName]);
 
   // 最高バック（1本あたり）
   const maxBack = backRates.length ? Math.max(...backRates.map((r) => r.therapist_back)) : 17000;
-  // 代表的な給与例：全力80分のバック（無ければ最大バック）
-  const mainBack = backRates.find((r) => r.course_type === "全力" && r.duration === 80)?.therapist_back
+  // 代表的な給与例：80分のバック（無ければ最大バック）
+  const mainBack = backRates.find((r) => r.duration === 80)?.therapist_back
     ?? backRates[0]?.therapist_back ?? 10000;
   const daily3 = mainBack * 3;
   const monthly12 = daily3 * 12;
@@ -63,9 +73,13 @@ export default function RecruitTalk() {
           <Heart className="absolute bottom-48 left-16 text-white fill-white" size={20} />
         </div>
         <div className="relative text-white">
-          <p className="text-sm font-bold tracking-[0.3em] mb-4 opacity-90">ZENRYOKU ESTHE</p>
+          <p className="text-sm font-bold tracking-[0.3em] mb-4 opacity-90">{brandEn}</p>
           <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-6">
-            あなたの“全力”が、<br />ちゃんと評価される場所。
+            {isDefaultStore ? (
+              <>あなたの“全力”が、<br />ちゃんと評価される場所。</>
+            ) : (
+              <>あなたの“艶”が、<br />いちばん咲き誇る場所。</>
+            )}
           </h1>
           <p className="text-base md:text-lg leading-relaxed opacity-95 mb-10">
             高還元・完全自由出勤・未経験OK。<br />
@@ -80,7 +94,7 @@ export default function RecruitTalk() {
 
       {/* ===== 数字 ===== */}
       <Section className="bg-rose-50">
-        <SectionTitle sub="NUMBERS">数字で見る全力エステ</SectionTitle>
+        <SectionTitle sub="NUMBERS">数字で見る{storeName}</SectionTitle>
         <div className="grid grid-cols-3 gap-4">
           {[
             { value: castCount != null ? `${castCount}名` : "30名+", label: "在籍セラピスト" },
@@ -265,7 +279,7 @@ export default function RecruitTalk() {
       </section>
 
       <footer className="py-8 text-center text-xs text-gray-400">
-        全力エステ 採用案内
+        {storeName} 採用案内
       </footer>
     </div>
   );
