@@ -19,6 +19,13 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
   const { user, signOut, isAdmin } = useAuth();
   const { store: adminStore } = useAdminStore();
 
+  // デフォルト店舗（全力エステ）以外は店舗ごとのアイコンに切り替える
+  const isDefaultStore = !adminStore?.slug || adminStore.slug === "main";
+  const shopIcon = isDefaultStore
+    ? "https://cdn2-caskan.com/caskan/img/shop_icon/1401_icon_1750161414.jpeg"
+    : "/favicon-tsuyaka.png";
+  const shopAlt = adminStore?.name ?? "全力エステ 仙台";
+
   return (
     <header className="fixed top-0 left-0 right-0 h-[52px] sm:h-[60px] bg-card border-b border-border z-40">
       <div className="flex items-center justify-between h-full px-1 sm:px-4 gap-0.5 sm:gap-2 flex-nowrap">
@@ -51,9 +58,9 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
             )}
           </div>
           
-          <img 
-            src="https://cdn2-caskan.com/caskan/img/shop_icon/1401_icon_1750161414.jpeg" 
-            alt="全力エステ 仙台"
+          <img
+            src={shopIcon}
+            alt={shopAlt}
             className="w-8 h-8 sm:w-9 sm:h-9 rounded border border-border object-cover flex-shrink-0 max-[360px]:hidden"
           />
           
