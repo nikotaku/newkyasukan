@@ -26,12 +26,16 @@ const StoreContext = createContext<StoreContextValue>({
   loading: true,
 });
 
+// localhost / IP / *.vercel.app はドメイン解決の対象外（デフォルト店舗扱い）
+function isGenericHost(host: string): boolean {
+  return host === "localhost" || /^[\d.]+$/.test(host) || host.endsWith(".vercel.app");
+}
+
 // サブドメインから店舗スラッグを判定。
-// localhost / IP / *.vercel.app / apex / www はデフォルト店舗扱い（null）
+// apex / www はデフォルト店舗扱い（null）※独自ドメインは custom_domain で別途解決する
 function getSubdomainSlug(): string | null {
   const host = window.location.hostname;
-  if (host === "localhost" || /^[\d.]+$/.test(host)) return null;
-  if (host.endsWith(".vercel.app")) return null;
+  if (isGenericHost(host)) return null;
   const parts = host.split(".");
   if (parts.length < 3) return null;
   const sub = parts[0];
@@ -48,7 +52,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const slug = getSubdomainSlug();
       let data: Store | null = null;
 
-      if (slug) {
+      // 独自ドメイン（stores.custom_domain、www有無どちらでも）で店舗を解決
+      const host = window.location.hostname;
+      if (!isGenericHost(host)) {
+        const bare = host.replace(/^www\./, "");
+        const { data: byDomain } = await supabase
+          .from("stores" as any)
+          .select("*")
+          .eq("custom_domain", bare)
+          .eq("is_active", true)
+          .maybeSingle();
+        data = byDomain as unknown as Store | null;
+      }
+
+      if (!data && slug) {
         const { data: bySlug } = await supabase
           .from("stores" as any)
           .select("*")
