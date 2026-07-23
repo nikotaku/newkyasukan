@@ -14,6 +14,7 @@ interface BackRate {
   course_type: string;
   duration: number;
   customer_price: number;
+  description?: string | null;
 }
 
 interface OptionRate {
@@ -110,9 +111,14 @@ const System = () => {
                 </div>
                 <div className="space-y-2">
                   {rates.map((rate) => (
-                    <div key={rate.id} className="flex justify-between items-center py-2 border-b border-[var(--pub-border,#3a2f1c)] last:border-0">
-                      <span className="text-[var(--pub-text-mid,#d9cdb4)] text-sm">{rate.duration}min</span>
-                      <span className="text-[var(--pub-text-mid,#d9cdb4)] font-bold text-sm">¥{rate.customer_price.toLocaleString()}</span>
+                    <div key={rate.id} className="py-2 border-b border-[var(--pub-border,#3a2f1c)] last:border-0">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[var(--pub-text-mid,#d9cdb4)] text-sm">{rate.duration}min</span>
+                        <span className="text-[var(--pub-text-mid,#d9cdb4)] font-bold text-sm">¥{rate.customer_price.toLocaleString()}</span>
+                      </div>
+                      {rate.description && (
+                        <p className="text-[var(--pub-text-muted,#a3987f)] text-xs mt-1 leading-relaxed">{rate.description}</p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -151,6 +157,13 @@ const System = () => {
               ))}
             </div>
           </div>
+
+          {/* 注意書き（site_content: system_note） */}
+          {c("system_note") && (
+            <p className="text-[var(--pub-text-muted,#a3987f)] text-xs mb-8 whitespace-pre-wrap leading-relaxed">
+              {c("system_note")}
+            </p>
+          )}
 
           {/* 指名料（nomination_ratesマスター） */}
           {nominationRates.length > 0 && (
