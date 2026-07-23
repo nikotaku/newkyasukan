@@ -1,7 +1,23 @@
-// LINE Webhook 受信。セラピストのグループLINEで「連携 セラピスト名」と
-// 送信すると、そのグループを casts.line_group_id に自動紐付けする。
-// 例: グループ内で「連携 はる」→ はるの予約共有グループとして登録。
+// LINE Webhook 受信。
+// ・セラピストのグループLINEで「連携 セラピスト名」→ casts.line_group_id に紐付け
+// ・「問合せ 店舗 チャネル メモ」→ inquiries に問い合わせを記録（グループ・個チャどちらでも）
+//   例) 問合せ 全力 電話 ／ 問合せ 艶華 LINE 新規のお客様
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const STORE_MAP: Record<string, { id: string; label: string }> = {
+  "全力": { id: "00000000-0000-0000-0000-000000000001", label: "全力" },
+  "艶華": { id: "404499ab-5350-490f-9608-5814faffda6f", label: "艶華" },
+  "えんか": { id: "404499ab-5350-490f-9608-5814faffda6f", label: "艶華" },
+  "エンカ": { id: "404499ab-5350-490f-9608-5814faffda6f", label: "艶華" },
+};
+const CHANNEL_MAP: Record<string, { key: string; label: string }> = {
+  "電話": { key: "phone", label: "電話" },
+  "LINE": { key: "line", label: "LINE" },
+  "ライン": { key: "line", label: "LINE" },
+  "その他": { key: "other", label: "その他" },
+};
+const INQUIRY_USAGE =
+  "形式が違います🙇\n以下の形式で送ってください：\n\n問合せ 店舗 チャネル メモ(任意)\n\n店舗: 全力 / 艶華\nチャネル: 電話 / LINE / その他\n例) 問合せ 艶華 電話 新規のお客様\n※WEB予約は自動集計されるため入力不要です";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,6 +65,52 @@ Deno.serve(async (req: Request) => {
     const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
     for (const ev of events) {
+      // 問い合わせ記録（グループ・個チャどちらからでも受け付ける）
+      if (ev.type === "message" && ev.message?.type === "text") {
+        const t: string = (ev.message.text || "").trim();
+        const im = t.match(/^問い?合わ?せ([\s　]+(.*))?$/s);
+        if (im) {
+          const rest = (im[2] || "").trim();
+          const parts = rest.split(/[\s　]+/).filter(Boolean);
+          const storeKey = parts[0] ?? "";
+          const chKey = (parts[1] ?? "").toUpperCase() === "LINE" ? "LINE" : parts[1] ?? "";
+          const store = STORE_MAP[storeKey];
+          const channel = CHANNEL_MAP[chKey];
+          if (/^(WEB|ウェブ|web)$/i.test(chKey)) {
+            if (ev.replyToken) await reply(token, ev.replyToken, "WEB予約は予約フォームから自動で集計されるため、入力は不要です👌");
+            continue;
+          }
+          if (!store || !channel) {
+            if (ev.replyToken) await reply(token, ev.replyToken, INQUIRY_USAGE);
+            continue;
+          }
+          const memo = parts.slice(2).join(" ") || null;
+          const { error: insErr } = await sb.from("inquiries").insert({
+            store_id: store.id, channel: channel.key, memo, source: "line",
+          });
+          if (insErr) {
+            if (ev.replyToken) await reply(token, ev.replyToken, "記録に失敗しました。もう一度お試しください🙇");
+            continue;
+          }
+          // 本日・今月の件数（同店舗・同チャネル、日本時間基準）
+          const now = new Date(Date.now() + 9 * 3600 * 1000);
+          const y = now.getUTCFullYear(), mo = now.getUTCMonth(), d = now.getUTCDate();
+          const dayStart = new Date(Date.UTC(y, mo, d) - 9 * 3600 * 1000).toISOString();
+          const monthStart = new Date(Date.UTC(y, mo, 1) - 9 * 3600 * 1000).toISOString();
+          const { count: dayCount } = await sb.from("inquiries")
+            .select("id", { count: "exact", head: true })
+            .eq("store_id", store.id).eq("channel", channel.key).gte("inquired_at", dayStart);
+          const { count: monthCount } = await sb.from("inquiries")
+            .select("id", { count: "exact", head: true })
+            .eq("store_id", store.id).eq("channel", channel.key).gte("inquired_at", monthStart);
+          if (ev.replyToken) {
+            await reply(token, ev.replyToken,
+              `✅ ${store.label}：${channel.label}の問い合わせを記録しました\n（本日${dayCount ?? "?"}件目／今月${monthCount ?? "?"}件）${memo ? `\nメモ: ${memo}` : ""}`);
+          }
+          continue;
+        }
+      }
+
       const groupId: string | undefined = ev.source?.groupId;
       if (!groupId) continue;
 

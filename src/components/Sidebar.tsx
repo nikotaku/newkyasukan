@@ -88,6 +88,11 @@ const menuItems: MenuItem[] = [
     icon: Megaphone,
   },
   {
+    href: "/inquiry-stats",
+    label: "問い合わせ集計",
+    icon: BarChart3,
+  },
+  {
     href: "/cti-calls",
     label: "着信履歴",
     icon: PhoneCall,
