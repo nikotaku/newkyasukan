@@ -1,0 +1,365 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { PublicNavigation } from "@/components/public/PublicNavigation";
+import { PublicFooter } from "@/components/public/PublicFooter";
+import { FixedBottomBar } from "@/components/public/FixedBottomBar";
+import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/hooks/useStore";
+import { useStoreContact } from "@/hooks/useStoreContact";
+import { driveImgUrl } from "@/lib/drive";
+import { format } from "date-fns";
+import { Phone, Calendar, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+/**
+ * 艶華専用トップページ（デフォルト店舗以外で "/" に表示）。
+ * 大型プランバナー → 本日の出勤 → おすすめプラン → NEW FACE → 料金導線 → 店舗情報。
+ */
+
+interface CastRow {
+  id: string;
+  name: string;
+  age: number | null;
+  photo: string | null;
+  join_date: string;
+}
+
+interface ShiftRow {
+  id: string;
+  cast_id: string;
+  start_time: string;
+  end_time: string;
+  casts: { id: string; name: string; photo: string | null; age: number | null } | null;
+}
+
+const hhmm = (t: string) => t?.slice(0, 5) ?? "";
+
+export default function EnkaHome() {
+  const { store, storeId } = useStore();
+  const { telHref, phoneDisplay, lineUrl, hours } = useStoreContact();
+  const storeName = store?.name ?? "艶華";
+  const tagline = ((store?.settings as any)?.tagline as string | undefined) ?? "艶やかに、咲き誇る。";
+  const banners = (((store?.settings as any)?.hero_banners as string[] | undefined) ?? []).filter(Boolean);
+  const siteUrl = store?.custom_domain ? `https://${store.custom_domain}` : window.location.origin;
+
+  const [slide, setSlide] = useState(0);
+  const [todayShifts, setTodayShifts] = useState<ShiftRow[]>([]);
+  const [newFaces, setNewFaces] = useState<CastRow[]>([]);
+
+  useEffect(() => { document.title = `${storeName}｜仙台メンズエステ`; }, [storeName]);
+
+  useEffect(() => {
+    if (banners.length < 2) return;
+    const t = setInterval(() => setSlide((p) => (p + 1) % banners.length), 4500);
+    return () => clearInterval(t);
+  }, [banners.length]);
+
+  useEffect(() => {
+    if (!storeId) return;
+    const today = format(new Date(), "yyyy-MM-dd");
+    const monthAgo = new Date();
+    monthAgo.setDate(monthAgo.getDate() - 30);
+
+    supabase
+      .from("shifts")
+      .select("id, cast_id, start_time, end_time, casts (id, name, photo, age)")
+      .eq("shift_date", today)
+      .eq("store_id", storeId)
+      .order("start_time")
+      .then(({ data }) => {
+        const seen = new Set<string>();
+        setTodayShifts(
+          ((data ?? []) as unknown as ShiftRow[]).filter((s) => {
+            if (!s.casts || seen.has(s.cast_id)) return false;
+            seen.add(s.cast_id);
+            return true;
+          }),
+        );
+      });
+
+    supabase
+      .from("casts")
+      .select("id, name, age, photo, join_date")
+      .eq("store_id", storeId)
+      .eq("is_visible", true)
+      .gte("join_date", format(monthAgo, "yyyy-MM-dd"))
+      .order("join_date", { ascending: false })
+      .limit(8)
+      .then(({ data }) => setNewFaces((data ?? []) as CastRow[]));
+  }, [storeId]);
+
+  const Heading = ({ en, ja }: { en: string; ja: string }) => (
+    <div className="text-center mb-6">
+      <h2
+        className="text-2xl md:text-3xl font-bold"
+        style={{ color: "var(--pub-text,#f7e9f0)", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.25em" }}
+      >
+        {en}
+      </h2>
+      <p className="text-xs mt-1" style={{ color: "var(--pub-text-muted,#a98496)" }}>{ja}</p>
+      <div
+        className="w-16 h-px mx-auto mt-3"
+        style={{ background: "linear-gradient(90deg, transparent, var(--pub-accent,#d4547a), transparent)" }}
+      />
+    </div>
+  );
+
+  const CastCard = ({ id, name, age, photo, time }: { id: string; name: string; age: number | null; photo: string | null; time?: string }) => (
+    <Link to={`/casts/${id}`} className="shrink-0 w-36 md:w-44">
+      <div
+        className="rounded-xl overflow-hidden border"
+        style={{ borderColor: "var(--pub-border,#4a2740)", backgroundColor: "var(--pub-card,#211320)" }}
+      >
+        <div className="aspect-[3/4] overflow-hidden">
+          {photo ? (
+            <img src={driveImgUrl(photo, 400)} alt={name} loading="lazy" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--pub-card2,#2b1a28)" }}>
+              <Sparkles size={22} style={{ color: "var(--pub-accent,#d4547a)" }} />
+            </div>
+          )}
+        </div>
+        <div className="px-2.5 py-2 text-center">
+          <p className="text-sm font-bold truncate" style={{ color: "var(--pub-text,#f7e9f0)" }}>
+            {name}
+            {age != null && <span className="text-xs font-normal ml-1" style={{ color: "var(--pub-text-muted,#a98496)" }}>({age})</span>}
+          </p>
+          {time && <p className="text-[11px] mt-0.5" style={{ color: "var(--pub-accent-light,#f2a0bc)" }}>{time}</p>}
+        </div>
+      </div>
+    </Link>
+  );
+
+  return (
+    <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "var(--pub-bg,#150a11)" }}>
+      <PublicNavigation />
+
+      {/* 1. 大型プランバナー */}
+      {banners.length > 0 && (
+        <div className="relative" style={{ backgroundColor: "var(--pub-bg,#150a11)" }}>
+          <Link to="/system">
+            <div className="relative w-full" style={{ aspectRatio: "2 / 1" }}>
+              <img
+                src={banners[slide]}
+                alt={`${storeName} プランバナー`}
+                className="w-full h-full object-contain transition-opacity duration-500"
+              />
+            </div>
+          </Link>
+          {banners.length > 1 && (
+            <>
+              <button
+                onClick={() => setSlide((p) => (p - 1 + banners.length) % banners.length)}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-2 rounded-full text-white"
+                aria-label="前のバナー"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                onClick={() => setSlide((p) => (p + 1) % banners.length)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-2 rounded-full text-white"
+                aria-label="次のバナー"
+              >
+                <ChevronRight size={18} />
+              </button>
+              <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1.5">
+                {banners.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSlide(i)}
+                    className="w-2 h-2 rounded-full transition-all"
+                    style={{ backgroundColor: slide === i ? "var(--pub-accent,#d4547a)" : "rgba(255,255,255,.35)" }}
+                    aria-label={`バナー${i + 1}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ブランドライン */}
+      <div className="text-center py-8 px-4">
+        <p className="text-xs tracking-[0.5em]" style={{ color: "var(--pub-text-muted,#a98496)" }}>SENDAI MEN'S ESTHE</p>
+        <h1
+          className="text-3xl md:text-4xl font-bold mt-2"
+          style={{ color: "var(--pub-accent,#d4547a)", fontFamily: "'Noto Serif JP', serif", letterSpacing: "0.2em" }}
+        >
+          {storeName}
+        </h1>
+        <p className="text-sm mt-2" style={{ color: "var(--pub-text-mid,#dfc0cf)", letterSpacing: "0.3em" }}>{tagline}</p>
+      </div>
+
+      {/* 2. 本日の出勤 */}
+      <section className="py-8 px-4">
+        <div className="container mx-auto max-w-5xl">
+          <Heading en="TODAY" ja="本日の出勤" />
+          {todayShifts.length === 0 ? (
+            <p className="text-center text-sm py-6" style={{ color: "var(--pub-text-muted,#a98496)" }}>
+              本日の出勤情報は準備中です
+            </p>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4">
+              {todayShifts.map((s) => (
+                <CastCard
+                  key={s.id}
+                  id={s.casts!.id}
+                  name={s.casts!.name}
+                  age={s.casts!.age}
+                  photo={s.casts!.photo}
+                  time={`${hhmm(s.start_time)} - ${hhmm(s.end_time)}`}
+                />
+              ))}
+            </div>
+          )}
+          <div className="text-center mt-5">
+            <Link to="/schedule">
+              <Button
+                variant="outline"
+                className="bg-transparent"
+                style={{ borderColor: "var(--pub-accent,#d4547a)", color: "var(--pub-text,#f7e9f0)" }}
+              >
+                出勤スケジュールを見る
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. おすすめプラン（バナー縦積み） */}
+      {banners.length > 1 && (
+        <section className="py-8 px-4" style={{ backgroundColor: "var(--pub-card,#211320)" }}>
+          <div className="container mx-auto max-w-2xl">
+            <Heading en="PLAN" ja="おすすめプラン" />
+            <div className="space-y-4">
+              {banners.map((b, i) => (
+                <Link key={i} to="/booking" className="block rounded-xl overflow-hidden border" style={{ borderColor: "var(--pub-border,#4a2740)" }}>
+                  <img src={b} alt={`${storeName} プラン${i + 1}`} loading="lazy" className="w-full h-auto" />
+                </Link>
+              ))}
+            </div>
+            <p className="text-center text-xs mt-4" style={{ color: "var(--pub-text-muted,#a98496)" }}>
+              バナーをタップでWeb予約へ
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* 4. NEW FACE */}
+      {newFaces.length > 0 && (
+        <section className="py-8 px-4">
+          <div className="container mx-auto max-w-5xl">
+            <Heading en="NEW FACE" ja="新人セラピスト" />
+            <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4">
+              {newFaces.map((c) => (
+                <CastCard key={c.id} id={c.id} name={c.name} age={c.age} photo={c.photo} />
+              ))}
+            </div>
+            <div className="text-center mt-5">
+              <Link to="/casts">
+                <Button
+                  variant="outline"
+                  className="bg-transparent"
+                  style={{ borderColor: "var(--pub-accent,#d4547a)", color: "var(--pub-text,#f7e9f0)" }}
+                >
+                  セラピスト一覧を見る
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 5. 料金・システム導線 */}
+      <section className="py-10 px-4" style={{ backgroundColor: "var(--pub-card,#211320)" }}>
+        <div className="container mx-auto max-w-2xl text-center">
+          <Heading en="SYSTEM" ja="料金システム" />
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            {[["60分", "¥15,000"], ["80分", "¥19,000"], ["100分", "¥24,000"]].map(([d, p]) => (
+              <div key={d} className="rounded-xl border py-4" style={{ borderColor: "var(--pub-border,#4a2740)", backgroundColor: "var(--pub-bg,#150a11)" }}>
+                <p className="text-xs" style={{ color: "var(--pub-text-muted,#a98496)" }}>艶華コース {d}</p>
+                <p className="text-lg font-bold mt-1" style={{ color: "var(--pub-accent-light,#f2a0bc)" }}>{p}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-sm mb-5" style={{ color: "var(--pub-text-mid,#dfc0cf)" }}>
+            お得なオプションパック <span className="font-bold" style={{ color: "var(--pub-accent,#d4547a)" }}>-桜- ・ -牡丹-</span> もご用意
+          </p>
+          <Link to="/system">
+            <Button
+              size="lg"
+              className="min-w-[220px]"
+              style={{ backgroundColor: "var(--pub-accent,#d4547a)", color: "#fff" }}
+            >
+              料金の詳細を見る
+            </Button>
+          </Link>
+        </div>
+      </section>
+
+      {/* 6. 店舗情報 */}
+      <section className="py-10 px-4">
+        <div className="container mx-auto max-w-2xl">
+          <Heading en="SHOP" ja="店舗情報" />
+          <div className="rounded-xl overflow-hidden border" style={{ borderColor: "var(--pub-border,#4a2740)" }}>
+            <table className="w-full text-sm">
+              <tbody>
+                {[
+                  ["店舗名", storeName],
+                  ["URL", siteUrl],
+                  ["営業時間", hours ?? "12:00〜26:00（25:00最終受付）"],
+                  ["TEL", phoneDisplay],
+                  ["最寄り駅", "北四番丁駅｜勾当台公園駅｜仙台駅"],
+                  ["エリア", "マンション（個室）"],
+                ].map(([k, v]) => (
+                  <tr key={k} className="border-b last:border-b-0" style={{ borderColor: "var(--pub-border,#4a2740)" }}>
+                    <td className="py-3 px-4 font-bold w-1/3 align-top" style={{ color: "var(--pub-text,#f7e9f0)", backgroundColor: "var(--pub-card2,#2b1a28)" }}>{k}</td>
+                    <td className="py-3 px-4" style={{ color: "var(--pub-text-mid,#dfc0cf)" }}>
+                      {k === "TEL" ? <a href={telHref} className="hover:underline">{v}</a>
+                        : k === "URL" ? <a href={v as string} className="hover:underline" style={{ color: "var(--pub-accent,#d4547a)" }}>{v}</a>
+                        : v}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-center text-xs mt-3" style={{ color: "var(--pub-text-muted,#a98496)" }}>
+            <Link to="/system" className="hover:underline">特定商取引法に基づく表示は料金ページ下部をご覧ください</Link>
+          </p>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="py-10 px-4 text-center" style={{ backgroundColor: "var(--pub-card,#211320)" }}>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <a href={telHref}>
+            <Button size="lg" className="gap-2 min-w-[210px]" style={{ backgroundColor: "var(--pub-accent,#d4547a)", color: "#fff" }}>
+              <Phone size={18} />電話で予約
+            </Button>
+          </a>
+          {lineUrl && (
+            <a href={lineUrl} target="_blank" rel="noreferrer">
+              <Button size="lg" className="gap-2 min-w-[210px] bg-[#06c755] hover:bg-[#05b34c] text-white">
+                LINEで予約
+              </Button>
+            </a>
+          )}
+          <Link to="/booking">
+            <Button
+              size="lg"
+              variant="outline"
+              className="gap-2 min-w-[210px] bg-transparent"
+              style={{ borderColor: "var(--pub-accent,#d4547a)", color: "var(--pub-text,#f7e9f0)" }}
+            >
+              <Calendar size={18} />Web予約
+            </Button>
+          </Link>
+        </div>
+      </section>
+
+      <PublicFooter />
+      <FixedBottomBar />
+    </div>
+  );
+}

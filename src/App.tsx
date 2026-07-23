@@ -43,7 +43,7 @@ import NotFound from "./pages/NotFound";
 import TherapistPortal from "./pages/TherapistPortal";
 import TherapistShiftSubmission from "./pages/TherapistShiftSubmission";
 import PublicSchedule from "./pages/public/Schedule";
-import Top from "./pages/public/Top";
+import StoreTop from "./pages/public/StoreTop";
 import PublicCasts from "./pages/public/Casts";
 import PublicCastDetail from "./pages/public/CastDetail";
 import PublicPricing from "./pages/public/Pricing";
@@ -151,7 +151,7 @@ const App = () => {
       <BrowserRouter>
         <Routes>
           {/* Public Pages */}
-          <Route path="/" element={<Top />} />
+          <Route path="/" element={<StoreTop />} />
           <Route path="/schedule" element={<PublicSchedule />} />
           <Route path="/casts" element={<PublicCasts />} />
           <Route path="/casts/:id" element={<PublicCastDetail />} />
