@@ -536,6 +536,30 @@ export default function Staff() {
     );
   };
 
+  // ブログ・SNS情報の共有文面をクリップボードへコピー（空欄の項目は省略）
+  const handleCopySns = (cast: Cast) => {
+    const xUrl = cast.x_account
+      ? `https://x.com/${cast.x_account.replace(/^@/, "")}（${cast.x_account.startsWith("@") ? cast.x_account : `@${cast.x_account}`}）`
+      : null;
+    const lines = [
+      `【${cast.name} ブログ・SNS】`,
+      cast.blog_url ? `■外部ブログ(02)\n${cast.blog_url}` : null,
+      xUrl ? `■X (Twitter)\n${xUrl}` : null,
+      cast.skebiy_url ? `■Skebiy\n${cast.skebiy_url}` : null,
+      cast.instagram_url ? `■Instagram\n${cast.instagram_url}` : null,
+      cast.line_url ? `■LINE\n${cast.line_url}` : null,
+      cast.litlink_url ? `■リットリンク\n${cast.litlink_url}` : null,
+    ].filter(Boolean);
+    if (lines.length <= 1) {
+      toast({ title: "コピーする項目がありません", description: "ブログ・SNSが未入力です", variant: "destructive" });
+      return;
+    }
+    navigator.clipboard.writeText(lines.join("\n")).then(
+      () => toast({ title: "コピーしました", description: "ブログ・SNS情報をクリップボードにコピーしました" }),
+      () => toast({ title: "コピーに失敗しました", variant: "destructive" }),
+    );
+  };
+
   const handleUpdateCast = async () => {
     if (!isAdmin || !editingCast) {
       toast({
@@ -1893,7 +1917,18 @@ export default function Staff() {
 
                       {/* ブログ・SNS */}
                       <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">ブログ・SNS</Label>
+                        <div className="flex items-center justify-between">
+                          <Label className="font-semibold">ブログ・SNS</Label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => handleCopySns(editingCast)}
+                          >
+                            📋 コピペ用にコピー
+                          </Button>
+                        </div>
                         <div>
                           <Label htmlFor="e-blog">外部ブログ(02)</Label>
                           <div className="flex items-center gap-0 mt-1">
