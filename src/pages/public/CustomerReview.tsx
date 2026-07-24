@@ -6,10 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle } from "lucide-react";
+import { useStore } from "@/hooks/useStore";
 
 const STARS = [1, 2, 3, 4, 5];
 
 export default function CustomerReview() {
+  const { store, storeId } = useStore();
+  const storeName = store?.name ?? "全力エステ";
   const [rating, setRating] = useState(0);
   const [hovered, setHovered] = useState(0);
   const [therapistName, setTherapistName] = useState("");
@@ -31,7 +34,8 @@ export default function CustomerReview() {
         therapist_name: therapistName || null,
         review_text: reviewText,
         allow_publish: allowPublish,
-      }]);
+        store_id: storeId, // 表示中の店舗に紐付け（anonはトリガーで店舗解決できないため明示）
+      } as any]);
       if (err) throw err;
       setDone(true);
     } catch {
@@ -48,9 +52,9 @@ export default function CustomerReview() {
           <CheckCircle className="mx-auto text-green-500" size={56} />
           <h1 className="text-xl font-bold">口コミありがとうございました</h1>
           <div className="bg-amber-50 rounded-xl p-5 text-sm text-left space-y-2">
-            <p className="font-bold text-amber-700">【次回割引クーポン】</p>
-            <p>次回ご来店の際、このページをスタッフにご提示ください。</p>
-            <p className="font-bold mt-2">▶ 次回 <span className="text-amber-600 text-lg">1,000円割引</span></p>
+            <p className="font-bold text-amber-700">【キャッシュバック特典】</p>
+            <p>この画面をその場でスタッフにご提示ください。</p>
+            <p className="font-bold mt-2">▶ その場で <span className="text-amber-600 text-lg">1,000円キャッシュバック</span></p>
             <p className="text-xs text-muted-foreground mt-1">アンケート＋口コミの両方でさらに<strong>3,000円割引</strong>になります</p>
           </div>
           <a
@@ -67,7 +71,7 @@ export default function CustomerReview() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
       <header className="bg-white border-b py-4 px-4 text-center">
-        <p className="text-xs text-muted-foreground">全力エステ</p>
+        <p className="text-xs text-muted-foreground">{storeName}</p>
         <h1 className="text-lg font-bold mt-0.5">口コミ投稿</h1>
       </header>
 
@@ -141,8 +145,8 @@ export default function CustomerReview() {
 
           <div className="bg-amber-50 rounded-xl p-4 text-sm space-y-1">
             <p className="font-bold text-amber-700">【ご投稿特典】</p>
-            <p>投稿完了後に表示されるクーポン画面をスタッフにご提示で</p>
-            <p className="font-bold">▶ 次回 <span className="text-amber-600">1,000円割引</span></p>
+            <p>投稿完了後に表示される画面をスタッフにご提示で</p>
+            <p className="font-bold">▶ その場で <span className="text-amber-600">1,000円キャッシュバック</span></p>
           </div>
 
           <Button type="submit" className="w-full h-12 text-base" disabled={submitting || rating === 0 || !reviewText.trim()}>
