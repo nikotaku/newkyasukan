@@ -149,6 +149,9 @@ export function ReservationForm({
   const [paymentSettings, setPaymentSettings] = useState<PaymentSetting[]>([]);
   const [prefs, setPrefs] = useState<PreferenceForm>(EMPTY_PREFS);
   const [prefsDirty, setPrefsDirty] = useState(false);
+  // 自由割引（マスタ割引に加えて任意金額を引ける）。保存は discount 合計額に含める
+  const [customDiscount, setCustomDiscount] = useState(0);
+  const customInitRef = useRef(false);
 
   useEffect(() => {
     supabase
@@ -202,6 +205,7 @@ export function ReservationForm({
         discountAmount += amt;
       }
     }
+    discountAmount += Math.max(0, customDiscount);
     discountAmount = Math.min(discountAmount, subtotal);
     const totalPrice = subtotal - discountAmount;
 
@@ -218,7 +222,33 @@ export function ReservationForm({
     const courseName = `${formData.course_type} ${formData.duration}分`;
 
     return { totalPrice, discountAmount, fee, courseName };
-  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.discount_ids, formData.payment_method, formData.payment_details, backRates, optionRates, nominationRates, discounts, paymentSettings]);
+  }, [formData.course_type, formData.duration, formData.selectedOptions, formData.nomination_type, formData.discount_ids, formData.payment_method, formData.payment_details, backRates, optionRates, nominationRates, discounts, paymentSettings, customDiscount]);
+
+  // 編集時：保存済みの割引額からマスタ割引分を引いた残りを自由割引として復元する
+  useEffect(() => {
+    if (customInitRef.current) return;
+    if (backRates.length === 0) return; // 料金マスタ読み込み待ち
+    if (!formData.discount || formData.discount <= 0) { customInitRef.current = true; return; }
+    let subtotal = 0;
+    const br = backRates.find(r => r.course_type === formData.course_type && r.duration === formData.duration);
+    if (br) subtotal += br.customer_price;
+    for (const optName of formData.selectedOptions) {
+      const o = optionRates.find(x => x.option_name === optName);
+      if (o) subtotal += o.customer_price;
+    }
+    if (formData.nomination_type) {
+      const n = nominationRates.find(x => x.nomination_type === formData.nomination_type);
+      if (n) subtotal += n.customer_price;
+    }
+    let masterAmt = 0;
+    for (const discId of formData.discount_ids) {
+      const d = discounts.find(x => x.id === discId);
+      if (d) masterAmt += d.discount_type === "percentage" ? Math.round((subtotal * d.discount_value) / 100) : d.discount_value;
+    }
+    const rest = formData.discount - masterAmt;
+    if (rest > 0) setCustomDiscount(rest);
+    customInitRef.current = true;
+  }, [backRates, optionRates, nominationRates, discounts]); // eslint-disable-line
 
   // 保存用に formData へ同期（表示は liveTotals を直接参照するため遅延しない）
   useEffect(() => {
@@ -924,6 +954,32 @@ export function ReservationForm({
               <span className="text-sm">{d.name}（{d.discount_type === "percentage" ? `-${d.discount_value}%` : `-¥${d.discount_value.toLocaleString()}`}）</span>
             </label>
           ))}
+          {/* 自由入力の割引（クーポン等の任意金額） */}
+          <div className="flex items-center gap-3 p-2 border rounded-lg">
+            <span className="text-sm shrink-0">自由割引</span>
+            <div className="flex items-center gap-1.5 flex-1">
+              <span className="text-sm text-muted-foreground">-¥</span>
+              <Input
+                type="number"
+                min={0}
+                step={100}
+                value={customDiscount === 0 ? "" : customDiscount}
+                onChange={(e) => setCustomDiscount(Math.max(0, parseInt(e.target.value) || 0))}
+                placeholder="0"
+                className="h-8 max-w-[140px]"
+              />
+              {customDiscount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setCustomDiscount(0)}
+                  className="text-xs text-muted-foreground hover:text-destructive ml-1"
+                >
+                  クリア
+                </button>
+              )}
+            </div>
+            <span className="text-xs text-muted-foreground shrink-0">クーポン等の任意金額</span>
+          </div>
         </div>
       </div>
 
