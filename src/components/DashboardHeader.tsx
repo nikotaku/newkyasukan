@@ -1,9 +1,12 @@
-import { Menu, User, LogOut } from "lucide-react";
+import { useState } from "react";
+import { Menu, User, LogOut, Loader2, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminStore } from "@/hooks/useAdminStore";
+import { useToast } from "@/hooks/use-toast";
 import { CtiCallPopup } from "@/components/CtiCallPopup";
 import caskanLogo from "@/assets/caskan-logo.png";
+import { STORE_DEFS, otherStore, switchToStore, ZENRYOKU_STORE_ID } from "@/lib/storeSwitch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,13 +21,38 @@ interface DashboardHeaderProps {
 export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
   const { user, signOut, isAdmin } = useAuth();
   const { store: adminStore } = useAdminStore();
+  const { toast } = useToast();
+  const [switching, setSwitching] = useState(false);
 
   // デフォルト店舗（全力エステ）以外は店舗ごとのアイコンに切り替える
-  const isDefaultStore = !adminStore?.slug || adminStore.slug === "main";
+  const currentStoreId = adminStore?.id ?? ZENRYOKU_STORE_ID;
+  const isDefaultStore = currentStoreId === ZENRYOKU_STORE_ID;
   const shopIcon = isDefaultStore
     ? "https://cdn2-caskan.com/caskan/img/shop_icon/1401_icon_1750161414.jpeg"
     : "/favicon-tsuyaka.png";
   const shopAlt = adminStore?.name ?? "全力エステ 仙台";
+  const target = otherStore(currentStoreId);
+  const canSwitch = STORE_DEFS.some((s) => s.id === currentStoreId) && !!target;
+
+  const handleSwitchStore = async () => {
+    if (!target || switching) return;
+    setSwitching(true);
+    toast({ title: `${target.name}に切替中…` });
+    const res = await switchToStore(target);
+    if (res.needLogin) {
+      setSwitching(false);
+      toast({ title: "再ログインが必要です", description: "ログイン画面へ移動します" });
+      window.location.href = "/login";
+      return;
+    }
+    if (!res.ok) {
+      setSwitching(false);
+      toast({ title: "切替に失敗しました", description: res.error, variant: "destructive" });
+      return;
+    }
+    // RLSでデータを店舗別に分離するため、リロードして全ページを再取得
+    window.location.href = "/dashboard";
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 h-[52px] sm:h-[60px] bg-card border-b border-border z-40">
@@ -49,7 +77,7 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
           </a>
         </div>
 
-        {/* Account info */}
+        {/* Account info（店舗アイコン＝店舗切替トグル） */}
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 whitespace-nowrap">
           <div className="hidden lg:block text-right">
             <div className="text-xs text-muted-foreground">{adminStore?.name ?? "全力エステ.."}</div>
@@ -57,12 +85,32 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
               <div className="text-xs text-primary font-medium">管理者</div>
             )}
           </div>
-          
-          <img
-            src={shopIcon}
-            alt={shopAlt}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded border border-border object-cover flex-shrink-0 max-[360px]:hidden"
-          />
+
+          {canSwitch ? (
+            <button
+              type="button"
+              onClick={handleSwitchStore}
+              disabled={switching}
+              aria-label={`${target?.name}に切り替え`}
+              title={`タップで${target?.name}に切り替え`}
+              className="relative flex-shrink-0 max-[360px]:hidden disabled:opacity-60"
+            >
+              <img
+                src={shopIcon}
+                alt={shopAlt}
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded border border-border object-cover"
+              />
+              <span className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center shadow">
+                {switching ? <Loader2 size={9} className="animate-spin" /> : <Repeat size={9} />}
+              </span>
+            </button>
+          ) : (
+            <img
+              src={shopIcon}
+              alt={shopAlt}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded border border-border object-cover flex-shrink-0 max-[360px]:hidden"
+            />
+          )}
           
           {user ? (
             <DropdownMenu>
