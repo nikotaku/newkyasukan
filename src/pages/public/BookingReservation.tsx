@@ -148,12 +148,16 @@ const BookingReservation = () => {
   const { storeId } = useStore();
 
   useEffect(() => {
-    fetchRates();
     fetchBanners();
     supabase.rpc("get_reservation_interval" as any).then(({ data }) => {
       if (typeof data === "number") setIntervalMinutes(data);
     });
   }, []);
+
+  // 料金・オプションは店舗が確定してから取得（店舗混在を防ぐ）
+  useEffect(() => {
+    fetchRates();
+  }, [storeId]);
 
   const fetchBanners = async () => {
     const { data } = await supabase
@@ -396,16 +400,18 @@ const BookingReservation = () => {
 
   const fetchRates = async () => {
     try {
-      const { data: backData } = await supabase.rpc('get_public_back_rates');
-      
+      const { data: backData } = await supabase.rpc('get_public_back_rates', { p_store_id: storeId } as any);
+
       const { data: optionData } = await supabase
         .from('option_rates')
         .select('*')
+        .eq('store_id', storeId)
         .order('display_order', { ascending: true });
-      
+
       const { data: nominationData } = await supabase
         .from('nomination_rates')
-        .select('*');
+        .select('*')
+        .eq('store_id', storeId);
 
       const { data: paymentData } = await supabase
         .from('payment_settings')
