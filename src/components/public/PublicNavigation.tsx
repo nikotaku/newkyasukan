@@ -40,22 +40,15 @@ export const PublicNavigation = () => {
         }}
       >
         <div className="container mx-auto px-4 flex items-center justify-between gap-3">
-          {/* Logo - top left, modest */}
-          <Link to="/" className="shrink-0">
-            {logoUrl ? (
+          {/* Logo - top left, modest（ロゴ画像が無い店舗はロゴ非表示） */}
+          <Link to="/" className="shrink-0" aria-label={storeName}>
+            {logoUrl && (
               <img
                 src={logoUrl}
                 alt={storeName}
                 className="h-8 md:h-11 object-contain"
                 loading="eager"
               />
-            ) : (
-              <span
-                className="text-xl md:text-2xl font-bold tracking-[0.3em]"
-                style={{ color: "var(--pub-accent,#c6a15b)", fontFamily: "'Noto Serif JP', serif" }}
-              >
-                {storeName}
-              </span>
             )}
           </Link>
 
