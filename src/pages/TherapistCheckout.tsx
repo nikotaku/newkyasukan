@@ -802,30 +802,44 @@ export default function TherapistCheckout() {
                                     </Select>
                                   </div>
 
-                                  {/* 割引 */}
+                                  {/* 割引（プルダウン＋自由入力） */}
                                   <div>
                                     <Label className="text-xs">割引</Label>
-                                    <Select
-                                      value={state.discount_amount.toString()}
-                                      onValueChange={(v) => updateEdit(r.id, { discount_amount: parseInt(v) })}
-                                    >
-                                      <SelectTrigger className="h-8 text-xs mt-1">
-                                        <SelectValue placeholder="割引なし" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {/* 保存済みの額がプルダウン選択肢に無い場合も表示できるようにする */}
-                                        {!DISCOUNT_OPTIONS.includes(state.discount_amount) && (
-                                          <SelectItem value={state.discount_amount.toString()} className="text-xs">
-                                            -¥{state.discount_amount.toLocaleString()}
-                                          </SelectItem>
-                                        )}
-                                        {DISCOUNT_OPTIONS.map(amt => (
-                                          <SelectItem key={amt} value={amt.toString()} className="text-xs">
-                                            {amt === 0 ? "割引なし" : `-¥${amt.toLocaleString()}`}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
+                                    <div className="flex gap-2 mt-1">
+                                      <Select
+                                        value={state.discount_amount.toString()}
+                                        onValueChange={(v) => updateEdit(r.id, { discount_amount: parseInt(v) })}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs flex-1">
+                                          <SelectValue placeholder="割引なし" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {/* 保存済み/自由入力の額が選択肢に無い場合も表示できるようにする */}
+                                          {!DISCOUNT_OPTIONS.includes(state.discount_amount) && (
+                                            <SelectItem value={state.discount_amount.toString()} className="text-xs">
+                                              -¥{state.discount_amount.toLocaleString()}
+                                            </SelectItem>
+                                          )}
+                                          {DISCOUNT_OPTIONS.map(amt => (
+                                            <SelectItem key={amt} value={amt.toString()} className="text-xs">
+                                              {amt === 0 ? "割引なし" : `-¥${amt.toLocaleString()}`}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-xs text-muted-foreground">-¥</span>
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          step={100}
+                                          value={state.discount_amount === 0 ? "" : state.discount_amount}
+                                          onChange={(e) => updateEdit(r.id, { discount_amount: Math.max(0, parseInt(e.target.value) || 0) })}
+                                          placeholder="自由入力"
+                                          className="h-8 w-24 text-xs"
+                                        />
+                                      </div>
+                                    </div>
                                   </div>
 
                                   {/* 支払い方法 */}
