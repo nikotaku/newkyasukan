@@ -50,6 +50,8 @@ export default function Auth() {
         }
         throw error;
       }
+      // 店舗切替トグル用にパスワードを一時保持（タブを閉じると消える）
+      try { sessionStorage.setItem("admin_pw", password); } catch { /* noop */ }
       toast({ title: "ログイン成功" });
     } catch (error) {
       toast({
