@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminStore } from "@/hooks/useAdminStore";
 
 interface MenuItemLeaf {
   href: string;
@@ -217,6 +218,9 @@ const menuItems: MenuItem[] = [
 
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { signOut } = useAuth();
+  const { store: adminStore } = useAdminStore();
+  // 「サイトを見る」は所属店舗の公開サイトへ（艶華なら enka-salon.jp）
+  const siteUrl = adminStore?.custom_domain ? `https://${adminStore.custom_domain}` : "/";
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [expandedSubGroups, setExpandedSubGroups] = useState<string[]>([]);
 
@@ -382,13 +386,15 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
             <hr className="my-2 border-border" />
 
-            <Link
-              to="/"
+            <a
+              href={siteUrl}
+              target={siteUrl.startsWith("http") ? "_blank" : undefined}
+              rel="noreferrer"
               className="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted/50 rounded-md transition-colors"
             >
               <ExternalLink size={16} />
               サイトを見る
-            </Link>
+            </a>
 
             <button
               onClick={signOut}
