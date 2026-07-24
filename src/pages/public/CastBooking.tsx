@@ -114,7 +114,7 @@ export default function CastBooking() {
     if (pair) {
       // Wコースは is_visible=false のため RPC には載らず、直接参照する
       supabase.from("back_rates").select("course_type, duration, customer_price")
-        .eq("course_type", W_COURSE_TYPE).order("duration").then(({ data }) => {
+        .eq("course_type", W_COURSE_TYPE).eq("store_id", storeId).order("duration").then(({ data }) => {
           const rates = (data || []) as BackRate[];
           setBackRates(rates);
           if (rates[0]) {
@@ -123,33 +123,34 @@ export default function CastBooking() {
           }
         });
       supabase.from("option_rates").select("option_name, customer_price, display_order")
-        .in("option_name", W_OPTION_NAMES).order("display_order").then(({ data }) => {
+        .in("option_name", W_OPTION_NAMES).eq("store_id", storeId).order("display_order").then(({ data }) => {
           setOptionRates((data || []) as OptionRate[]);
         });
     } else {
-      supabase.rpc("get_public_back_rates").then(({ data }) => {
+      supabase.rpc("get_public_back_rates", { p_store_id: storeId } as any).then(({ data }) => {
         const rates = ((data || []) as BackRate[]).filter((r) => r.course_type !== W_COURSE_TYPE);
         setBackRates(rates);
-        // おすすめの全力コース80分を初期選択（誘導）
+        // おすすめの全力コース80分を初期選択（誘導）。無ければ先頭コース。
         const zenryoku80 = rates.find((r) => r.course_type === "全力" && r.duration === 80);
         if (zenryoku80) {
           setCourseType("全力");
           setDuration(80);
         } else if (rates[0]) {
           setCourseType(rates[0].course_type);
+          setDuration(rates[0].duration);
         }
       });
       supabase.from("option_rates").select("option_name, customer_price, display_order")
-        .order("display_order").then(({ data }) => {
+        .eq("store_id", storeId).order("display_order").then(({ data }) => {
           setOptionRates(((data || []) as OptionRate[]).filter((o) => !W_OPTION_NAMES.includes(o.option_name)));
         });
     }
-    supabase.from("nomination_rates").select("nomination_type, customer_price").then(({ data }) => {
+    supabase.from("nomination_rates").select("nomination_type, customer_price").eq("store_id", storeId).then(({ data }) => {
       // 専用予約ページは指名前提のため、本指名料（2,000円）を最初から含める
       const hon = (data || []).find((n: any) => n.nomination_type === "本指名");
       if (hon) setNominationFee(hon.customer_price ?? 0);
     });
-  }, [cast]);
+  }, [cast, storeId]);
 
   const courseTypes = [...new Set(backRates.map((r) => r.course_type))];
   const durationsFor = (ct: string) =>
