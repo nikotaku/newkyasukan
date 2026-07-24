@@ -12,6 +12,7 @@ interface AdminStore {
   id: string;
   name: string;
   slug: string;
+  custom_domain?: string | null;
 }
 
 let cachedByUser: Record<string, AdminStore> = {};
@@ -31,15 +32,15 @@ export const useAdminStore = () => {
     }
     supabase
       .from("user_stores" as any)
-      .select("store_id, stores(id, name, slug)")
+      .select("store_id, stores(id, name, slug, custom_domain)")
       .eq("user_id", user.id)
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
         const s = (data as any)?.stores;
         const resolved: AdminStore = s
-          ? { id: s.id, name: s.name, slug: s.slug }
-          : { id: DEFAULT_STORE_ID, name: "全力エステ 仙台", slug: "main" };
+          ? { id: s.id, name: s.name, slug: s.slug, custom_domain: s.custom_domain }
+          : { id: DEFAULT_STORE_ID, name: "全力エステ 仙台", slug: "main", custom_domain: null };
         cachedByUser[user.id] = resolved;
         setStore(resolved);
         setLoading(false);

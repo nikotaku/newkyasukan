@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
 import { openSmsApp } from "@/lib/sms";
 import { getBusinessDateFromCache } from "@/hooks/useShopSettings";
+import { useAdminStore } from "@/hooks/useAdminStore";
 import { PaymentReminderPopup } from "@/components/PaymentReminderPopup";
 
 interface Cast {
@@ -295,9 +296,25 @@ export default function Schedule() {
   const [thanksTemplate, setThanksTemplate] = useState<string | null>(null);
   const [couponTemplate, setCouponTemplate] = useState<string | null>(null);
 
+  // 口コミURL等を店舗ドメインに追従させる（艶華なら enka-salon.jp）
+  const { store: adminStore } = useAdminStore();
+  const reviewBaseUrl = adminStore?.custom_domain
+    ? `https://${adminStore.custom_domain}`
+    : "https://zenryokuesthe.com";
+
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
   }, [user, authLoading]);
+
+  // 新規予約フォームの初期コースが自店舗に存在しない場合、先頭のコースに合わせる
+  useEffect(() => {
+    if (backRates.length === 0) return;
+    setFormData((prev) => {
+      if (backRates.some((r: any) => r.course_type === prev.course_type)) return prev;
+      const first = backRates[0];
+      return { ...prev, course_type: first.course_type, course_name: `${first.course_type} ${prev.duration}分` };
+    });
+  }, [backRates]);
 
   useEffect(() => {
     if (user) {
@@ -556,7 +573,7 @@ export default function Schedule() {
       castName
         ? [
             `\n▼口コミはこちら`,
-            `https://zenryokuesthe.com/review`,
+            `${reviewBaseUrl}/review`,
             `（担当名に「${castName}」とご記入いただけると嬉しいです）`,
           ].join("\n")
         : null,
