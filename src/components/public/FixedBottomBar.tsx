@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useStoreContact } from "@/hooks/useStoreContact";
+import { trackPublicEvent } from "@/lib/publicAnalytics";
 
 export const FixedBottomBar = () => {
   const { telHref, lineUrl } = useStoreContact();
@@ -8,6 +9,7 @@ export const FixedBottomBar = () => {
       <div className="flex items-stretch">
         <a
           href={telHref}
+          onClick={() => trackPublicEvent("booking_cta_click", { placement: "mobile_fixed_bar", method: "phone" })}
           className="flex-1 flex flex-col items-center justify-center py-2 text-[var(--pub-text,#f0e6d2)] hover:bg-[var(--pub-card2,#221b12)] transition-colors"
         >
           <span className="text-lg">📞</span>
@@ -17,6 +19,7 @@ export const FixedBottomBar = () => {
           href={lineUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => trackPublicEvent("booking_cta_click", { placement: "mobile_fixed_bar", method: "line" })}
           className="flex-1 flex flex-col items-center justify-center py-2 text-white"
           style={{ backgroundColor: "#06C755" }}
         >
@@ -29,6 +32,7 @@ export const FixedBottomBar = () => {
         </a>
         <Link
           to="/booking"
+          onClick={() => trackPublicEvent("booking_cta_click", { placement: "mobile_fixed_bar", method: "web" })}
           className="flex-1 flex flex-col items-center justify-center py-2 text-white"
           style={{ background: "linear-gradient(135deg, var(--pub-accent,#c6a15b), var(--pub-accent-deep,#a87c2a))" }}
         >

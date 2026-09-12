@@ -6,11 +6,10 @@ import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { driveImgUrl } from "@/lib/drive";
-import o2LogoUrl from "@/assets/o2-logo.png";
-import o2BlogLogoUrl from "@/assets/o2-blog-logo.png";
 import { useStore } from "@/hooks/useStore";
 import { CastTitleBadge, useTitleBadges } from "@/components/public/CastTitleBadge";
 import { ESTAMA_CAST_PHOTO_STYLE } from "@/lib/publicCastPhoto";
+import { trackPublicEvent } from "@/lib/publicAnalytics";
 
 interface Cast {
   id: string;
@@ -100,7 +99,7 @@ const Casts = () => {
       .select("cast_id")
       .eq("shift_date", today)
       .eq("store_id", storeId);
-    setTodayShiftCastIds(new Set((data || []).map((s: any) => s.cast_id)));
+    setTodayShiftCastIds(new Set((data || []).map((shift: { cast_id: string }) => shift.cast_id)));
   };
 
   const isNewFace = (joinDate: string) => {
@@ -142,11 +141,11 @@ const Casts = () => {
       <main className="container py-4 md:py-8 px-3 md:px-4">
         <div className="max-w-7xl mx-auto">
           <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
-            <h2 className="text-lg md:text-2xl font-bold" style={{ color: "var(--pub-text,#f0e6d2)" }}>
+            <h1 className="text-lg md:text-2xl font-bold" style={{ color: "var(--pub-text,#f0e6d2)" }}>
               <small className="text-xs md:text-sm block mb-0.5 text-[var(--pub-text-muted,#a3987f)]">THERAPIST</small>
-              セラピスト
-            </h2>
-            <Link to="/schedule" className="inline-block bg-[var(--pub-card,#1a150f)] hover:bg-[var(--pub-card2,#221b12)] text-[var(--pub-text,#f0e6d2)] border border-[var(--pub-accent,#c6a15b)] px-4 py-1.5 text-sm rounded transition-colors">
+              艶華のセラピスト一覧
+            </h1>
+            <Link to="/schedule" onClick={() => trackPublicEvent("availability_view", { placement: "casts_heading" })} className="inline-block bg-[var(--pub-card,#1a150f)] hover:bg-[var(--pub-card2,#221b12)] text-[var(--pub-text,#f0e6d2)] border border-[var(--pub-accent,#c6a15b)] px-4 py-1.5 text-sm rounded transition-colors">
               出勤表はこちら
             </Link>
           </div>
@@ -156,6 +155,7 @@ const Casts = () => {
               <Button
                 key={f}
                 onClick={() => setFilter(f)}
+                aria-pressed={filter === f}
                 className={`px-4 py-2 text-sm ${filter === f ? 'bg-[var(--pub-accent,#c6a15b)] hover:bg-[var(--pub-accent-deep,#a87c2a)] text-white' : 'bg-[var(--pub-card,#1a150f)] hover:bg-[var(--pub-card2,#221b12)] text-[var(--pub-text,#f0e6d2)] border border-[var(--pub-accent,#c6a15b)]'}`}
               >
                 {f === 'all' ? 'すべて' : f === 'today' ? '本日出勤' : '新人'}
@@ -168,154 +168,39 @@ const Casts = () => {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {filteredCasts.map((cast) => {
-                const hasSns = !!(cast.x_account || cast.line_url || cast.litlink_url || cast.instagram_url || cast.o2_url || cast.estama_profile_url || cast.blog_url || cast.skebiy_url);
                 return (
-                  <div key={cast.id} className="relative">
-                    <Link to={`/casts/${cast.id}`} className="block group">
-                      <figure className="bg-[var(--pub-card,#1a150f)] rounded overflow-hidden shadow hover:shadow-lg transition-shadow">
-                        {/* tag badges */}
-                        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-                          {cast.tags?.filter(t => !INTERNAL_TAGS.includes(t)).map((tag, idx) => (
-                            <span key={idx} className={`text-white text-xs font-bold px-2 py-1 rounded shadow-md ${tag === '人気セラピスト' ? 'bg-red-500' : tag === '新人' ? 'bg-pink-500' : 'bg-blue-500'}`}>{tag}</span>
-                          ))}
+                  <Link
+                    key={cast.id}
+                    to={`/casts/${cast.id}`}
+                    className="relative block group"
+                    aria-label={`${cast.name}のプロフィール・空き状況を見る`}
+                    onClick={() => trackPublicEvent("cast_card_click", { placement: "casts_list", cast_id: cast.id, filter })}
+                  >
+                    <figure className="bg-[var(--pub-card,#1a150f)] rounded overflow-hidden shadow hover:shadow-lg transition-shadow">
+                      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+                        {cast.tags?.filter((tag) => !INTERNAL_TAGS.includes(tag)).slice(0, 3).map((tag, idx) => (
+                          <span key={idx} className={`text-white text-xs font-bold px-2 py-1 rounded shadow-md ${tag === "人気セラピスト" ? "bg-red-500" : tag === "新人" ? "bg-pink-500" : "bg-blue-500"}`}>{tag}</span>
+                        ))}
+                      </div>
+                      <div className="relative">
+                        <div className="absolute top-2 right-2 z-10">
+                          <CastTitleBadge badge={titleBadgeMap.get(cast.title_badge_id ?? "")} />
                         </div>
-
-                        {/* photo */}
-                        <div className="relative">
-                          <div className="absolute top-2 right-2 z-10">
-                            <CastTitleBadge badge={titleBadgeMap.get(cast.title_badge_id ?? "")} />
+                        {cast.photo ? (
+                          <img src={driveImgUrl(cast.photo)} alt={cast.name} loading="lazy" className="w-full object-cover group-hover:scale-105 transition-transform duration-500" style={ESTAMA_CAST_PHOTO_STYLE} />
+                        ) : (
+                          <div className="w-full bg-gradient-to-br from-[var(--pub-accent,#c6a15b)] to-[var(--pub-accent-deep,#a87c2a)] flex items-center justify-center" style={ESTAMA_CAST_PHOTO_STYLE}>
+                            <span className="text-4xl text-white">{cast.name.charAt(0)}</span>
                           </div>
-                          {cast.photo ? (
-                            <img src={driveImgUrl(cast.photo)} alt={cast.name} className="w-full object-cover group-hover:scale-105 transition-transform duration-500" style={ESTAMA_CAST_PHOTO_STYLE} />
-                          ) : (
-                            <div className="w-full bg-gradient-to-br from-[var(--pub-accent,#c6a15b)] to-[var(--pub-accent-deep,#a87c2a)] flex items-center justify-center" style={ESTAMA_CAST_PHOTO_STYLE}>
-                              <span className="text-4xl text-white">{cast.name.charAt(0)}</span>
-                            </div>
-                          )}
-
-                          {/* SNS icon overlay — always visible at photo bottom */}
-                          {hasSns && (
-                            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-8 pb-2 px-2">
-                              <div className="flex items-center justify-center gap-2 flex-wrap">
-                                {cast.x_account && (
-                                  <a
-                                    href={cast.x_account.startsWith("http") ? cast.x_account : `https://twitter.com/${cast.x_account}`}
-                                    target="_blank" rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()} aria-label="X"
-                                    className="flex flex-col items-center gap-0.5 group/sns"
-                                  >
-                                    <span className="w-8 h-8 rounded-full bg-black flex items-center justify-center shadow-md group-hover/sns:scale-110 transition-transform">
-                                      <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-4 h-4" />
-                                    </span>
-                                    <span className="text-[9px] text-white/80 leading-none">X</span>
-                                  </a>
-                                )}
-                                {cast.line_url && (
-                                  <a
-                                    href={cast.line_url}
-                                    target="_blank" rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()} aria-label="LINE"
-                                    className="flex flex-col items-center gap-0.5 group/sns"
-                                  >
-                                    <span className="w-8 h-8 rounded-full flex items-center justify-center shadow-md group-hover/sns:scale-110 transition-transform" style={{ backgroundColor: "#06c755" }}>
-                                      <img src="https://storage.googleapis.com/caskan/asset/line_icon.png" alt="LINE" className="w-4 h-4" />
-                                    </span>
-                                    <span className="text-[9px] text-white/80 leading-none">LINE</span>
-                                  </a>
-                                )}
-                                {cast.instagram_url && (
-                                  <a
-                                    href={cast.instagram_url}
-                                    target="_blank" rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()} aria-label="Instagram"
-                                    className="flex flex-col items-center gap-0.5 group/sns"
-                                  >
-                                    <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md group-hover/sns:scale-110 transition-transform" style={{ background: "linear-gradient(45deg,#feda75,#d62976,#4f5bd5)" }}>
-                                      IG
-                                    </span>
-                                    <span className="text-[9px] text-white/80 leading-none">Insta</span>
-                                  </a>
-                                )}
-                                {cast.litlink_url && (
-                                  <a
-                                    href={cast.litlink_url}
-                                    target="_blank" rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()} aria-label="リットリンク"
-                                    className="flex flex-col items-center gap-0.5 group/sns"
-                                  >
-                                    <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[var(--pub-accent,#c6a15b)] text-[10px] font-bold shadow-md group-hover/sns:scale-110 transition-transform">
-                                      lit
-                                    </span>
-                                    <span className="text-[9px] text-white/80 leading-none">lit.link</span>
-                                  </a>
-                                )}
-                                {cast.o2_url && (
-                                  <a
-                                    href={cast.o2_url}
-                                    target="_blank" rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()} aria-label="口コミO2"
-                                    className="flex flex-col items-center gap-0.5 group/sns"
-                                  >
-                                    <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-md group-hover/sns:scale-110 transition-transform overflow-hidden">
-                                      <img src={o2LogoUrl} alt="O2" className="w-6 h-6 object-contain" />
-                                    </span>
-                                    <span className="text-[9px] text-white/80 leading-none">O2</span>
-                                  </a>
-                                )}
-                                {cast.estama_profile_url && (
-                                  <a
-                                    href={cast.estama_profile_url}
-                                    target="_blank" rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()} aria-label="魂セラピスト"
-                                    className="flex flex-col items-center gap-0.5 group/sns"
-                                  >
-                                    <span className="w-8 h-8 rounded-full bg-[#b72d5b] flex items-center justify-center text-white text-sm font-bold shadow-md group-hover/sns:scale-110 transition-transform">
-                                      魂
-                                    </span>
-                                    <span className="text-[9px] text-white/80 leading-none">魂</span>
-                                  </a>
-                                )}
-                                {cast.blog_url && (
-                                  <a
-                                    href={cast.blog_url}
-                                    target="_blank" rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()} aria-label="ブログ"
-                                    className="flex flex-col items-center gap-0.5 group/sns"
-                                  >
-                                    <span className="w-8 h-8 rounded-full flex items-center justify-center shadow-md group-hover/sns:scale-110 transition-transform overflow-hidden" style={{ backgroundColor: "#f59e0b" }}>
-                                      <img src={cast.custom_fields?.blog_icon || o2BlogLogoUrl} alt="Blog" className="w-full h-full object-cover" />
-                                    </span>
-                                    <span className="text-[9px] text-white/80 leading-none">ブログ</span>
-                                  </a>
-                                )}
-                                {cast.skebiy_url && (
-                                  <a
-                                    href={cast.skebiy_url}
-                                    target="_blank" rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()} aria-label="Skebiy"
-                                    className="flex flex-col items-center gap-0.5 group/sns"
-                                  >
-                                    <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[9px] font-bold shadow-md group-hover/sns:scale-110 transition-transform overflow-hidden" style={{ backgroundColor: "#7c3aed" }}>
-                                      {cast.custom_fields?.skebiy_icon ? (
-                                        <img src={cast.custom_fields.skebiy_icon} alt="Sk" className="w-6 h-6 object-contain" />
-                                      ) : "Sk"}
-                                    </span>
-                                    <span className="text-[9px] text-white/80 leading-none">Skebiy</span>
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* info below photo */}
-                        <div className="p-2 md:p-3">
-                          <h4 className="font-bold text-[var(--pub-text,#f0e6d2)] text-sm leading-tight">{cast.name}{cast.age ? `(${cast.age})` : ''}</h4>
-                          {formatSize(cast) && <p className="text-xs text-[var(--pub-text-muted,#a3987f)] mt-0.5 leading-tight">{formatSize(cast)}</p>}
-                        </div>
-                      </figure>
-                    </Link>
-                  </div>
+                        )}
+                      </div>
+                      <figcaption className="p-2 md:p-3">
+                        <h2 className="font-bold text-[var(--pub-text,#f0e6d2)] text-sm leading-tight">{cast.name}{cast.age ? `(${cast.age})` : ""}</h2>
+                        {formatSize(cast) && <p className="text-xs text-[var(--pub-text-muted,#a3987f)] mt-0.5 leading-tight">{formatSize(cast)}</p>}
+                        <p className="mt-2 text-xs font-semibold" style={{ color: "var(--pub-accent,#c6a15b)" }}>プロフィール・空き状況を見る →</p>
+                      </figcaption>
+                    </figure>
+                  </Link>
                 );
               })}
             </div>

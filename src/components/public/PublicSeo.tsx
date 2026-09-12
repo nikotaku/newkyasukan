@@ -3,9 +3,9 @@ import { useLocation } from "react-router-dom";
 import { useStore } from "@/hooks/useStore";
 
 const PAGE_LABELS: Array<{ pattern: RegExp; label: string; description: string }> = [
-  { pattern: /^\/$/, label: "", description: "仙台・宮城で上質な癒しをお探しの方へ。出勤情報、料金、キャンペーン、Web予約をご案内します。" },
-  { pattern: /^\/schedule\/?$/, label: "出勤情報", description: "本日・今週のセラピスト出勤スケジュールをご確認いただけます。" },
-  { pattern: /^\/casts\/?$/, label: "セラピスト一覧", description: "在籍セラピストのプロフィールや最新情報をご紹介します。" },
+  { pattern: /^\/$/, label: "", description: "仙台・北四番丁エリアで上質な癒しをお探しの方へ。本日の出勤・空き状況、料金、キャンペーン、Web予約をご案内します。" },
+  { pattern: /^\/schedule\/?$/, label: "出勤情報・空き枠", description: "本日・今週のセラピスト出勤スケジュールと予約可能な時間をご確認いただけます。" },
+  { pattern: /^\/casts\/?$/, label: "セラピスト一覧", description: "在籍セラピストのプロフィール、出勤・空き状況、最新情報をご紹介します。" },
   { pattern: /^\/casts\/[^/]+\/diary\/?$/, label: "セラピスト日記", description: "セラピストの最新日記とお知らせをご覧いただけます。" },
   { pattern: /^\/casts\/[^/]+\/?$/, label: "セラピスト詳細", description: "セラピストのプロフィール、出勤予定、日記をご案内します。" },
   { pattern: /^\/campaigns\/?$/, label: "キャンペーン・クーポン", description: "現在ご利用いただけるクーポンと期間限定イベント、キャンペーンバナーをご案内します。" },
@@ -56,8 +56,8 @@ export function PublicSeo() {
         : window.location.origin;
 
     if (!indexable || !page) {
-      upsertMeta('meta[name="robots"]', { name: "robots", content: "noindex,nofollow" });
-      upsertMeta('meta[name="googlebot"]', { name: "googlebot", content: "noindex,nofollow" });
+      upsertMeta('meta[name="robots"]', { name: "robots", content: "noindex,follow" });
+      upsertMeta('meta[name="googlebot"]', { name: "googlebot", content: "noindex,follow" });
       upsertCanonical(null);
       document.getElementById("public-seo-jsonld")?.remove();
       return;
