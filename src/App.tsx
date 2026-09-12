@@ -66,6 +66,7 @@ import ArticleCreation from "./pages/ArticleCreation";
 import BusinessFlow from "./pages/BusinessFlow";
 import StoreInfo from "./pages/StoreInfo";
 import HpSnsLinks from "./pages/HpSnsLinks";
+import HpTopBanners from "./pages/HpTopBanners";
 import SalesCustomerInfo from "./pages/SalesCustomerInfo";
 import SalesTherapistBreakdown from "./pages/SalesTherapistBreakdown";
 import SalesPriceAnalysis from "./pages/SalesPriceAnalysis";
@@ -210,6 +211,7 @@ const App = () => {
           <Route path="/design" element={<Design />} />
           <Route path="/hp/article-creation" element={<ArticleCreation />} />
           <Route path="/hp/business-flow" element={<BusinessFlow />} />
+          <Route path="/hp/top-banners" element={<HpTopBanners />} />
           <Route path="/hp/store-info" element={<StoreInfo />} />
           <Route path="/hp/sns-links" element={<HpSnsLinks />} />
           <Route path="/hp/recommended-menu" element={<RecommendedMenu />} />

@@ -1,6 +1,11 @@
 {
   "redirects": [
     {
+      "source": "/pricing",
+      "destination": "/system",
+      "permanent": true
+    },
+    {
       "source": "/",
       "has": [
         {

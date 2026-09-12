@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
-import { ArrowLeft, Phone, Calendar, Camera } from "lucide-react";
+import { ArrowLeft, Calendar, Camera } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import { driveImgUrl } from "@/lib/drive";
 import { useStoreContact } from "@/hooks/useStoreContact";
 import { useStore } from "@/hooks/useStore";
 import { getBookingKey } from "@/lib/bookingUrl";
+import { trackPublicEvent } from "@/lib/publicAnalytics";
 import { ReviewStars } from "@/components/public/ReviewStars";
 import { ReviewCategoryScores } from "@/components/public/ReviewCategoryScores";
 import { ESTAMA_CAST_PHOTO_STYLE } from "@/lib/publicCastPhoto";
@@ -109,10 +110,9 @@ const SectionHeader = ({ label, sub }: { label: string; sub?: string }) => (
 );
 
 const CastDetail = () => {
-  const { store, storeId } = useStore();
+  const { store, storeId, loading: storeLoading } = useStore();
   const { telHref } = useStoreContact();
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [cast, setCast] = useState<Cast | null>(null);
   const [profile, setProfile] = useState<TherapistProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -121,6 +121,8 @@ const CastDetail = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const fetchAll = useCallback(async () => {
+    if (!id || storeLoading || !storeId) return;
+
     try {
       const [castRes, profileRes] = await Promise.all([
         supabase.from("casts").select("id,name,age,height,bust_size,body_size,blood_type,therapist_years,type,status,photo,photos,profile,message,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,room,x_account,instagram_url,line_url,litlink_url,o2_url,estama_profile_url,blog_url,skebiy_url,tags,shop_comment").eq("id", id).eq("store_id", storeId).eq("is_active", true).single(),
@@ -159,16 +161,21 @@ const CastDetail = () => {
         source_url: r.source_url ?? null,
         source_details: r.source_details,
       })));
-    } catch {
-      navigate("/casts");
+    } catch (error) {
+      console.error("Error loading public therapist profile:", error);
+      setCast(null);
+      setProfile(null);
+      setReviews([]);
     } finally {
       setLoading(false);
     }
-  }, [id, navigate, store?.name, storeId]);
+  }, [id, storeLoading, store?.name, storeId]);
 
   useEffect(() => {
-    if (id) void fetchAll();
-  }, [fetchAll, id]);
+    if (!id || storeLoading || !storeId) return;
+    setLoading(true);
+    void fetchAll();
+  }, [fetchAll, id, storeId, storeLoading]);
 
   useEffect(() => {
     if (!emblaApi) return;
@@ -186,10 +193,31 @@ const CastDetail = () => {
     );
   }
 
-  if (!cast) return null;
+  if (!cast) {
+    return (
+      <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "var(--pub-bg,#0f0c09)" }}>
+        <PublicNavigation />
+        <main className="container px-4 py-16">
+          <div className="mx-auto max-w-md rounded-lg border p-6 text-center" style={{ background: "var(--pub-card,#1a150f)", borderColor: "var(--pub-border,#3a2f1c)" }}>
+            <h1 className="text-xl font-bold" style={{ color: "var(--pub-text,#f0e6d2)" }}>セラピスト情報が見つかりません</h1>
+            <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--pub-text-muted,#a3987f)" }}>
+              公開が終了したか、URLが変更された可能性があります。
+            </p>
+            <Link to="/casts" className="mt-6 inline-flex rounded-lg px-5 py-3 text-sm font-semibold text-white" style={{ background: "var(--pub-accent,#c6a15b)" }}>
+              セラピスト一覧を見る
+            </Link>
+          </div>
+        </main>
+        <PublicFooter />
+        <FixedBottomBar />
+      </div>
+    );
+  }
 
   const isPairCast = /[&＆]/.test(cast.name);
-  const bookingPath = isPairCast ? `/r/${getBookingKey(cast.id)}` : "/booking";
+  const bookingPath = isPairCast
+    ? `/r/${getBookingKey(cast.id)}`
+    : `/booking?castId=${encodeURIComponent(cast.id)}`;
 
   // Parse profile JSON if stored as JSON in the profile field
   let profileJson: ProfileJson | null = null;
@@ -251,14 +279,14 @@ const CastDetail = () => {
       <main className="container py-3 md:py-6 px-2 md:px-4">
         <div className="max-w-3xl mx-auto">
 
-          <button
-            onClick={() => navigate("/casts")}
+          <Link
+            to="/casts"
             className="flex items-center gap-1 text-sm mb-4 hover:underline"
             style={{ color: "var(--pub-text,#f0e6d2)" }}
           >
             <ArrowLeft size={14} />
             セラピスト一覧に戻る
-          </button>
+          </Link>
 
           <div className="bg-[var(--pub-card,#1a150f)] rounded-lg overflow-hidden shadow-md">
 
@@ -390,16 +418,16 @@ const CastDetail = () => {
 
             {/* ── CTA buttons ── */}
             <div className="px-5 py-4 flex flex-col gap-3 border-b border-[var(--pub-border,#3a2f1c)]">
-              {/* 電話で予約する → 写メ日記を見る（サイト内の写メ日記ページへ） */}
-              <Link to={`/casts/${cast.id}/diary`}
+              <Link to={bookingPath}
+                onClick={() => trackPublicEvent("booking_cta_click", { placement: "cast_detail_primary", method: "web", cast_id: cast.id, is_pair_cast: isPairCast })}
                 className="flex items-center justify-center gap-2 py-3.5 rounded-lg text-white font-bold text-base transition-opacity hover:opacity-90"
                 style={{ background: "linear-gradient(135deg, var(--pub-accent,#c6a15b), var(--pub-accent-deep,#a87c2a))" }}>
-                <Camera size={17} />写メ日記を見る
+                <Calendar size={17} />Web予約・空き状況を確認
               </Link>
-              <Link to={bookingPath}
+              <Link to={`/casts/${cast.id}/diary`}
                 className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold border transition-colors hover:bg-[var(--pub-card2,#221b12)]"
                 style={{ borderColor: "var(--pub-accent,#c6a15b)", color: "var(--pub-text,#f0e6d2)" }}>
-                <Calendar size={15} />{isPairCast ? "Wセラピスト専用予約はこちら" : "Web予約はこちら"}
+                <Camera size={15} />写メ日記を見る
               </Link>
             </div>
 

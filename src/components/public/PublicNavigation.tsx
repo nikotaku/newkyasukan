@@ -51,6 +51,11 @@ export const PublicNavigation = () => {
                 loading="eager"
               />
             )}
+            {!logoUrl && (
+              <span className="text-base font-bold tracking-[0.24em] md:text-xl" style={{ color: "var(--pub-accent,#c6a15b)", fontFamily: "'Noto Serif JP', serif" }}>
+                {storeName}
+              </span>
+            )}
           </Link>
 
           {/* PC: business info right */}
@@ -107,7 +112,7 @@ export const PublicNavigation = () => {
                     return item.external ? (
                       <a key={item.to} href={item.to} target="_blank" rel="noopener noreferrer" className={cls} onClick={() => setMenuOpen(false)}>{inner}</a>
                     ) : (
-                      <Link key={item.to} to={item.to} className={cls} onClick={() => setMenuOpen(false)}>{inner}</Link>
+                      <Link key={item.to} to={item.to} className={cls} aria-current={isActive ? "page" : undefined} onClick={() => setMenuOpen(false)}>{inner}</Link>
                     );
                   })}
                 </nav>
@@ -124,7 +129,7 @@ export const PublicNavigation = () => {
             {navItems.map((item) => {
               const isActive = !item.external && location.pathname === item.to;
               const cls = `px-5 py-3 text-center transition-colors border-b-2 ${
-                isActive ? "bg-[var(--pub-border,#3a2f1c)] border-[var(--pub-accent,#c6a15b)]" : "border-transparent hover:bg-[var(--pub-border,#3a2f1c)] hover:border-[var(--pub-accent,#c6a15b)]"
+                isActive ? "bg-[var(--pub-border,#3a2f1c)] border-[var(--pub-accent,#c6a15b)]" : item.to === "/booking" ? "border-[var(--pub-accent,#c6a15b)] bg-[var(--pub-accent-a10,#c6a15b1a)] hover:bg-[var(--pub-border,#3a2f1c)]" : "border-transparent hover:bg-[var(--pub-border,#3a2f1c)] hover:border-[var(--pub-accent,#c6a15b)]"
               }`;
               const inner = (
                 <>
@@ -134,7 +139,7 @@ export const PublicNavigation = () => {
               );
               return item.external
                 ? <a key={item.to} href={item.to} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>
-                : <Link key={item.to} to={item.to} className={cls}>{inner}</Link>;
+                : <Link key={item.to} to={item.to} className={cls} aria-current={isActive ? "page" : undefined}>{inner}</Link>;
             })}
           </div>
         </div>

@@ -4,7 +4,6 @@ const ROUTES = [
   ["/casts", "daily", "0.9"],
   ["/campaigns", "daily", "0.9"],
   ["/system", "monthly", "0.8"],
-  ["/pricing", "monthly", "0.7"],
   ["/access", "monthly", "0.7"],
   ["/voice", "weekly", "0.7"],
   ["/recruit-talk", "daily", "0.7"],

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import o2Logo from "@/assets/o2-logo.png";
 import { useStore } from "@/hooks/useStore";
 import { useStoreContact } from "@/hooks/useStoreContact";
 import { supabase } from "@/integrations/supabase/client";
+import { trackPublicEvent } from "@/lib/publicAnalytics";
 
 const DEFAULT_X_URL = "https://x.com/enka_salon";
 
@@ -72,6 +74,15 @@ export const PublicFooter = () => {
             </a>
           )}
         </div>
+        <nav aria-label="フッターナビゲーション" className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-white/70">
+          <Link to="/schedule" className="hover:text-white">出勤・空き枠</Link>
+          <Link to="/casts" className="hover:text-white">セラピスト</Link>
+          <Link to="/system" className="hover:text-white">料金システム</Link>
+          <Link to="/campaigns" className="hover:text-white">キャンペーン</Link>
+          <Link to="/voice" className="hover:text-white">口コミ</Link>
+          <Link to="/access" className="hover:text-white">アクセス</Link>
+          <Link to="/booking" onClick={() => trackPublicEvent("booking_cta_click", { placement: "footer", method: "web" })} className="font-semibold text-[var(--pub-accent-light,#f2a0bc)] hover:text-white">Web予約</Link>
+        </nav>
       </div>
 
       {/* Copyright */}

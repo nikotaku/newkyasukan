@@ -16,6 +16,7 @@ import {
   formatAvailabilityTime,
 } from "@/lib/availability";
 import { ESTAMA_CAST_PHOTO_STYLE } from "@/lib/publicCastPhoto";
+import { trackPublicEvent } from "@/lib/publicAnalytics";
 
 /**
  * 艶華専用トップページ（デフォルト店舗以外で "/" に表示）。
@@ -193,7 +194,7 @@ export default function EnkaHome() {
           }),
         );
         setReservations(
-          ((reservationResult.data as any[]) ?? []).map((reservation) => ({
+          ((reservationResult.data as ReservationRow[]) ?? []).map((reservation) => ({
             cast_id: reservation.cast_id,
             start_time: reservation.start_time,
             duration: reservation.duration,
@@ -283,7 +284,12 @@ export default function EnkaHome() {
   );
 
   const CastCard = ({ id, name, age, photo, time, nextTime }: { id: string; name: string; age: number | null; photo: string | null; time?: string; nextTime?: string | null }) => (
-    <Link to={`/casts/${id}`} className="shrink-0 w-36 md:w-44">
+    <Link
+      to={`/casts/${id}`}
+      className="shrink-0 w-36 md:w-44"
+      aria-label={`${name}のプロフィール・空き状況を見る`}
+      onClick={() => trackPublicEvent("cast_card_click", { placement: time ? "home_today" : "home_newface", cast_id: id, availability: Boolean(nextTime) })}
+    >
       <div
         className="rounded-xl overflow-hidden border"
         style={{ borderColor: "var(--pub-border,#4a2740)", backgroundColor: "var(--pub-card,#211320)" }}
@@ -316,6 +322,13 @@ export default function EnkaHome() {
     </Link>
   );
 
+  const firstAvailableShift = todayShifts
+    .map((shift) => ({ shift, nextTime: nextAvailable(shift) }))
+    .find(({ nextTime }) => nextTime !== null);
+  const firstAvailableBookingUrl = firstAvailableShift
+    ? `/booking?castId=${encodeURIComponent(firstAvailableShift.shift.cast_id)}&date=${format(new Date(), "yyyy-MM-dd")}&time=${encodeURIComponent(firstAvailableShift.nextTime!)}`
+    : "/schedule";
+
   return (
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "var(--pub-bg,#150a11)" }}>
       <PublicNavigation />
@@ -341,7 +354,11 @@ export default function EnkaHome() {
         </div>
       ) : banners.length > 0 ? (
         <div className="relative" style={{ backgroundColor: "var(--pub-bg,#150a11)" }}>
-          <Link to="/system">
+          <Link
+            to="/schedule"
+            aria-label="本日の出勤・空き状況を見る"
+            onClick={() => trackPublicEvent("availability_cta_click", { placement: "home_hero", date: format(new Date(), "yyyy-MM-dd") })}
+          >
             <div className="relative w-full" style={{ aspectRatio: "2 / 1" }}>
               {/* クロスフェード切替（全バナーを重ねて不透明度で遷移） */}
               {banners.map((b, i) => (
@@ -399,6 +416,40 @@ export default function EnkaHome() {
         <p className="text-sm mt-2" style={{ color: "var(--pub-text-mid,#dfc0cf)", letterSpacing: "0.3em" }}>{tagline}</p>
       </div>
 
+      {/* 最短枠をニュースより先に提示して、予約意図の利用者を迷わせない */}
+      <section className="px-4 pb-8" aria-labelledby="today-availability-heading">
+        <div className="container mx-auto max-w-2xl rounded-xl border p-4 text-center" style={{ borderColor: "var(--pub-accent,#d4547a)", backgroundColor: "var(--pub-card,#211320)" }}>
+          <p id="today-availability-heading" className="text-xs tracking-[0.22em]" style={{ color: "var(--pub-text-muted,#a98496)" }}>TODAY&apos;S AVAILABILITY</p>
+          {firstAvailableShift ? (
+            <>
+              <p className="mt-2 text-sm" style={{ color: "var(--pub-text-mid,#dfc0cf)" }}>
+                本日最短のご案内：<span className="font-bold" style={{ color: "var(--pub-accent-light,#f2a0bc)" }}>{firstAvailableShift.shift.casts?.name}／{firstAvailableShift.nextTime}〜</span>
+              </p>
+              <Link
+                to={firstAvailableBookingUrl}
+                onClick={() => trackPublicEvent("booking_cta_click", { placement: "home_above_news", method: "web", cast_id: firstAvailableShift.shift.cast_id, time: firstAvailableShift.nextTime })}
+                className="mt-3 block rounded-lg px-4 py-3 text-sm font-bold text-white"
+                style={{ backgroundColor: "var(--pub-accent,#d4547a)" }}
+              >
+                最短 {firstAvailableShift.nextTime} からWeb予約する
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="mt-2 text-sm" style={{ color: "var(--pub-text-mid,#dfc0cf)" }}>本日の空き状況は出勤表でご確認いただけます。</p>
+              <Link
+                to="/schedule"
+                onClick={() => trackPublicEvent("availability_cta_click", { placement: "home_above_news", date: format(new Date(), "yyyy-MM-dd") })}
+                className="mt-3 inline-flex rounded-lg border px-4 py-3 text-sm font-bold"
+                style={{ borderColor: "var(--pub-accent,#d4547a)", color: "var(--pub-text,#f7e9f0)" }}
+              >
+                本日の出勤・空き状況を見る
+              </Link>
+            </>
+          )}
+        </div>
+      </section>
+
       {/* 毎日自動更新される店舗ニュース */}
       {articles.length > 0 && (
         <section className="px-4 py-8" style={{ backgroundColor: "var(--pub-card,#211320)" }}>
@@ -420,6 +471,7 @@ export default function EnkaHome() {
                 </div>
                 <Link
                   to="/booking"
+                  onClick={() => trackPublicEvent("booking_cta_click", { placement: "home_news_coupon", method: "web" })}
                   className="shrink-0 rounded-lg px-4 py-2.5 text-center text-sm font-bold text-white"
                   style={{ backgroundColor: "var(--pub-accent,#d4547a)" }}
                 >
@@ -559,7 +611,7 @@ export default function EnkaHome() {
             </div>
           )}
           <div className="text-center mt-5">
-            <Link to="/schedule">
+            <Link to="/schedule" onClick={() => trackPublicEvent("availability_cta_click", { placement: "home_today", date: format(new Date(), "yyyy-MM-dd") })}>
               <Button
                 variant="outline"
                 className="bg-transparent"
