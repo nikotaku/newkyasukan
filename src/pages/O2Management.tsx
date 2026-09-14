@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidEmail } from "@/lib/email";
 import { hasSavedXId, normalizeXId } from "@/lib/sns-connection-status";
+import { O2StoreAvailabilitySettings } from "@/components/O2StoreAvailabilitySettings";
 
 type O2Row = {
   cast_id: string;
@@ -574,6 +575,8 @@ export default function O2Management() {
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
             魂セラピストの初回設定は手動で完了してください。同時投稿では、ここに保存した魂セラピスト専用のID・パスワードで固定ログイン画面から投稿します。
           </div>
+
+          <O2StoreAvailabilitySettings />
 
           <div className="grid gap-3 md:hidden">
             {loading ? <div className="rounded-xl border bg-card py-16 text-center"><Loader2 className="inline-block animate-spin text-primary" /></div> : rows.length === 0 ? <div className="rounded-xl border bg-card py-12 text-center text-muted-foreground">セラピストがいません</div> : rows.map((row) => (
