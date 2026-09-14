@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { BarChart3, Plus, Loader2, Trash2, MessageCircle, Phone, HelpCircle } from "lucide-react";
+import { isEstamaProvisionalReservation } from "@/lib/inquiryClassification";
 
 /**
  * 問い合わせ集計：LINE bot・管理画面から記録した問い合わせ（電話/LINE/その他）と、
@@ -24,7 +25,8 @@ interface InquiryRow {
   id: string;
   channel: "phone" | "line" | "other";
   memo: string | null;
-  source: "line" | "manual";
+  source: "line" | "manual" | "ivry_email";
+  caller_number: string | null;
   inquired_at: string;
 }
 
@@ -69,9 +71,9 @@ const formatDateKeyShort = (dateKey: string) => {
   return `${Number(month)}/${Number(day)}`;
 };
 
-interface Counts { phone: number; line: number; other: number; web: number; estama: number; estamaViews: number; hpViews: number; }
-const emptyCounts = (): Counts => ({ phone: 0, line: 0, other: 0, web: 0, estama: 0, estamaViews: 0, hpViews: 0 });
-const total = (c: Counts) => c.phone + c.line + c.other + c.web + c.estama;
+interface Counts { phone: number; estamaProvisional: number; line: number; other: number; web: number; estama: number; estamaViews: number; hpViews: number; }
+const emptyCounts = (): Counts => ({ phone: 0, estamaProvisional: 0, line: 0, other: 0, web: 0, estama: 0, estamaViews: 0, hpViews: 0 });
+const total = (c: Counts) => c.phone + c.estamaProvisional + c.line + c.other + c.web + c.estama;
 
 export default function InquiryStats() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -105,7 +107,7 @@ export default function InquiryStats() {
       const [inqRes, webRes, reportRes, hpRes] = await Promise.all([
         supabase
           .from("inquiries")
-          .select("id, channel, memo, source, inquired_at")
+          .select("id, channel, memo, source, caller_number, inquired_at")
           .eq("store_id", storeId)
           .gte("inquired_at", fromIso)
           .order("inquired_at", { ascending: false }),
@@ -138,6 +140,7 @@ export default function InquiryStats() {
         ...row,
         channel: row.channel as InquiryRow["channel"],
         source: row.source as InquiryRow["source"],
+        caller_number: row.caller_number,
       })));
       setWebDates((webRes.data ?? []).map((r) => r.created_at));
       setExternalReports(reportRes.data ?? []);
@@ -167,7 +170,10 @@ export default function InquiryStats() {
       if (!map.has(key)) map.set(key, emptyCounts());
       map.get(key)![ch] += amount;
     };
-    inquiries.forEach((i) => add(toJstDateKey(i.inquired_at).slice(0, 7), i.channel));
+    inquiries.forEach((i) => add(
+      toJstDateKey(i.inquired_at).slice(0, 7),
+      isEstamaProvisionalReservation(i) ? "estamaProvisional" : i.channel,
+    ));
     webDates.forEach((d) => add(toJstDateKey(d).slice(0, 7), "web"));
     externalReports.forEach((report) => {
       const key = report.report_date.slice(0, 7);
@@ -191,7 +197,10 @@ export default function InquiryStats() {
       if (!map.has(key)) map.set(key, emptyCounts());
       map.get(key)![ch] += amount;
     };
-    inquiries.forEach((i) => add(toJstDateKey(i.inquired_at), i.channel));
+    inquiries.forEach((i) => add(
+      toJstDateKey(i.inquired_at),
+      isEstamaProvisionalReservation(i) ? "estamaProvisional" : i.channel,
+    ));
     webDates.forEach((d) => add(toJstDateKey(d), "web"));
     externalReports.forEach((report) => {
       addAmount(report.report_date, "estama", report.inquiry_count);
@@ -252,7 +261,7 @@ export default function InquiryStats() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mb-5">
-            電話・LINE・その他はLINE botまたは手動入力。WEB予約は予約フォーム、エステ魂予約と媒体アクセスはGmailのデイリーレポート、HPアクセスは公開サイトから自動集計します。
+            電話・LINE・その他はLINE botまたは手動入力。IVRY着信のうちエステ魂の仮予約通知は「エステ魂仮予約」として電話から分離します。WEB予約は予約フォーム、エステ魂予約と媒体アクセスはGmailのデイリーレポート、HPアクセスは公開サイトから自動集計します。
           </p>
 
           {loading ? (
@@ -268,6 +277,7 @@ export default function InquiryStats() {
                       <tr className="bg-muted/50 text-xs text-muted-foreground">
                         <th className="text-left px-4 py-2">月</th>
                         <th className="text-right px-3 py-2">電話</th>
+                        <th className="text-right px-3 py-2">エステ魂仮予約</th>
                         <th className="text-right px-3 py-2">LINE</th>
                         <th className="text-right px-3 py-2">その他</th>
                         <th className="text-right px-3 py-2">WEB予約</th>
@@ -279,7 +289,7 @@ export default function InquiryStats() {
                     </thead>
                     <tbody>
                       {monthly.length === 0 && (
-                        <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">データがありません</td></tr>
+                        <tr><td colSpan={10} className="text-center py-8 text-muted-foreground">データがありません</td></tr>
                       )}
                       {monthly.map(([m, c]) => (
                         <tr
@@ -289,6 +299,7 @@ export default function InquiryStats() {
                         >
                           <td className="px-4 py-2 font-medium">{m.replace("-", "年")}月{selectedMonth === m && <span className="ml-1.5 text-[10px] text-primary">▼日別表示中</span>}</td>
                           <td className="text-right px-3 py-2">{c.phone}</td>
+                          <td className="text-right px-3 py-2 text-violet-700 font-medium">{c.estamaProvisional}</td>
                           <td className="text-right px-3 py-2">{c.line}</td>
                           <td className="text-right px-3 py-2">{c.other}</td>
                           <td className="text-right px-3 py-2">{c.web}</td>
@@ -314,6 +325,7 @@ export default function InquiryStats() {
                       <tr className="bg-muted/50 text-xs text-muted-foreground">
                         <th className="text-left px-4 py-2">日付</th>
                         <th className="text-right px-3 py-2">電話</th>
+                        <th className="text-right px-3 py-2">エステ魂仮予約</th>
                         <th className="text-right px-3 py-2">LINE</th>
                         <th className="text-right px-3 py-2">その他</th>
                         <th className="text-right px-3 py-2">WEB予約</th>
@@ -325,12 +337,13 @@ export default function InquiryStats() {
                     </thead>
                     <tbody>
                       {daily.length === 0 && (
-                        <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">この月のデータがありません</td></tr>
+                        <tr><td colSpan={10} className="text-center py-8 text-muted-foreground">この月のデータがありません</td></tr>
                       )}
                       {daily.map(([d, c]) => (
                         <tr key={d} className="border-t">
                           <td className="px-4 py-2">{formatDateKeyShort(d)}</td>
                           <td className="text-right px-3 py-2">{c.phone}</td>
+                          <td className="text-right px-3 py-2 text-violet-700 font-medium">{c.estamaProvisional}</td>
                           <td className="text-right px-3 py-2">{c.line}</td>
                           <td className="text-right px-3 py-2">{c.other}</td>
                           <td className="text-right px-3 py-2">{c.web}</td>
@@ -356,13 +369,21 @@ export default function InquiryStats() {
                   <div className="divide-y">
                     {monthEntries.map((i) => {
                       const Icon = CH_ICON[i.channel];
+                      const isEstamaProvisional = isEstamaProvisionalReservation(i);
+                      const sourceBadge = i.source === "line"
+                        ? { label: "LINE入力", cls: "bg-green-100 text-green-700" }
+                        : i.source === "ivry_email"
+                          ? { label: "IVRY自動", cls: "bg-blue-100 text-blue-700" }
+                          : { label: "手動", cls: "bg-gray-100 text-gray-600" };
                       return (
                         <div key={i.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                           <Icon size={15} className="text-primary shrink-0" />
                           <span className="w-24 shrink-0 text-muted-foreground">{JST_DATE_TIME_FORMATTER.format(new Date(i.inquired_at))}</span>
-                          <span className="w-14 shrink-0 font-medium">{CHANNEL_LABEL[i.channel]}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${i.source === "line" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
-                            {i.source === "line" ? "LINE入力" : "手動"}
+                          <span className={`w-28 shrink-0 font-medium ${isEstamaProvisional ? "text-violet-700" : ""}`}>
+                            {isEstamaProvisional ? "エステ魂仮予約" : CHANNEL_LABEL[i.channel]}
+                          </span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${sourceBadge.cls}`}>
+                            {sourceBadge.label}
                           </span>
                           <span className="flex-1 truncate text-muted-foreground">{i.memo}</span>
                           <button onClick={() => handleDelete(i.id)} className="text-muted-foreground hover:text-destructive shrink-0">
