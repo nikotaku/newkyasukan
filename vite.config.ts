@@ -8,7 +8,8 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-    allowedHosts: ["enka-salon.jp"],
+    // 開発時のManus一時プレビューURLのみを追加で許可する（全ホスト許可はしない）。
+    allowedHosts: ["enka-salon.jp", ".manus.computer"],
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

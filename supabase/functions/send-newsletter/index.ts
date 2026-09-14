@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { makeNewsletterHtml } from "../_shared/newsletter-html.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,33 +34,8 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
 function isValidRecipientEmail(value: string) {
   return value.length <= 255 && emailPattern.test(value);
-}
-
-function makeHtml(bodyText: string, unsubscribeUrl: string) {
-  const safeBody = escapeHtml(bodyText.trim()).replace(/\r?\n/g, "<br />");
-  return `<!doctype html>
-<html lang="ja">
-  <body style="margin:0;padding:0;background:#f8fafc;color:#1f2937;font-family:-apple-system,BlinkMacSystemFont,'Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;line-height:1.75;">
-    <main style="max-width:640px;margin:0 auto;padding:32px 24px;background:#ffffff;">
-      <div style="white-space:normal;font-size:15px;">${safeBody}</div>
-      <hr style="border:0;border-top:1px solid #e5e7eb;margin:32px 0 16px;" />
-      <p style="margin:0;color:#6b7280;font-size:12px;line-height:1.6;">
-        今後のご案内メールが不要な場合は、<a href="${escapeHtml(unsubscribeUrl)}" style="color:#4f46e5;">配信を停止する</a>からお手続きください。
-      </p>
-    </main>
-  </body>
-</html>`;
 }
 
 async function verifyStoreAccess(
@@ -211,7 +187,7 @@ Deno.serve(async (req) => {
           from: resendFrom,
           to: [recipient.email],
           subject: campaign.subject,
-          html: makeHtml(campaign.body_text, unsubscribeUrl),
+          html: makeNewsletterHtml(campaign.body_text, unsubscribeUrl),
           text: `${campaign.body_text.trim()}\n\n配信停止: ${unsubscribeUrl}`,
           tags: [
             { name: "campaign", value: campaign.id },
