@@ -3426,30 +3426,42 @@ export type Database = {
       }
       inquiries: {
         Row: {
+          call_status: string | null
+          caller_number: string | null
           channel: string
           created_at: string
           id: string
           inquired_at: string
           memo: string | null
           source: string
+          source_message_id: string | null
+          source_subject: string | null
           store_id: string
         }
         Insert: {
+          call_status?: string | null
+          caller_number?: string | null
           channel: string
           created_at?: string
           id?: string
           inquired_at?: string
           memo?: string | null
           source?: string
+          source_message_id?: string | null
+          source_subject?: string | null
           store_id?: string
         }
         Update: {
+          call_status?: string | null
+          caller_number?: string | null
           channel?: string
           created_at?: string
           id?: string
           inquired_at?: string
           memo?: string | null
           source?: string
+          source_message_id?: string | null
+          source_subject?: string | null
           store_id?: string
         }
         Relationships: [
