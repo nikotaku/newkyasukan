@@ -4,6 +4,7 @@ import {
   getAdminClient,
 } from "../../server/estama-automation.js";
 import { castPostImagePaths } from "../../server/cast-post-image-paths.js";
+import { processO2StoreAvailabilityPost } from "../../server/o2-store-availability.js";
 
 export const config = { maxDuration: 300 };
 
@@ -101,6 +102,17 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
   const queryAction = Array.isArray(req.query?.action) ? req.query?.action[0] : req.query?.action;
   const action = stringValue(req.body?.action) || stringValue(queryAction);
   try {
+    if (action === "o2-store-availability") {
+      const storeId = stringValue(req.body?.storeId);
+      if (!/^[0-9a-f-]{36}$/i.test(storeId)) throw new Error("店舗を確認してください");
+      const { admin, user } = await authenticateUser(req);
+      await assertStoreManager(admin, user.id, storeId);
+      const result = await processO2StoreAvailabilityPost(admin, storeId, { triggerSource: "manual" });
+      const status = result.status === "failed" ? 500 : result.status === "review_required" ? 409 : 200;
+      res.status(status).json(result);
+      return;
+    }
+
     const postId = stringValue(req.body?.postId);
     if (!postId) throw new Error("投稿IDが必要です");
     if (action === "delete-failed-post") {
@@ -157,7 +169,11 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(JSON.stringify({
       level: "warn",
-      msg: action === "delete-failed-post" ? "admin_post_delete_failed" : "admin_portal_post_failed",
+      msg: action === "delete-failed-post"
+        ? "admin_post_delete_failed"
+        : action === "o2-store-availability"
+          ? "o2_store_availability_manual_post_failed"
+          : "admin_portal_post_failed",
       postId: stringValue(req.body?.postId),
       target: stringValue(req.body?.target),
       error: message,

@@ -128,7 +128,7 @@ export function O2StoreAvailabilitySettings() {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) throw new Error("ログイン状態を確認できませんでした。再ログインしてください");
-      const response = await fetch("/api/automations/o2-store-availability", {
+      const response = await fetch("/api/automations/admin-portal-post?action=o2-store-availability", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ storeId }),

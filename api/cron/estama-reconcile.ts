@@ -3,10 +3,15 @@ import {
   getAdminClient,
   processAvailableJobs,
 } from "../../server/estama-automation.js";
+import { processEnabledO2StoreAvailabilityPosts } from "../../server/o2-store-availability.js";
 
 export const config = { maxDuration: 300 };
 
-type RequestLike = { method?: string; headers?: Record<string, string | string[] | undefined> };
+type RequestLike = {
+  method?: string;
+  headers?: Record<string, string | string[] | undefined>;
+  body?: Record<string, unknown> | string;
+};
 type ResponseLike = {
   status(code: number): ResponseLike;
   json(body: unknown): void;
@@ -62,6 +67,16 @@ const formatJst = (value: string) => new Intl.DateTimeFormat("ja-JP", {
 }).format(new Date(value));
 
 const jstDate = () => new Date(Date.now() + 9 * 60 * 60 * 1_000).toISOString().slice(0, 10);
+
+const o2StoreRunToken = (body: RequestLike["body"]) => {
+  const value = typeof body === "string"
+    ? (() => {
+      try { return JSON.parse(body) as Record<string, unknown>; } catch { return {}; }
+    })()
+    : body || {};
+  const token = value.o2_store_availability_token;
+  return typeof token === "string" ? token.trim() : "";
+};
 
 const dueLabel = (dueDate: string | null) => {
   if (!dueDate) return "期限なし";
@@ -203,6 +218,39 @@ async function countShiftJobs(
 
 export default async function handler(req: RequestLike, res: ResponseLike) {
   res.setHeader("Cache-Control", "private, no-store");
+  if (req.method === "POST") {
+    const token = o2StoreRunToken(req.body);
+    if (!/^[0-9a-f]{64}$/.test(token)) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    try {
+      const admin = getAdminClient();
+      const { data: claimed, error: claimError } = await admin.rpc("claim_o2_store_availability_run_token", {
+        p_token: token,
+      });
+      if (claimError) throw claimError;
+      if (claimed !== true) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      const results = await processEnabledO2StoreAvailabilityPosts(admin);
+      const failed = results.filter((result) => result.status === "failed" || result.status === "review_required");
+      console.log(JSON.stringify({
+        level: failed.length ? "warn" : "info",
+        msg: "o2_store_availability_cron_complete",
+        processed: results.length,
+        failed: failed.length,
+      }));
+      res.status(failed.length ? 207 : 200).json({ ok: failed.length === 0, processed: results.length, results });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(JSON.stringify({ level: "error", msg: "o2_store_availability_cron_failed", error: message }));
+      res.status(500).json({ error: message });
+    }
+    return;
+  }
+
   const header = req.headers?.authorization;
   const authorization = Array.isArray(header) ? header[0] : header;
   const cronSecret = process.env.CRON_SECRET;
