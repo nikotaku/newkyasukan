@@ -3307,6 +3307,76 @@ export type Database = {
           },
         ]
       }
+      hp_kpi_goals: {
+        Row: {
+          cadence: string
+          created_at: string
+          store_id: string
+          target_count: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cadence: string
+          created_at?: string
+          store_id: string
+          target_count?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cadence?: string
+          created_at?: string
+          store_id?: string
+          target_count?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hp_kpi_goals_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hp_kpi_progress: {
+        Row: {
+          cadence: string
+          completed_count: number
+          created_at: string
+          period_start: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          cadence: string
+          completed_count?: number
+          created_at?: string
+          period_start: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          cadence?: string
+          completed_count?: number
+          created_at?: string
+          period_start?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hp_kpi_progress_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hp_articles: {
         Row: {
           category: string | null
