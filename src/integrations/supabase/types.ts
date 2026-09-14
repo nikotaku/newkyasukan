@@ -1391,6 +1391,8 @@ export type Database = {
           x_created: boolean
           x_ff_completed: boolean
           x_list_added: boolean
+          x_sub_account: string | null
+          x_sub_account_visible: boolean
         }
         Insert: {
           access_token?: string | null
@@ -1491,6 +1493,8 @@ export type Database = {
           x_created?: boolean
           x_ff_completed?: boolean
           x_list_added?: boolean
+          x_sub_account?: string | null
+          x_sub_account_visible?: boolean
         }
         Update: {
           access_token?: string | null
@@ -1591,6 +1595,8 @@ export type Database = {
           x_created?: boolean
           x_ff_completed?: boolean
           x_list_added?: boolean
+          x_sub_account?: string | null
+          x_sub_account_visible?: boolean
         }
         Relationships: [
           {

@@ -14,6 +14,7 @@ import { trackPublicEvent } from "@/lib/publicAnalytics";
 import { ReviewStars } from "@/components/public/ReviewStars";
 import { ReviewCategoryScores } from "@/components/public/ReviewCategoryScores";
 import { ESTAMA_CAST_PHOTO_STYLE } from "@/lib/publicCastPhoto";
+import { shouldDisplayXSubAccount } from "@/lib/xAccountVisibility";
 
 interface Cast {
   id: string;
@@ -38,6 +39,8 @@ interface Cast {
   ideal_type: string | null;
   room: string | null;
   x_account: string | null;
+  x_sub_account: string | null;
+  x_sub_account_visible: boolean;
   instagram_url: string | null;
   line_url: string | null;
   litlink_url: string | null;
@@ -125,7 +128,7 @@ const CastDetail = () => {
 
     try {
       const [castRes, profileRes] = await Promise.all([
-        supabase.from("casts").select("id,name,age,height,bust_size,body_size,blood_type,therapist_years,type,status,photo,photos,profile,message,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,room,x_account,instagram_url,line_url,litlink_url,o2_url,estama_profile_url,blog_url,skebiy_url,tags,shop_comment").eq("id", id).eq("store_id", storeId).eq("is_active", true).single(),
+        supabase.from("casts").select("id,name,age,height,bust_size,body_size,blood_type,therapist_years,type,status,photo,photos,profile,message,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,room,x_account,x_sub_account,x_sub_account_visible,instagram_url,line_url,litlink_url,o2_url,estama_profile_url,blog_url,skebiy_url,tags,shop_comment").eq("id", id).eq("store_id", storeId).eq("is_active", true).single(),
         supabase.from("therapist_profiles").select("*").eq("cast_id", id).maybeSingle(),
       ]);
       if (castRes.error) throw castRes.error;
@@ -266,6 +269,7 @@ const CastDetail = () => {
   ];
   const therapistComment = cast.message ?? null;
   const shopComment = cast.shop_comment ?? profile?.comment ?? null;
+  const showXSubAccount = shouldDisplayXSubAccount(cast.x_sub_account, cast.x_sub_account_visible);
 
   // Average rating
   const avgRating = reviews.length > 0
@@ -481,7 +485,7 @@ const CastDetail = () => {
             )}
 
             {/* ── SNS links ── */}
-            {(cast.x_account || cast.instagram_url || cast.line_url || cast.litlink_url || cast.o2_url || cast.estama_profile_url || cast.blog_url || cast.skebiy_url) && (
+            {(cast.x_account || showXSubAccount || cast.instagram_url || cast.line_url || cast.litlink_url || cast.o2_url || cast.estama_profile_url || cast.blog_url || cast.skebiy_url) && (
               <>
                 <SectionHeader label="SNS / LINKS" sub="各種リンク" />
                 <div className="px-5 py-4 flex flex-wrap gap-3">
@@ -494,6 +498,17 @@ const CastDetail = () => {
                     >
                       <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-4 h-4" />
                       X（Twitter）
+                    </a>
+                  )}
+                  {showXSubAccount && cast.x_sub_account && (
+                    <a
+                      href={cast.x_sub_account.startsWith("http") ? cast.x_sub_account : `https://x.com/${cast.x_sub_account}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[var(--pub-card2,#221b12)]"
+                      style={{ borderColor: "var(--pub-border,#3a2f1c)", color: "var(--pub-text,#f0e6d2)" }}
+                    >
+                      <img src="https://cdn2-caskan.com/caskan/asset/sns/x.png" alt="X" className="w-4 h-4" />
+                      X（サブ垢）
                     </a>
                   )}
                   {cast.instagram_url && (

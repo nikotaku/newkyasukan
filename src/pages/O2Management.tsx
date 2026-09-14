@@ -31,6 +31,8 @@ type O2Row = {
   x_login_id: string | null;
   x_ff_completed: boolean;
   x_list_added: boolean;
+  x_sub_account: string | null;
+  x_sub_account_visible: boolean;
   estama_profile_url: string | null;
   estama_credential_configured: boolean;
   estama_login_id: string | null;
@@ -48,6 +50,8 @@ type EditForm = {
   o2LoginId: string;
   o2Password: string;
   xLoginId: string;
+  xSubLoginId: string;
+  xSubAccountVisible: boolean;
   xPassword: string;
   deleteXPassword: boolean;
   xMutualFollowCompleted: boolean;
@@ -83,6 +87,8 @@ const EMPTY_EDIT_FORM: EditForm = {
   o2LoginId: "",
   o2Password: "",
   xLoginId: "",
+  xSubLoginId: "",
+  xSubAccountVisible: false,
   xPassword: "",
   deleteXPassword: false,
   xMutualFollowCompleted: false,
@@ -125,6 +131,8 @@ const createEditForm = (row: O2Row): EditForm => ({
   o2LoginId: row.login_id || normalizeO2Id(row.profile_url || ""),
   o2Password: "",
   xLoginId: row.x_login_id || normalizeXId(row.x_profile_url || ""),
+  xSubLoginId: normalizeXId(row.x_sub_account || ""),
+  xSubAccountVisible: row.x_sub_account_visible,
   xPassword: "",
   deleteXPassword: false,
   xMutualFollowCompleted: row.x_ff_completed,
@@ -263,7 +271,7 @@ export default function O2Management() {
     if (!user || storeLoading) return;
     setLoading(true);
     const [{ data, error }, { data: activeCasts, error: activeCastsError }] = await Promise.all([
-      rpc("get_sns_connection_overview_v8", { p_store_id: storeId }),
+      rpc("get_sns_connection_overview_v9", { p_store_id: storeId }),
       supabase.from("casts").select("id").eq("store_id", storeId).eq("is_active", true),
     ]);
     if (error) toast.error(error.message);
@@ -316,7 +324,7 @@ export default function O2Management() {
     const requestId = settingsRequestId.current + 1;
     settingsRequestId.current = requestId;
     setOpeningCastId(row.cast_id);
-    const { data, error } = await rpc("get_sns_connection_overview_v8", { p_store_id: storeId });
+    const { data, error } = await rpc("get_sns_connection_overview_v9", { p_store_id: storeId });
 
     if (settingsRequestId.current !== requestId) return;
     setOpeningCastId(null);
@@ -359,7 +367,7 @@ export default function O2Management() {
     const requestId = settingsRequestId.current + 1;
     settingsRequestId.current = requestId;
     setRefreshingSettings(true);
-    const { data, error } = await rpc("get_sns_connection_overview_v8", { p_store_id: storeId });
+    const { data, error } = await rpc("get_sns_connection_overview_v9", { p_store_id: storeId });
 
     if (settingsRequestId.current !== requestId) return;
     setRefreshingSettings(false);
@@ -468,8 +476,13 @@ export default function O2Management() {
       return;
     }
     const xLoginId = normalizeXId(editForm.xLoginId);
+    const xSubLoginId = normalizeXId(editForm.xSubLoginId);
     if (xLoginId && !/^[A-Za-z0-9_]+$/.test(xLoginId)) {
       toast.error("XのIDは半角英数字とアンダーバーで入力してください");
+      return;
+    }
+    if (xSubLoginId && !/^[A-Za-z0-9_]+$/.test(xSubLoginId)) {
+      toast.error("Xのサブ垢IDは半角英数字とアンダーバーで入力してください");
       return;
     }
     if (editForm.xPassword && !xLoginId) {
@@ -497,7 +510,7 @@ export default function O2Management() {
     savingRef.current = true;
     setSaving(true);
     try {
-      const { error } = await rpc("save_sns_connection_admin_v8", {
+      const { error } = await rpc("save_sns_connection_admin_v9", {
         p_store_id: storeId,
         p_cast_id: editing.cast_id,
         p_o2_created: editForm.created,
@@ -510,6 +523,8 @@ export default function O2Management() {
         p_delete_x_password: editForm.deleteXPassword,
         p_x_ff_completed: editForm.xMutualFollowCompleted,
         p_x_list_added: editForm.xTherapistListAdded,
+        p_x_sub_login_id: xSubLoginId || null,
+        p_x_sub_account_visible: Boolean(xSubLoginId) && editForm.xSubAccountVisible,
         p_estama_login_id: estamaLoginId || null,
         p_estama_password: editForm.estamaPassword || null,
         p_estama_profile_url: estamaProfileUrl || null,
@@ -686,7 +701,7 @@ export default function O2Management() {
                   {xOnboardingBadge("セラピストリスト追加", editForm.xTherapistListAdded)}
                 </div>
               </div>
-              <div><Label htmlFor="x-login-id">ID</Label><Input id="x-login-id" readOnly={fieldsReadOnly} className={fieldsReadOnly ? "bg-white/70" : "bg-white"} autoComplete="off" placeholder="例: enka_asami" value={editForm.xLoginId} onChange={(event) => setEditForm({ ...editForm, xLoginId: event.target.value })} /></div>
+              <div><Label htmlFor="x-login-id">メイン垢ID</Label><Input id="x-login-id" readOnly={fieldsReadOnly} className={fieldsReadOnly ? "bg-white/70" : "bg-white"} autoComplete="off" placeholder="例: enka_asami" value={editForm.xLoginId} onChange={(event) => setEditForm({ ...editForm, xLoginId: event.target.value })} /></div>
               <div>
                 <Label htmlFor="x-password">パスワード（任意メモ）</Label>
                 <PasswordControl
@@ -724,7 +739,21 @@ export default function O2Management() {
                   </label>
                 )}
               </div>
-              <div><Label htmlFor="x-profile-url">公開URL（自動生成）</Label><Input id="x-profile-url" readOnly value={buildXProfileUrl(editForm.xLoginId)} placeholder="IDを入力すると自動生成されます" className="bg-white/70" /></div>
+              <div><Label htmlFor="x-profile-url">メイン垢URL（自動生成）</Label><Input id="x-profile-url" readOnly value={buildXProfileUrl(editForm.xLoginId)} placeholder="IDを入力すると自動生成されます" className="bg-white/70" /></div>
+              <div className="space-y-2 rounded-lg border border-slate-200 bg-white/80 p-3">
+                <div><Label htmlFor="x-sub-login-id">サブ垢ID</Label><Input id="x-sub-login-id" readOnly={fieldsReadOnly} className={fieldsReadOnly ? "mt-1 bg-white/70" : "mt-1 bg-white"} autoComplete="off" placeholder="例: enka_asami_sub" value={editForm.xSubLoginId} onChange={(event) => setEditForm({ ...editForm, xSubLoginId: event.target.value, xSubAccountVisible: normalizeXId(event.target.value) ? editForm.xSubAccountVisible : false })} /></div>
+                <div><Label htmlFor="x-sub-profile-url">サブ垢URL（自動生成）</Label><Input id="x-sub-profile-url" readOnly value={buildXProfileUrl(editForm.xSubLoginId)} placeholder="サブ垢IDを入力すると自動生成されます" className="mt-1 bg-muted/60" /></div>
+                <label className="flex items-center gap-2 text-sm text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={editForm.xSubAccountVisible}
+                    disabled={fieldsReadOnly || !normalizeXId(editForm.xSubLoginId)}
+                    onChange={(event) => setEditForm({ ...editForm, xSubAccountVisible: event.target.checked })}
+                  />
+                  サブ垢をHP上に表示する
+                </label>
+                <p className="text-xs text-slate-600">オンにした場合のみ、公開中のセラピスト詳細ページにサブ垢へのリンクを表示します。</p>
+              </div>
               <div className="space-y-2 rounded-lg border border-slate-200 bg-white/80 p-3">
                 <p className="text-sm font-medium text-slate-800">Xの準備状況</p>
                 <label className="flex items-center gap-2 text-sm text-slate-800">
