@@ -7,6 +7,7 @@ import {
   startLoginSetup,
   verifyLoginSetup,
 } from "../../server/estama-automation.js";
+import { processO2StoreAvailabilityPost } from "../../server/o2-store-availability.js";
 
 export const config = { maxDuration: 300 };
 
@@ -31,6 +32,12 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
     res.status(405).json({ error: "Method not allowed" });
     return;
   }
+  const isO2StoreAvailabilityRequest = req.query?.action === "o2-store-availability";
+  if (isO2StoreAvailabilityRequest && req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
 
   try {
     const { admin, user } = await authenticateUser(req);
@@ -38,6 +45,13 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
     const storeId = stringValue(source.storeId);
     if (!storeId) throw new Error("storeId が必要です");
     await assertStoreManager(admin, user.id, storeId);
+
+    if (isO2StoreAvailabilityRequest) {
+      const result = await processO2StoreAvailabilityPost(admin, storeId, { triggerSource: "manual" });
+      const statusCode = result.status === "failed" ? 500 : result.status === "review_required" ? 409 : 200;
+      res.status(statusCode).json(result);
+      return;
+    }
 
     if (req.method === "GET") {
       const [connection, jobsResult] = await Promise.all([
