@@ -1,15 +1,18 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   LoginRequiredError,
+  getAdminClient,
   refreshEstamaAvailability,
   type EstamaAvailabilityRefreshResult,
 } from "../../server/estama-automation.js";
+import { processEnabledO2StoreAvailabilityPosts } from "../../server/o2-store-availability.js";
 
 export const config = { maxDuration: 300 };
 
 type RequestLike = {
   method?: string;
   body?: unknown;
+  query?: Record<string, string | string[] | undefined>;
 };
 type ResponseLike = {
   status(code: number): ResponseLike;
@@ -184,10 +187,61 @@ function parseBody(value: unknown) {
   return value && typeof value === "object" ? value as Record<string, unknown> : {};
 }
 
+async function handleO2StoreAvailability(req: RequestLike, res: ResponseLike) {
+  let payload: Record<string, unknown>;
+  try {
+    payload = parseBody(req.body);
+  } catch {
+    res.status(400).json({ error: "Invalid JSON" });
+    return;
+  }
+
+  const token = typeof payload.token === "string" ? payload.token : "";
+  if (!/^[0-9a-f]{64}$/.test(token)) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  try {
+    const admin = getAdminClient();
+    const { data: claimed, error: claimError } = await admin.rpc("claim_o2_store_availability_run_token", {
+      p_token: token,
+    });
+    if (claimError) throw claimError;
+    if (claimed !== true) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const results = await processEnabledO2StoreAvailabilityPosts(admin);
+    const failed = results.filter((result) => result.status === "failed" || result.status === "review_required");
+    console.log(JSON.stringify({
+      level: failed.length ? "warn" : "info",
+      msg: "o2_store_availability_cron_complete",
+      processed: results.length,
+      failed: failed.length,
+    }));
+    res.status(failed.length ? 207 : 200).json({
+      ok: failed.length === 0,
+      processed: results.length,
+      results,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(JSON.stringify({ level: "error", msg: "o2_store_availability_cron_failed", error: message }));
+    res.status(500).json({ error: message });
+  }
+}
+
 export default async function handler(req: RequestLike, res: ResponseLike) {
   res.setHeader("Cache-Control", "private, no-store");
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  if (req.query?.action === "o2-store-availability") {
+    await handleO2StoreAvailability(req, res);
     return;
   }
 

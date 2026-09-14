@@ -50,6 +50,14 @@
   ],
   "rewrites": [
     {
+      "source": "/api/automations/o2-store-availability",
+      "destination": "/api/automations/estama?action=o2-store-availability"
+    },
+    {
+      "source": "/api/cron/o2-store-availability",
+      "destination": "/api/cron/estama-availability?action=o2-store-availability"
+    },
+    {
       "source": "/marketing-study",
       "destination": "/marketing-study.html"
     },
