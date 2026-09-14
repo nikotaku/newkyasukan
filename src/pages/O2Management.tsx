@@ -29,6 +29,8 @@ type O2Row = {
   x_credential_configured: boolean;
   x_password_configured: boolean;
   x_login_id: string | null;
+  x_ff_completed: boolean;
+  x_list_added: boolean;
   estama_profile_url: string | null;
   estama_credential_configured: boolean;
   estama_login_id: string | null;
@@ -48,6 +50,8 @@ type EditForm = {
   xLoginId: string;
   xPassword: string;
   deleteXPassword: boolean;
+  xMutualFollowCompleted: boolean;
+  xTherapistListAdded: boolean;
   estamaLoginId: string;
   estamaPassword: string;
   estamaProfileUrl: string;
@@ -81,6 +85,8 @@ const EMPTY_EDIT_FORM: EditForm = {
   xLoginId: "",
   xPassword: "",
   deleteXPassword: false,
+  xMutualFollowCompleted: false,
+  xTherapistListAdded: false,
   estamaLoginId: "",
   estamaPassword: "",
   estamaProfileUrl: "",
@@ -121,6 +127,8 @@ const createEditForm = (row: O2Row): EditForm => ({
   xLoginId: row.x_login_id || normalizeXId(row.x_profile_url || ""),
   xPassword: "",
   deleteXPassword: false,
+  xMutualFollowCompleted: row.x_ff_completed,
+  xTherapistListAdded: row.x_list_added,
   estamaLoginId: row.estama_login_id || "",
   estamaPassword: "",
   estamaProfileUrl: row.estama_profile_url || "",
@@ -131,6 +139,18 @@ const connectionBadgeClass = {
   x: "border-slate-800 bg-slate-900 text-white hover:bg-slate-900",
   soul: "border-violet-200 bg-violet-100 text-violet-700 hover:bg-violet-100",
 };
+
+const xOnboardingBadge = (label: string, completed: boolean) => (
+  <Badge
+    title={`${label}${completed ? "済み" : "未完了"}`}
+    className={completed
+      ? "gap-1 border-emerald-200 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+      : "border-slate-200 bg-white text-slate-500 hover:bg-white"}
+  >
+    {completed && <CheckCircle size={11} strokeWidth={2.5} />}
+    {label}
+  </Badge>
+);
 
 const rpc = (name: string, args: Record<string, unknown>) =>
   (supabase.rpc as unknown as (rpcName: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: { code?: string; message: string } | null }>)(name, args);
@@ -243,7 +263,7 @@ export default function O2Management() {
     if (!user || storeLoading) return;
     setLoading(true);
     const [{ data, error }, { data: activeCasts, error: activeCastsError }] = await Promise.all([
-      rpc("get_sns_connection_overview_v7", { p_store_id: storeId }),
+      rpc("get_sns_connection_overview_v8", { p_store_id: storeId }),
       supabase.from("casts").select("id").eq("store_id", storeId).eq("is_active", true),
     ]);
     if (error) toast.error(error.message);
@@ -296,7 +316,7 @@ export default function O2Management() {
     const requestId = settingsRequestId.current + 1;
     settingsRequestId.current = requestId;
     setOpeningCastId(row.cast_id);
-    const { data, error } = await rpc("get_sns_connection_overview_v7", { p_store_id: storeId });
+    const { data, error } = await rpc("get_sns_connection_overview_v8", { p_store_id: storeId });
 
     if (settingsRequestId.current !== requestId) return;
     setOpeningCastId(null);
@@ -339,7 +359,7 @@ export default function O2Management() {
     const requestId = settingsRequestId.current + 1;
     settingsRequestId.current = requestId;
     setRefreshingSettings(true);
-    const { data, error } = await rpc("get_sns_connection_overview_v7", { p_store_id: storeId });
+    const { data, error } = await rpc("get_sns_connection_overview_v8", { p_store_id: storeId });
 
     if (settingsRequestId.current !== requestId) return;
     setRefreshingSettings(false);
@@ -477,7 +497,7 @@ export default function O2Management() {
     savingRef.current = true;
     setSaving(true);
     try {
-      const { error } = await rpc("save_sns_connection_admin_v7", {
+      const { error } = await rpc("save_sns_connection_admin_v8", {
         p_store_id: storeId,
         p_cast_id: editing.cast_id,
         p_o2_created: editForm.created,
@@ -488,6 +508,8 @@ export default function O2Management() {
         p_x_login_id: xLoginId || null,
         p_x_password: editForm.xPassword || null,
         p_delete_x_password: editForm.deleteXPassword,
+        p_x_ff_completed: editForm.xMutualFollowCompleted,
+        p_x_list_added: editForm.xTherapistListAdded,
         p_estama_login_id: estamaLoginId || null,
         p_estama_password: editForm.estamaPassword || null,
         p_estama_profile_url: estamaProfileUrl || null,
@@ -542,7 +564,19 @@ export default function O2Management() {
             {loading ? <div className="rounded-xl border bg-card py-16 text-center"><Loader2 className="inline-block animate-spin text-primary" /></div> : rows.length === 0 ? <div className="rounded-xl border bg-card py-12 text-center text-muted-foreground">セラピストがいません</div> : rows.map((row) => (
               <div key={row.cast_id} className="rounded-xl border bg-card p-4 space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2">{row.photo ? <img src={row.photo} alt="" className="h-11 w-11 rounded-full object-cover" /> : <div className="h-11 w-11 rounded-full bg-muted" />}<div className="min-w-0"><p className="font-medium truncate">{row.cast_name}</p><div className="mt-1 flex flex-wrap gap-1"><Badge className={`${connectionBadgeClass.o2} ${row.credential_configured ? "" : "opacity-45"}`}>O2</Badge><Badge className={`${connectionBadgeClass.x} ${isXConfigured(row) ? "" : "opacity-35"}`}>X</Badge><Badge className={`${connectionBadgeClass.soul} ${isSoulConfigured(row) ? "" : "opacity-45"}`}>魂セラピスト</Badge></div></div></div>
+                  <div className="flex min-w-0 items-center gap-2">
+                    {row.photo ? <img src={row.photo} alt="" className="h-11 w-11 rounded-full object-cover" /> : <div className="h-11 w-11 rounded-full bg-muted" />}
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{row.cast_name}</p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        <Badge className={`${connectionBadgeClass.o2} ${row.credential_configured ? "" : "opacity-45"}`}>O2</Badge>
+                        <Badge className={`${connectionBadgeClass.x} ${isXConfigured(row) ? "" : "opacity-35"}`}>X</Badge>
+                        {xOnboardingBadge("相互フォロー", row.x_ff_completed)}
+                        {xOnboardingBadge("セラピストリスト追加", row.x_list_added)}
+                        <Badge className={`${connectionBadgeClass.soul} ${isSoulConfigured(row) ? "" : "opacity-45"}`}>魂セラピスト</Badge>
+                      </div>
+                    </div>
+                  </div>
                   <Button size="sm" variant="outline" onClick={() => void openEdit(row)} disabled={openingCastId === row.cast_id}>
                     {openingCastId === row.cast_id ? <Loader2 size={13} className="mr-1 animate-spin" /> : hasSavedSettings(row) ? <Eye size={13} className="mr-1" /> : <Pencil size={13} className="mr-1" />}
                     {hasSavedSettings(row) ? "確認" : "設定"}
@@ -563,13 +597,21 @@ export default function O2Management() {
 
           <div className="hidden md:block border rounded-xl bg-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-sm">
+              <table className="w-full min-w-[1080px] text-sm">
                 <thead className="bg-muted/60 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">セラピスト</th><th className="px-3 py-3">媒体連携</th><th className="px-3 py-3">O2作成</th><th className="px-3 py-3">店舗連携</th><th className="px-3 py-3">直近投稿</th><th className="px-3 py-3">エラー</th><th className="px-4 py-3 text-right">操作</th></tr></thead>
                 <tbody className="divide-y">
                   {loading ? <tr><td colSpan={7} className="py-16 text-center"><Loader2 className="inline-block animate-spin text-primary" /></td></tr> : rows.length === 0 ? <tr><td colSpan={7} className="py-12 text-center text-muted-foreground">セラピストがいません</td></tr> : rows.map((row) => (
                     <tr key={row.cast_id} className="align-top">
                       <td className="px-4 py-3"><div className="flex items-center gap-2">{row.photo ? <img src={row.photo} alt="" className="h-9 w-9 rounded-full object-cover" /> : <div className="h-9 w-9 rounded-full bg-muted" />}<span className="font-medium">{row.cast_name}</span></div></td>
-                      <td className="px-3 py-3"><div className="flex flex-wrap gap-1"><Badge className={`${connectionBadgeClass.o2} ${row.credential_configured ? "" : "opacity-45"}`}>O2</Badge><Badge className={`${connectionBadgeClass.x} ${isXConfigured(row) ? "" : "opacity-35"}`}>X</Badge><Badge className={`${connectionBadgeClass.soul} ${isSoulConfigured(row) ? "" : "opacity-45"}`}>魂セラピスト</Badge></div></td>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          <Badge className={`${connectionBadgeClass.o2} ${row.credential_configured ? "" : "opacity-45"}`}>O2</Badge>
+                          <Badge className={`${connectionBadgeClass.x} ${isXConfigured(row) ? "" : "opacity-35"}`}>X</Badge>
+                          {xOnboardingBadge("相互フォロー", row.x_ff_completed)}
+                          {xOnboardingBadge("セラピストリスト追加", row.x_list_added)}
+                          <Badge className={`${connectionBadgeClass.soul} ${isSoulConfigured(row) ? "" : "opacity-45"}`}>魂セラピスト</Badge>
+                        </div>
+                      </td>
                       <td className="px-3 py-3">{row.o2_created ? <span className="text-green-700">✓ 作成済み</span> : <span className="text-muted-foreground">未作成</span>}</td>
                       <td className="px-3 py-3">{row.o2_linkage_requested ? <span className="text-green-700">✓ 申請済み</span> : <span className="text-muted-foreground">未申請</span>}</td>
                       <td className="px-3 py-3"><span>{statusLabel[row.last_o2_status || ""] || "投稿なし"}</span>{row.last_posted_at && <p className="text-[11px] text-muted-foreground mt-1">{new Date(row.last_posted_at).toLocaleString("ja-JP")}</p>}</td>
@@ -636,7 +678,14 @@ export default function O2Management() {
             </section>
 
             <section className="space-y-3 rounded-xl border border-slate-300 bg-slate-50 p-4">
-              <div className="flex items-center justify-between"><h3 className="font-semibold text-slate-900">X</h3>{editing && isXConfigured(editing) && <Badge className={connectionBadgeClass.x}>ID設定済み</Badge>}</div>
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="font-semibold text-slate-900">X</h3>
+                <div className="flex flex-wrap justify-end gap-1">
+                  {editing && isXConfigured(editing) && <Badge className={connectionBadgeClass.x}>ID設定済み</Badge>}
+                  {xOnboardingBadge("相互フォロー", editForm.xMutualFollowCompleted)}
+                  {xOnboardingBadge("セラピストリスト追加", editForm.xTherapistListAdded)}
+                </div>
+              </div>
               <div><Label htmlFor="x-login-id">ID</Label><Input id="x-login-id" readOnly={fieldsReadOnly} className={fieldsReadOnly ? "bg-white/70" : "bg-white"} autoComplete="off" placeholder="例: enka_asami" value={editForm.xLoginId} onChange={(event) => setEditForm({ ...editForm, xLoginId: event.target.value })} /></div>
               <div>
                 <Label htmlFor="x-password">パスワード（任意メモ）</Label>
@@ -676,6 +725,28 @@ export default function O2Management() {
                 )}
               </div>
               <div><Label htmlFor="x-profile-url">公開URL（自動生成）</Label><Input id="x-profile-url" readOnly value={buildXProfileUrl(editForm.xLoginId)} placeholder="IDを入力すると自動生成されます" className="bg-white/70" /></div>
+              <div className="space-y-2 rounded-lg border border-slate-200 bg-white/80 p-3">
+                <p className="text-sm font-medium text-slate-800">Xの準備状況</p>
+                <label className="flex items-center gap-2 text-sm text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={editForm.xMutualFollowCompleted}
+                    disabled={fieldsReadOnly}
+                    onChange={(event) => setEditForm({ ...editForm, xMutualFollowCompleted: event.target.checked })}
+                  />
+                  相互フォロー済み
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={editForm.xTherapistListAdded}
+                    disabled={fieldsReadOnly}
+                    onChange={(event) => setEditForm({ ...editForm, xTherapistListAdded: event.target.checked })}
+                  />
+                  セラピストリストに追加済み
+                </label>
+                <p className="text-xs text-slate-600">完了にすると、一覧のXバッジへ即時に反映されます。</p>
+              </div>
               <p className="rounded-lg bg-white/80 p-3 text-xs text-slate-600">XはIDだけで保存できます。パスワードは任意のメモで、投稿フォームからXへの投稿連携には使用しません。</p>
             </section>
 
