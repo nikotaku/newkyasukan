@@ -3388,9 +3388,13 @@ export type Database = {
           category: string | null
           content: string | null
           created_at: string
+          excerpt: string | null
           id: string
           image_urls: string[]
           is_published: boolean
+          published_at: string | null
+          seo_description: string | null
+          seo_title: string | null
           slug: string | null
           store_id: string
           title: string
@@ -3400,9 +3404,13 @@ export type Database = {
           category?: string | null
           content?: string | null
           created_at?: string
+          excerpt?: string | null
           id?: string
           image_urls?: string[]
           is_published?: boolean
+          published_at?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
           slug?: string | null
           store_id?: string
           title: string
@@ -3412,9 +3420,13 @@ export type Database = {
           category?: string | null
           content?: string | null
           created_at?: string
+          excerpt?: string | null
           id?: string
           image_urls?: string[]
           is_published?: boolean
+          published_at?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
           slug?: string | null
           store_id?: string
           title?: string

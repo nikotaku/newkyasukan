@@ -583,6 +583,15 @@ export default function EnkaHome() {
                 );
               })}
             </div>
+            <div className="mt-5 text-center">
+              <Link
+                to="/blog"
+                className="inline-flex rounded-lg border px-4 py-2.5 text-sm font-bold"
+                style={{ borderColor: "var(--pub-accent,#d4547a)", color: "var(--pub-text,#f7e9f0)" }}
+              >
+                読みもの・お知らせをもっと見る
+              </Link>
+            </div>
           </div>
         </section>
       )}

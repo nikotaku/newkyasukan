@@ -50,6 +50,8 @@ import PublicCastDiary from "./pages/public/CastDiary";
 import PublicPricing from "./pages/public/Pricing";
 import PublicSystem from "./pages/public/System";
 import PublicAccess from "./pages/public/Access";
+import BlogIndex from "./pages/public/BlogIndex";
+import BlogArticle from "./pages/public/BlogArticle";
 import NotionPageView from "./pages/NotionPageView";
 import BookingReservation from "./pages/public/BookingReservation";
 import Agreement from "./pages/Agreement";
@@ -63,6 +65,7 @@ import ReservationsList from "./pages/ReservationsList";
 import WebBookings from "./pages/WebBookings";
 import AvailableSlots from "./pages/AvailableSlots";
 import ArticleCreation from "./pages/ArticleCreation";
+import HpBlogManagement from "./pages/HpBlogManagement";
 import BusinessFlow from "./pages/BusinessFlow";
 import StoreInfo from "./pages/StoreInfo";
 import HpSnsLinks from "./pages/HpSnsLinks";
@@ -177,6 +180,8 @@ const App = () => {
           <Route path="/pricing" element={<PublicPricing />} />
           <Route path="/system" element={<PublicSystem />} />
           <Route path="/access" element={<PublicAccess />} />
+          <Route path="/blog" element={<BlogIndex />} />
+          <Route path="/blog/:slug" element={<BlogArticle />} />
           <Route path="/booking" element={<BookingReservation />} />
           <Route path="/page/:slug" element={<NotionPageView />} />
           <Route path="/lp" element={<ProductLP />} />
@@ -210,6 +215,7 @@ const App = () => {
           <Route path="/agreement" element={<Agreement />} />
           <Route path="/rooms" element={<RoomSettings />} />
           <Route path="/design" element={<Design />} />
+          <Route path="/hp/blog" element={<HpBlogManagement />} />
           <Route path="/hp/article-creation" element={<ArticleCreation />} />
           <Route path="/hp/business-flow" element={<BusinessFlow />} />
           <Route path="/hp/top-banners" element={<HpTopBanners />} />

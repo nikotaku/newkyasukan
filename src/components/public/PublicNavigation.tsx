@@ -13,6 +13,7 @@ const navItems = [
   { to: "/schedule", label: "SCHEDULE", sub: "出勤情報", external: false },
   { to: "/casts", label: "THERAPIST", sub: "セラピスト", external: false },
   { to: "/campaigns", label: "CAMPAIGN", sub: "キャンペーン", external: false },
+  { to: "/blog", label: "BLOG", sub: "読みもの", external: false },
   { to: "/voice", label: "VOICE", sub: "口コミ", external: false },
   { to: "/system", label: "SYSTEM", sub: "料金システム", external: false },
   { to: "/access", label: "ACCESS", sub: "アクセス", external: false },
@@ -99,7 +100,10 @@ export const PublicNavigation = () => {
                 </div>
                 <nav className="py-2">
                   {navItems.map((item) => {
-                    const isActive = !item.external && location.pathname === item.to;
+                    const isActive = !item.external && (
+                      location.pathname === item.to
+                      || (item.to === "/blog" && location.pathname.startsWith("/blog/"))
+                    );
                     const cls = `flex items-baseline gap-2 px-5 py-3.5 border-b border-[var(--pub-border-a60,#3a2f1c99)] transition-colors ${
                       isActive ? "bg-[var(--pub-border,#3a2f1c)]" : "hover:bg-[var(--pub-border-a60,#3a2f1c99)]"
                     }`;
@@ -127,8 +131,11 @@ export const PublicNavigation = () => {
         <div className="container mx-auto">
           <div className="flex justify-center items-center">
             {navItems.map((item) => {
-              const isActive = !item.external && location.pathname === item.to;
-              const cls = `px-5 py-3 text-center transition-colors border-b-2 ${
+              const isActive = !item.external && (
+                location.pathname === item.to
+                || (item.to === "/blog" && location.pathname.startsWith("/blog/"))
+              );
+              const cls = `px-3 py-3 text-center transition-colors border-b-2 lg:px-4 ${
                 isActive ? "bg-[var(--pub-border,#3a2f1c)] border-[var(--pub-accent,#c6a15b)]" : item.to === "/booking" ? "border-[var(--pub-accent,#c6a15b)] bg-[var(--pub-accent-a10,#c6a15b1a)] hover:bg-[var(--pub-border,#3a2f1c)]" : "border-transparent hover:bg-[var(--pub-border,#3a2f1c)] hover:border-[var(--pub-accent,#c6a15b)]"
               }`;
               const inner = (
