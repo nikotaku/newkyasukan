@@ -73,7 +73,7 @@ export default function BlogArticle() {
     let active = true;
     setLoading(true);
     supabase
-      .from("hp_articles")
+      .from("manager_blog_posts")
       .select("id,store_id,title,slug,content,category,excerpt,seo_title,seo_description,image_urls,is_published,created_at,updated_at,published_at")
       .eq("store_id", storeId)
       .eq("slug", slug)
@@ -86,7 +86,7 @@ export default function BlogArticle() {
         setArticle(found);
         if (found) {
           const { data: relatedRows } = await supabase
-            .from("hp_articles")
+            .from("manager_blog_posts")
             .select("id,store_id,title,slug,content,category,excerpt,seo_title,seo_description,image_urls,is_published,created_at,updated_at,published_at")
             .eq("store_id", storeId)
             .eq("is_published", true)
@@ -113,7 +113,7 @@ export default function BlogArticle() {
       ? `https://${store.custom_domain.replace(/^https?:\/\//, "").replace(/\/$/, "")}`
       : "https://enka-salon.jp";
     const canonicalUrl = `${origin}/blog/${encodeURIComponent(article.slug)}`;
-    const title = article.seo_title?.trim() || `${article.title}｜${storeName}｜読みもの`;
+    const title = article.seo_title?.trim() || `${article.title}｜${storeName}｜店長ブログ`;
     const description = article.seo_description?.trim() || blogExcerpt(article.content, article.excerpt, 155);
     const image = images[0];
     document.title = title;
@@ -169,7 +169,7 @@ export default function BlogArticle() {
         <PublicNavigation />
         <main className="mx-auto max-w-3xl px-4 py-24 text-center">
           <p className="text-sm" style={{ color: "var(--pub-text-muted,#a98496)" }}>お探しの記事は見つかりませんでした。</p>
-          <Link to="/blog" className="mt-5 inline-flex rounded-lg px-4 py-2 text-sm font-bold text-white" style={{ backgroundColor: "var(--pub-accent,#d4547a)" }}>ブログ一覧へ戻る</Link>
+          <Link to="/blog" className="mt-5 inline-flex rounded-lg px-4 py-2 text-sm font-bold text-white" style={{ backgroundColor: "var(--pub-accent,#d4547a)" }}>店長ブログ一覧へ戻る</Link>
         </main>
         <PublicFooter />
         <FixedBottomBar />
@@ -185,7 +185,7 @@ export default function BlogArticle() {
           <Button type="button" variant="ghost" onClick={() => navigate(-1)} className="px-0 hover:bg-transparent" style={{ color: "var(--pub-text-mid,#dfc0cf)" }}>
             <ArrowLeft size={17} className="mr-1" />戻る
           </Button>
-          <Link to="/blog" className="text-sm underline underline-offset-4" style={{ color: "var(--pub-accent-light,#f2a0bc)" }}>ブログ一覧</Link>
+          <Link to="/blog" className="text-sm underline underline-offset-4" style={{ color: "var(--pub-accent-light,#f2a0bc)" }}>店長ブログ一覧</Link>
         </div>
 
         <article className="overflow-hidden rounded-2xl border" style={{ borderColor: "var(--pub-border,#4a2740)", backgroundColor: "var(--pub-card,#211320)" }}>

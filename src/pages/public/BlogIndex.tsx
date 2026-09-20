@@ -44,7 +44,7 @@ export default function BlogIndex() {
     let active = true;
     setLoading(true);
     supabase
-      .from("hp_articles")
+      .from("manager_blog_posts")
       .select("id,store_id,title,slug,content,category,excerpt,seo_title,seo_description,image_urls,is_published,created_at,updated_at,published_at")
       .eq("store_id", storeId)
       .eq("is_published", true)
@@ -93,10 +93,10 @@ export default function BlogIndex() {
     <div className="min-h-screen pb-14 md:pb-0" style={{ backgroundColor: "var(--pub-bg,#150a11)", color: "var(--pub-text,#f7e9f0)" }}>
       <PublicNavigation />
       <header className="border-b px-4 py-10 text-center" style={{ borderColor: "var(--pub-border,#4a2740)", background: "linear-gradient(180deg, var(--pub-card,#211320), var(--pub-bg,#150a11))" }}>
-        <p className="text-xs tracking-[0.35em]" style={{ color: "var(--pub-accent-light,#f2a0bc)" }}>BLOG</p>
-        <h1 className="mt-2 text-2xl font-bold md:text-4xl" style={{ fontFamily: "'Noto Serif JP', serif" }}>読みもの・お知らせ</h1>
+        <p className="text-xs tracking-[0.35em]" style={{ color: "var(--pub-accent-light,#f2a0bc)" }}>MANAGER'S BLOG</p>
+        <h1 className="mt-2 text-2xl font-bold md:text-4xl" style={{ fontFamily: "'Noto Serif JP', serif" }}>店長ブログ</h1>
         <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed" style={{ color: "var(--pub-text-mid,#dfc0cf)" }}>
-          {storeName}の最新情報、ご利用前に知っておきたいこと、キャンペーンをご案内します。
+          {storeName}の店長から、店舗のことやご利用にまつわる読みものをお届けします。
         </p>
       </header>
 

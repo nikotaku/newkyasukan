@@ -13,7 +13,7 @@ const navItems = [
   { to: "/schedule", label: "SCHEDULE", sub: "出勤情報", external: false },
   { to: "/casts", label: "THERAPIST", sub: "セラピスト", external: false },
   { to: "/campaigns", label: "CAMPAIGN", sub: "キャンペーン", external: false },
-  { to: "/blog", label: "BLOG", sub: "読みもの", external: false },
+  { to: "/blog", label: "BLOG", sub: "店長ブログ", external: false },
   { to: "/voice", label: "VOICE", sub: "口コミ", external: false },
   { to: "/system", label: "SYSTEM", sub: "料金システム", external: false },
   { to: "/access", label: "ACCESS", sub: "アクセス", external: false },

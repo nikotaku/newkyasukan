@@ -79,7 +79,7 @@ export const PublicFooter = () => {
           <Link to="/casts" className="hover:text-white">セラピスト</Link>
           <Link to="/system" className="hover:text-white">料金システム</Link>
           <Link to="/campaigns" className="hover:text-white">キャンペーン</Link>
-          <Link to="/blog" className="hover:text-white">読みもの・お知らせ</Link>
+          <Link to="/blog" className="hover:text-white">店長ブログ</Link>
           <Link to="/voice" className="hover:text-white">口コミ</Link>
           <Link to="/access" className="hover:text-white">アクセス</Link>
           <Link to="/booking" onClick={() => trackPublicEvent("booking_cta_click", { placement: "footer", method: "web" })} className="font-semibold text-[var(--pub-accent-light,#f2a0bc)] hover:text-white">Web予約</Link>

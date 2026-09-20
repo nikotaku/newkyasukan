@@ -49,9 +49,9 @@ const PAGE_META = {
       "仙台市青葉区・北四番丁エリアの完全個室メンズエステ艶華の営業時間、最寄り駅、アクセス、ご予約方法をご案内します。",
   },
   "/blog": {
-    title: "読みもの・お知らせ｜仙台メンズエステ 艶華",
+    title: "店長ブログ｜仙台メンズエステ 艶華",
     description:
-      "艶華の最新情報、キャンペーン、ご利用前に知っておきたいことを掲載しています。出勤・空き状況とWeb予約もご案内します。",
+      "艶華の店長が、店舗のことやご利用にまつわる読みものをお届けします。出勤・空き状況とWeb予約もご案内します。",
   },
   "/recruit-talk": {
     title: "セラピスト求人｜仙台・宮城のメンズエステ 艶華",
@@ -113,7 +113,7 @@ async function getBlogArticleMeta(pathname, host) {
       is_published: "eq.true",
       limit: "1",
     });
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/hp_articles?${query.toString()}`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/manager_blog_posts?${query.toString()}`, {
       headers: { apikey: SUPABASE_ANON_KEY },
     });
     if (!response.ok) return null;
@@ -125,8 +125,8 @@ async function getBlogArticleMeta(pathname, host) {
       ? article.image_urls.find((url) => typeof url === "string" && !/\.(mp4|webm|ogg)(?:[?#].*)?$/i.test(url))
       : null;
     return {
-      title: article.seo_title || `${article.title}｜艶華｜読みもの`,
-      description: description || "艶華からのお知らせをご案内します。",
+      title: article.seo_title || `${article.title}｜艶華｜店長ブログ`,
+      description: description || "艶華の店長ブログをご案内します。",
       robots: "index,follow,max-image-preview:large",
       image: image || ENKA.image,
       type: "article",
@@ -134,7 +134,7 @@ async function getBlogArticleMeta(pathname, host) {
         "@context": "https://schema.org",
         "@type": "BlogPosting",
         headline: article.title,
-        description: description || "艶華からのお知らせをご案内します。",
+        description: description || "艶華の店長ブログをご案内します。",
         datePublished: article.published_at || article.created_at,
         dateModified: article.updated_at || article.published_at || article.created_at,
         image: image ? [image] : undefined,

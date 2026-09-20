@@ -34,7 +34,7 @@ async function publishedBlogArticles() {
       order: "published_at.desc.nullslast,created_at.desc",
       limit: "1000",
     });
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/hp_articles?${query.toString()}`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/manager_blog_posts?${query.toString()}`, {
       headers: { apikey: SUPABASE_ANON_KEY },
     });
     if (!response.ok) return [];

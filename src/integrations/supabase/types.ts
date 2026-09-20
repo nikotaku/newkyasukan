@@ -3388,13 +3388,9 @@ export type Database = {
           category: string | null
           content: string | null
           created_at: string
-          excerpt: string | null
           id: string
           image_urls: string[]
           is_published: boolean
-          published_at: string | null
-          seo_description: string | null
-          seo_title: string | null
           slug: string | null
           store_id: string
           title: string
@@ -3404,13 +3400,9 @@ export type Database = {
           category?: string | null
           content?: string | null
           created_at?: string
-          excerpt?: string | null
           id?: string
           image_urls?: string[]
           is_published?: boolean
-          published_at?: string | null
-          seo_description?: string | null
-          seo_title?: string | null
           slug?: string | null
           store_id?: string
           title: string
@@ -3420,13 +3412,9 @@ export type Database = {
           category?: string | null
           content?: string | null
           created_at?: string
-          excerpt?: string | null
           id?: string
           image_urls?: string[]
           is_published?: boolean
-          published_at?: string | null
-          seo_description?: string | null
-          seo_title?: string | null
           slug?: string | null
           store_id?: string
           title?: string
@@ -3745,6 +3733,65 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "media_settings_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manager_blog_posts: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          excerpt: string | null
+          id: string
+          image_urls: string[]
+          is_published: boolean
+          published_at: string | null
+          seo_description: string | null
+          seo_title: string | null
+          slug: string
+          store_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          content: string
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          image_urls?: string[]
+          is_published?: boolean
+          published_at?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          slug: string
+          store_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          image_urls?: string[]
+          is_published?: boolean
+          published_at?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          slug?: string
+          store_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_blog_posts_store_id_fkey"
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"

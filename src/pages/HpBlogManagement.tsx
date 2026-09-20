@@ -93,7 +93,7 @@ export default function HpBlogManagement() {
     if (!user || storeLoading) return;
     setLoading(true);
     const { data, error } = await supabase
-      .from("hp_articles")
+      .from("manager_blog_posts")
       .select("id,store_id,title,slug,content,category,excerpt,seo_title,seo_description,image_urls,is_published,created_at,updated_at,published_at")
       .eq("store_id", storeId)
       .order("published_at", { ascending: false, nullsFirst: false })
@@ -210,8 +210,8 @@ export default function HpBlogManagement() {
       store_id: storeId,
     };
     const result = editingId
-      ? await supabase.from("hp_articles").update(payload).eq("id", editingId).eq("store_id", storeId)
-      : await supabase.from("hp_articles").insert(payload);
+      ? await supabase.from("manager_blog_posts").update(payload).eq("id", editingId).eq("store_id", storeId)
+      : await supabase.from("manager_blog_posts").insert(payload);
     setSaving(false);
     if (result.error) {
       console.error("blog article save failed", result.error);
@@ -226,7 +226,7 @@ export default function HpBlogManagement() {
   const togglePublish = async (article: PublicBlogArticle) => {
     const next = !article.is_published;
     const { error } = await supabase
-      .from("hp_articles")
+      .from("manager_blog_posts")
       .update({ is_published: next, ...(next ? { published_at: new Date().toISOString() } : {}) })
       .eq("id", article.id)
       .eq("store_id", storeId);
@@ -240,7 +240,7 @@ export default function HpBlogManagement() {
 
   const deleteArticle = async (article: PublicBlogArticle) => {
     if (!window.confirm(`「${article.title}」を削除しますか？\nこの操作は元に戻せません。`)) return;
-    const { error } = await supabase.from("hp_articles").delete().eq("id", article.id).eq("store_id", storeId);
+    const { error } = await supabase.from("manager_blog_posts").delete().eq("id", article.id).eq("store_id", storeId);
     if (error) {
       toast.error("記事を削除できませんでした");
       return;
@@ -279,19 +279,19 @@ export default function HpBlogManagement() {
         <div className="mx-auto max-w-6xl space-y-6">
           <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
-              <p className="text-xs font-bold tracking-[0.18em] text-primary">HP BLOG</p>
-              <h1 className="mt-1 text-2xl font-bold">ブログ・記事管理</h1>
-              <p className="mt-1 text-sm text-muted-foreground">公開URLは <span className="font-mono text-foreground">/blog/</span>。検索流入から出勤・予約へつなげる記事を管理します。</p>
+              <p className="text-xs font-bold tracking-[0.18em] text-primary">MANAGER BLOG</p>
+              <h1 className="mt-1 text-2xl font-bold">店長ブログ・記事管理</h1>
+              <p className="mt-1 text-sm text-muted-foreground">公開URLは <span className="font-mono text-foreground">/blog/</span>。HPニュースとは別に、店長発信の記事を管理します。</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link to="/blog" target="_blank"><Button variant="outline"><Globe2 size={16} className="mr-2" />公開ブログを見る</Button></Link>
+              <Link to="/blog" target="_blank"><Button variant="outline"><Globe2 size={16} className="mr-2" />店長ブログを見る</Button></Link>
               <Button onClick={openNew}><Plus size={16} className="mr-2" />新規記事</Button>
             </div>
           </header>
 
           <Card className="border-primary/25">
             <CardHeader className="border-b bg-muted/30">
-              <CardTitle className="flex items-center gap-2 text-lg"><FilePenLine size={19} />{editingId ? "ブログ記事を編集" : "新しいブログ記事を作成"}</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-lg"><FilePenLine size={19} />{editingId ? "店長ブログ記事を編集" : "新しい店長ブログ記事を作成"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
               <div className="grid gap-4 md:grid-cols-[1fr_280px]">

@@ -34,12 +34,12 @@ const makeResponse = () => {
   };
 };
 
-test("blog article renderer returns article-specific SEO metadata and JSON-LD", async () => {
+test("manager blog renderer returns article-specific SEO metadata and JSON-LD", async () => {
   const originalFetch = global.fetch;
   global.fetch = async (url) => {
     const text = String(url);
     if (text.endsWith("/index.html")) return new Response(baseHtml, { status: 200 });
-    if (text.includes("/rest/v1/hp_articles")) {
+    if (text.includes("/rest/v1/manager_blog_posts")) {
       return new Response(JSON.stringify([{
         title: "初めての方へ｜予約からご来店までの流れ",
         slug: "first-visit-guide",
@@ -74,7 +74,7 @@ test("missing blog article receives noindex metadata", async () => {
   global.fetch = async (url) => {
     const text = String(url);
     if (text.endsWith("/index.html")) return new Response(baseHtml, { status: 200 });
-    if (text.includes("/rest/v1/hp_articles")) return new Response("[]", { status: 200 });
+    if (text.includes("/rest/v1/manager_blog_posts")) return new Response("[]", { status: 200 });
     throw new Error(`Unexpected fetch: ${text}`);
   };
   try {
@@ -90,7 +90,7 @@ test("missing blog article receives noindex metadata", async () => {
 test("sitemap includes published blog URLs", async () => {
   const originalFetch = global.fetch;
   global.fetch = async (url) => {
-    assert.match(String(url), /\/rest\/v1\/hp_articles/);
+    assert.match(String(url), /\/rest\/v1\/manager_blog_posts/);
     return new Response(JSON.stringify([{
       slug: "first-visit-guide",
       published_at: "2026-09-20T00:00:00.000Z",
