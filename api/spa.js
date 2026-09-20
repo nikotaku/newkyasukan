@@ -8,6 +8,9 @@ const ENKA = {
   image:
     "https://imrxzkivwrkqbhqfbbes.supabase.co/storage/v1/object/public/cast-photos/image-stock/1784811500002_enka-hero-open.jpg",
 };
+const SUPABASE_URL = "https://imrxzkivwrkqbhqfbbes.supabase.co";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const DEFAULT_STORE_ID = "00000000-0000-0000-0000-000000000001";
 
 const PAGE_META = {
   "/": {
@@ -45,6 +48,11 @@ const PAGE_META = {
     description:
       "仙台市青葉区・北四番丁エリアの完全個室メンズエステ艶華の営業時間、最寄り駅、アクセス、ご予約方法をご案内します。",
   },
+  "/blog": {
+    title: "店長ブログ｜仙台メンズエステ 艶華",
+    description:
+      "艶華の店長が、店舗のことやご利用にまつわる読みものをお届けします。出勤・空き状況とWeb予約もご案内します。",
+  },
   "/recruit-talk": {
     title: "セラピスト求人｜仙台・宮城のメンズエステ 艶華",
     description:
@@ -56,7 +64,99 @@ const esc = (value) => String(value).replace(/[&<>"']/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 }[character]));
 
-function getMeta(pathname) {
+const plainText = (value) => String(value || "")
+  .replace(/^#{1,6}\s+/gm, "")
+  .replace(/\*\*(.*?)\*\*/g, "$1")
+  .replace(/\s+/g, " ")
+  .trim();
+
+const excerpt = (content, explicitExcerpt, length = 155) => {
+  const source = plainText(explicitExcerpt || content);
+  return source.length > length ? `${source.slice(0, length)}…` : source;
+};
+
+const safeJson = (value) => JSON.stringify(value).replace(/</g, "\\u003c");
+
+async function resolveStoreId(host) {
+  const bareHost = String(host || "").toLowerCase().replace(/^www\./, "");
+  if (!bareHost || bareHost === "enka-salon.jp") return DEFAULT_STORE_ID;
+  if (!SUPABASE_ANON_KEY) return DEFAULT_STORE_ID;
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/stores?select=id&custom_domain=eq.${encodeURIComponent(bareHost)}&is_active=eq.true&limit=1`,
+      { headers: { apikey: SUPABASE_ANON_KEY } },
+    );
+    if (!response.ok) return DEFAULT_STORE_ID;
+    const rows = await response.json();
+    return rows?.[0]?.id || DEFAULT_STORE_ID;
+  } catch {
+    return DEFAULT_STORE_ID;
+  }
+}
+
+async function getBlogArticleMeta(pathname, host) {
+  const match = pathname.match(/^\/blog\/([^/]+)$/);
+  if (!match) return null;
+  if (!SUPABASE_ANON_KEY) return null;
+  let slug;
+  try {
+    slug = decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+  const storeId = await resolveStoreId(host);
+  try {
+    const query = new URLSearchParams({
+      select: "title,slug,content,excerpt,seo_title,seo_description,image_urls,published_at,updated_at,created_at",
+      store_id: `eq.${storeId}`,
+      slug: `eq.${slug}`,
+      is_published: "eq.true",
+      limit: "1",
+    });
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/manager_blog_posts?${query.toString()}`, {
+      headers: { apikey: SUPABASE_ANON_KEY },
+    });
+    if (!response.ok) return null;
+    const rows = await response.json();
+    const article = rows?.[0];
+    if (!article) return null;
+    const description = article.seo_description || excerpt(article.content, article.excerpt);
+    const image = Array.isArray(article.image_urls)
+      ? article.image_urls.find((url) => typeof url === "string" && !/\.(mp4|webm|ogg)(?:[?#].*)?$/i.test(url))
+      : null;
+    return {
+      title: article.seo_title || `${article.title}｜艶華｜店長ブログ`,
+      description: description || "艶華の店長ブログをご案内します。",
+      robots: "index,follow,max-image-preview:large",
+      image: image || ENKA.image,
+      type: "article",
+      structuredData: {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        headline: article.title,
+        description: description || "艶華の店長ブログをご案内します。",
+        datePublished: article.published_at || article.created_at,
+        dateModified: article.updated_at || article.published_at || article.created_at,
+        image: image ? [image] : undefined,
+        author: { "@type": "Organization", name: ENKA.author },
+        publisher: { "@type": "Organization", name: ENKA.author },
+        inLanguage: "ja-JP",
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function getMeta(pathname, host) {
+  const blogArticle = await getBlogArticleMeta(pathname, host);
+  if (/^\/blog\/[^/]+$/.test(pathname)) {
+    return blogArticle || {
+      title: "記事が見つかりません｜艶華",
+      description: "お探しの記事は見つかりませんでした。",
+      robots: "noindex,follow",
+    };
+  }
   if (PAGE_META[pathname]) return { ...PAGE_META[pathname], robots: "index,follow,max-image-preview:large" };
 
   if (/^\/casts\/[^/]+\/diary\/?$/.test(pathname)) {
@@ -93,7 +193,7 @@ function getMeta(pathname) {
 export default async function handler(req, res) {
   const host = String(req.headers["x-forwarded-host"] || req.headers.host || "enka-salon.jp");
   const pathname = new URL(req.url || "/", `https://${host}`).pathname.replace(/\/$/, "") || "/";
-  const meta = getMeta(pathname);
+  const meta = await getMeta(pathname, host);
   const canonical = `https://enka-salon.jp${pathname === "/" ? "/" : pathname}`;
 
   try {
@@ -113,13 +213,22 @@ export default async function handler(req, res) {
       .replace(/(<meta name="twitter:title" content=")[^"]*(")/, `$1${esc(meta.title)}$2`)
       .replace(/(<meta property="og:description" content=")[^"]*(")/, `$1${esc(meta.description)}$2`)
       .replace(/(<meta name="twitter:description" content=")[^"]*(")/, `$1${esc(meta.description)}$2`)
+      .replace(/(<meta property="og:type" content=")[^"]*(")/, `$1${meta.type || "website"}$2`)
       .replace(/(<meta property="og:url" content=")[^"]*(")/, `$1${canonical}$2`)
       .replace(/(<meta property="og:site_name" content=")[^"]*(")/, `$1${esc(ENKA.author)}$2`)
       .replace(/(<link rel="canonical" href=")[^"]*(")/, `$1${canonical}$2`)
-      .replace(/(<meta property="og:image" content=")[^"]*(")/, `$1${ENKA.image}$2`)
-      .replace(/(<meta name="twitter:image" content=")[^"]*(")/, `$1${ENKA.image}$2`)
+      .replace(/(<meta property="og:image" content=")[^"]*(")/, `$1${meta.image || ENKA.image}$2`)
+      .replace(/(<meta name="twitter:image" content=")[^"]*(")/, `$1${meta.image || ENKA.image}$2`)
       .replace(/<meta name="twitter:site" content="[^"]*"\s*\/?>/, "")
       .replace(/(<link rel="icon"[^>]*href=")[^"]*(")/, "$1/favicon-tsuyaka.png$2");
+
+    if (meta.structuredData) {
+      html = html.replace("</head>", `<script type="application/ld+json">${safeJson({
+        ...meta.structuredData,
+        mainEntityOfPage: canonical,
+        url: canonical,
+      })}</script></head>`);
+    }
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
