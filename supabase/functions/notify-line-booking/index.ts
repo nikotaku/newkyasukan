@@ -1,4 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  lineErrorCode,
+  type LineRoute,
+  type LineRouteResolution,
+  resolveLineBookingRoutes,
+} from "./lineBookingRoutes.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +53,8 @@ interface ChannelResult {
   ok: boolean;
   skipped?: boolean;
   errorCode?: string;
+  // 予約通知専用アカウントで失敗し、メインアカウントで届いた場合の失敗記録
+  warningCodes?: string[];
   providerRequestId?: string | null;
 }
 
@@ -96,25 +104,21 @@ function optionDisplayName(name: string) {
   return name;
 }
 
-async function sendLine(
+async function sendLineRoute(
   message: string,
-  token: string | null,
-  groupId: string | null,
+  route: LineRoute,
   retryKey: string,
 ): Promise<ChannelResult> {
-  if (!token) return { ok: false, errorCode: "line_token_missing" };
-  if (!groupId) return { ok: false, errorCode: "line_destination_missing" };
-
   try {
     const response = await fetch("https://api.line.me/v2/bot/message/push", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${route.token}`,
         "X-Line-Retry-Key": retryKey,
       },
       body: JSON.stringify({
-        to: groupId,
+        to: route.groupId,
         messages: [{ type: "text", text: message }],
       }),
     });
@@ -128,14 +132,37 @@ async function sendLine(
     }
 
     console.error("LINE booking notification failed", {
+      account: route.account,
       status: response.status,
       requestId,
     });
-    return { ok: false, errorCode: `line_http_${response.status}`, providerRequestId: requestId };
+    return {
+      ok: false,
+      errorCode: lineErrorCode(route.account, `http_${response.status}`),
+      providerRequestId: requestId,
+    };
   } catch {
-    console.error("LINE booking notification network error");
-    return { ok: false, errorCode: "line_network_error" };
+    console.error("LINE booking notification network error", { account: route.account });
+    return { ok: false, errorCode: lineErrorCode(route.account, "network_error") };
   }
+}
+
+async function sendLine(
+  message: string,
+  resolution: LineRouteResolution,
+  retryKey: string,
+): Promise<ChannelResult> {
+  if (resolution.routes.length === 0) {
+    return { ok: false, errorCode: resolution.missingCode ?? "line_destination_missing" };
+  }
+
+  const failures: string[] = [];
+  for (const route of resolution.routes) {
+    const result = await sendLineRoute(message, route, retryKey);
+    if (result.ok) return { ...result, warningCodes: failures };
+    if (result.errorCode) failures.push(result.errorCode);
+  }
+  return { ok: false, errorCode: failures.join(",") };
 }
 
 async function sendEmail(
@@ -298,10 +325,9 @@ Deno.serve(async (req: Request) => {
         ? sb.from("casts").select("name").eq("id", reservation.cast_id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       sb.from("line_notification_destinations")
-        .select("line_group_id")
+        .select("destination_key,line_group_id")
         .eq("store_id", reservation.store_id)
-        .eq("destination_key", "operations")
-        .maybeSingle(),
+        .in("destination_key", ["web_booking", "operations"]),
       sb.from("payment_settings")
         .select("payment_method,payment_link")
         .eq("store_id", reservation.store_id)
@@ -407,10 +433,20 @@ Deno.serve(async (req: Request) => {
     const message = lines.join("\n");
     const subject = `【${storeName}】新規WEB予約 ${dateText} ${timeText}〜 ${castName}`;
 
-    const groupId = destinationResult.data?.line_group_id || Deno.env.get("LINE_GROUP_ID") || null;
+    const destinations = new Map(
+      (destinationResult.data || []).map(
+        (row: { destination_key: string; line_group_id: string }) => [row.destination_key, row.line_group_id],
+      ),
+    );
+    const lineRoutes = resolveLineBookingRoutes({
+      bookingToken: Deno.env.get("LINE_BOOKING_CHANNEL_ACCESS_TOKEN"),
+      bookingGroupId: destinations.get("web_booking") || Deno.env.get("LINE_BOOKING_GROUP_ID"),
+      mainToken: Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN"),
+      mainGroupId: destinations.get("operations") || Deno.env.get("LINE_GROUP_ID"),
+    });
     const [lineResult, emailResult] = await Promise.all([
       attemptLine
-        ? sendLine(message, Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN"), groupId, reservationId)
+        ? sendLine(message, lineRoutes, reservationId)
         : Promise.resolve<ChannelResult>({ ok: true }),
       attemptEmail
         ? sendEmail(subject, message, reservationId)
@@ -420,6 +456,7 @@ Deno.serve(async (req: Request) => {
     const now = new Date().toISOString();
     const failureCodes = [
       !lineResult.ok ? lineResult.errorCode : null,
+      ...(lineResult.warningCodes || []),
       !emailResult.ok ? emailResult.errorCode : null,
     ].filter(Boolean) as string[];
     const resultPatch: Record<string, unknown> = {

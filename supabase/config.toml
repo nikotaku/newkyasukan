@@ -36,6 +36,10 @@ verify_jwt = false
 [functions.notify-line-booking]
 verify_jwt = true
 
+[functions.line-booking-webhook]
+# LINEの署名（LINE_BOOKING_CHANNEL_SECRET）を関数内で検証する。
+verify_jwt = false
+
 [functions.notify-line-therapist]
 verify_jwt = true
 
