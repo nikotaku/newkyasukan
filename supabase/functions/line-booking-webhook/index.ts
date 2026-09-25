@@ -4,6 +4,7 @@
 // ここでは、そのアカウントが投稿するグループを登録する操作だけを受け付ける。
 //   通知を受け取りたいグループ内で、管理者が「予約通知登録」（全力は「予約通知登録 全力」）と送信
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadLineBookingChannel } from "../_shared/lineBookingChannel.ts";
 import { parseBookingDestinationCommand } from "./bookingDestinationCommand.ts";
 
 interface LineEvent {
@@ -30,7 +31,11 @@ async function verifySignature(body: string, signature: string | null, secret: s
 }
 
 // 応答メッセージ（reply）は月間の送信数にカウントされない。
-async function reply(token: string, replyToken: string, text: string) {
+async function reply(token: string | null, replyToken: string, text: string) {
+  if (!token) {
+    console.error("LINE booking reply skipped: token unavailable");
+    return;
+  }
   await fetch("https://api.line.me/v2/bot/message/reply", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -42,17 +47,23 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("ok");
 
   try {
-    const token = Deno.env.get("LINE_BOOKING_CHANNEL_ACCESS_TOKEN");
-    const secret = Deno.env.get("LINE_BOOKING_CHANNEL_SECRET");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!token || !secret || !supabaseUrl || !serviceKey) {
+    if (!supabaseUrl || !serviceKey) {
+      console.error("Supabase service credentials are not configured");
+      return new Response("not configured", { status: 503 });
+    }
+    const sb = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { token, channelSecret } = await loadLineBookingChannel(sb);
+    if (!channelSecret) {
       console.error("LINE booking channel is not configured");
       return new Response("not configured", { status: 503 });
     }
 
     const raw = await req.text();
-    const signatureValid = await verifySignature(raw, req.headers.get("x-line-signature"), secret);
+    const signatureValid = await verifySignature(raw, req.headers.get("x-line-signature"), channelSecret);
     if (!signatureValid) return new Response("bad signature", { status: 403 });
 
     const events = (JSON.parse(raw || "{}") as { events?: LineEvent[] }).events || [];
@@ -63,9 +74,6 @@ Deno.serve(async (req: Request) => {
         .map((id) => id.trim())
         .filter(Boolean),
     );
-    const sb = createClient(supabaseUrl, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
 
     for (const ev of events) {
       if (ev.type === "join") {
