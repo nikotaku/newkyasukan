@@ -117,6 +117,7 @@ import O2Management from "./pages/O2Management";
 import PromotionSchedule from "./pages/PromotionSchedule";
 import InquiryStats from "./pages/InquiryStats";
 import Tasks from "./pages/Tasks";
+import SmsInbox from "./pages/SmsInbox";
 import Bios from "./pages/Bios";
 import CtiCalls from "./pages/CtiCalls";
 import CustomerDetail from "./pages/CustomerDetail";
@@ -288,6 +289,7 @@ const App = () => {
           <Route path="/therapist/:token/posts" element={<TherapistPostPage />} />
           <Route path="/post-management" element={<CastPostManagement />} />
           <Route path="/tasks" element={<Tasks />} />
+          <Route path="/sms" element={<SmsInbox />} />
           <Route path="/bios" element={<Bios />} />
           <Route path="/panel-manual" element={<PanelPhotoManual />} />
           <Route path="/service-manual" element={<CustomerServiceManual />} />

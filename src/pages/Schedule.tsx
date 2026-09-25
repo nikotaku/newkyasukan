@@ -37,6 +37,7 @@ import {
   PaymentSetting,
 } from "@/lib/paymentFee";
 import { openSmsApp } from "@/lib/sms";
+import { SmsHistory } from "@/components/SmsHistory";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { PaymentReminderPopup } from "@/components/PaymentReminderPopup";
 import { loadReceptionEndGuide, shareReceptionEndContent } from "@/lib/receptionEndShare";
@@ -1927,6 +1928,11 @@ export default function Schedule() {
                       </Button>
                     )}
                   </div>
+                  <SmsHistory
+                    phone={detailRes.customer_phone}
+                    reservationId={detailRes.id}
+                    storeId={adminStore?.id}
+                  />
                 </>
               )}
               {isAdmin && (

@@ -24,6 +24,7 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminStore } from "@/hooks/useAdminStore";
+import { useSmsUnread } from "@/hooks/useSmsUnread";
 
 interface MenuItemLeaf {
   href: string;
@@ -81,6 +82,11 @@ const menuItems: MenuItem[] = [
       { href: "/hp/sns-links", label: "店舗SNSリンク" },
       { href: "/hp/recommended-menu", label: "おすすめメニュー" },
     ],
+  },
+  {
+    href: "/sms",
+    label: "SMS",
+    icon: MessageSquare,
   },
   {
     href: "/sales/daily-sales",
@@ -244,6 +250,7 @@ const menuItems: MenuItem[] = [
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { signOut } = useAuth();
   const { store: adminStore } = useAdminStore();
+  const smsUnread = useSmsUnread();
   // 「サイトを見る」は所属店舗の公開サイトへ（艶華なら enka-salon.jp）
   const siteUrl = adminStore?.custom_domain ? `https://${adminStore.custom_domain}` : "/";
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
@@ -326,6 +333,11 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                     >
                       <Icon size={16} />
                       {item.label}
+                      {item.href === "/sms" && smsUnread > 0 && (
+                        <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                          {smsUnread > 99 ? "99+" : smsUnread}
+                        </span>
+                      )}
                     </Link>
                   )}
 
