@@ -99,6 +99,12 @@ Deno.serve(async (req: Request) => {
       }
       const userId = ev.source?.userId;
       if (!userId || !adminUserIds.has(userId)) {
+        // プロバイダーが違い管理者IDが未登録でも、署名検証済みの依頼として運用者が登録できるよう記録する。
+        console.warn("Unauthorized booking destination request", {
+          storeId: command.storeId,
+          groupId,
+          userId: userId ?? null,
+        });
         await reply(token, ev.replyToken, "この操作を行う権限がありません。管理者へご連絡ください。");
         continue;
       }
