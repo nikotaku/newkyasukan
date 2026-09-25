@@ -36,7 +36,11 @@ import {
   isConfirmedEstamaSubmission,
 } from "./playwright-actions.js";
 import {
+  classifyEstamaScheduleDate,
   estamaIndividualShiftAdminUrl,
+  estamaNotListedMessage,
+  estamaOutsideRangeMessage,
+  estamaScheduleDatesFromFieldNames,
   estamaScheduleExpectation,
   type EstamaShiftAction,
 } from "./estama-shift-schedule.js";
@@ -1637,10 +1641,13 @@ async function syncShift(admin: AdminClient, page: Page, job: AutomationJob, con
     : inferredAction;
   const date = String(desired.shift_date || "").slice(0, 10);
   if (!date) throw new Error("シフト日がありません");
-  const window = estamaShiftWindow();
-  if (date < window.startDate || date > window.endDate) {
+  const markUnregistered = async () => {
     if (job.shift_id) await admin.from("shifts").update({ estama_registered: false }).eq("id", job.shift_id);
     if (dummyShiftId) await admin.from("estama_dummy_shifts").update({ estama_registered: false }).eq("id", dummyShiftId);
+  };
+  const window = estamaShiftWindow();
+  if (date < window.startDate || date > window.endDate) {
+    await markUnregistered();
     return {
       skipped: true,
       reason: "outside_estama_window",
@@ -1663,14 +1670,40 @@ async function syncShift(admin: AdminClient, page: Page, job: AutomationJob, con
     endTime: String(desired.end_time || ""),
   };
   const individualShiftUrl = estamaIndividualShiftAdminUrl(external.external_cast_id);
-  let usedIndividualSchedule = false;
+  const castLabel = external.remote_name || cast.name;
   if (individualShiftUrl) {
     await page.goto(individualShiftUrl, { waitUntil: "domcontentloaded" });
     await ensureAdminLogin(page);
-    usedIndividualSchedule = await syncEstamaIndividualScheduleForm(page, batchItem);
-  }
-
-  if (!usedIndividualSchedule) {
+    const dateState = classifyEstamaScheduleDate(await readEstamaScheduleDates(page), date);
+    if (dateState.state === "outside_range") {
+      await markUnregistered();
+      return {
+        skipped: true,
+        reason: "outside_estama_window",
+        message: estamaOutsideRangeMessage(dateState.firstDate, dateState.lastDate),
+        date,
+        range: { startDate: dateState.firstDate, endDate: dateState.lastDate },
+      };
+    }
+    if (dateState.state === "no_schedule") {
+      const unpublished = await isEstamaCastUnpublished(page, connection.shop_id, external.external_cast_id);
+      if (unpublished && action === "delete") {
+        await markUnregistered();
+        return {
+          skipped: true,
+          reason: "not_listed_on_estama",
+          message: "エステ魂に掲載がないため、削除済みとして扱いました",
+          date,
+        };
+      }
+      throw new Error(unpublished
+        ? estamaNotListedMessage(castLabel)
+        : `エステ魂の管理画面で「${castLabel}」の出勤表を読み取れません（${individualShiftUrl}）`);
+    }
+    if (!await syncEstamaIndividualScheduleForm(page, batchItem)) {
+      throw new Error(`エステ魂の${date}の出退勤欄が見つかりません`);
+    }
+  } else {
     const shiftUrl = await discoverShiftAdminUrl(page, connection.configuration);
     await page.goto(shiftUrl, { waitUntil: "domcontentloaded" });
     await ensureAdminLogin(page);
@@ -2135,6 +2168,10 @@ export type EstamaShiftBatchResult = {
   publicVerified: boolean;
   publicUrl?: string;
   error?: string;
+  // ok=true でも実際には登録していない（期間外で保留・非掲載のため削除不要）もの。
+  skipped?: boolean;
+  reason?: string;
+  message?: string;
 };
 
 export type EstamaShiftEvidence = {
@@ -2463,6 +2500,29 @@ async function verifyEstamaAdminSchedule(page: Page, item: EstamaShiftBatchItem)
 
 const estamaPublicProfileUrl = (shopId: string, externalId: string) =>
   `https://estama.jp/shop/${encodeURIComponent(shopId)}/cast/${encodeURIComponent(externalId)}/`;
+
+// 個別出勤設定画面に並んでいる日付（エステ魂が登録を受け付ける期間）を読む。
+async function readEstamaScheduleDates(page: Page) {
+  const names = await page.locator('select[name^="column["][name$="[select_start]"]')
+    .evaluateAll((elements) => elements.map((element) => element.getAttribute("name") || ""));
+  return estamaScheduleDatesFromFieldNames(names);
+}
+
+// 公開プロフィールが404なら、エステ魂上でそのセラピストは非掲載・削除済み。
+// 取得できない等で判断できない場合は false（掲載あり扱い）にして誤って完了にしない。
+async function isEstamaCastUnpublished(
+  page: Page,
+  shopId: string | null | undefined,
+  externalId: string | null | undefined,
+) {
+  if (!shopId || !externalId) return false;
+  try {
+    const response = await page.goto(estamaPublicProfileUrl(shopId, externalId), { waitUntil: "domcontentloaded" });
+    return response?.status() === 404;
+  } catch {
+    return false;
+  }
+}
 
 const currentEstamaDate = () =>
   new Date(Date.now() + 9 * 60 * 60 * 1_000).toISOString().slice(0, 10);
@@ -2855,6 +2915,35 @@ export async function syncEstamaShiftBatch(input: EstamaShiftBatchInput) {
       }));
     };
 
+    const recordSkipped = async (item: EstamaShiftBatchItem, reason: string, message: string) => {
+      const result: EstamaShiftBatchResult = {
+        jobId: item.jobId,
+        shiftId: item.shiftId,
+        castId: item.castId,
+        castName: item.castName,
+        action: item.action,
+        shiftDate: item.shiftDate,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        ok: true,
+        publicVerified: false,
+        skipped: true,
+        reason,
+        message,
+      };
+      results.push(result);
+      await reportResult(result, item.reportToken);
+      console.log(JSON.stringify({
+        level: "info",
+        msg: "estama_shift_item_skipped",
+        jobId: item.jobId,
+        castName: item.castName,
+        shiftDate: item.shiftDate,
+        action: item.action,
+        reason,
+      }));
+    };
+
     const grouped = new Map<string, EstamaShiftBatchItem[]>();
     for (const item of items) {
       const key = item.externalId || item.remoteName || item.castName;
@@ -2891,8 +2980,43 @@ export async function syncEstamaShiftBatch(input: EstamaShiftBatchInput) {
           }));
         }
 
+        const availableDates = await readEstamaScheduleDates(page);
+        console.log(JSON.stringify({
+          level: "info",
+          msg: "estama_schedule_date_range",
+          castName: first.castName,
+          firstDate: availableDates[0] || null,
+          lastDate: availableDates[availableDates.length - 1] || null,
+          dateCount: availableDates.length,
+        }));
+        if (!availableDates.length) {
+          // 出勤表そのものが無い＝エステ魂で非掲載か画面を読めていない。公開ページで切り分ける。
+          const castLabel = first.remoteName || first.castName;
+          const unpublished = itemShiftUrl !== shiftUrl
+            && await isEstamaCastUnpublished(page, input.shopId, first.externalId);
+          for (const item of group) {
+            if (unpublished && item.action === "delete") {
+              await recordSkipped(item, "not_listed_on_estama", "エステ魂に掲載がないため、削除済みとして扱いました");
+            } else {
+              await recordFailure(item, new Error(unpublished
+                ? estamaNotListedMessage(castLabel)
+                : `エステ魂の管理画面で「${castLabel}」の出勤表を読み取れません（${itemShiftUrl}）`));
+            }
+          }
+          continue;
+        }
+
         for (const item of group) {
           try {
+            const dateState = classifyEstamaScheduleDate(availableDates, item.shiftDate);
+            if (dateState.state === "outside_range") {
+              await recordSkipped(
+                item,
+                "outside_estama_window",
+                estamaOutsideRangeMessage(dateState.firstDate, dateState.lastDate),
+              );
+              continue;
+            }
             const scheduleName = `column[${item.shiftDate}][select]`;
             const start = page.locator(`select[name="${scheduleName}[select_start]"]`).first();
             const end = page.locator(`select[name="${scheduleName}[select_end]"]`).first();
@@ -2967,8 +3091,12 @@ export async function syncEstamaShiftBatch(input: EstamaShiftBatchInput) {
       }
 
       let groupEvidence: EstamaShiftEvidence[] = [];
+      // 期間外で保留したものは公開ページに出ないのが正しいので確認対象から外す。
+      const verifyTargets = group.filter((item) =>
+        !results.some((result) => result.jobId === item.jobId && result.skipped)
+      );
       try {
-        groupEvidence = await verifyPublicShiftGroup(page, input.shopId, group);
+        if (verifyTargets.length) groupEvidence = await verifyPublicShiftGroup(page, input.shopId, verifyTargets);
         evidence.push(...groupEvidence);
       } catch (error) {
         console.warn(JSON.stringify({
