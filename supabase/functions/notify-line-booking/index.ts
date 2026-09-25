@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadLineBookingChannel } from "../_shared/lineBookingChannel.ts";
 import {
   lineErrorCode,
   type LineRoute,
@@ -438,12 +439,19 @@ Deno.serve(async (req: Request) => {
         (row: { destination_key: string; line_group_id: string }) => [row.destination_key, row.line_group_id],
       ),
     );
+    const bookingGroupId = destinations.get("web_booking") || Deno.env.get("LINE_BOOKING_GROUP_ID") || null;
+    const bookingToken = attemptLine && bookingGroupId
+      ? (await loadLineBookingChannel(sb)).token
+      : null;
     const lineRoutes = resolveLineBookingRoutes({
-      bookingToken: Deno.env.get("LINE_BOOKING_CHANNEL_ACCESS_TOKEN"),
-      bookingGroupId: destinations.get("web_booking") || Deno.env.get("LINE_BOOKING_GROUP_ID"),
+      bookingToken,
+      bookingGroupId,
       mainToken: Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN"),
       mainGroupId: destinations.get("operations") || Deno.env.get("LINE_GROUP_ID"),
     });
+    const lineSetupWarnings = attemptLine && bookingGroupId && !bookingToken
+      ? ["line_booking_token_unavailable"]
+      : [];
     const [lineResult, emailResult] = await Promise.all([
       attemptLine
         ? sendLine(message, lineRoutes, reservationId)
@@ -456,6 +464,7 @@ Deno.serve(async (req: Request) => {
     const now = new Date().toISOString();
     const failureCodes = [
       !lineResult.ok ? lineResult.errorCode : null,
+      ...lineSetupWarnings,
       ...(lineResult.warningCodes || []),
       !emailResult.ok ? emailResult.errorCode : null,
     ].filter(Boolean) as string[];

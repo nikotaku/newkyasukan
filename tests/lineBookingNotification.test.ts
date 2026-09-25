@@ -6,6 +6,27 @@ import {
   resolveLineBookingRoutes,
 } from "../supabase/functions/notify-line-booking/lineBookingRoutes.ts";
 import { parseBookingDestinationCommand } from "../supabase/functions/line-booking-webhook/bookingDestinationCommand.ts";
+import { planLineBookingCredentials } from "../supabase/functions/_shared/lineBookingChannel.ts";
+
+test("Secretsが無ければVaultのChannel ID / シークレットでトークンを発行する", () => {
+  assert.deepEqual(planLineBookingCredentials({
+    storedChannelId: "2000000000",
+    storedSecret: "stored-secret",
+  }), { staticToken: null, channelId: "2000000000", channelSecret: "stored-secret" });
+});
+
+test("Secretsに長期トークンとシークレットがあればそちらを優先する", () => {
+  assert.deepEqual(planLineBookingCredentials({
+    envToken: "env-token",
+    envSecret: "env-secret",
+    storedChannelId: "2000000000",
+    storedSecret: "stored-secret",
+  }), { staticToken: "env-token", channelId: "2000000000", channelSecret: "env-secret" });
+});
+
+test("認証情報が何も無ければトークンもシークレットも無い", () => {
+  assert.deepEqual(planLineBookingCredentials({}), { staticToken: null, channelId: null, channelSecret: null });
+});
 
 test("予約通知専用アカウントを先に、メインアカウントを予備にする", () => {
   const { routes, missingCode } = resolveLineBookingRoutes({
