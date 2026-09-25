@@ -7,6 +7,12 @@ import { PNG } from "pngjs";
 import { assertFormPhotoCount, assertUploadedPhotoCount, uploadPhotos } from "./estama-photo-upload.js";
 import { assertEstamaDiaryPhotoReady, completeEstamaDiaryPhotoCrop } from "./estama-diary-photo.js";
 import {
+  ESTAMA_SOUL_DIARY_POST_URL,
+  PUBLIC_DIARY_LIST_TEXT,
+  SOUL_DIARY_NEW_POST_TEXT,
+  SOUL_DIARY_THANKS_POST_TEXT,
+} from "./estama-diary-wording.js";
+import {
   isEstamaAvailabilitySelect,
   isEstamaShiftActive,
   jstBusinessMinutes,
@@ -646,7 +652,7 @@ async function readPublicDiaryCandidates(
   await page.goto(target.toString(), { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle", { timeout: 3_000 }).catch(() => undefined);
   const pageText = await page.locator("body").innerText().catch(() => "");
-  if (!/THERAPIST DIARY|セラピスト写メ日記|写メ日記/i.test(pageText)) {
+  if (!PUBLIC_DIARY_LIST_TEXT.test(pageText)) {
     throw new Error("エステ魂の公開写メ日記一覧を読み込めませんでした");
   }
   return page.evaluate(({ expectedTitle, expectedBody, expectedCastId }) => {
@@ -1097,6 +1103,19 @@ async function followEstamaAction(page: Page, action: Locator) {
     element.click();
   });
   await page.waitForLoadState("domcontentloaded").catch(() => undefined);
+}
+
+// 新規投稿ボタンの文言が変わっても投稿画面へ進めるよう、見つからなければ投稿画面のURLへ直接移動する。
+async function openSoulDiaryPostForm(page: Page) {
+  const newPost = page.locator("a, button")
+    .filter({ hasText: SOUL_DIARY_NEW_POST_TEXT })
+    .filter({ hasNotText: SOUL_DIARY_THANKS_POST_TEXT })
+    .first();
+  if (await newPost.count()) {
+    await followEstamaAction(page, newPost);
+    return;
+  }
+  await page.goto(ESTAMA_SOUL_DIARY_POST_URL, { waitUntil: "domcontentloaded" });
 }
 
 async function trySoulDirectLogin(page: Page, credentials: SoulCredentials) {
@@ -1836,10 +1855,7 @@ async function postEstamaDiary(admin: AdminClient, page: Page, job: AutomationJo
   }
 
   await gotoSoulDiary(accountPage);
-  const newPost = accountPage.locator("a, button").filter({ hasText: /新規投稿|日記を書く|投稿する|新規作成/ }).first();
-  if (await newPost.count()) {
-    await followEstamaAction(accountPage, newPost);
-  }
+  await openSoulDiaryPostForm(accountPage);
 
   await setField(accountPage, 'input[name*="title" i], input[id*="title" i], input[name*="subject" i]', post.title || "写メ日記");
   await setField(accountPage, 'textarea[name*="body" i], textarea[name*="content" i], textarea[name*="diary" i], textarea', post.body);
@@ -1939,10 +1955,7 @@ export async function runPreparedEstamaDiary(input: PreparedEstamaDiary) {
     }
     await loginSoulTherapist(accountPage, input.soulCredentials);
     await gotoSoulDiary(accountPage);
-    const newPost = accountPage.locator("a, button").filter({ hasText: /新規投稿|日記を書く|投稿する|新規作成/ }).first();
-    if (await newPost.count()) {
-      await followEstamaAction(accountPage, newPost);
-    }
+    await openSoulDiaryPostForm(accountPage);
 
     await setField(accountPage, 'input[name*="title" i], input[id*="title" i], input[name*="subject" i]', input.post.title || "写メ日記");
     await setField(accountPage, 'textarea[name*="body" i], textarea[name*="content" i], textarea[name*="diary" i], textarea', input.post.body);
