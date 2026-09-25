@@ -56,7 +56,8 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
     if (req.method === "GET") {
       const [connection, jobsResult] = await Promise.all([
         getConnection(admin, storeId),
-        admin.from("automation_jobs").select("id,job_type,status,cast_id,error_message,created_at,finished_at")
+        admin.from("automation_jobs")
+          .select("id,job_type,status,cast_id,error_message,created_at,finished_at,skipped:result->skipped,skip_message:result->>message")
           .eq("store_id", storeId).eq("provider", "estama").order("created_at", { ascending: false }).limit(50),
       ]);
       res.status(200).json({ connection, jobs: jobsResult.data || [] });

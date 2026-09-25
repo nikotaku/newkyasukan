@@ -11,6 +11,8 @@ type ShiftResult = {
   endTime?: string;
   ok?: boolean;
   error?: string;
+  skipped?: boolean;
+  message?: string;
 };
 
 type EvidenceItem = {
@@ -118,7 +120,9 @@ function buildEvidenceMessage(report: EvidenceReport, imageLabels: string[]) {
     ? report.missingProfiles.filter((item): item is string => typeof item === "string")
     : [];
   const failures = results.filter((item) => item.ok !== true);
-  const successes = results.filter((item) => item.ok === true);
+  // エステ魂の登録期間（2週間先まで）外で保留したもの等。失敗でも掲載確認済みでもない。
+  const skipped = results.filter((item) => item.ok === true && item.skipped === true);
+  const successes = results.filter((item) => item.ok === true && item.skipped !== true);
   const evidenceFailures = evidence.filter((item) => item.verified !== true);
   const fatal = compact(report.fatalError, 400);
   const requiresAttention = Boolean(fatal || failures.length || evidenceFailures.length || missingProfiles.length);
@@ -136,13 +140,15 @@ function buildEvidenceMessage(report: EvidenceReport, imageLabels: string[]) {
     `確認日時: ${jstLabel(report.finishedAt)}`,
   ];
   if (castNames.length) lines.push(`対象: ${castNames.join("、")}`);
-  if (results.length) {
+  const checkedCount = results.length - skipped.length;
+  if (checkedCount) {
     lines.push(
       requiresAttention
-        ? `結果: ${successes.length}/${results.length}件を掲載確認`
-        : `結果: ${results.length}件すべて掲載済み`,
+        ? `結果: ${successes.length}/${checkedCount}件を掲載確認`
+        : `結果: ${checkedCount}件すべて掲載済み`,
     );
   }
+  if (skipped.length) lines.push(`保留: ${skipped.length}件（エステ魂の登録期間外など）`);
 
   if (fatal) lines.push("", `停止した原因: ${fatal}`);
   if (missingProfiles.length) {
@@ -159,6 +165,12 @@ function buildEvidenceMessage(report: EvidenceReport, imageLabels: string[]) {
   ).slice(0, 12);
   if (!failureLines.length && unmatched.length) lines.push("", "確認できなかった出勤:", ...unmatched);
 
+  if (skipped.length) {
+    lines.push("", "保留した出勤:", ...skipped.slice(0, 12).map((item) =>
+      `${shiftLine(item)}${compact(item.message, 80) ? ` — ${compact(item.message, 80)}` : ""}`
+    ));
+  }
+
   if (!requiresAttention && successes.length) {
     lines.push("", "掲載を確認した出勤:", ...successes.slice(0, 12).map(shiftLine));
     if (successes.length > 12) lines.push(`ほか${successes.length - 12}件`);
@@ -167,7 +179,7 @@ function buildEvidenceMessage(report: EvidenceReport, imageLabels: string[]) {
   if (imageLabels.length) {
     lines.push("", "📷 公開ページの確認画像");
     imageLabels.slice(0, 30).forEach((label, index) => lines.push(`${index + 1}. ${label}`));
-  } else if (!fatal) {
+  } else if (!fatal && successes.length + failures.length) {
     lines.push("", "確認画像は取得できませんでした");
   }
 
@@ -291,7 +303,7 @@ Deno.serve(async (request: Request) => {
       ? report.missingProfiles.filter((item): item is string => typeof item === "string").slice(0, 100)
       : [];
     const fatalError = compact(report.fatalError, 1_000) || null;
-    const successCount = results.filter((item) => item.ok === true).length;
+    const successCount = results.filter((item) => item.ok === true && item.skipped !== true).length;
     const hasWarning = results.some((item) => item.ok !== true)
       || evidence.some((item) => item.verified !== true)
       || missingProfiles.length > 0;
@@ -310,7 +322,7 @@ Deno.serve(async (request: Request) => {
         status,
         started_at: report.startedAt || null,
         finished_at: report.finishedAt || new Date().toISOString(),
-        total_count: results.length,
+        total_count: results.filter((item) => !(item.ok === true && item.skipped === true)).length,
         success_count: successCount,
         cast_names: castNames,
         summary: message,

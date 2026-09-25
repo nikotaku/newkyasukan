@@ -50,6 +50,9 @@ type ShiftJob = {
   error_message: string | null;
   created_at: string;
   finished_at: string | null;
+  // エステ魂の登録期間（2週間先まで）外などで保留したジョブ
+  skipped?: boolean | null;
+  skip_message?: string | null;
 };
 
 const statusView: Record<Status, { label: string; className: string; icon: typeof CheckCircle2 }> = {
@@ -259,7 +262,8 @@ export default function EstamaSyncHistory() {
                   ) : (
                     <div className="divide-y rounded-lg border">
                       {shiftJobs.map((job) => {
-                        const status = shiftJobStatus(job.status);
+                        const held = job.status === "completed" && job.skipped === true;
+                        const status = held ? "warning" : shiftJobStatus(job.status);
                         const view = statusView[status];
                         const StatusIcon = view.icon;
                         return (
@@ -276,8 +280,11 @@ export default function EstamaSyncHistory() {
                             {job.error_message && (
                               <p className="min-w-[180px] flex-1 text-xs text-rose-600">{job.error_message}</p>
                             )}
+                            {held && job.skip_message && (
+                              <p className="min-w-[180px] flex-1 text-xs text-muted-foreground">{job.skip_message}</p>
+                            )}
                             <Badge variant="outline" className={`ml-auto ${view.className}`}>
-                              <StatusIcon className="mr-1 h-3.5 w-3.5" />{view.label}
+                              <StatusIcon className="mr-1 h-3.5 w-3.5" />{held ? "保留" : view.label}
                             </Badge>
                           </div>
                         );
