@@ -18,6 +18,7 @@ import {
   getCustomerRank, PRESSURE_OPTIONS, AREA_OPTIONS, CONVERSATION_OPTIONS,
 } from "@/lib/customerRank";
 import { getCustomerInsights } from "@/lib/customerInsights";
+import { SmsHistory } from "@/components/SmsHistory";
 
 /**
  * 顧客詳細ページ（/database/customers/:id）。
@@ -619,6 +620,9 @@ export default function CustomerDetail() {
                   </Button>
                 </CardContent>
               </Card>
+
+              {/* SMSのやり取り */}
+              <SmsHistory phone={customer.phone} customerId={customer.id} storeId={customer.store_id} />
 
               {/* 来店履歴（全件） */}
               <Card>
