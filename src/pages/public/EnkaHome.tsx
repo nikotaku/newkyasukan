@@ -17,10 +17,11 @@ import {
 } from "@/lib/availability";
 import { ESTAMA_CAST_PHOTO_STYLE } from "@/lib/publicCastPhoto";
 import { trackPublicEvent } from "@/lib/publicAnalytics";
+import { menestheNowEmbedUrl, parseMenestheNowWidget } from "@/lib/menestheNowWidget";
 
 /**
  * 艶華専用トップページ（デフォルト店舗以外で "/" に表示）。
- * 大型プランバナー → 本日の出勤 → おすすめプラン → NEW FACE → 料金導線 → 店舗情報。
+ * 大型プランバナー → 本日の出勤 → メンエスなう → おすすめプラン → NEW FACE → 料金導線 → 店舗情報。
  */
 
 interface CastRow {
@@ -141,6 +142,8 @@ export default function EnkaHome() {
   const heroVideoPosterUrl =
     typeof heroVideoSettings.poster_url === "string" ? heroVideoSettings.poster_url.trim() : "";
   const siteUrl = store?.custom_domain ? `https://${store.custom_domain}` : window.location.origin;
+  // メンエスなうのウィジェット（stores.settings.menesthe_now_widget がある店舗だけ表示）
+  const menestheNowWidget = parseMenestheNowWidget(storeSettings.menesthe_now_widget);
 
   const [slide, setSlide] = useState(0);
   const [failedHeroVideoUrl, setFailedHeroVideoUrl] = useState<string | null>(null);
@@ -623,6 +626,23 @@ export default function EnkaHome() {
           </div>
         </div>
       </section>
+
+      {/* セラピストの最新投稿（メンエスなう） */}
+      {menestheNowWidget && (
+        <section className="py-8 px-4">
+          <div className="container mx-auto max-w-5xl">
+            <Heading en="TIMELINE" ja="セラピストの最新情報" />
+          </div>
+          {/* スマホで細くならないよう container の内側余白の外に置く（ウィジェットの最大幅は550px） */}
+          <iframe
+            src={menestheNowEmbedUrl(menestheNowWidget)}
+            title={`${storeName}のメンエスなう`}
+            loading="lazy"
+            className="block w-full max-w-[550px] mx-auto border-0 rounded-2xl"
+            style={{ height: menestheNowWidget.type === "timeline" ? 600 : 480, colorScheme: menestheNowWidget.theme }}
+          />
+        </section>
+      )}
 
       {/* 3. おすすめプラン（バナー縦積み） */}
       {planBanners.length > 0 && (
