@@ -44,6 +44,10 @@ verify_jwt = false
 # Twilioから呼ばれる（受信SMS・送信ステータス）。こちらから送った番号の返信だけLINEに通知する。
 verify_jwt = false
 
+[functions.report-email-ingest]
+# 店舗のGmailで動くGoogle Apps Scriptから呼ばれる（IVRy着信通知・エステ魂デイリーレポート）。x-ingest-token で認証する。
+verify_jwt = false
+
 [functions.notify-line-therapist]
 verify_jwt = true
 
