@@ -13,6 +13,7 @@ import { toExtTime } from "@/lib/timeFormat";
 import { getCastBookingUrl, getCustomDomainBaseUrl } from "@/lib/bookingUrl";
 import { ja } from "date-fns/locale";
 import { TherapistSalesPanel } from "@/components/therapist/TherapistSalesPanel";
+import { allowPageZoom } from "@/lib/viewportZoomLock";
 
 
 interface Cast {
@@ -245,6 +246,13 @@ export default function TherapistPortal() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [entryPhotoViewer, setEntryPhotoViewer] = useState<EntryPhotoViewer | null>(null);
   const [entryPhotoZoom, setEntryPhotoZoom] = useState(1);
+  // 入室案内写真を開いている間だけ指での拡大を許可する
+  const entryPhotoOpen = Boolean(entryPhotoViewer);
+  useEffect(() => {
+    if (!entryPhotoOpen) return;
+    allowPageZoom(true);
+    return () => allowPageZoom(false);
+  }, [entryPhotoOpen]);
 
   // Clearance notification
 
