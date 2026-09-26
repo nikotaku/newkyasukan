@@ -88,6 +88,11 @@
 - リポジトリは公開なので、ダンプを暗号化せずにコミット・アップロードしないこと
 - Secrets: `SUPABASE_DB_URL`（Session poolerの接続文字列）/ `BACKUP_PASSPHRASE`。復元手順は `docs/db-backup.md`
 
+## メンエスなうウィジェット
+
+- 店舗トップ（EnkaHome）に、メンエスなう（men-esthe.co.jp）のタイムラインを表示する。設定は `stores.settings.menesthe_now_widget`（`{ store: PUID, type: "timeline", theme: "dark" }`、`enabled: false` で非表示）
+- 公式の `<script src=".../widget-embed.js">` はページに直接置かない。管理画面と同じドメインで他社のJSが動き、ログイン情報（localStorage）に届いてしまうため、公式の iframe 版（`/widget/embed/shop/{PUID}/`）で埋め込む（`src/lib/menestheNowWidget.ts`）
+
 ## AI生成機能
 
 - Edge Function `generate-cast-content` がカテゴリ別のAIコンテンツ生成を担当
