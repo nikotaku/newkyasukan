@@ -1322,7 +1322,9 @@ export default function Staff() {
       await fetchCasts();
       toast({
         title: "エスたま登録・連携が完了しました",
-        description: "魂セラピストの本人ログイン設定も更新しました",
+        description: completed.result?.unchanged
+          ? "内容に変更がないため、エステ魂はそのままです"
+          : "エステ魂のプロフィールを同じ内容に更新しました",
       });
     } catch (error) {
       toast({

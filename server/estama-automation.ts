@@ -6,6 +6,7 @@ import jsQR from "jsqr";
 import { PNG } from "pngjs";
 import { assertFormPhotoCount, assertUploadedPhotoCount, uploadPhotos } from "./estama-photo-upload.js";
 import { assertEstamaDiaryPhotoReady, completeEstamaDiaryPhotoCrop } from "./estama-diary-photo.js";
+import { describeError } from "./estama-error.js";
 import {
   ESTAMA_SOUL_DIARY_POST_URL,
   PUBLIC_DIARY_LIST_TEXT,
@@ -107,6 +108,17 @@ type CastRecord = {
   instagram_url?: string | null;
   estama_profile_url?: string | null;
 };
+
+// エステ魂へ送るプロフィール項目だけを読む。管理画面からの実行はログイン中ユーザーの権限で動き、
+// casts の一部の列（access_token・パスワード類など）は読めないため select("*") だと拒否される。
+// CastRecord に項目を足したら、ここにも足すこと。
+const ESTAMA_CAST_COLUMNS = [
+  "name", "bust", "bust_size", "cup_size", "waist", "hip", "body_size", "features", "photos", "photo",
+  "shop_comment", "therapist_comment", "profile", "message", "therapist_years", "therapist_experience",
+  "age", "height", "blood_type", "favorite_techniques", "favorite_food", "ideal_type",
+  "celebrity_lookalike", "celebrity_like", "day_off_activities", "hobby", "hobbies",
+  "blog_url", "x_account", "instagram_url", "estama_profile_url",
+] as const satisfies ReadonlyArray<keyof CastRecord>;
 
 type ShiftRecord = {
   id: string;
@@ -870,12 +882,17 @@ async function clickSoulAction(action: Locator) {
 
 async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, soul?: SoulCredentials) {
   if (!job.cast_id) throw new Error("登録対象のセラピストがありません");
-  const { data: cast, error: castError } = await admin.from("casts").select("*").eq("id", job.cast_id).single();
-  if (castError || !cast) throw castError || new Error("セラピストが見つかりません");
+  const { data: cast, error: castError } = await admin.from("casts")
+    .select(ESTAMA_CAST_COLUMNS.join(","))
+    .eq("id", job.cast_id)
+    .single();
+  if (castError) throw new Error(`セラピスト情報を読み込めませんでした: ${describeError(castError)}`);
+  if (!cast) throw new Error("セラピストが見つかりません");
   const { data: current } = await admin.from("external_cast_profiles").select("*")
     .eq("cast_id", job.cast_id).eq("provider", "estama").maybeSingle();
   const editUrl = current?.admin_edit_url || ESTAMA_CAST_EDIT_URL;
-  const data = castToEstama(cast as CastRecord);
+  const castRecord = cast as unknown as CastRecord;
+  const data = castToEstama(castRecord);
   const profileHash = createHash("sha256").update(JSON.stringify(data)).digest("hex");
   const photoHash = createHash("sha256").update(JSON.stringify(data.photos)).digest("hex");
 
@@ -925,7 +942,7 @@ async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, 
 
   const savedEditUrl = page.url();
   const publicHref = await page.locator('a[href*="/shop/"][href*="/cast/"]').first().getAttribute("href").catch(() => null);
-  const publicUrl = publicHref ? new URL(publicHref, page.url()).toString() : cast.estama_profile_url || null;
+  const publicUrl = publicHref ? new URL(publicHref, page.url()).toString() : castRecord.estama_profile_url || null;
   const externalId = publicUrl?.match(/\/cast\/(\d+)\//)?.[1]
     || page.url().match(/(?:cast_id=|\/cast_edit\/)(\d+)/)?.[1]
     || current?.external_cast_id || null;
@@ -955,7 +972,7 @@ async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, 
     } : {}),
   };
   const { error: profileError } = await admin.from("external_cast_profiles").upsert(profilePatch, { onConflict: "cast_id,provider" });
-  if (profileError) throw profileError;
+  if (profileError) throw new Error(`エステ魂の連携情報を保存できませんでした: ${describeError(profileError)}`);
   await admin.from("casts").update({ estama_profile_url: publicUrl, estama_listed: true }).eq("id", job.cast_id);
   return { externalId, publicUrl, uploadedPhotos, photoRemoval, soul: soulResult };
 }
@@ -2071,7 +2088,7 @@ async function completeJob(admin: AdminClient, job: AutomationJob, result: Json)
 }
 
 async function failJob(admin: AdminClient, job: AutomationJob, error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = describeError(error);
   const postId = job.job_type === "estama_post_diary" && typeof job.payload?.post_id === "string"
     ? job.payload.post_id
     : null;
@@ -3802,7 +3819,7 @@ export async function processAvailableJobs(
       } catch (error) {
         await failJob(admin, job, error);
         const waitingForLogin = error instanceof LoginRequiredError || error instanceof SoulActivationRequiredError;
-        results.push({ id: job.id, status: waitingForLogin ? "waiting_for_login" : "failed", error: error instanceof Error ? error.message : String(error) });
+        results.push({ id: job.id, status: waitingForLogin ? "waiting_for_login" : "failed", error: describeError(error) });
         if (waitingForLogin) break;
       }
     }
