@@ -102,6 +102,13 @@ All colors MUST be HSL.
 
   * {
     @apply border-border;
+    /* ダブルタップでの拡大を止める（ピンチは viewportZoomLock で制御） */
+    touch-action: manipulation;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
