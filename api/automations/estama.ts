@@ -7,6 +7,7 @@ import {
   startLoginSetup,
   verifyLoginSetup,
 } from "../../server/estama-automation.js";
+import { describeError } from "../../server/estama-error.js";
 import { processO2StoreAvailabilityPost } from "../../server/o2-store-availability.js";
 
 export const config = { maxDuration: 300 };
@@ -125,7 +126,7 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
     }
     throw new Error("未対応の操作です");
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     const unauthorized = /認証|ログインが期限切れ/.test(message);
     const forbidden = /権限/.test(message);
     res.status(unauthorized ? 401 : forbidden ? 403 : 400).json({ error: message });
