@@ -1,0 +1,70 @@
+# 本番DB（Supabase）の毎日バックアップ。
+# Supabase無料プランには自動バックアップがないため、GitHub Actionsで毎日ダンプを取る。
+# このリポジトリは公開なので、ダンプは必ず暗号化してから保存する（復元手順は docs/db-backup.md）。
+#
+# 必要なSecrets（Settings → Secrets and variables → Actions）:
+#   SUPABASE_DB_URL    … Supabaseの「Connect → Session pooler」の接続文字列（パスワード入り）
+#   BACKUP_PASSPHRASE  … 暗号化パスワード（なくすと復元できないので、Supabase以外の場所に保管）
+name: DB backup
+
+on:
+  schedule:
+    - cron: "5 19 * * *" # 毎日 4:05（日本時間）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check secrets
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::SUPABASE_DB_URL と BACKUP_PASSPHRASE をリポジトリのSecretsに登録してください"
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dump database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir backup
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/roles.sql --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/data.sql --data-only --use-copy
+          # 空ダンプを成功扱いにしない
+          test -s backup/schema.sql
+          test -s backup/data.sql
+
+      - name: Encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          name="db-backup-$(TZ=Asia/Tokyo date +%Y%m%d-%H%M)"
+          tar -czf "$name.tar.gz" -C backup .
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 -o "$name.tar.gz.gpg" "$name.tar.gz"
+          rm -rf backup "$name.tar.gz"
+          ls -la "$name.tar.gz.gpg"
+          echo "BACKUP_FILE=$name.tar.gz.gpg" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BACKUP_FILE }}
+          path: ${{ env.BACKUP_FILE }}
+          retention-days: 30
+          if-no-files-found: error
