@@ -40,6 +40,10 @@ verify_jwt = true
 # LINEの署名（LINE_BOOKING_CHANNEL_SECRET）を関数内で検証する。
 verify_jwt = false
 
+[functions.sms-webhook]
+# Twilioから呼ばれる（受信SMS・送信ステータス）。こちらから送った番号の返信だけLINEに通知する。
+verify_jwt = false
+
 [functions.notify-line-therapist]
 verify_jwt = true
 
