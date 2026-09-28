@@ -57,7 +57,6 @@ type EditForm = {
   xTherapistListAdded: boolean;
   estamaLoginId: string;
   estamaPassword: string;
-  estamaProfileUrl: string;
 };
 
 type CredentialSite = "o2" | "x" | "esutama";
@@ -94,7 +93,6 @@ const EMPTY_EDIT_FORM: EditForm = {
   xTherapistListAdded: false,
   estamaLoginId: "",
   estamaPassword: "",
-  estamaProfileUrl: "",
 };
 
 const normalizeO2Id = (value: string) => value
@@ -138,7 +136,6 @@ const createEditForm = (row: O2Row): EditForm => ({
   xTherapistListAdded: row.x_list_added,
   estamaLoginId: row.estama_login_id || "",
   estamaPassword: "",
-  estamaProfileUrl: row.estama_profile_url || "",
 });
 
 const connectionBadgeClass = {
@@ -501,11 +498,6 @@ export default function O2Management() {
       toast.error("魂セラピストの初回設定ではパスワードも入力してください");
       return;
     }
-    const estamaProfileUrl = editForm.estamaProfileUrl.trim();
-    if (estamaProfileUrl && !/^https:\/\/(?:www\.)?estama\.jp\//i.test(estamaProfileUrl)) {
-      toast.error("魂セラピストのプロフィールURLを入力してください");
-      return;
-    }
     savingRef.current = true;
     setSaving(true);
     try {
@@ -526,7 +518,8 @@ export default function O2Management() {
         p_x_sub_account_visible: Boolean(xSubLoginId) && editForm.xSubAccountVisible,
         p_estama_login_id: estamaLoginId || null,
         p_estama_password: editForm.estamaPassword || null,
-        p_estama_profile_url: estamaProfileUrl || null,
+        // 魂セラピストの公開ページURLはこの画面では扱わない。エステ魂の自動連携でも使うので、保存済みの値をそのまま渡して消さない
+        p_estama_profile_url: editing.estama_profile_url || null,
         p_expected_settings_version: editing.settings_version,
       });
       if (error) {
@@ -587,7 +580,6 @@ export default function O2Management() {
                         <Badge className={`${connectionBadgeClass.x} ${isXConfigured(row) ? "" : "opacity-35"}`}>X</Badge>
                         {xOnboardingBadge("相互フォロー", row.x_ff_completed)}
                         {xOnboardingBadge("セラピストリスト追加", row.x_list_added)}
-                        <Badge className={`${connectionBadgeClass.soul} ${isSoulConfigured(row) ? "" : "opacity-45"}`}>魂セラピスト</Badge>
                       </div>
                     </div>
                   </div>
@@ -601,7 +593,6 @@ export default function O2Management() {
                   <div className="rounded-lg bg-muted/60 p-2"><p className="text-muted-foreground">店舗連携</p><p className={row.o2_linkage_requested ? "mt-1 text-green-700" : "mt-1"}>{row.o2_linkage_requested ? "✓ 申請済み" : "未申請"}</p></div>
                   <div className="rounded-lg bg-muted/60 p-2"><p className="text-muted-foreground">直近投稿</p><p className="mt-1">{statusLabel[row.last_o2_status || ""] || "投稿なし"}</p></div>
                   <div className="rounded-lg bg-muted/60 p-2"><p className="text-muted-foreground">公開URL</p>{row.profile_url ? <a className="mt-1 inline-flex items-center text-primary" href={row.profile_url} target="_blank" rel="noreferrer">確認<ExternalLink size={12} className="ml-1" /></a> : <p className="mt-1">未設定</p>}</div>
-                  <div className="rounded-lg bg-muted/60 p-2"><p className="text-muted-foreground">魂URL</p>{row.estama_profile_url ? <a className="mt-1 inline-flex items-center text-primary" href={row.estama_profile_url} target="_blank" rel="noreferrer">確認<ExternalLink size={12} className="ml-1" /></a> : <p className="mt-1">未設定</p>}</div>
                 </div>
                 <Button className="w-full" onClick={() => openPostForm(row)}><Send size={14} className="mr-1" />投稿フォーム</Button>
                 {row.last_o2_error && <p className="rounded-lg bg-red-50 p-2 text-xs text-red-600 break-words">{row.last_o2_error}</p>}
@@ -623,14 +614,13 @@ export default function O2Management() {
                           <Badge className={`${connectionBadgeClass.x} ${isXConfigured(row) ? "" : "opacity-35"}`}>X</Badge>
                           {xOnboardingBadge("相互フォロー", row.x_ff_completed)}
                           {xOnboardingBadge("セラピストリスト追加", row.x_list_added)}
-                          <Badge className={`${connectionBadgeClass.soul} ${isSoulConfigured(row) ? "" : "opacity-45"}`}>魂セラピスト</Badge>
-                        </div>
+                          </div>
                       </td>
                       <td className="px-3 py-3">{row.o2_created ? <span className="text-green-700">✓ 作成済み</span> : <span className="text-muted-foreground">未作成</span>}</td>
                       <td className="px-3 py-3">{row.o2_linkage_requested ? <span className="text-green-700">✓ 申請済み</span> : <span className="text-muted-foreground">未申請</span>}</td>
                       <td className="px-3 py-3"><span>{statusLabel[row.last_o2_status || ""] || "投稿なし"}</span>{row.last_posted_at && <p className="text-[11px] text-muted-foreground mt-1">{new Date(row.last_posted_at).toLocaleString("ja-JP")}</p>}</td>
                       <td className="px-3 py-3 max-w-[250px] text-xs text-red-600 break-words">{row.last_o2_error || "—"}</td>
-                      <td className="px-4 py-3"><div className="flex flex-wrap justify-end gap-2"><Button size="sm" onClick={() => openPostForm(row)}><Send size={13} className="mr-1" />投稿フォーム</Button>{row.profile_url && <Button size="sm" variant="outline" asChild><a href={row.profile_url} target="_blank" rel="noreferrer">O2<ExternalLink size={13} className="ml-1" /></a></Button>}{row.estama_profile_url && <Button size="sm" variant="outline" asChild><a href={row.estama_profile_url} target="_blank" rel="noreferrer">魂<ExternalLink size={13} className="ml-1" /></a></Button>}<Button size="sm" variant="outline" onClick={() => void openEdit(row)} disabled={openingCastId === row.cast_id}>{openingCastId === row.cast_id ? <Loader2 size={13} className="mr-1 animate-spin" /> : hasSavedSettings(row) ? <Eye size={13} className="mr-1" /> : <Pencil size={13} className="mr-1" />}{hasSavedSettings(row) ? "確認" : "設定"}</Button></div></td>
+                      <td className="px-4 py-3"><div className="flex flex-wrap justify-end gap-2"><Button size="sm" onClick={() => openPostForm(row)}><Send size={13} className="mr-1" />投稿フォーム</Button>{row.profile_url && <Button size="sm" variant="outline" asChild><a href={row.profile_url} target="_blank" rel="noreferrer">O2<ExternalLink size={13} className="ml-1" /></a></Button>}<Button size="sm" variant="outline" onClick={() => void openEdit(row)} disabled={openingCastId === row.cast_id}>{openingCastId === row.cast_id ? <Loader2 size={13} className="mr-1 animate-spin" /> : hasSavedSettings(row) ? <Eye size={13} className="mr-1" /> : <Pencil size={13} className="mr-1" />}{hasSavedSettings(row) ? "確認" : "設定"}</Button></div></td>
                     </tr>
                   ))}
                 </tbody>
@@ -808,7 +798,6 @@ export default function O2Management() {
                 <p className="mt-1 text-xs text-muted-foreground">初回設定後、同時投稿では毎回ログイン画面からID・パスワードを入力して投稿します。</p>
                 <a href="https://estama.jp/tamathera/login/" target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center text-xs text-primary">魂セラピストのログイン画面を開く<ExternalLink size={12} className="ml-1" /></a>
               </div>
-              <div><Label htmlFor="estama-profile-url">プロフィールURL</Label><Input id="estama-profile-url" readOnly={fieldsReadOnly} className={fieldsReadOnly ? "bg-white/70" : "bg-white"} type="url" placeholder="https://estama.jp/shop/..." value={editForm.estamaProfileUrl} onChange={(event) => setEditForm({ ...editForm, estamaProfileUrl: event.target.value })} /><p className="mt-1 text-xs text-muted-foreground">公開側のセラピストカードと詳細ページへ自動反映されます。</p></div>
             </section>
 
             <p className="text-xs text-muted-foreground">O2・X・魂セラピストの情報は別々に保存されます。Xのパスワードは任意で、投稿フォームの連携先はO2と魂セラピストのみです。</p>
