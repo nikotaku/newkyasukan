@@ -41,6 +41,7 @@ export const SMS_TEMPLATE_SAMPLE_VALUES: Record<string, string> = {
   room_address: "仙台市青葉区二日町11-15 In-Towner 201号室",
   room_landmark: "1階「はしもとや」",
   room_map: "https://x.gd/nf3ip",
+  guide_url: "https://enka-salon.jp/r/Ab3dE7fG9h_k",
 };
 
 export function fillSmsTemplateSample(template: string, values: Record<string, string> = SMS_TEMPLATE_SAMPLE_VALUES) {

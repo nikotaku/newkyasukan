@@ -4785,6 +4785,7 @@ export type Database = {
           duration: number
           email_notification_sent_at: string | null
           email_notification_status: string
+          guide_token: string | null
           id: string
           line_notification_sent_at: string | null
           line_notification_status: string

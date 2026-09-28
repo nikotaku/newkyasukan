@@ -174,7 +174,7 @@ export default function SystemSMSAuto() {
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">SMS自動送信</h1>
-              <p className="text-muted-foreground">トリガー別の自動SMS設定</p>
+              <p className="text-muted-foreground">予約確定・サンクス・クーポンなどのSMS文面</p>
             </div>
             <Button onClick={openAdd}>
               <Plus size={16} className="mr-2" />追加
@@ -221,7 +221,10 @@ export default function SystemSMSAuto() {
                     </div>
                   </div>
                   <div>
-                    <Label>メッセージ（{"{customer_name}"}, {"{date}"} などの変数が使えます）</Label>
+                    <Label>メッセージ（{"{name}"} {"{date}"} {"{time}"} {"{course}"} {"{cast}"} {"{price}"} {"{room}"} {"{guide_url}"} などの変数が使えます）</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {"{guide_url}"} は予約ごとの案内ページ（予約内容・住所・地図・道順・来店時のお願い）のリンクです。住所や注意事項を本文に書かずに済むのでSMSが短くなります
+                    </p>
                     <Textarea
                       value={formData.message}
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
