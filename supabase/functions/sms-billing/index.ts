@@ -97,7 +97,7 @@ async function fetchSummary(credentials: TwilioCredentials, now: Date): Promise<
   });
 }
 
-// 店舗のオーナー・マネージャー（またはシステム管理者）だけが見られる
+// 店舗のオーナー・マネージャーだけが見られる（管理権限は user_stores の role。user_roles テーブルはない）
 async function isStoreManager(authorization: string) {
   const jwt = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
   if (!jwt) return false;
@@ -105,11 +105,8 @@ async function isStoreManager(authorization: string) {
   if (!r.ok) return false;
   const user = await r.json();
   if (!user?.id) return false;
-  const [roles, stores] = await Promise.all([
-    sb(`user_roles?user_id=eq.${user.id}&role=eq.admin&select=role&limit=1`),
-    sb(`user_stores?user_id=eq.${user.id}&role=in.(owner,manager)&select=role&limit=1`),
-  ]);
-  return Boolean(roles?.length || stores?.length);
+  const stores = await sb(`user_stores?user_id=eq.${user.id}&role=in.(owner,manager)&select=role&limit=1`);
+  return Boolean(stores?.length);
 }
 
 async function isCron(req: Request) {
