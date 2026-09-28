@@ -149,6 +149,12 @@
 - 送信は DBトリガー `trg_push_notify()` → Edge Function `push-notify`（`x-push-notify-secret` は Vault の `push_notify_internal_secret`）。購読がない店舗では呼ばない。暗号化とVAPID署名は `_shared/webPush.ts`（外部ライブラリなし）。VAPIDの鍵は Vault の `web_push_vapid_public_key` / `web_push_vapid_private_jwk`（公開鍵は `src/lib/adminPush.ts` にも載せている）
 - テスト: `npm run test:push-notify`
 
+## Claude用のブラウザ操作（jev-ultrafast）
+
+- 外部サイトを自然文の目的で操作するときは `.claude/skills/jev-browser/SKILL.md`（`scripts/claude/jev.sh setup|check|run|stop`）。本体は作業環境の `~/.cache/jev-ultrafast` に入れる（リポジトリには入れない）
+- 実行には環境変数 `TYPESAFE_API_KEY` / `TEXT_MODEL_API_KEY`（OpenRouter）が必要。クラウド環境の設定で入れる。リポジトリ・チャットに書かない
+- キャスカン本体の自動化（エステ魂など）は今まで通り Browserbase。jev はアップロード・iframe 非対応
+
 ## AI生成機能
 
 - Edge Function `generate-cast-content` がカテゴリ別のAIコンテンツ生成を担当
