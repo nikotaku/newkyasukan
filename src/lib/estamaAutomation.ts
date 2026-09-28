@@ -46,6 +46,36 @@ export async function runEstamaCastAutomation(input: {
   }) as Promise<EstamaRunResult>;
 }
 
+export type EstamaJobStatus = {
+  id: string;
+  status: string;
+  error_message: string | null;
+  finished_at: string | null;
+};
+
+/** 登録・連携をサーバー側のバックグラウンドで開始する（画面を閉じても続く） */
+export async function startEstamaCastAutomation(input: { storeId: string; castId: string }) {
+  const result = await requestEstamaAutomation({
+    action: "run-cast",
+    storeId: input.storeId,
+    castId: input.castId,
+    background: true,
+  });
+  if (typeof result.jobId !== "string") throw new Error("エスたま登録ジョブを開始できませんでした");
+  return result.jobId;
+}
+
+export async function getEstamaJobStatus(storeId: string, jobId: string): Promise<EstamaJobStatus | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("ログインが期限切れです");
+  const response = await fetch(`/api/automations/estama?storeId=${encodeURIComponent(storeId)}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  if (!response.ok) return null;
+  const body = await response.json().catch(() => ({})) as { jobs?: EstamaJobStatus[] };
+  return (body.jobs || []).find((job) => job.id === jobId) || null;
+}
+
 export async function runEstamaProfileSync(input: {
   storeId: string;
   castId: string;
