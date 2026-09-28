@@ -65,6 +65,19 @@ async function buildNewsGrounding(): Promise<{ facts: string; images: string[] }
   }
 }
 
+// ログイン中のユーザーのJWTか（公開鍵だけの呼び出しは通さない）
+async function isSignedIn(req: Request) {
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const authorization = req.headers.get("Authorization") || "";
+  const jwt = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!SUPABASE_URL || !SERVICE_KEY || !jwt) return false;
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${jwt}` } });
+  if (!response.ok) return false;
+  const user = await response.json().catch(() => null);
+  return Boolean(user?.id);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -81,6 +94,8 @@ serve(async (req) => {
       staffName, staffProfile, staffMessage,
       // parse_memo（面接メモから各項目を抽出）
       memo,
+      // x_post（X運用表「今日の投稿」）
+      xAccount, xSlot, xTheme, xRules, xFacts,
     } = await req.json();
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
@@ -157,6 +172,41 @@ serve(async (req) => {
           "shop_comment と profile はメモに直接無くても、読み取れた情報を元に作成してよい。";
         userPrompt = `以下の面接メモから項目を抽出し、JSONオブジェクトだけを返してください。\n\n===== メモ =====\n${memo ?? ""}\n================`;
         break;
+
+      case "x_post": {
+        // X運用表「今日の投稿」。ログイン中のスタッフだけが使える
+        if (!(await isSignedIn(req))) {
+          return new Response(JSON.stringify({ error: "ログインしてください" }), {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const text = (value: unknown, max = 600) => (typeof value === "string" ? value.slice(0, max) : "");
+        const account = (xAccount ?? {}) as Record<string, unknown>;
+        const slot = (xSlot ?? {}) as Record<string, unknown>;
+        const theme = (xTheme ?? {}) as Record<string, unknown>;
+        const rules = Array.isArray(xRules) ? xRules.map((rule) => text(rule, 200)).filter(Boolean).slice(0, 12) : [];
+        systemPrompt =
+          "あなたは仙台のメンズエステ店のX（旧Twitter）運用担当です。指定されたアカウント・投稿枠・今日のテーマに合わせて、今日そのまま投稿できる1ポストを日本語で書いてください。" +
+          "全角140文字以内（改行込み）。本文だけを出力し、前置き・説明・カギ括弧で囲むこと・Markdownはしない。" +
+          "金額・人数・実績などの数字や固有名は、参照データにあるもの以外は創作しない。数字が必要なのに参照データに無いときは【◯◯】のように空欄で残す。" +
+          "ハッシュタグは付けても2つまで。過度な肌露出や誤解を招く表現、個人が特定できる情報は書かない。";
+        userPrompt = [
+          `アカウント: ${text(account.name, 60)}`,
+          `目的: ${text(account.purpose)}`,
+          `ターゲット: ${text(account.target)}`,
+          `トーン・口調: ${text(account.tone)}`,
+          "",
+          `投稿枠: ${text(slot.time, 20)} ${text(slot.type, 60)}`,
+          `内容: ${text(slot.content)}`,
+          `例文（形の参考。そのまま使わず今日の内容にする）: ${text(slot.example)}`,
+          `目的: ${text(slot.goal, 100)}`,
+          theme.theme ? `今日（${text(theme.day, 4)}曜）のテーマ: ${text(theme.theme, 100)}（${text(theme.detail)}）` : "",
+          rules.length ? `\n運用ルール:\n${rules.map((rule) => `・${rule}`).join("\n")}` : "",
+          `\n===== 参照データ（数字や名前はここにあるものだけ使う）=====\n${text(xFacts, 2000)}\n=====`,
+        ].filter(Boolean).join("\n");
+        break;
+      }
 
       default:
         throw new Error("Invalid content type");

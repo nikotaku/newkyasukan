@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Download, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { XTodayPosts } from "@/components/x/XTodayPosts";
 import {
   DEFAULT_X_OPERATIONS_PLAN,
   X_OPS_CONTENT_KEY,
@@ -220,7 +221,7 @@ export default function HpXOperations() {
               <p className="mb-1 text-xs text-muted-foreground">HP</p>
               <h1 className="text-2xl font-bold">X運用表</h1>
               <p className="text-sm text-muted-foreground">
-                集客・求人・店長の3アカウントで「毎日いつ・何を投稿するか」をまとめた運用表です。セルをクリックすると直接編集できます。
+                集客・求人・店長の3アカウントで「毎日いつ・何を投稿するか」をまとめた運用表です。「今日の投稿」にその日の投稿文が毎日用意されます。
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -240,14 +241,20 @@ export default function HpXOperations() {
           {loading ? (
             <div className="py-12 text-center text-muted-foreground">読み込み中...</div>
           ) : (
-            <Tabs defaultValue="all">
+            <Tabs defaultValue="today">
               <TabsList className="mb-4 flex h-auto flex-wrap justify-start">
+                <TabsTrigger value="today">今日の投稿</TabsTrigger>
                 <TabsTrigger value="all">1日の全体タイムライン</TabsTrigger>
                 {plan.accounts.map((a) => (
                   <TabsTrigger key={a.key} value={a.key}>{a.name}</TabsTrigger>
                 ))}
                 <TabsTrigger value="rules">運用ルール</TabsTrigger>
               </TabsList>
+
+              {/* 今日の投稿：その日の出勤・空き枠などで作った投稿文。コピー・画像・投稿済みチェック */}
+              <TabsContent value="today">
+                {store && <XTodayPosts plan={plan} store={store} />}
+              </TabsContent>
 
               {/* 全体タイムライン */}
               <TabsContent value="all" className="space-y-4">
