@@ -25,7 +25,7 @@ interface Room {
   sms_text: string | null;
   map_url: string | null;
   caution_text: string | null;
-  // お客様向けの道順（予約案内ページ /r/:token で自動再生）。entry_* はセラピスト向けなので別
+  // お客様向けの道順（予約案内ページ /g/:token で自動再生）。entry_* はセラピスト向けなので別
   customer_guide_steps: RouteGuideStep[] | null;
 }
 

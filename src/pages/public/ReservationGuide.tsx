@@ -60,7 +60,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 /**
- * 予約ごとの案内ページ（SMSで送るリンク /r/:token）。
+ * 予約ごとの案内ページ（SMSで送るリンク /g/:token）。
  * 予約内容・ルームの住所と地図・道順（写真のステップ）・来店時のお願い・連絡先をまとめて見せる。
  */
 export default function ReservationGuide() {

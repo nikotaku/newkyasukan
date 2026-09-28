@@ -93,7 +93,7 @@ interface Reservation {
   room: string | null;
   notes: string | null;
   store_id: string;
-  // 予約ごとの案内ページ（/r/:token）のトークン
+  // 予約ごとの案内ページ（/g/:token）のトークン
   guide_token?: string | null;
   created_by: string | null;
   booking_origin: string;
@@ -942,10 +942,10 @@ export default function Schedule() {
     });
 
     // 艶華の予約確認SMSは、来店に必要な情報だけを短く表示する。
-    // ルームの住所・地図・道順・入室時の注意は予約ごとの案内ページ（/r/:token）にまとめてリンクだけ載せる。
+    // ルームの住所・地図・道順・入室時の注意は予約ごとの案内ページ（/g/:token）にまとめてリンクだけ載せる。
     // 案内ページが使えない予約（トークンなし）は従来どおり住所・目印・地図を本文に入れる。
     if (adminStore?.custom_domain === "enka-salon.jp") {
-      const guideUrl = d.guide_token && d.room ? `https://${adminStore.custom_domain}/r/${d.guide_token}` : null;
+      const guideUrl = d.guide_token && d.room ? `https://${adminStore.custom_domain}/g/${d.guide_token}` : null;
       const roomGuideText = roomSmsText?.split("【注意事項】")[0] ?? "";
       const rawRoomNote = roomGuideText
         .split(/\r?\n/)

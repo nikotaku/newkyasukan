@@ -4,7 +4,7 @@
 //   { reservation_id, to, preview_only? } … 予約内容で本文を作り、別の宛先へ送る（予約は送信済みにしない）
 //   { action: "numbers" }   … 番号一覧
 //   { action: "configure" } … SMS対応番号の受信Webhookをsms-webhookに設定
-// テンプレ変数は template.ts を参照（{guide_url} は予約ごとの案内ページ /r/:token）。
+// テンプレ変数は template.ts を参照（{guide_url} は予約ごとの案内ページ /g/:token）。
 //
 // 呼び出せるのは次のどれか（公開鍵だけでは送れない。料金がかかるため）:
 //   - 予約確定トリガー: x-send-sms-secret（Vault の send_sms_internal_secret）

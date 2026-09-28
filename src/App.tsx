@@ -183,7 +183,7 @@ const App = () => {
           <Route path="/pricing" element={<PublicPricing />} />
           <Route path="/system" element={<PublicSystem />} />
           <Route path="/access" element={<PublicAccess />} />
-          <Route path="/r/:token" element={<ReservationGuide />} />
+          <Route path="/g/:token" element={<ReservationGuide />} />
           <Route path="/blog" element={<BlogIndex />} />
           <Route path="/blog/:slug" element={<BlogArticle />} />
           <Route path="/booking" element={<BookingReservation />} />
