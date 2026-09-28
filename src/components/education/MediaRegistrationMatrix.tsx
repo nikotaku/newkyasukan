@@ -12,6 +12,7 @@ import {
   estamaStage,
   MEDIA_CHECKLIST_FIELDS,
   MEDIA_COLUMNS,
+  MEDIA_NAMES,
   mediaProgress,
   type MediaAutoStatus,
   type MediaChecklist,
@@ -30,8 +31,6 @@ type SnsOverviewRow = {
 
 const rpc = (name: string, args: Record<string, unknown>) =>
   (supabase.rpc as unknown as (rpcName: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>)(name, args);
-
-const MEDIA_ORDER = ["エステ魂", "エスラン", "O2", "X"] as const;
 
 /**
  * セラピストごとの媒体登録状況（エステ魂にどこまで登録したか・O2やXを作ったか）を1つの表で見て、その場で切り替える。
@@ -97,7 +96,7 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
     column.field ? cast[column.field] : column.auto ? auto[cast.id]?.[column.auto] : false
   )).length), [casts, auto]);
 
-  const groupSpans = MEDIA_ORDER.map((media) => ({ media, span: MEDIA_COLUMNS.filter((c) => c.media === media).length }));
+  const groupSpans = MEDIA_NAMES.map((media) => ({ media, span: MEDIA_COLUMNS.filter((c) => c.media === media).length }));
 
   return (
     <div className="space-y-3">
@@ -132,7 +131,7 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
       </p>
 
       <div className="overflow-x-auto rounded-xl border bg-card">
-        <table className="w-full min-w-[980px] text-xs">
+        <table className="w-full min-w-[920px] text-xs">
           <thead className="bg-muted/60 text-muted-foreground">
             <tr>
               <th rowSpan={2} className="sticky left-0 z-10 bg-muted px-3 py-2 text-left">セラピスト</th>

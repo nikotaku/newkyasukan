@@ -15,6 +15,7 @@ import { ja } from "date-fns/locale";
 import { Plus, ChevronLeft, ChevronRight, Trash2, LayoutGrid, CalendarDays, Check, WandSparkles, Users } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ESTHE_RANKING_ACTIVE } from "@/lib/mediaRegistration";
 import { useStore } from "@/hooks/useStore";
 import { runQueuedEstamaAutomation } from "@/lib/estamaAutomation";
 import { calculateMonthlyRoomOccupancy } from "@/lib/roomOccupancy";
@@ -691,7 +692,7 @@ export default function MonthlyShift() {
                           {s.estama_human_confirmed && (
                             <span className="absolute -top-1 -left-1 z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm" title="エスたま公開表示を確認済み" aria-label="エスたま公開表示を確認済み"><Check className="h-2.5 w-2.5 stroke-[3]" /></span>
                           )}
-                          {s.esran_registered && (
+                          {ESTHE_RANKING_ACTIVE && s.esran_registered && (
                             <span className="absolute -top-0.5 left-2 w-2 h-2 bg-blue-500 rounded-full z-10" title="エスラン登録済み" />
                           )}
                           {s.approval_status === "pending" && (
@@ -975,19 +976,21 @@ export default function MonthlyShift() {
                     エスたまへの自動同期後、シフトを再度開いて公開表示を最終確認できます。
                   </div>
                 )}
-                <div>
-                  <Label>エスランに登録</Label>
-                  <Select
-                    value={form.esran_registered ? "registered" : "unregistered"}
-                    onValueChange={v => setForm({ ...form, esran_registered: v === "registered" })}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unregistered">未登録</SelectItem>
-                      <SelectItem value="registered">登録済み</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {ESTHE_RANKING_ACTIVE && (
+                  <div>
+                    <Label>エスランに登録</Label>
+                    <Select
+                      value={form.esran_registered ? "registered" : "unregistered"}
+                      onValueChange={v => setForm({ ...form, esran_registered: v === "registered" })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unregistered">未登録</SelectItem>
+                        <SelectItem value="registered">登録済み</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </>
             )}
             <div className="flex gap-2 pt-2">

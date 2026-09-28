@@ -1,7 +1,11 @@
-// セラピストごとの媒体登録状況（エステ魂・エスラン・O2・X）。
+// セラピストごとの媒体登録状況（エステ魂・O2・X。エスランは掲載再開まで出さない）。
 // 手でチェックする項目は casts の真偽値列、自動でわかる項目はエステ魂の連携結果とログイン情報の有無から出す。
 
-export const MEDIA_CHECKLIST_FIELDS = [
+// エスラン（メンズエステランキング）は今は掲載していないので、登録状況・ランキング転記・シフトの登録欄を出さない。
+// 掲載を再開するときは true に戻す（casts.esuran_listed / shifts.esran_registered などのデータは残してある）
+export const ESTHE_RANKING_ACTIVE = false;
+
+const ALL_CHECKLIST_FIELDS = [
   "estama_listed",
   "esuran_listed",
   "o2_created",
@@ -12,7 +16,11 @@ export const MEDIA_CHECKLIST_FIELDS = [
   "self_intro_tweeted",
 ] as const;
 
-export type MediaChecklistField = (typeof MEDIA_CHECKLIST_FIELDS)[number];
+export type MediaChecklistField = (typeof ALL_CHECKLIST_FIELDS)[number];
+
+export const MEDIA_CHECKLIST_FIELDS: readonly MediaChecklistField[] = ALL_CHECKLIST_FIELDS.filter(
+  (field) => ESTHE_RANKING_ACTIVE || field !== "esuran_listed",
+);
 
 export type MediaChecklist = Record<MediaChecklistField, boolean>;
 
@@ -24,7 +32,7 @@ export interface MediaColumn {
   auto?: "estama_synced" | "estama_soul" | "o2_login" | "x_login";
 }
 
-export const MEDIA_COLUMNS: MediaColumn[] = [
+const ALL_COLUMNS: MediaColumn[] = [
   { media: "エステ魂", label: "掲載", field: "estama_listed" },
   { media: "エステ魂", label: "自動連携", auto: "estama_synced" },
   { media: "エステ魂", label: "魂セラピスト", auto: "estama_soul" },
@@ -38,6 +46,11 @@ export const MEDIA_COLUMNS: MediaColumn[] = [
   { media: "X", label: "自己紹介ツイート", field: "self_intro_tweeted" },
   { media: "X", label: "ログイン情報", auto: "x_login" },
 ];
+
+export const MEDIA_COLUMNS: MediaColumn[] = ALL_COLUMNS.filter((column) => ESTHE_RANKING_ACTIVE || column.media !== "エスラン");
+
+// 一覧に出す媒体（表の見出しの順）
+export const MEDIA_NAMES = [...new Set(MEDIA_COLUMNS.map((column) => column.media))];
 
 export interface MediaAutoStatus {
   estama_synced: boolean;

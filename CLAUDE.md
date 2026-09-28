@@ -85,7 +85,8 @@
 ## 教育・媒体登録・SNS連携（/education）
 
 - セラピストの講習状況・媒体登録状況・SNS連携を1画面で管理する（タブは `?tab=status|media|sns|curriculum`）
-- 媒体登録状況（`src/components/education/MediaRegistrationMatrix.tsx`）: エステ魂・エスラン・O2・Xの登録を1表で見て切り替える。手でチェックする8項目は casts の真偽値列（`estama_listed` など、スタッフ画面の「登録・SNS準備」と同じ）、「自動連携」「魂セラピスト」「ログイン情報」は `external_cast_profiles` と `get_sns_connection_overview_v9` から自動で出す（`src/lib/mediaRegistration.ts`）
+- 媒体登録状況（`src/components/education/MediaRegistrationMatrix.tsx`）: エステ魂・O2・Xの登録を1表で見て切り替える。手でチェックする項目は casts の真偽値列（`estama_listed` など、スタッフ画面の「登録・SNS準備」と同じ）、「自動連携」「魂セラピスト」「ログイン情報」は `external_cast_profiles` と `get_sns_connection_overview_v9` から自動で出す（`src/lib/mediaRegistration.ts`）
+- エスラン（メンズエステランキング）は今は掲載していないので、`src/lib/mediaRegistration.ts` の `ESTHE_RANKING_ACTIVE = false` で登録状況の列・スタッフ画面のチェック・セラピストDBのランキング転記・シフトのエスラン登録欄を隠している。掲載を再開したら true に戻す（データは残してある）
 - SNS連携・ログイン情報は `src/pages/O2Management.tsx`（教育画面のタブとして表示）。以前の `/marketing/o2` は `/education?tab=sns` へ転送
 
 ## 予約案内ページ（SMSのリンク先）

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import { ESTHE_RANKING_ACTIVE } from "@/lib/mediaRegistration";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Archive, ArchiveRestore, Search, Save, X, Plus, ExternalLink, Copy, RefreshCw } from "lucide-react";
@@ -394,15 +395,17 @@ export default function TherapistDatabase() {
                         )}
                         {selectedCast.is_active ? "アーカイブ" : "在籍中に戻す"}
                       </Button>
-                      <button
-                        onClick={handleSyncRanking}
-                        disabled={syncingRanking}
-                        className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors disabled:opacity-50"
-                        title="メンズエステランキングに転記"
-                      >
-                        <RefreshCw size={11} className={syncingRanking ? "animate-spin" : ""} />
-                        ランキング転記
-                      </button>
+                      {ESTHE_RANKING_ACTIVE && (
+                        <button
+                          onClick={handleSyncRanking}
+                          disabled={syncingRanking}
+                          className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors disabled:opacity-50"
+                          title="メンズエステランキングに転記"
+                        >
+                          <RefreshCw size={11} className={syncingRanking ? "animate-spin" : ""} />
+                          ランキング転記
+                        </button>
+                      )}
                       {tokenMap[selectedCast.id] ? (
                         <div className="flex gap-1.5">
                           <button
@@ -570,18 +573,20 @@ export default function TherapistDatabase() {
                           {textField("o2_url", "O2 プロフィールURL")}
                         </div>
 
-                        <div className="pt-2 border-t space-y-2">
-                          <Label className="text-muted-foreground text-xs font-semibold tracking-wider">メンズエステランキング</Label>
-                          <div>
-                            <Label>ランキングサイト キャストID</Label>
-                            <Input
-                              value={castEdit.ranking_cast_id ?? ""}
-                              onChange={(e) => setCast("ranking_cast_id", e.target.value)}
-                              placeholder="ランキングサイト管理画面のキャストID"
-                            />
-                            <p className="text-xs text-muted-foreground mt-1">転記ボタンはこのIDで管理画面にアクセスします</p>
+                        {ESTHE_RANKING_ACTIVE && (
+                          <div className="pt-2 border-t space-y-2">
+                            <Label className="text-muted-foreground text-xs font-semibold tracking-wider">メンズエステランキング</Label>
+                            <div>
+                              <Label>ランキングサイト キャストID</Label>
+                              <Input
+                                value={castEdit.ranking_cast_id ?? ""}
+                                onChange={(e) => setCast("ranking_cast_id", e.target.value)}
+                                placeholder="ランキングサイト管理画面のキャストID"
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">転記ボタンはこのIDで管理画面にアクセスします</p>
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                         <Button onClick={handleSaveEstama} disabled={savingEstama}>
                           <Save size={14} className="mr-1.5" />
