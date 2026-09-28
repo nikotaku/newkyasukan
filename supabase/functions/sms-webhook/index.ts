@@ -7,11 +7,11 @@
 // こちらから送ったことのある番号からの返信だけを通知する（店舗を特定でき、無関係な送信で通数を使わない）。
 
 import { loadLineBookingChannel } from "../_shared/lineBookingChannel.ts";
+import { pushLineText, readLineQuota } from "../_shared/linePush.ts";
 import {
   buildSmsReplyLineMessage,
   canSendSmsReplyNotice,
   smsThreadUrl,
-  type QuotaSnapshot,
   type SmsReplyReservation,
 } from "./smsLineNotification.ts";
 
@@ -38,47 +38,6 @@ const rpcClient = {
 
 const emptyTwiml = () =>
   new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', { headers: { "Content-Type": "text/xml" } });
-
-async function lineGet(token: string, path: string) {
-  const r = await fetch(`https://api.line.me${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    signal: AbortSignal.timeout(5_000),
-  });
-  if (!r.ok) throw new Error(`line ${r.status}`);
-  return await r.json();
-}
-
-async function readQuota(token: string, groupId: string): Promise<QuotaSnapshot | null> {
-  try {
-    const [quota, consumption, members] = await Promise.all([
-      lineGet(token, "/v2/bot/message/quota"),
-      lineGet(token, "/v2/bot/message/quota/consumption"),
-      lineGet(token, `/v2/bot/group/${encodeURIComponent(groupId)}/members/count`),
-    ]);
-    return {
-      limit: quota?.type === "limited" ? Number(quota.value) : null,
-      used: Number(consumption?.totalUsage ?? 0),
-      members: Number(members?.count ?? 1),
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function pushLine(token: string, groupId: string, text: string, retryKey: string) {
-  try {
-    const r = await fetch("https://api.line.me/v2/bot/message/push", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "X-Line-Retry-Key": retryKey },
-      body: JSON.stringify({ to: groupId, messages: [{ type: "text", text }] }),
-      signal: AbortSignal.timeout(10_000),
-    });
-    const accepted = r.status === 409 && Boolean(r.headers.get("x-line-accepted-request-id"));
-    return { ok: r.ok || accepted, status: r.status };
-  } catch {
-    return { ok: false, status: 0 };
-  }
-}
 
 async function notifySmsReplyToLine(input: {
   logId: string;
@@ -119,9 +78,9 @@ async function notifySmsReplyToLine(input: {
   if (bookingGroup) {
     const { token } = await loadLineBookingChannel(rpcClient);
     if (token) {
-      const quota = await readQuota(token, bookingGroup);
+      const quota = await readLineQuota(token, bookingGroup);
       if (canSendSmsReplyNotice(quota)) {
-        const result = await pushLine(token, bookingGroup, message, input.logId);
+        const result = await pushLineText(token, bookingGroup, message, input.logId);
         if (result.ok) return;
         console.warn("SMS reply LINE notification failed", { account: "booking", status: result.status });
       } else {
@@ -133,7 +92,7 @@ async function notifySmsReplyToLine(input: {
   const mainToken = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN");
   const mainGroup = groups.get("operations") || Deno.env.get("LINE_GROUP_ID") || null;
   if (mainToken && mainGroup) {
-    const result = await pushLine(mainToken, mainGroup, message, input.logId);
+    const result = await pushLineText(mainToken, mainGroup, message, input.logId);
     if (result.ok) return;
     console.warn("SMS reply LINE notification failed", { account: "main", status: result.status });
   }

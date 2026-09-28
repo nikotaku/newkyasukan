@@ -2,6 +2,8 @@
 // 予約通知専用アカウントは月の無料枠が小さく、WEB予約通知を漏らさないことを最優先にするため、
 // 残り通数がWEB予約通知の予備分を下回ったらSMS返信の通知は送らない。
 
+import type { QuotaSnapshot } from "../_shared/linePush.ts";
+
 export interface SmsReplyReservation {
   date: string | null;
   time: string | null;
@@ -59,13 +61,7 @@ export function buildSmsReplyLineMessage(input: SmsReplyMessageInput) {
   return lines.join("\n");
 }
 
-export interface QuotaSnapshot {
-  // null = 上限なし（有料プランの従量課金など）
-  limit: number | null;
-  used: number;
-  // グループへの送信は参加人数分カウントされる
-  members: number;
-}
+export type { QuotaSnapshot };
 
 // WEB予約通知のために残しておく通知回数
 export const WEB_BOOKING_RESERVED_NOTIFICATIONS = 15;
