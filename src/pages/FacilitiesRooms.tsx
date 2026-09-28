@@ -10,7 +10,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Plus, MapPin, KeyRound, DoorOpen, Save, Upload, X, MessageSquare, Link, AlertTriangle } from "lucide-react";
+import { Trash2, Plus, MapPin, KeyRound, DoorOpen, Save, Upload, X, MessageSquare, Link, AlertTriangle, ArrowUp, ArrowDown, Route } from "lucide-react";
+import { RouteGuideSteps, type RouteGuideStep } from "@/components/public/RouteGuideSteps";
 
 interface Room {
   id: string;
@@ -24,6 +25,8 @@ interface Room {
   sms_text: string | null;
   map_url: string | null;
   caution_text: string | null;
+  // お客様向けの道順（予約案内ページ /r/:token で自動再生）。entry_* はセラピスト向けなので別
+  customer_guide_steps: RouteGuideStep[] | null;
 }
 
 interface EquipmentItem {
@@ -61,6 +64,7 @@ export default function FacilitiesRooms() {
   const [saving, setSaving] = useState(false);
   const [uploadingEntryPhotos, setUploadingEntryPhotos] = useState(false);
   const entryPhotoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingGuideStep, setUploadingGuideStep] = useState<number | null>(null);
 
   const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
   const [supplies, setSupplies] = useState<SupplyItem[]>([]);
@@ -100,7 +104,7 @@ export default function FacilitiesRooms() {
     try {
       const { data, error } = await supabase
         .from("rooms" as any)
-        .select("id,name,room_type,address,entry_flow,key_number,key_info,entry_photos,sms_text,map_url,caution_text")
+        .select("id,name,room_type,address,entry_flow,key_number,key_info,entry_photos,sms_text,map_url,caution_text,customer_guide_steps")
         .order("name");
       if (error && error.code !== "PGRST116") throw error;
       const list = (data || []) as unknown as Room[];
@@ -156,6 +160,7 @@ export default function FacilitiesRooms() {
           sms_text: draft.sms_text || null,
           map_url: draft.map_url || null,
           caution_text: draft.caution_text || null,
+          customer_guide_steps: (draft.customer_guide_steps || []).filter((step) => step.image_url || step.text?.trim()),
         })
         .eq("id", draft.id);
       if (error) throw error;
@@ -189,6 +194,36 @@ export default function FacilitiesRooms() {
     } finally {
       setUploadingEntryPhotos(false);
       if (entryPhotoInputRef.current) entryPhotoInputRef.current.value = "";
+    }
+  };
+
+  const guideSteps = draft?.customer_guide_steps || [];
+  const setGuideSteps = (steps: RouteGuideStep[]) => {
+    if (draft) setDraft({ ...draft, customer_guide_steps: steps });
+  };
+  const moveGuideStep = (index: number, delta: number) => {
+    const next = [...guideSteps];
+    const target = index + delta;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    setGuideSteps(next);
+  };
+
+  const handleGuideStepPhoto = async (index: number, file: File | undefined) => {
+    if (!draft || !file) return;
+    setUploadingGuideStep(index);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `guide/${draft.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("entry-photos").upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("entry-photos").getPublicUrl(path);
+      setGuideSteps(guideSteps.map((step, i) => (i === index ? { ...step, image_url: urlData.publicUrl } : step)));
+    } catch (err) {
+      console.error(err);
+      toast.error("写真のアップロードに失敗しました");
+    } finally {
+      setUploadingGuideStep(null);
     }
   };
 
@@ -426,11 +461,83 @@ export default function FacilitiesRooms() {
                       onChange={(e) => setDraft({ ...draft, caution_text: e.target.value })}
                       placeholder={`例：\n・到着5分前にご連絡ください。\n・駐車場はございません。\n・飲食物のお持ち込みはご遠慮ください。`}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">SMSの末尾に「【注意事項】」として追記されます</p>
+                    <p className="text-xs text-muted-foreground mt-1">予約案内ページの「ご来店時のお願い」に表示されます（艶華以外の店舗はSMSの末尾にも追記）</p>
                   </div>
                   <Button onClick={handleSaveRoom} disabled={saving} className="gap-1.5">
                     <Save size={15} />{saving ? "保存中..." : "基本情報を保存"}
                   </Button>
+                </CardContent>
+              </Card>
+
+              {/* お客様向けの道順（予約案内ページ） */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2"><Route size={16} />お客様向けの道順（予約案内ページ）</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    予約確認SMSのリンク先のページで、写真と説明を1枚ずつ自動で流します。最寄り駅から入口・インターホンまでの順に登録してください。
+                    鍵番号などセラピスト向けの情報は書かないでください。
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {guideSteps.map((step, index) => (
+                    <div key={index} className="flex gap-3 border rounded-md p-3">
+                      <div className="w-28 shrink-0 space-y-1">
+                        {step.image_url ? (
+                          <img src={step.image_url} alt="" className="w-28 h-20 object-cover rounded-md border" />
+                        ) : (
+                          <div className="w-28 h-20 rounded-md border border-dashed flex items-center justify-center text-xs text-muted-foreground">写真なし</div>
+                        )}
+                        <label className="block text-center text-xs text-primary cursor-pointer">
+                          {uploadingGuideStep === index ? "アップロード中..." : step.image_url ? "写真を変更" : "写真を選択"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploadingGuideStep !== null}
+                            onChange={(e) => {
+                              handleGuideStepPhoto(index, e.target.files?.[0]);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <Label className="text-xs">STEP {index + 1}</Label>
+                        <Textarea
+                          className="mt-1"
+                          rows={3}
+                          value={step.text || ""}
+                          onChange={(e) => setGuideSteps(guideSteps.map((s, i) => (i === index ? { ...s, text: e.target.value } : s)))}
+                          placeholder="例：北四番丁駅の北2出口を出て右へ進みます"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => moveGuideStep(index, -1)} disabled={index === 0} aria-label="上へ">
+                          <ArrowUp size={14} />
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => moveGuideStep(index, 1)} disabled={index === guideSteps.length - 1} aria-label="下へ">
+                          <ArrowDown size={14} />
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0 text-rose-600" onClick={() => setGuideSteps(guideSteps.filter((_, i) => i !== index))} aria-label="削除">
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setGuideSteps([...guideSteps, { image_url: null, text: "" }])}>
+                      <Plus size={14} />ステップを追加
+                    </Button>
+                    <Button type="button" size="sm" onClick={handleSaveRoom} disabled={saving} className="gap-1.5">
+                      <Save size={14} />{saving ? "保存中..." : "道順を保存"}
+                    </Button>
+                  </div>
+                  {guideSteps.some((step) => step.image_url || step.text?.trim()) && (
+                    <div className="rounded-xl p-4 max-w-sm" style={{ backgroundColor: "var(--pub-card,#211320)", color: "var(--pub-text,#f7e9f0)" }}>
+                      <p className="text-xs mb-2 opacity-70">お客様に見える表示（プレビュー）</p>
+                      <RouteGuideSteps steps={guideSteps} />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

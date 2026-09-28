@@ -50,6 +50,7 @@ import PublicCastDiary from "./pages/public/CastDiary";
 import PublicPricing from "./pages/public/Pricing";
 import PublicSystem from "./pages/public/System";
 import PublicAccess from "./pages/public/Access";
+import ReservationGuide from "./pages/public/ReservationGuide";
 import BlogIndex from "./pages/public/BlogIndex";
 import BlogArticle from "./pages/public/BlogArticle";
 import NotionPageView from "./pages/NotionPageView";
@@ -182,6 +183,7 @@ const App = () => {
           <Route path="/pricing" element={<PublicPricing />} />
           <Route path="/system" element={<PublicSystem />} />
           <Route path="/access" element={<PublicAccess />} />
+          <Route path="/r/:token" element={<ReservationGuide />} />
           <Route path="/blog" element={<BlogIndex />} />
           <Route path="/blog/:slug" element={<BlogArticle />} />
           <Route path="/booking" element={<BookingReservation />} />

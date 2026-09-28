@@ -85,9 +85,14 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    href: "/sms",
+    // SMSの機能はここにまとめる（受信箱・自動送信テンプレート（予約確定・サンクス・クーポン）・送信履歴）
     label: "SMS",
     icon: MessageSquare,
+    children: [
+      { href: "/sms", label: "受信箱・送信" },
+      { href: "/system/sms-auto", label: "自動送信・サンクス・クーポン" },
+      { href: "/system/sms", label: "送信履歴" },
+    ],
   },
   {
     href: "/sales/daily-sales",
@@ -148,13 +153,6 @@ const menuItems: MenuItem[] = [
           { href: "/system/deductions", label: "控除" },
           { href: "/system/allowances", label: "手当" },
           { href: "/system/referral-rewards", label: "広告費" },
-        ],
-      },
-      {
-        groupLabel: "SMS",
-        items: [
-          { href: "/system/sms", label: "SMS" },
-          { href: "/system/sms-auto", label: "SMS自動送信" },
         ],
       },
       {
@@ -318,6 +316,11 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                     >
                       <Icon size={16} />
                       {item.label}
+                      {item.label === "SMS" && smsUnread > 0 && (
+                        <span className="min-w-5 h-5 px-1.5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                          {smsUnread > 99 ? "99+" : smsUnread}
+                        </span>
+                      )}
                       <ChevronDown
                         size={14}
                         className={cn("ml-auto transition-transform", isExpanded ? "rotate-180" : "")}
@@ -334,11 +337,6 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                     >
                       <Icon size={16} />
                       {item.label}
-                      {item.href === "/sms" && smsUnread > 0 && (
-                        <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
-                          {smsUnread > 99 ? "99+" : smsUnread}
-                        </span>
-                      )}
                     </Link>
                   )}
 
@@ -364,6 +362,11 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                               )}
                             >
                               {child.label}
+                              {child.href === "/sms" && smsUnread > 0 && (
+                                <span className="ml-1.5 inline-flex min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold items-center justify-center">
+                                  {smsUnread > 99 ? "99+" : smsUnread}
+                                </span>
+                              )}
                             </Link>
                           </div>
                         );
