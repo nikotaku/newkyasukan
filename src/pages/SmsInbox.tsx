@@ -8,6 +8,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { SmsBillingCard } from "@/components/SmsBillingCard";
+import { describeSmsCost } from "@/lib/smsSegments";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { supabase } from "@/integrations/supabase/client";
@@ -222,6 +224,7 @@ export default function SmsInbox() {
                   <Plus size={14} className="mr-1" />新規
                 </Button>
               </div>
+              <SmsBillingCard compact />
               {newOpen && (
                 <div className="flex gap-2">
                   <Input
@@ -348,7 +351,15 @@ export default function SmsInbox() {
                   <div ref={bottomRef} />
                 </div>
 
-                <div className="border-t p-2 flex gap-2 items-end">
+                {draft.trim() && (() => {
+                  const cost = describeSmsCost(draft);
+                  return (
+                    <p className="border-t px-3 pt-1.5 text-[11px] text-muted-foreground text-right">
+                      {cost.length}文字・{cost.segments}通分（約{cost.yen}円）
+                    </p>
+                  );
+                })()}
+                <div className={cn("p-2 flex gap-2 items-end", !draft.trim() && "border-t")}>
                   <Textarea
                     rows={2}
                     value={draft}

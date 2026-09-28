@@ -19,6 +19,7 @@
     "test:booking-notification": "node --experimental-strip-types --test tests/lineBookingNotification.test.ts",
     "test:sms-notification": "node --experimental-strip-types --test tests/smsReplyLineNotification.test.ts",
     "test:report-email": "node --experimental-strip-types --test tests/reportEmailParse.test.ts",
+    "test:sms-billing": "node --experimental-strip-types --test tests/smsBilling.test.ts tests/smsSegments.test.ts",
     "test:referral-rewards": "node --experimental-strip-types --test tests/referralRewards.test.ts",
     "preview": "vite preview"
   },

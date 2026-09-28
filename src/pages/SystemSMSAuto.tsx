@@ -18,6 +18,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminStore } from "@/hooks/useAdminStore";
+import { SmsBillingCard } from "@/components/SmsBillingCard";
+import { describeSmsCost, fillSmsTemplateSample } from "@/lib/smsSegments";
 import { Plus, Trash2, Pencil, X } from "lucide-react";
 
 interface SMSTemplate {
@@ -37,6 +39,9 @@ const EMPTY_FORM = {
   message: "",
   is_active: true,
 };
+
+// 送信時の目安（変数は例の値で埋めて数える）
+const templateCost = (message: string) => describeSmsCost(fillSmsTemplateSample(message));
 
 const triggerLabels: Record<string, string> = {
   reservation_confirmed: "予約確定時",
@@ -176,6 +181,8 @@ export default function SystemSMSAuto() {
             </Button>
           </div>
 
+          <SmsBillingCard />
+
           {showForm && (
             <Card className="mb-6">
               <CardHeader>
@@ -221,6 +228,14 @@ export default function SystemSMSAuto() {
                       rows={6}
                       required
                     />
+                    {formData.message && (() => {
+                      const cost = templateCost(formData.message);
+                      return (
+                        <p className={`text-xs mt-1 ${cost.segments >= 3 ? "text-amber-600" : "text-muted-foreground"}`}>
+                          送信時の目安：{cost.length}文字・{cost.segments}通分（1件 約{cost.yen}円）※変数は例の値で計算。日本語は67〜70文字ごとに1通分
+                        </p>
+                      );
+                    })()}
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit">{editingId ? "更新" : "保存"}</Button>
@@ -253,6 +268,9 @@ export default function SystemSMSAuto() {
                           <span className="font-semibold">{template.name}</span>
                           <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
                             {triggerLabels[template.trigger] || template.trigger}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            約{templateCost(template.message).segments}通分・{templateCost(template.message).yen}円
                           </span>
                           {template.timing_minutes !== 0 && (
                             <span className="text-xs text-muted-foreground">
