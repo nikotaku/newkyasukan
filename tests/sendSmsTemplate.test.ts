@@ -4,8 +4,8 @@ import test from "node:test";
 import { fillTemplate, reservationGuideUrl, toE164 } from "../supabase/functions/send-sms/template.ts";
 
 test("案内ページのURLは店舗の独自ドメインとトークンから作る", () => {
-  assert.equal(reservationGuideUrl("enka-salon.jp", "Ab3dE7fG9h_-"), "https://enka-salon.jp/r/Ab3dE7fG9h_-");
-  assert.equal(reservationGuideUrl("https://enka-salon.jp/", "Ab3dE7fG9h_-"), "https://enka-salon.jp/r/Ab3dE7fG9h_-");
+  assert.equal(reservationGuideUrl("enka-salon.jp", "Ab3dE7fG9h_-"), "https://enka-salon.jp/g/Ab3dE7fG9h_-");
+  assert.equal(reservationGuideUrl("https://enka-salon.jp/", "Ab3dE7fG9h_-"), "https://enka-salon.jp/g/Ab3dE7fG9h_-");
   assert.equal(reservationGuideUrl(null, "Ab3dE7fG9h_-"), "");
   assert.equal(reservationGuideUrl("enka-salon.jp", null), "");
   // 形式外のトークンはURLにしない

@@ -15,11 +15,11 @@ export function fillTemplate(template: string, values: Record<string, string>) {
   }).join("\n");
 }
 
-// 予約ごとの案内ページ（/r/:token）のURL。店舗の独自ドメインがなければ出さない
+// 予約ごとの案内ページ（/g/:token）のURL。店舗の独自ドメインがなければ出さない
 export function reservationGuideUrl(customDomain: string | null | undefined, token: string | null | undefined) {
   const domain = (customDomain || "").trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
   if (!domain || !token || !/^[A-Za-z0-9_-]{12,32}$/.test(token)) return "";
-  return `https://${domain}/r/${token}`;
+  return `https://${domain}/g/${token}`;
 }
 
 export function toE164(raw: string): string | null {
