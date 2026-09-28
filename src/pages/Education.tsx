@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Search, Save, Plus, Trash2, ChevronDown, GraduationCap, Star,
@@ -18,6 +18,8 @@ import {
 import { toast } from "sonner";
 import { driveImgUrl } from "@/lib/drive";
 import { format } from "date-fns";
+import { MediaRegistrationMatrix } from "@/components/education/MediaRegistrationMatrix";
+import O2Management from "@/pages/O2Management";
 
 interface Cast {
   id: string;
@@ -79,6 +81,12 @@ export default function Education() {
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  // タブはURL（?tab=）で開けるようにする（以前の「SNS連携管理」/marketing/o2 は ?tab=sns へ転送）
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = ["status", "media", "sns", "curriculum"].includes(searchParams.get("tab") || "")
+    ? searchParams.get("tab")!
+    : "status";
+  const changeTab = (value: string) => setSearchParams(value === "status" ? {} : { tab: value }, { replace: true });
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -260,16 +268,28 @@ export default function Education() {
           <div className="mb-6 flex items-center gap-2">
             <GraduationCap className="text-primary" size={24} />
             <div>
-              <h1 className="text-2xl font-bold">教育</h1>
-              <p className="text-muted-foreground text-sm">セラピストの講習状況・フィードバック・改善項目を管理</p>
+              <h1 className="text-2xl font-bold">教育・媒体登録</h1>
+              <p className="text-muted-foreground text-sm">講習状況と、エステ魂・エスラン・O2・Xの登録状況・SNS連携をまとめて管理</p>
             </div>
           </div>
 
-          <Tabs defaultValue="status">
-            <TabsList className="mb-4">
+          <Tabs value={tab} onValueChange={changeTab}>
+            <TabsList className="mb-4 h-auto flex-wrap justify-start">
               <TabsTrigger value="status">受講状況</TabsTrigger>
+              <TabsTrigger value="media">媒体登録状況</TabsTrigger>
+              <TabsTrigger value="sns">SNS連携・ログイン情報</TabsTrigger>
               <TabsTrigger value="curriculum">カリキュラム管理</TabsTrigger>
             </TabsList>
+
+            {/* ── 媒体登録状況（エステ魂・エスラン・O2・X） ── */}
+            <TabsContent value="media">
+              <MediaRegistrationMatrix onOpenSns={() => changeTab("sns")} />
+            </TabsContent>
+
+            {/* ── SNS連携・ログイン情報（O2・X・魂セラピスト） ── */}
+            <TabsContent value="sns">
+              <O2Management />
+            </TabsContent>
 
             {/* ── 受講状況 ── */}
             <TabsContent value="status">

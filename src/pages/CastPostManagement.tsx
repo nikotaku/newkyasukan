@@ -542,7 +542,7 @@ export default function CastPostManagement() {
                 variant="outline"
                 size="sm"
                 className="h-8 shrink-0 gap-1 px-2 text-xs"
-                onClick={() => navigate("/marketing/o2")}
+                onClick={() => navigate("/education?tab=sns")}
               >
                 SNS連携管理へ
                 <ExternalLink size={12} />

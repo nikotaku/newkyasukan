@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle, ExternalLink, Eye, EyeOff, Link2, Loader2, Pencil, RefreshCw, Send, ShieldCheck, Users, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -241,8 +239,8 @@ function PasswordControl({
   );
 }
 
+// 教育パネル（/education?tab=sns）のタブとして表示する。以前の /marketing/o2 はそこへ転送する
 export default function O2Management() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rows, setRows] = useState<O2Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -552,13 +550,11 @@ export default function O2Management() {
   const fieldsReadOnly = !isEditingCredentials || saving;
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen((value) => !value)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-[60px] md:ml-[240px] p-4 md:p-6 overflow-x-hidden">
+    <div>
+      <div className="overflow-x-hidden">
         <div className="max-w-6xl mx-auto space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div><h1 className="text-2xl font-bold">O2・X・魂セラピスト連携管理</h1><p className="text-sm text-muted-foreground">{store?.name || "店舗"}のセラピスト別アカウントと公開プロフィールを管理</p></div>
+            <div><h2 className="text-lg font-bold">O2・X・魂セラピスト連携管理</h2><p className="text-sm text-muted-foreground">{store?.name || "店舗"}のセラピスト別アカウントと公開プロフィールを管理</p></div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={load} disabled={loading}><RefreshCw size={15} className={loading ? "mr-1 animate-spin" : "mr-1"} />更新</Button>
               <Button variant="outline" asChild><a href="https://m-sns.net/cast/login/" target="_blank" rel="noreferrer">O2を開く<ExternalLink size={15} className="ml-1" /></a></Button>
@@ -642,7 +638,7 @@ export default function O2Management() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
 
       <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && !saving && closeEdit()}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">

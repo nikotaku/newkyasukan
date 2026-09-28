@@ -82,6 +82,12 @@
 - 予約通知用アカウントは既存アカウントとプロバイダーが違うため、管理者IDが一致しない。管理者以外の「予約通知登録」は、署名検証済みの依頼としてグループIDを関数ログに残す（`Unauthorized booking destination request`）ので、運用者が `line_notification_destinations` に `web_booking` として登録する
 - Edge FunctionのSecrets `LINE_BOOKING_CHANNEL_ACCESS_TOKEN` / `LINE_BOOKING_CHANNEL_SECRET` があればそちらを優先（管理者IDはプロバイダーが違う場合のみ `LINE_BOOKING_ADMIN_USER_IDS`）
 
+## 教育・媒体登録・SNS連携（/education）
+
+- セラピストの講習状況・媒体登録状況・SNS連携を1画面で管理する（タブは `?tab=status|media|sns|curriculum`）
+- 媒体登録状況（`src/components/education/MediaRegistrationMatrix.tsx`）: エステ魂・エスラン・O2・Xの登録を1表で見て切り替える。手でチェックする8項目は casts の真偽値列（`estama_listed` など、スタッフ画面の「登録・SNS準備」と同じ）、「自動連携」「魂セラピスト」「ログイン情報」は `external_cast_profiles` と `get_sns_connection_overview_v9` から自動で出す（`src/lib/mediaRegistration.ts`）
+- SNS連携・ログイン情報は `src/pages/O2Management.tsx`（教育画面のタブとして表示）。以前の `/marketing/o2` は `/education?tab=sns` へ転送
+
 ## 予約案内ページ（SMSのリンク先）
 
 - 予約ごとの案内ページ `/g/:token`（`/r/` はセラピスト別の予約リンクなので使わない）（`src/pages/public/ReservationGuide.tsx`）。予約内容・ルームの住所と地図・道順（写真のステップを自動再生）・来店時のお願い・連絡先を出す。SMSには `{guide_url}` でリンクだけ載せて通数を減らす

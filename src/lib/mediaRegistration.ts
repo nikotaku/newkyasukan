@@ -1,0 +1,75 @@
+// セラピストごとの媒体登録状況（エステ魂・エスラン・O2・X）。
+// 手でチェックする項目は casts の真偽値列、自動でわかる項目はエステ魂の連携結果とログイン情報の有無から出す。
+
+export const MEDIA_CHECKLIST_FIELDS = [
+  "estama_listed",
+  "esuran_listed",
+  "o2_created",
+  "o2_linkage_requested",
+  "x_created",
+  "x_list_added",
+  "x_ff_completed",
+  "self_intro_tweeted",
+] as const;
+
+export type MediaChecklistField = (typeof MEDIA_CHECKLIST_FIELDS)[number];
+
+export type MediaChecklist = Record<MediaChecklistField, boolean>;
+
+export interface MediaColumn {
+  media: "エステ魂" | "エスラン" | "O2" | "X";
+  label: string;
+  // field があれば手で切り替えられる。auto は連携結果から自動で決まる（読み取り専用）
+  field?: MediaChecklistField;
+  auto?: "estama_synced" | "estama_soul" | "o2_login" | "x_login";
+}
+
+export const MEDIA_COLUMNS: MediaColumn[] = [
+  { media: "エステ魂", label: "掲載", field: "estama_listed" },
+  { media: "エステ魂", label: "自動連携", auto: "estama_synced" },
+  { media: "エステ魂", label: "魂セラピスト", auto: "estama_soul" },
+  { media: "エスラン", label: "掲載", field: "esuran_listed" },
+  { media: "O2", label: "作成", field: "o2_created" },
+  { media: "O2", label: "店舗連携申請", field: "o2_linkage_requested" },
+  { media: "O2", label: "ログイン情報", auto: "o2_login" },
+  { media: "X", label: "作成", field: "x_created" },
+  { media: "X", label: "リスト入り", field: "x_list_added" },
+  { media: "X", label: "FF", field: "x_ff_completed" },
+  { media: "X", label: "自己紹介ツイート", field: "self_intro_tweeted" },
+  { media: "X", label: "ログイン情報", auto: "x_login" },
+];
+
+export interface MediaAutoStatus {
+  estama_synced: boolean;
+  estama_soul: boolean;
+  o2_login: boolean;
+  x_login: boolean;
+  estama_error: string | null;
+}
+
+export function mediaProgress(checklist: Partial<MediaChecklist>) {
+  const done = MEDIA_CHECKLIST_FIELDS.filter((field) => checklist[field]).length;
+  return { done, total: MEDIA_CHECKLIST_FIELDS.length, ratio: done / MEDIA_CHECKLIST_FIELDS.length };
+}
+
+// エステ魂でどこまで進んでいるか（一覧で1語で見せる）
+export function estamaStage(checklist: Partial<MediaChecklist>, auto: Partial<MediaAutoStatus>) {
+  if (auto.estama_soul) return "魂セラピストまで完了";
+  if (auto.estama_synced) return "プロフィール連携済み";
+  if (checklist.estama_listed) return "掲載のみ";
+  return "未登録";
+}
+
+export function autoStatusFrom(input: {
+  estamaProfile?: { sync_status: string | null; soul_status: string | null; last_error: string | null } | null;
+  sns?: { credential_configured?: boolean; x_login_id?: string | null; x_credential_configured?: boolean; estama_credential_configured?: boolean } | null;
+}): MediaAutoStatus {
+  const profile = input.estamaProfile;
+  return {
+    estama_synced: profile?.sync_status === "synced",
+    estama_soul: profile?.soul_status === "configured" || Boolean(input.sns?.estama_credential_configured),
+    o2_login: Boolean(input.sns?.credential_configured),
+    x_login: Boolean(input.sns?.x_credential_configured || input.sns?.x_login_id?.trim()),
+    estama_error: profile?.last_error || null,
+  };
+}

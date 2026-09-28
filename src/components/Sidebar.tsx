@@ -18,7 +18,6 @@ import {
   Calculator,
   CheckSquare,
   BookUser,
-  Link2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -113,11 +112,6 @@ const menuItems: MenuItem[] = [
     href: "/marketing/media",
     label: "媒体攻略",
     icon: Megaphone,
-  },
-  {
-    href: "/marketing/o2",
-    label: "SNS連携管理",
-    icon: Link2,
   },
   {
     href: "/tasks",
@@ -223,7 +217,7 @@ const menuItems: MenuItem[] = [
     children: [
       { href: "/staff", label: "新規登録" },
       { href: "/promotion-schedule", label: "投稿宣伝スケジュール" },
-      { href: "/education", label: "教育" },
+      { href: "/education", label: "教育・媒体登録・SNS連携" },
       { href: "/post-management", label: "一括投稿管理" },
       { href: "/panel-manual", label: "パネル撮影マニュアル" },
       { href: "/service-manual", label: "接客マニュアル" },
