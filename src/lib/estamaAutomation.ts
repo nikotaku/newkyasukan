@@ -14,14 +14,20 @@ export type EstamaRunResult = {
 async function requestEstamaAutomation(body: Record<string, unknown>) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error("ログインが期限切れです");
-  const response = await fetch("/api/automations/estama", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify(body),
-  });
+  let response: Response;
+  try {
+    response = await fetch("/api/automations/estama", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // iPhoneのSafariは処理が長いと「Load failed」で通信を切る。サーバー側の処理は続き、失敗してもキューで再試行される
+    throw new Error("通信が途中で切れました。エステ魂への反映はサーバー側で続いているので、数分後に画面を再読み込みして連携状態を確認してください");
+  }
   const result = await response.json().catch(() => ({})) as Record<string, unknown>;
   if (!response.ok) throw new Error(typeof result.error === "string" ? result.error : "エスたま自動化の実行に失敗しました");
   return result;

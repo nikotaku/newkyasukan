@@ -931,7 +931,7 @@ async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, 
   }
   const shouldSyncPhotos = current?.last_photo_hash !== photoHash;
   const uploadedPhotos = shouldSyncPhotos
-    ? await uploadPhotos(page, data.photos, { maxPhotos: 6, strict: true })
+    ? await uploadPhotos(page, data.photos, { maxPhotos: 6, strict: true, indexedSlots: true })
     : 0;
   const previousPhotoCount = Number(current?.last_photo_count || 0);
   const photoRemoval = shouldSyncPhotos

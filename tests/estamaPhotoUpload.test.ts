@@ -493,3 +493,34 @@ test("strictでなければ取得できた画像だけをmultiple入力欄へ設
     "photo-3.jpg",
   ]);
 });
+
+test("セラピスト編集の写真枠は n枚目を n番目の枠へ入れ、ページ側で空に戻っても失敗にしない", async () => {
+  const { calls, page } = createFakePage({
+    inputs: [createInput(), createInput(), createInput(), createInput()],
+    clearFilesOnSettle: true,
+  });
+
+  const uploaded = await uploadPhotos(page, photoUrls, {
+    maxPhotos: 6,
+    strict: true,
+    indexedSlots: true,
+    fetchPhoto: successfulFetch,
+  });
+
+  assert.equal(uploaded, 3);
+  assert.deepEqual(calls.map((call) => call.inputIndex), [0, 1, 2]);
+});
+
+test("セラピスト編集の写真枠が足りなければ中断する", async () => {
+  const { page } = createFakePage({ inputs: [createInput(), createInput()] });
+
+  await assert.rejects(
+    uploadPhotos(page, photoUrls, {
+      maxPhotos: 6,
+      strict: true,
+      indexedSlots: true,
+      fetchPhoto: successfulFetch,
+    }),
+    /写真枠が2枠しか見つかりません（指定3枚）/,
+  );
+});
