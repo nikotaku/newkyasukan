@@ -69,6 +69,7 @@ import HpBlogManagement from "./pages/HpBlogManagement";
 import BusinessFlow from "./pages/BusinessFlow";
 import StoreInfo from "./pages/StoreInfo";
 import HpSnsLinks from "./pages/HpSnsLinks";
+import HpXOperations from "./pages/HpXOperations";
 import HpTopBanners from "./pages/HpTopBanners";
 import HpKpiGoals from "./pages/HpKpiGoals";
 import SalesCustomerInfo from "./pages/SalesCustomerInfo";
@@ -223,6 +224,7 @@ const App = () => {
           <Route path="/hp/kpi-goals" element={<HpKpiGoals />} />
           <Route path="/hp/store-info" element={<StoreInfo />} />
           <Route path="/hp/sns-links" element={<HpSnsLinks />} />
+          <Route path="/hp/x-operations" element={<HpXOperations />} />
           <Route path="/hp/recommended-menu" element={<RecommendedMenu />} />
           <Route path="/report" element={<Report />} />
           <Route path="/salary" element={<Salary />} />

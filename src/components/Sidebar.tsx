@@ -80,6 +80,7 @@ const menuItems: MenuItem[] = [
       { href: "/hp/kpi-goals", label: "売上目標・KPI" },
       { href: "/hp/store-info", label: "店舗情報" },
       { href: "/hp/sns-links", label: "店舗SNSリンク" },
+      { href: "/hp/x-operations", label: "X運用表" },
       { href: "/hp/recommended-menu", label: "おすすめメニュー" },
     ],
   },
