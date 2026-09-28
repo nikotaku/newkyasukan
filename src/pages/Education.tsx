@@ -269,7 +269,7 @@ export default function Education() {
             <GraduationCap className="text-primary" size={24} />
             <div>
               <h1 className="text-2xl font-bold">教育・媒体登録</h1>
-              <p className="text-muted-foreground text-sm">講習状況と、エステ魂・エスラン・O2・Xの登録状況・SNS連携をまとめて管理</p>
+              <p className="text-muted-foreground text-sm">講習状況と、エステ魂・O2・Xの登録状況・SNS連携をまとめて管理</p>
             </div>
           </div>
 
@@ -281,7 +281,7 @@ export default function Education() {
               <TabsTrigger value="curriculum">カリキュラム管理</TabsTrigger>
             </TabsList>
 
-            {/* ── 媒体登録状況（エステ魂・エスラン・O2・X） ── */}
+            {/* ── 媒体登録状況（エステ魂・O2・X） ── */}
             <TabsContent value="media">
               <MediaRegistrationMatrix onOpenSns={() => changeTab("sns")} />
             </TabsContent>

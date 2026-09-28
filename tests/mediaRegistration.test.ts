@@ -1,11 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { autoStatusFrom, estamaStage, MEDIA_COLUMNS, mediaProgress } from "../src/lib/mediaRegistration.ts";
+import {
+  autoStatusFrom,
+  ESTHE_RANKING_ACTIVE,
+  estamaStage,
+  MEDIA_CHECKLIST_FIELDS,
+  MEDIA_COLUMNS,
+  MEDIA_NAMES,
+  mediaProgress,
+} from "../src/lib/mediaRegistration.ts";
 
-test("進捗は手でチェックする8項目で数える", () => {
-  assert.deepEqual(mediaProgress({}), { done: 0, total: 8, ratio: 0 });
+test("進捗は手でチェックする項目で数える", () => {
+  assert.deepEqual(mediaProgress({}), { done: 0, total: MEDIA_CHECKLIST_FIELDS.length, ratio: 0 });
   assert.equal(mediaProgress({ estama_listed: true, o2_created: true, x_created: true }).done, 3);
+});
+
+test("エスランは掲載していない間は一覧にも進捗にも出さない", () => {
+  assert.equal(ESTHE_RANKING_ACTIVE, false);
+  assert.equal(MEDIA_CHECKLIST_FIELDS.includes("esuran_listed"), false);
+  assert.equal(MEDIA_CHECKLIST_FIELDS.length, 7);
+  assert.deepEqual(MEDIA_NAMES, ["エステ魂", "O2", "X"]);
+  // 掲載していなくても、以前のチェックが進捗に数えられない
+  assert.equal(mediaProgress({ esuran_listed: true }).done, 0);
 });
 
 test("エステ魂の進み具合", () => {

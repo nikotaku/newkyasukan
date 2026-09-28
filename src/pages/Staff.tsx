@@ -22,6 +22,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getEstamaJobStatus, runEstamaCastAutomation, runEstamaProfileSync, startEstamaCastAutomation, type EstamaJobStatus } from "@/lib/estamaAutomation";
 import { getCastBookingUrl, getCustomDomainBaseUrl } from "@/lib/bookingUrl";
+import { ESTHE_RANKING_ACTIVE } from "@/lib/mediaRegistration";
 
 const THERAPIST_FEATURES = [
   "新人", "経験豊富", "業界未経験", "施術上手", "上品", "甘えん坊", "おとなしい", "おっとり",
@@ -203,7 +204,7 @@ type CastChecklistField =
   | "x_ff_completed"
   | "self_intro_tweeted";
 
-const CAST_CHECKLIST_ITEMS: readonly { field: CastChecklistField; label: string }[] = [
+const ALL_CAST_CHECKLIST_ITEMS: readonly { field: CastChecklistField; label: string }[] = [
   { field: "estama_listed", label: "エスたまに登録" },
   { field: "esuran_listed", label: "エスランに登録" },
   { field: "o2_created", label: "02の作成" },
@@ -213,6 +214,9 @@ const CAST_CHECKLIST_ITEMS: readonly { field: CastChecklistField; label: string 
   { field: "x_ff_completed", label: "XのFF" },
   { field: "self_intro_tweeted", label: "自己紹介ツイート" },
 ];
+
+// エスランは掲載していない間は出さない（ESTHE_RANKING_ACTIVE）
+const CAST_CHECKLIST_ITEMS = ALL_CAST_CHECKLIST_ITEMS.filter((item) => ESTHE_RANKING_ACTIVE || item.field !== "esuran_listed");
 
 interface ReferralReward {
   id: string;
