@@ -20,7 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { runEstamaCastAutomation, runEstamaProfileSync } from "@/lib/estamaAutomation";
+import { getEstamaJobStatus, runEstamaCastAutomation, runEstamaProfileSync, startEstamaCastAutomation, type EstamaJobStatus } from "@/lib/estamaAutomation";
 import { getCastBookingUrl, getCustomDomainBaseUrl } from "@/lib/bookingUrl";
 
 const THERAPIST_FEATURES = [
@@ -1306,29 +1306,51 @@ export default function Staff() {
       toast({ title: "店舗情報が見つかりません", variant: "destructive" });
       return;
     }
+    const storeId = cast.store_id;
     setEstamaRegisteringCastId(cast.id);
     try {
-      const result = await runEstamaCastAutomation({ storeId: cast.store_id, castId: cast.id });
-      const completed = (result.results || []).find((item) => item.status === "completed");
-      if (!completed) {
-        throw new Error((result.results || [])[0]?.error || "エスたま自動化設定を確認してください");
+      // サーバー側で最後まで処理する。画面を閉じても・通信が切れても続く
+      const jobId = await startEstamaCastAutomation({ storeId, castId: cast.id });
+      toast({
+        title: "エスたま登録・連携を開始しました",
+        description: "バックグラウンドで続きます。画面を閉じても大丈夫です（完了まで1〜3分）",
+      });
+
+      // 完了・失敗・（一度実行されたあとの）再試行待ちになるまで状態を見る
+      const deadline = Date.now() + 6 * 60 * 1000;
+      let job: EstamaJobStatus | null = null;
+      let sawRunning = false;
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        job = await getEstamaJobStatus(storeId, jobId).catch(() => null);
+        if (!job) continue;
+        if (job.status === "running") sawRunning = true;
+        if (["completed", "failed", "waiting_for_login"].includes(job.status)) break;
+        if (sawRunning && job.status === "queued") break;
       }
+
       const { data: latest } = await supabase
         .from("casts_admin_safe")
         .select("*")
         .eq("id", cast.id)
         .single();
-      if (latest) setEditingCast({ ...(latest as Cast), access_token: cast.access_token });
+      if (latest) setEditingCast((current) => current?.id === cast.id ? { ...(latest as Cast), access_token: cast.access_token } : current);
       await fetchCasts();
-      toast({
-        title: "エスたま登録・連携が完了しました",
-        description: completed.result?.unchanged
-          ? "内容に変更がないため、エステ魂はそのままです"
-          : "エステ魂のプロフィールを同じ内容に更新しました",
-      });
+
+      if (job?.status === "completed") {
+        toast({ title: "エスたま登録・連携が完了しました", description: "エステ魂のプロフィールを同じ内容に更新しました" });
+      } else if (job && (job.status === "failed" || job.status === "waiting_for_login" || (sawRunning && job.status === "queued"))) {
+        toast({
+          title: "エスたま登録・連携に失敗しました",
+          description: job.error_message || (job.status === "waiting_for_login" ? "エステ魂のログイン設定を確認してください" : "エスたま自動化設定を確認してください"),
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "エスたま登録・連携はまだ処理中です", description: "バックグラウンドで続いています。しばらくしてから確認してください" });
+      }
     } catch (error) {
       toast({
-        title: "エスたま登録・連携に失敗しました",
+        title: "エスたま登録・連携を開始できませんでした",
         description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });

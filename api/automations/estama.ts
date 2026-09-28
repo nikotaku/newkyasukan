@@ -7,6 +7,7 @@ import {
   startLoginSetup,
   verifyLoginSetup,
 } from "../../server/estama-automation.js";
+import { waitUntil } from "@vercel/functions";
 import { describeError } from "../../server/estama-error.js";
 import { processO2StoreAvailabilityPost } from "../../server/o2-store-availability.js";
 
@@ -82,6 +83,16 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       const { data: cast } = await admin.from("casts").select("id,store_id").eq("id", castId).eq("store_id", storeId).eq("is_active", true).maybeSingle();
       if (!cast) throw new Error("対象セラピストが見つかりません");
       const jobId = await enqueueCastJob(admin, storeId, castId);
+      if (source.background === true) {
+        // 画面を閉じても・通信が切れても最後まで処理する（レスポンス後も関数を maxDuration まで生かす）
+        waitUntil(processAvailableJobs(admin, { jobId, limit: 1 }).then((results) => {
+          console.log(JSON.stringify({ event: "estama_run_cast_background_finished", jobId, status: results[0]?.status || "none" }));
+        }).catch((error) => {
+          console.error(JSON.stringify({ event: "estama_run_cast_background_failed", jobId, error: describeError(error) }));
+        }));
+        res.status(202).json({ jobId, queued: true, results: [] });
+        return;
+      }
       const results = await processAvailableJobs(admin, { jobId, limit: 1 });
       res.status(200).json({ results });
       return;
