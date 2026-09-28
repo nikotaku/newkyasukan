@@ -89,6 +89,13 @@
 - エスラン（メンズエステランキング）は今は掲載していないので、`src/lib/mediaRegistration.ts` の `ESTHE_RANKING_ACTIVE = false` で登録状況の列・スタッフ画面のチェック・セラピストDBのランキング転記・シフトのエスラン登録欄を隠している。掲載を再開したら true に戻す（データは残してある）
 - SNS連携・ログイン情報は `src/pages/O2Management.tsx`（教育画面のタブとして表示）。以前の `/marketing/o2` は `/education?tab=sns` へ転送
 
+## X運用表「今日の投稿」（/hp/x-operations）
+
+- 運用表の「1日の投稿スケジュール」の各行に、その日のデータを流し込んで投稿文を作る（`src/lib/xDailyPosts.ts`）。集客アカウントの 本日の出勤・明日の出勤・空き枠速報・セラピスト紹介・イベント・直前枠／口コミ は shifts・reservations・discounts・customer_reviews から開くたびに作り直す。求人・店長アカウントと、データが無いときは Edge Function `generate-cast-content` の `type: "x_post"`（ログイン必須）でAIが作る
+- 営業日は朝6時切り替え。空き枠は公開サイトの「最短◯時〜」と同じ計算（`nextAvailableFor`）
+- AIで作った文・手直しした文・「投稿した」チェックは `x_daily_posts`（store_id, post_date, account_key, slot_key）。slot_key は「時間|投稿タイプ」
+- アイキャッチ画像はブラウザのcanvasで作る（`src/lib/xEyecatch.ts`、1200×675）。写真はCORSのある保存先（Supabase Storage）だけ描き、それ以外は頭文字で代わりにする
+
 ## 予約案内ページ（SMSのリンク先）
 
 - 予約ごとの案内ページ `/g/:token`（`/r/` はセラピスト別の予約リンクなので使わない）（`src/pages/public/ReservationGuide.tsx`）。予約内容・ルームの住所と地図・道順（写真のステップを自動再生）・来店時のお願い・連絡先を出す。SMSには `{guide_url}` でリンクだけ載せて通数を減らす
