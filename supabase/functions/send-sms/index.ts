@@ -47,6 +47,8 @@ const rpcClient = {
   },
 };
 
+// admin = どこかの店舗のオーナー・マネージャー（番号一覧・Webhook設定ができる）。
+// 管理権限は user_stores の role で持つ（このプロジェクトに user_roles テーブルはない）
 type Caller = { kind: "internal" } | { kind: "user"; admin: boolean; storeIds: string[] };
 
 async function authorize(req: Request): Promise<Caller | null> {
@@ -63,18 +65,15 @@ async function authorize(req: Request): Promise<Caller | null> {
   if (!r.ok) return null;
   const user = await r.json();
   if (!user?.id) return null;
-  const [roles, stores] = await Promise.all([
-    sb(`user_roles?user_id=eq.${user.id}&role=eq.admin&select=role&limit=1`),
-    sb(`user_stores?user_id=eq.${user.id}&select=store_id`),
-  ]);
-  const storeIds = (stores || []).map((row: { store_id: string }) => row.store_id);
-  const admin = Boolean(roles?.length);
-  if (!admin && !storeIds.length) return null;
+  const memberships = (await sb(`user_stores?user_id=eq.${user.id}&select=store_id,role`)) as Array<{ store_id: string; role: string }> | null;
+  const storeIds = (memberships || []).map((row) => row.store_id);
+  if (!storeIds.length) return null;
+  const admin = (memberships || []).some((row) => row.role === "owner" || row.role === "manager");
   return { kind: "user", admin, storeIds };
 }
 
 const canUseStore = (caller: Caller, storeId: string | null) =>
-  caller.kind === "internal" || caller.admin || (storeId !== null && caller.storeIds.includes(storeId));
+  caller.kind === "internal" || (storeId !== null && caller.storeIds.includes(storeId));
 
 let credentialsCache: TwilioCredentials | null = null;
 async function twilioCredentials() {
