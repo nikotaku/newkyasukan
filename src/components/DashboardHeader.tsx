@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Menu, User, LogOut, Loader2, Repeat } from "lucide-react";
+import { Menu, User, LogOut, Loader2, Repeat, Bell } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminAppManifest } from "@/hooks/useAdminAppManifest";
 import { CtiCallPopup } from "@/components/CtiCallPopup";
 import caskanLogo from "@/assets/caskan-logo.png";
 import { STORE_DEFS, otherStore, switchToStore, ZENRYOKU_STORE_ID } from "@/lib/storeSwitch";
@@ -30,6 +32,8 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
   const { store: adminStore } = useAdminStore();
   const { toast } = useToast();
   const [switching, setSwitching] = useState(false);
+  const navigate = useNavigate();
+  useAdminAppManifest();
 
   // 過去データ以外は店舗ごとのアイコンに切り替える
   const currentStoreId = adminStore?.id ?? ZENRYOKU_STORE_ID;
@@ -141,6 +145,10 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate("/settings/notifications")}>
+                  <Bell size={14} className="mr-2" />
+                  スマホ通知の設定
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={signOut} className="text-destructive">
                   <LogOut size={14} className="mr-2" />
                   ログアウト

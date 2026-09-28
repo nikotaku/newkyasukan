@@ -140,6 +140,15 @@
 - 店舗トップ（EnkaHome）に、メンエスなう（men-esthe.co.jp）のタイムラインを表示する。設定は `stores.settings.menesthe_now_widget`（`{ store: PUID, type: "timeline", theme: "dark" }`、`enabled: false` で非表示）
 - 公式の `<script src=".../widget-embed.js">` はページに直接置かない。管理画面と同じドメインで他社のJSが動き、ログイン情報（localStorage）に届いてしまうため、公式の iframe 版（`/widget/embed/shop/{PUID}/`）で埋め込む（`src/lib/menestheNowWidget.ts`）
 
+## スマホ通知（管理画面をホーム画面に追加・Web Push）
+
+- LINE通知はそのまま残し、並行してお試し中。WEB予約（booking_origin が web_form / cast_form）・お客様からのSMS返信・SMS残高不足を、管理画面を「ホーム画面に追加」した端末へプッシュ通知する
+- 設定画面は `/settings/notifications`（右上の人のアイコン →「スマホ通知の設定」、サイドバーの システム → 設定 → スマホ通知）。iPhoneはホーム画面に追加したアイコンから開かないと通知を受け取れない（iOS 16.4以降）
+- 管理画面を開いている間だけ `useAdminAppManifest()`（DashboardHeader）が manifest（`public/admin-app/`、名前「艶華 管理」・起動は `/admin-schedule`）を head に入れる。公開サイトには manifest を付けない
+- Service Worker は `public/sw-push.js`（push と通知タップだけ。fetch は横取りしない）。端末の登録は RPC `save_push_subscription`、購読は `push_subscriptions`（topics で通知の種類を選ぶ）
+- 送信は DBトリガー `trg_push_notify()` → Edge Function `push-notify`（`x-push-notify-secret` は Vault の `push_notify_internal_secret`）。購読がない店舗では呼ばない。暗号化とVAPID署名は `_shared/webPush.ts`（外部ライブラリなし）。VAPIDの鍵は Vault の `web_push_vapid_public_key` / `web_push_vapid_private_jwk`（公開鍵は `src/lib/adminPush.ts` にも載せている）
+- テスト: `npm run test:push-notify`
+
 ## AI生成機能
 
 - Edge Function `generate-cast-content` がカテゴリ別のAIコンテンツ生成を担当
