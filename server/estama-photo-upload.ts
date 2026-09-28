@@ -19,6 +19,12 @@ type UploadPhotoOptions = {
   fetchPhoto?: typeof fetch;
   requiredWidth?: number;
   requiredHeight?: number;
+  /**
+   * セラピスト編集画面のように写真枠（input[type=file]）が並んでいる画面用。
+   * n枚目を n番目の写真枠へ入れる。エステ魂側が選択直後に画像を取り込んで
+   * input を空に戻すため、送信直前の選択枚数ではなく「各枠へ設定できたか」で判定する。
+   */
+  indexedSlots?: boolean;
 };
 
 function normalizePhotoUrl(raw: string) {
@@ -109,6 +115,7 @@ export async function uploadPhotos(
     fetchPhoto = fetch,
     requiredWidth,
     requiredHeight,
+    indexedSlots = false,
   } = options;
   const hasRequiredDimensions = requiredWidth !== undefined || requiredHeight !== undefined;
   if (hasRequiredDimensions && (requiredWidth === undefined || requiredHeight === undefined)) {
@@ -168,7 +175,23 @@ export async function uploadPhotos(
   }
 
   let uploaded = 0;
-  if (multipleInputIndex >= 0 && prepared.length) {
+  const candidateInputIndexes = inputInfo.flatMap((input, index) => (input.candidate ? [index] : []));
+  if (indexedSlots) {
+    if (candidateInputIndexes.length < requestedUrls.length) {
+      errors.push(`写真枠が${candidateInputIndexes.length}枠しか見つかりません（指定${requestedUrls.length}枚）`);
+    }
+    for (const photo of prepared) {
+      const inputIndex = candidateInputIndexes[photo.index];
+      if (inputIndex === undefined) continue;
+      try {
+        await inputs.nth(inputIndex).setInputFiles(photo.file);
+        uploaded += 1;
+        await page.waitForTimeout(500);
+      } catch (error) {
+        errors.push(`${photo.index + 1}枚目の写真枠: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  } else if (multipleInputIndex >= 0 && prepared.length) {
     try {
       await inputs.nth(multipleInputIndex).setInputFiles(prepared.map(({ file }) => file));
       uploaded = prepared.length;
@@ -247,7 +270,9 @@ export async function uploadPhotos(
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
     }
-    if (selectedFiles === null) {
+    if (indexedSlots) {
+      // 写真枠はページ側で取り込み後に空へ戻るため、選択枚数では判定しない
+    } else if (selectedFiles === null) {
       errors.push("送信直前の写真枚数を確認できません");
     } else if (selectedFiles !== requestedUrls.length) {
       errors.push(`送信直前の写真枚数が一致しません（指定${requestedUrls.length}枚 / 選択${selectedFiles}枚）`);
@@ -261,6 +286,7 @@ export async function uploadPhotos(
     initialInputCount: inputInfo.length,
     finalInputCount: await finalInputs.count(),
     multipleInput: multipleInputIndex >= 0,
+    indexedSlots,
     uploaded,
     selectedFiles,
     stableChecks,
