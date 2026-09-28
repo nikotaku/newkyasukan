@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --background: 255 22% 96%;
+    --foreground: 254 20% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 254 20% 13%;
+    --primary: 257 41% 47%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 255 18% 93%;
+    --secondary-foreground: 254 20% 18%;
+    --muted: 255 18% 94%;
+    --muted-foreground: 263 8% 40%;
+    --accent: 258 60% 95%;
+    --accent-foreground: 257 48% 35%;
+    --destructive: 0 70% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --gold: 36 60% 34%;
+    --good: 151 60% 29%;
+    --warn: 26 90% 37%;
+    --border: 255 14% 87%;
+    --input: 255 12% 80%;
+    --ring: 257 41% 47%;
+    --radius: 0.75rem;
+    /* グラフの系列色（売上・費用） */
+    --series-1: #6246a8;
+    --series-2: #b5791a;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --background: 254 20% 9%;
+      --foreground: 260 33% 93%;
+      --card: 253 19% 13%;
+      --card-foreground: 260 33% 93%;
+      --primary: 255 76% 75%;
+      --primary-foreground: 254 40% 12%;
+      --secondary: 254 16% 18%;
+      --secondary-foreground: 260 33% 93%;
+      --muted: 254 16% 16%;
+      --muted-foreground: 260 11% 66%;
+      --accent: 257 30% 20%;
+      --accent-foreground: 257 80% 86%;
+      --destructive: 0 75% 64%;
+      --destructive-foreground: 254 40% 10%;
+      --gold: 39 64% 68%;
+      --good: 151 50% 55%;
+      --warn: 32 90% 62%;
+      --border: 254 14% 22%;
+      --input: 254 14% 30%;
+      --ring: 255 76% 75%;
+      --series-1: #8f73dd;
+      --series-2: #b88a33;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --background: 254 20% 9%;
+    --foreground: 260 33% 93%;
+    --card: 253 19% 13%;
+    --card-foreground: 260 33% 93%;
+    --primary: 255 76% 75%;
+    --primary-foreground: 254 40% 12%;
+    --secondary: 254 16% 18%;
+    --secondary-foreground: 260 33% 93%;
+    --muted: 254 16% 16%;
+    --muted-foreground: 260 11% 66%;
+    --accent: 257 30% 20%;
+    --accent-foreground: 257 80% 86%;
+    --destructive: 0 75% 64%;
+    --destructive-foreground: 254 40% 10%;
+    --gold: 39 64% 68%;
+    --good: 151 50% 55%;
+    --warn: 32 90% 62%;
+    --border: 254 14% 22%;
+    --input: 254 14% 30%;
+    --ring: 255 76% 75%;
+    --series-1: #8f73dd;
+    --series-2: #b88a33;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "palt";
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="range"] {
+    accent-color: hsl(var(--primary));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .eyebrow {
+    @apply text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground;
+  }
+}

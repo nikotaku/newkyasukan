@@ -116,6 +116,13 @@
 - 全店共通（本部）の経費は `shop_id = null`。固定費は `salon_expense_templates` を RPC `salon_post_fixed_expenses(月)` で計上（`template_id, template_month` で二重計上しない）。領収書は非公開バケット `salon-receipts`
 - ビルド・テストは `apps/salon-keihi` で `npm run build` / `npm test`
 
+## セラピスト登録サービス（apps/therapist-match・試作）
+
+- メンズエステのセラピストが1分で登録→受け入れ中のお店を一覧で比べて応募→運営のコーチがマンツーマンで伴走する新サービスの**試作**（仮称 Bloom）。キャスカンとは独立したサイトで、コードは `apps/therapist-match/`（独自の package.json。公開するときは Vercel の別プロジェクトでルートディレクトリ `apps/therapist-match`）
+- 今はDBなし。データはブラウザの localStorage、お店・登録者はサンプル（`src/data/seed.ts`）
+- 売上は店舗からの定額の掲載料だけ。入店人数・セラピストの売上に連動する報酬（成果報酬・スカウトバック）や、性風俗店の扱いは入れないこと（理由は `apps/therapist-match/README.md` の「収益モデルの前提」）
+- 収支シミュレーターは `src/lib/simulator.ts`。ビルド・テストは `apps/therapist-match` で `npm run build` / `npm test`
+
 ## SMS（Twilio）の残高
 
 - Twilioの認証情報は Vault の `twilio_account_sid` / `twilio_auth_token`（RPC `get_twilio_credentials()`、service_roleのみ）。Edge Functionでは `_shared/twilio.ts` の `loadTwilioCredentials()` で読む。コードに直接書かないこと
