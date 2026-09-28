@@ -270,6 +270,7 @@ const CastDetail = () => {
   const shopComment = cast.shop_comment ?? profile?.comment ?? null;
   // x_sub_account_public はHP表示オンのときだけ値が入る（DBの生成列）
   const showXSubAccount = shouldDisplayXSubAccount(cast.x_sub_account_public, true);
+  const o2Link = cast.o2_url?.trim() || cast.blog_url?.trim() || null;
 
   // Average rating
   const avgRating = reviews.length > 0
@@ -544,15 +545,15 @@ const CastDetail = () => {
                       リットリンク
                     </a>
                   )}
-                  {cast.o2_url && (
+                  {/* O2は口コミもプロフィールも同じページなので1つにまとめる（o2_url が無ければ blog_url） */}
+                  {o2Link && (
                     <a
-                      href={cast.o2_url}
+                      href={o2Link}
                       target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[var(--pub-card2,#221b12)]"
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-colors hover:bg-[var(--pub-card2,#221b12)]"
                       style={{ borderColor: "#e85298", color: "#e85298" }}
                     >
-                      <span className="text-xs font-bold">O2</span>
-                      口コミ（O2）
+                      O2
                     </a>
                   )}
                   {cast.estama_profile_url && (
@@ -564,17 +565,6 @@ const CastDetail = () => {
                     >
                       <span className="text-xs font-bold">魂</span>
                       魂セラピスト
-                    </a>
-                  )}
-                  {cast.blog_url && (
-                    <a
-                      href={cast.blog_url}
-                      target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[var(--pub-card2,#221b12)]"
-                      style={{ borderColor: "#e85298", color: "#e85298" }}
-                    >
-                      <span className="text-xs font-bold">O2</span>
-                      プロフィール（O2）
                     </a>
                   )}
                   {cast.skebiy_url && (
