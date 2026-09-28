@@ -2714,6 +2714,13 @@ export default function Staff() {
                           </button>
                         );
                       })}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); navigate("/education?tab=media"); }}
+                        className="text-[10px] px-2 py-1 text-primary underline-offset-2 hover:underline"
+                      >
+                        全員の登録状況を一覧で見る →
+                      </button>
                     </div>
                   )}
                 </div>
