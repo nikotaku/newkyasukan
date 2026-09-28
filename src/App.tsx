@@ -119,6 +119,7 @@ import PromotionSchedule from "./pages/PromotionSchedule";
 import InquiryStats from "./pages/InquiryStats";
 import Tasks from "./pages/Tasks";
 import SmsInbox from "./pages/SmsInbox";
+import NotificationSettings from "./pages/NotificationSettings";
 import Bios from "./pages/Bios";
 import CtiCalls from "./pages/CtiCalls";
 import CustomerDetail from "./pages/CustomerDetail";
@@ -295,6 +296,7 @@ const App = () => {
           <Route path="/post-management" element={<CastPostManagement />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/sms" element={<SmsInbox />} />
+          <Route path="/settings/notifications" element={<NotificationSettings />} />
           <Route path="/bios" element={<Bios />} />
           <Route path="/panel-manual" element={<PanelPhotoManual />} />
           <Route path="/service-manual" element={<CustomerServiceManual />} />
