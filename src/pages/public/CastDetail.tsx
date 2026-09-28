@@ -44,7 +44,6 @@ interface Cast {
   line_url: string | null;
   litlink_url: string | null;
   o2_url: string | null;
-  estama_profile_url: string | null;
   blog_url: string | null;
   skebiy_url: string | null;
   tags: string[] | null;
@@ -127,7 +126,7 @@ const CastDetail = () => {
 
     try {
       const [castRes, profileRes] = await Promise.all([
-        supabase.from("casts").select("id,name,age,height,bust_size,body_size,blood_type,therapist_years,type,status,photo,photos,profile,message,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,room,x_account,x_sub_account_public,instagram_url,line_url,litlink_url,o2_url,estama_profile_url,blog_url,skebiy_url,tags,shop_comment").eq("id", id).eq("store_id", storeId).eq("is_active", true).single(),
+        supabase.from("casts").select("id,name,age,height,bust_size,body_size,blood_type,therapist_years,type,status,photo,photos,profile,message,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,room,x_account,x_sub_account_public,instagram_url,line_url,litlink_url,o2_url,blog_url,skebiy_url,tags,shop_comment").eq("id", id).eq("store_id", storeId).eq("is_active", true).single(),
         supabase.from("therapist_profiles").select("*").eq("cast_id", id).maybeSingle(),
       ]);
       if (castRes.error) throw castRes.error;
@@ -486,7 +485,7 @@ const CastDetail = () => {
             )}
 
             {/* ── SNS links ── */}
-            {(cast.x_account || showXSubAccount || cast.instagram_url || cast.line_url || cast.litlink_url || cast.o2_url || cast.estama_profile_url || cast.blog_url || cast.skebiy_url) && (
+            {(cast.x_account || showXSubAccount || cast.instagram_url || cast.line_url || cast.litlink_url || cast.o2_url || cast.blog_url || cast.skebiy_url) && (
               <>
                 <SectionHeader label="SNS / LINKS" sub="各種リンク" />
                 <div className="px-5 py-4 flex flex-wrap gap-3">
@@ -554,17 +553,6 @@ const CastDetail = () => {
                       style={{ borderColor: "#e85298", color: "#e85298" }}
                     >
                       O2
-                    </a>
-                  )}
-                  {cast.estama_profile_url && (
-                    <a
-                      href={cast.estama_profile_url}
-                      target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors hover:bg-[var(--pub-card2,#221b12)]"
-                      style={{ borderColor: "#b72d5b", color: "#d85a84" }}
-                    >
-                      <span className="text-xs font-bold">魂</span>
-                      魂セラピスト
                     </a>
                   )}
                   {cast.skebiy_url && (
