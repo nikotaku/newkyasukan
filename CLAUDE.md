@@ -155,6 +155,11 @@
 - 実行には環境変数 `TYPESAFE_API_KEY` / `TEXT_MODEL_API_KEY`（OpenRouter）が必要。クラウド環境の設定で入れる。リポジトリ・チャットに書かない
 - キャスカン本体の自動化（エステ魂など）は今まで通り Browserbase。jev はアップロード・iframe 非対応
 
+## DB停止時のメンテナンス表示
+
+- Supabase が止まっている（未払いによる一時停止・障害でプロジェクトのドメインが引けない等）と、公開HPの出勤・空き枠が「出勤なし」に見えてしまう。`src/components/BackendDownNotice.tsx`（App全体に1つ）が `/auth/v1/health` を2回確かめ、つながらなければ「メンテナンス中・ご予約はお電話・LINEで」を出す。1分ごとに確かめ直し、戻ったら「再読み込み」を出すので、復旧後の作業は不要
+- DBが読めないときの電話番号・LINEの予備値は `src/hooks/useStoreContact.tsx`（艶華の 050-1785-6945）
+
 ## AI生成機能
 
 - Edge Function `generate-cast-content` がカテゴリ別のAIコンテンツ生成を担当

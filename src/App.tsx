@@ -161,6 +161,7 @@ import NewsletterUnsubscribe from "./pages/public/NewsletterUnsubscribe";
 import DispatchRegistrationAdmin from "./pages/DispatchRegistrationAdmin";
 import EstamaSyncHistory from "./pages/EstamaSyncHistory";
 import { PublicSeo } from "@/components/public/PublicSeo";
+import { BackendDownNotice } from "@/components/BackendDownNotice";
 
 const queryClient = new QueryClient();
 
@@ -173,6 +174,7 @@ const App = () => {
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <BackendDownNotice />
       <BrowserRouter>
         <Routes>
           {/* Public Pages */}
