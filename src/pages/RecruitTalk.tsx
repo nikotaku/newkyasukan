@@ -4,6 +4,7 @@ import benefitSnsManagementImage from "@/assets/recruit/enka-benefit-sns-managem
 import benefitTaxiImage from "@/assets/recruit/enka-benefit-taxi.png";
 import benefitTaxHousingImage from "@/assets/recruit/enka-benefit-tax-housing.png";
 import simultaneousPostSystemImage from "@/assets/recruit/enka-simultaneous-post-system.png";
+import recruitBannerImage from "@/assets/recruit/enka-recruit-banner-30s.webp";
 import { useStore } from "@/hooks/useStore";
 import { usePageTracking } from "@/hooks/usePageTracking";
 import {
@@ -145,6 +146,19 @@ export default function RecruitTalk() {
       data-recruit-variant={variant}
       data-recruit-preview={previewVariant ? "true" : undefined}
     >
+      {/* ===== 求人バナー（艶華。画像ストックにも同じ画像あり） ===== */}
+      {storeId === ENKA_STORE_ID && (
+        <div className="bg-[#170b12]">
+          <img
+            src={recruitBannerImage}
+            alt="日給10万円以上可能。30代のセラピストを募集しています。ブランク可能・送迎あり・未経験歓迎"
+            width={1000}
+            height={500}
+            className="mx-auto block h-auto w-full max-w-[1000px]"
+          />
+        </div>
+      )}
+
       {/* ===== HERO ===== */}
       <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-gradient-to-br from-rose-400 via-pink-400 to-amber-300">
         <div className="absolute inset-0 opacity-20 pointer-events-none">
