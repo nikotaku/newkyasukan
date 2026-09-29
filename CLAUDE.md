@@ -111,7 +111,7 @@
 
 ## サロン経費管理（apps/salon-keihi）
 
-- 美容サロン3店舗（ネイル・国分町サロン・アイラッシュ／アイブロー）の経費を一元管理する**独立サイト**。キャスカンの売上ダッシュボードが元。コードは `apps/salon-keihi/`（独自の package.json。Vercel は別プロジェクトでルートディレクトリ `apps/salon-keihi`）
+- 美容サロン4店舗（ネイル・国分町サロン・アイラッシュ・アイブロー。アイラッシュとアイブローは別店舗）の経費を一元管理する**独立サイト**。キャスカンの売上ダッシュボードが元。コードは `apps/salon-keihi/`（独自の package.json。Vercel は別プロジェクトでルートディレクトリ `apps/salon-keihi`）
 - DBはキャスカンと同じ本番プロジェクトの `salon_*` テーブル。`store_id` / `store_isolation` の対象外で、`salon_members`（owner / staff、staff は `shop_ids` で店舗を絞れる）に登録された人だけがRLSで読み書きできる。ログインはキャスカンと同じアカウント
 - 全店共通（本部）の経費は `shop_id = null`。固定費は `salon_expense_templates` を RPC `salon_post_fixed_expenses(月)` で計上（`template_id, template_month` で二重計上しない）。領収書は非公開バケット `salon-receipts`
 - ビルド・テストは `apps/salon-keihi` で `npm run build` / `npm test`
