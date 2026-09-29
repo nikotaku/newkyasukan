@@ -160,6 +160,16 @@
 - Supabase が止まっている（未払いによる一時停止・障害でプロジェクトのドメインが引けない等）と、公開HPの出勤・空き枠が「出勤なし」に見えてしまう。`src/components/BackendDownNotice.tsx`（App全体に1つ）が `/auth/v1/health` を2回確かめ、つながらなければ「メンテナンス中・ご予約はお電話・LINEで」を出す。1分ごとに確かめ直し、戻ったら「再読み込み」を出すので、復旧後の作業は不要
 - DBが読めないときの電話番号・LINEの予備値は `src/hooks/useStoreContact.tsx`（艶華の 050-1785-6945）
 
+## 店舗の投稿先・Xの自動投稿（SNS連携管理）
+
+- SNS連携管理（`/education?tab=sns`）の「店舗の投稿先」（`src/components/sns/StorePostChannels.tsx`）で、店舗として投稿するアカウントをまとめて管理する。X の各アカウント（運用表の shukyaku / kyujin / tencho）はキー4つ（API Key・Secret・Access Token・Secret）、その他の媒体はURL・ID・パスワード。O2 の店舗アカウントはすぐ下の既存の O2StoreAvailabilitySettings
+- 表は `store_post_channels`。キー・パスワードは Vault（`store_post_channel:<id>:<項目>`）にだけ入れ、画面には「登録済み」しか返さない（RPC `get_store_post_channels` / `save_store_post_channel` / `set_store_post_channel_state` / `delete_store_post_channel` / `reveal_store_post_channel_password`（その他の媒体だけ）。X のキーは表示しない）
+- 自動投稿：pg_cron `x-auto-post-every-5-minutes` → `private.dispatch_x_auto_post()`（自動投稿オンの X アカウントがあるときだけ）→ Edge Function `x-auto-post`（`x-auto-post-secret` は Vault の `x_auto_post_internal_secret`）。運用表の「決まった形の投稿」（出勤・空き枠・紹介・イベント・直前枠・口コミ）だけを時間から30分以内に出す。AIの下書きは出さない（人が確認して手動）
+- 判定は `src/lib/xAutoPost.ts`、材料集めは `src/lib/xPostContext.ts`（画面と共通）、X API（OAuth 1.0a 署名）は `supabase/functions/_shared/xApi.ts`。結果は `x_daily_posts.publish_status`（posting / posted / failed / skipped）と `post_url`・`error_message`。二重投稿は RPC `claim_x_auto_post` で防ぐ
+- キー無効・権限不足・上限（401/402/403/429）や3回続けての失敗で、そのアカウントの自動投稿を止める（`paused_at`）。画面の「再開」で戻す
+- Edge Function は `src/lib/` のファイルを相対パスで読むので、デプロイするときは `src/lib/xPostContext.ts`・`xAutoPost.ts`・`xDailyPosts.ts`・`availability.ts`・`bookingUrl.ts`・`xOperationsPlan.ts` も一緒に送る（entrypoint は `supabase/functions/x-auto-post/index.ts`）
+- テスト: `npm run test:x-auto-post`
+
 ## AI生成機能
 
 - Edge Function `generate-cast-content` がカテゴリ別のAIコンテンツ生成を担当

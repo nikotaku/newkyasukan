@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { isValidEmail } from "@/lib/email";
 import { hasSavedXId, normalizeXId } from "@/lib/sns-connection-status";
 import { O2StoreAvailabilitySettings } from "@/components/O2StoreAvailabilitySettings";
+import { StorePostChannels } from "@/components/sns/StorePostChannels";
 
 type O2Row = {
   cast_id: string;
@@ -564,6 +565,8 @@ export default function O2Management() {
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
             魂セラピストの初回設定は手動で完了してください。同時投稿では、ここに保存した魂セラピスト専用のID・パスワードで固定ログイン画面から投稿します。
           </div>
+
+          <StorePostChannels />
 
           <O2StoreAvailabilitySettings />
 
