@@ -8,7 +8,7 @@ import { useStore } from "@/hooks/useStore";
  * 管理画面の「店舗情報」（/hp/store-info）で変更すると公開HP全体に反映される。
  */
 
-const DEFAULT_PHONE = "09081264042";
+const DEFAULT_PHONE = "05017856945";
 const DEFAULT_LINE_URL = "https://lin.ee/RdRhmXw";
 const DEFAULT_HOURS = "12:00〜26:00(24:40最終受付)";
 
