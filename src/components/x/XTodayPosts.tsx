@@ -4,20 +4,18 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { getCastBookingUrl, getCustomDomainBaseUrl } from "@/lib/bookingUrl";
-import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from "@/lib/availability";
+import { getCustomDomainBaseUrl } from "@/lib/bookingUrl";
+import { loadXPostContext } from "@/lib/xPostContext";
 import { cn } from "@/lib/utils";
 import {
   buildAiFacts,
   buildDailyPosts,
   businessDate,
   dayLabel,
-  nextAvailableFor,
   shiftDate,
   weekdayOf,
   xWeightedLength,
   X_MAX_WEIGHT,
-  type XCast,
   type XDailyPost,
   type XPostContext,
 } from "@/lib/xDailyPosts";
@@ -37,16 +35,11 @@ interface SavedPost {
   text_source: "ai" | "edited" | null;
   posted_at: string | null;
   posted_text: string | null;
+  // 自動投稿（x-auto-post）の状態。手動のときは null
+  publish_status?: "posting" | "posted" | "failed" | "skipped" | null;
+  post_url?: string | null;
+  error_message?: string | null;
 }
-
-type ShiftRow = {
-  shift_date: string;
-  cast_id: string;
-  start_time: string;
-  end_time: string;
-  approval_status: string | null;
-  casts: { id: string; name: string; photo: string | null; shop_comment: string | null; profile: string | null; is_active: boolean; is_visible: boolean } | null;
-};
 
 const ACCOUNT_COLORS: Record<string, string> = {
   shukyaku: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
@@ -58,14 +51,6 @@ const ACCOUNT_COLORS: Record<string, string> = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const untypedFrom = (table: "x_daily_posts" | "store_info") => (supabase as any).from(table);
 const postsTable = () => untypedFrom("x_daily_posts");
-
-const tokyoNow = () => {
-  const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  return { minutes: now.getUTCHours() * 60 + now.getUTCMinutes(), label: now.toISOString().slice(11, 16) };
-};
-
-const discountLabel = (type: string, value: number) =>
-  /percent/.test(type) ? `${value}%OFF` : `${Number(value).toLocaleString("ja-JP")}円引き`;
 
 // 折り返しも含めて全文が見える高さに合わせる
 function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
@@ -100,84 +85,22 @@ export function XTodayPosts({ plan, store }: { plan: XOperationsPlan; store: Sto
 
   const load = useCallback(async () => {
     setLoading(true);
-    const tomorrow = shiftDate(date, 1);
-    const [shiftsRes, reservationsRes, settingsRes, discountsRes, reviewsRes, infoRes, savedRes] = await Promise.all([
-      supabase
-        .from("shifts")
-        .select("shift_date,cast_id,start_time,end_time,approval_status,casts(id,name,photo,shop_comment,profile,is_active,is_visible)")
+    const [{ context: nextContext, errors }, savedRes] = await Promise.all([
+      loadXPostContext(supabase, {
+        storeId: store.id,
+        storeName: store.name,
+        customDomain: store.custom_domain,
+        fallbackBaseUrl: window.location.origin,
+        date,
+      }),
+      postsTable()
+        .select("account_key,slot_key,text,text_source,posted_at,posted_text,publish_status,post_url,error_message")
         .eq("store_id", store.id)
-        .in("shift_date", [date, tomorrow])
-        .order("start_time"),
-      supabase
-        .from("reservations")
-        .select("cast_id,start_time,duration,status")
-        .eq("store_id", store.id)
-        .eq("reservation_date", date)
-        .neq("status", "cancelled"),
-      supabase.from("shop_settings").select("reservation_interval_minutes").eq("store_id", store.id).limit(1).maybeSingle(),
-      supabase.from("discounts").select("name,discount_type,discount_value").eq("store_id", store.id).eq("is_active", true).order("discount_value", { ascending: false }),
-      supabase
-        .from("customer_reviews")
-        .select("therapist_name,review_text,rating")
-        .eq("store_id", store.id)
-        .eq("is_published", true)
-        .order("created_at", { ascending: false })
-        .limit(5),
-      untypedFrom("store_info").select("phone").eq("store_id", store.id).limit(1).maybeSingle(),
-      postsTable().select("account_key,slot_key,text,text_source,posted_at,posted_text").eq("store_id", store.id).eq("post_date", date),
+        .eq("post_date", date),
     ]);
-    if (shiftsRes.error) toast.error(`出勤を読み込めませんでした: ${shiftsRes.error.message}`);
+    errors.forEach((message) => toast.error(message));
     if (savedRes.error) toast.error(`投稿チェックを読み込めませんでした: ${savedRes.error.message}`);
-
-    const interval = (settingsRes.data as { reservation_interval_minutes?: number } | null)?.reservation_interval_minutes ?? DEFAULT_RESERVATION_INTERVAL_MINUTES;
-    const reservations = (reservationsRes.data ?? []) as Array<{ cast_id: string; start_time: string; duration: number }>;
-    const now = tokyoNow();
-    const bookingBase = getCustomDomainBaseUrl(store.custom_domain) ?? window.location.origin;
-
-    const castsFor = (day: string, withAvailability: boolean): XCast[] => {
-      const seen = new Set<string>();
-      return ((shiftsRes.data ?? []) as unknown as ShiftRow[])
-        .filter((s) => s.shift_date === day && s.approval_status !== "rejected" && s.casts?.is_active && s.casts?.is_visible)
-        .filter((s) => (seen.has(s.cast_id) ? false : (seen.add(s.cast_id), true)))
-        .map((s) => ({
-          id: s.cast_id,
-          name: s.casts!.name,
-          photo: s.casts!.photo,
-          start: s.start_time.slice(0, 5),
-          end: s.end_time.slice(0, 5),
-          nextAvailable: withAvailability
-            ? nextAvailableFor(
-                { start: s.start_time.slice(0, 5), end: s.end_time.slice(0, 5) },
-                reservations.filter((r) => r.cast_id === s.cast_id),
-                interval,
-                date === businessDate(new Date()) ? now.minutes : null,
-              )
-            : null,
-          bookingUrl: getCastBookingUrl(bookingBase, s.cast_id),
-          intro: s.casts!.shop_comment || s.casts!.profile,
-        }));
-    };
-
-    const phone = ((infoRes.data as { phone?: string } | null)?.phone ?? "").replace(/\D/g, "");
-    setContext({
-      date,
-      isToday: date === businessDate(new Date()),
-      nowLabel: now.label,
-      storeName: store.name,
-      siteUrl: bookingBase,
-      phoneDisplay: phone ? phone.replace(/^(0\d{2})(\d{4})(\d{4})$/, "$1-$2-$3") : null,
-      today: castsFor(date, true),
-      tomorrow: castsFor(tomorrow, false),
-      discounts: ((discountsRes.data ?? []) as Array<{ name: string; discount_type: string; discount_value: number }>).map((d) => ({
-        name: d.name,
-        label: discountLabel(d.discount_type, d.discount_value),
-      })),
-      reviews: ((reviewsRes.data ?? []) as Array<{ therapist_name: string | null; review_text: string | null; rating: number | null }>).map((r) => ({
-        therapistName: r.therapist_name,
-        text: r.review_text ?? "",
-        rating: r.rating,
-      })),
-    });
+    setContext(nextContext);
     setSaved(Object.fromEntries(((savedRes.data ?? []) as SavedPost[]).map((row) => [keyOf(row.account_key, row.slot_key), row])));
     setDrafts({});
     setLoading(false);
@@ -448,7 +371,18 @@ export function XTodayPosts({ plan, store }: { plan: XOperationsPlan; store: Sto
                       {posted && row?.posted_at && (
                         <span className="text-[11px] text-green-700">投稿済み {new Date(row.posted_at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</span>
                       )}
+                      {row?.publish_status === "posted" && (
+                        row.post_url
+                          ? <a href={row.post_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-[11px] text-green-700 underline">自動で投稿<ExternalLink size={10} /></a>
+                          : <span className="text-[11px] text-green-700">自動で投稿</span>
+                      )}
                     </div>
+                    {row?.publish_status === "failed" && !posted && (
+                      <p className="mt-1 flex items-center gap-1 text-[11px] text-red-700"><TriangleAlert size={12} />自動投稿に失敗：{row.error_message}</p>
+                    )}
+                    {row?.publish_status === "skipped" && !posted && (
+                      <p className="mt-1 flex items-center gap-1 text-[11px] text-amber-700"><TriangleAlert size={12} />自動投稿を見送り：{row.error_message}</p>
+                    )}
                     {post.warning && !posted && (
                       <p className="mt-1 flex items-center gap-1 text-[11px] text-amber-700"><TriangleAlert size={12} />{post.warning}</p>
                     )}

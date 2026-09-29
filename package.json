@@ -19,6 +19,7 @@
     "test:booking-notification": "node --experimental-strip-types --test tests/lineBookingNotification.test.ts",
     "test:sms-notification": "node --experimental-strip-types --test tests/smsReplyLineNotification.test.ts",
     "test:push-notify": "node --experimental-strip-types --test tests/pushNotify.test.ts",
+    "test:x-auto-post": "node --experimental-strip-types --test tests/xAutoPost.test.ts",
     "test:report-email": "node --experimental-strip-types --test tests/reportEmailParse.test.ts",
     "test:media-registration": "node --experimental-strip-types --test tests/mediaRegistration.test.ts",
     "test:x-daily-posts": "node --experimental-strip-types --test tests/xDailyPosts.test.ts",
