@@ -1,5 +1,4 @@
-import { randomUUID } from "node:crypto";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import type { Page } from "playwright-core";
 import {
   ESTAMA_CAST_EDIT_URL,
@@ -8,7 +7,6 @@ import {
   createBrowserSession,
   disconnect,
   ensureAdminLogin,
-  getAdminClient,
   releaseSession,
   type Connection,
 } from "./estama-automation.js";
@@ -17,7 +15,29 @@ import {
  * エステ魂管理画面の「スカウト求人」を自動化するための処理。
  * 今は画面の作りを確かめる読み取り専用の調査（inspect）だけを持つ。
  * 送信処理は実際の画面構造を確認してから足す（推測で押して誤送信しないため）。
+ *
+ * Vercelには管理鍵を置かない。pg_cron などが発行した一回限りのトークンを
+ * claim_estama_scout_run で実行トークンに換え、DB操作はその実行トークン付きのRPCだけで行う。
  */
+
+const SUPABASE_URL = process.env.SUPABASE_URL
+  || process.env.VITE_SUPABASE_URL
+  || "https://imrxzkivwrkqbhqfbbes.supabase.co";
+const PUBLISHABLE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  || "sb_publishable_T0a9mtOIbupU5n_VAe9caw_xlnbbWfB";
+
+const createPublicClient = () => createClient(SUPABASE_URL, PUBLISHABLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+type ClaimedRun = {
+  runToken?: string;
+  storeId?: string;
+  connection?: Connection;
+  deferred?: boolean;
+  unavailable?: boolean;
+  reason?: string;
+};
 
 type RequestLike = { method?: string; body?: unknown };
 type ResponseLike = {
@@ -156,20 +176,10 @@ async function outlinePage(page: Page) {
   });
 }
 
-export async function inspectEstamaScoutPages(admin: SupabaseClient, connection: Connection) {
+export async function inspectEstamaScoutPages(connection: Connection) {
   if (!connection.browserbase_context_id) {
     throw new LoginRequiredError("Browserbaseの保存済みログイン情報がありません");
   }
-  const owner = randomUUID();
-  const { data: leased, error: leaseError } = await admin.rpc("claim_estama_context_lease", {
-    p_store_id: connection.store_id,
-    p_owner_token: owner,
-    p_operation: "estama-scout-inspect",
-    p_ttl_seconds: 300,
-  });
-  if (leaseError) throw new Error(`エスたま同時実行ロックを取得できません: ${leaseError.message}`);
-  if (leased !== true) return { deferred: true, reason: "別のエスたま処理が実行中です" };
-
   const { bb, session } = await createBrowserSession(
     connection.browserbase_context_id,
     false,
@@ -200,6 +210,8 @@ export async function inspectEstamaScoutPages(admin: SupabaseClient, connection:
         .filter((link) => /スカウト|scout/i.test(`${link.text} ${link.href}`))
         .map((link) => link.href)
         .filter((href) => /\/admin\//.test(href)))].slice(0, 3);
+      // メニューから見つからないときは、ありそうなURLを開いてみる（読むだけ）
+      if (!targets.length) targets.push("https://estama.jp/admin/scout/", "https://estama.jp/admin/recruit/scout/");
 
       const pages = [];
       for (const target of targets) {
@@ -214,16 +226,12 @@ export async function inspectEstamaScoutPages(admin: SupabaseClient, connection:
           .slice(0, 40);
         pages.push({ target, subLinks, ...outline });
       }
-      return { deferred: false, menu, scoutLinks, pages };
+      return { menu, scoutLinks, pages };
     } finally {
       await disconnect(browser);
     }
   } finally {
     await releaseSession(bb, session.id);
-    await admin.rpc("release_estama_context_lease", {
-      p_store_id: connection.store_id,
-      p_owner_token: owner,
-    });
   }
 }
 
@@ -242,35 +250,33 @@ export async function handleEstamaScoutRequest(req: RequestLike, res: ResponseLi
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+  const client = createPublicClient();
+  let runToken = "";
   try {
-    const admin = getAdminClient();
-    const { data: storeId, error: claimError } = await admin.rpc("claim_estama_scout_token", { p_token: token });
+    const { data, error: claimError } = await client.rpc("claim_estama_scout_run", { p_token: token });
     if (claimError) throw claimError;
-    if (typeof storeId !== "string" || !storeId) {
+    const claimed = (data || null) as ClaimedRun | null;
+    if (!claimed?.storeId) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
-    const { data: connection, error: connectionError } = await admin
-      .from("automation_connections")
-      .select("*")
-      .eq("store_id", storeId)
-      .eq("provider", "estama")
-      .maybeSingle();
-    if (connectionError) throw connectionError;
-    if (!connection || connection.status !== "ready") {
-      res.status(409).json({ error: "エステ魂の自動化がログイン済みではありません" });
+    if (claimed.deferred || claimed.unavailable || !claimed.runToken || !claimed.connection) {
+      res.status(409).json({ ok: false, storeId: claimed.storeId, deferred: Boolean(claimed.deferred), reason: claimed.reason });
       return;
     }
+    runToken = claimed.runToken;
     const mode = typeof body.mode === "string" ? body.mode : "inspect";
     if (mode !== "inspect") {
       res.status(400).json({ error: "未対応の操作です" });
       return;
     }
-    const result = await inspectEstamaScoutPages(admin, connection as Connection);
-    res.status(200).json({ ok: true, storeId, result });
+    const result = await inspectEstamaScoutPages(claimed.connection);
+    res.status(200).json({ ok: true, storeId: claimed.storeId, result });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(JSON.stringify({ level: "error", msg: "estama_scout_failed", error: message }));
     res.status(error instanceof LoginRequiredError ? 409 : 500).json({ error: message });
+  } finally {
+    if (runToken) await client.rpc("release_estama_scout_run", { p_run_token: runToken });
   }
 }
