@@ -5,6 +5,7 @@ import benefitTaxiImage from "@/assets/recruit/enka-benefit-taxi.png";
 import benefitTaxHousingImage from "@/assets/recruit/enka-benefit-tax-housing.png";
 import simultaneousPostSystemImage from "@/assets/recruit/enka-simultaneous-post-system.png";
 import recruitBannerImage from "@/assets/recruit/enka-recruit-banner-30s.webp";
+import waitingRoomImage from "@/assets/recruit/waiting-room-600x300.webp";
 import { useStore } from "@/hooks/useStore";
 import { usePageTracking } from "@/hooks/usePageTracking";
 import {
@@ -320,6 +321,26 @@ export default function RecruitTalk() {
             );
           })}
         </div>
+      </Section>
+
+      {/* ===== 待機室の写真 ===== */}
+      <Section>
+        <SectionTitle sub="WAITING ROOM">待機室の写真</SectionTitle>
+        <figure className="overflow-hidden rounded-3xl border border-rose-100 bg-white shadow-sm">
+          <img
+            src={waitingRoomImage}
+            alt="間接照明のあたたかい完全個室の待機室。キッチン・冷蔵庫、シャワー・洗面台、清潔なタオルも完備"
+            width={600}
+            height={300}
+            loading="lazy"
+            decoding="async"
+            className="h-auto w-full"
+          />
+        </figure>
+        <p className="mt-4 text-center text-sm leading-7 text-gray-600">
+          間接照明のあたたかい完全個室で、ゆったり待機できます。<br className="hidden sm:block" />
+          キッチン・シャワー・清潔なタオルも揃っています。
+        </p>
       </Section>
 
       {/* ===== 安心・サポート ===== */}
