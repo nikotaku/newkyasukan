@@ -25,7 +25,7 @@ export default function Login() {
       <Card className="w-full max-w-sm">
         <CardContent className="space-y-5 p-6">
           <div>
-            <p className="text-xs text-muted-foreground">ネイル・国分町サロン・アイラッシュ</p>
+            <p className="text-xs text-muted-foreground">ネイル・国分町サロン・アイラッシュ・アイブロー</p>
             <h1 className="text-xl font-bold">サロン経費管理</h1>
           </div>
           <form onSubmit={submit} className="space-y-4">

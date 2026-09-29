@@ -21,7 +21,7 @@ export function Layout({ title, actions, children }: { title: string; actions?: 
       {/* PC: 左のメニュー */}
       <aside className="fixed inset-y-0 left-0 hidden w-56 flex-col border-r bg-card md:flex">
         <div className="px-5 py-5">
-          <p className="text-xs text-muted-foreground">3店舗の経費をまとめて管理</p>
+          <p className="text-xs text-muted-foreground">各店舗の経費をまとめて管理</p>
           <p className="text-lg font-bold">サロン経費管理</p>
         </div>
         <div className="px-3">
