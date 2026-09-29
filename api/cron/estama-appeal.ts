@@ -9,10 +9,15 @@ import {
   nextDueEstamaAppealSlot,
   type EstamaAppealShift,
 } from "../../server/estama-appeal.js";
+import { handleEstamaScoutRequest } from "../../server/estama-scout.js";
 
 export const config = { maxDuration: 300 };
 
-type RequestLike = { method?: string; body?: unknown };
+type RequestLike = {
+  method?: string;
+  body?: unknown;
+  query?: Record<string, string | string[] | undefined>;
+};
 type ResponseLike = {
   status(code: number): ResponseLike;
   json(body: unknown): void;
@@ -194,6 +199,11 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
   res.setHeader("Cache-Control", "private, no-store");
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+  // Vercel Hobbyの関数数上限のため、エステ魂スカウトはこの関数に同居させる
+  if (req.query?.action === "estama-scout") {
+    await handleEstamaScoutRequest(req, res);
     return;
   }
 

@@ -131,7 +131,7 @@ type ShiftRecord = {
   is_dummy?: boolean;
 };
 
-type Connection = {
+export type Connection = {
   id: string;
   store_id: string;
   status: string;
@@ -268,7 +268,7 @@ export async function assertStoreManager(admin: AdminClient, userId: string, sto
   }
 }
 
-async function createBrowserSession(
+export async function createBrowserSession(
   contextId: string | null,
   keepAlive = false,
   metadata: Json = {},
@@ -291,7 +291,7 @@ async function createBrowserSession(
   return { bb, session };
 }
 
-async function connectSession(connectUrl: string) {
+export async function connectSession(connectUrl: string) {
   const browser = await chromium.connectOverCDP(connectUrl);
   const context = browser.contexts()[0] || await browser.newContext();
   const pages = context.pages();
@@ -301,11 +301,11 @@ async function connectSession(connectUrl: string) {
   return { browser, page };
 }
 
-async function disconnect(browser: Browser) {
+export async function disconnect(browser: Browser) {
   try { await browser.close(); } catch { /* セッション終了後は無視 */ }
 }
 
-async function releaseSession(bb: Browserbase, sessionId: string) {
+export async function releaseSession(bb: Browserbase, sessionId: string) {
   try { await bb.sessions.update(sessionId, { status: "REQUEST_RELEASE", projectId: projectId() }); } catch { /* 自動失効に任せる */ }
 }
 
@@ -485,7 +485,7 @@ async function setField(page: Page, selector: string, value: unknown) {
   } else await locator.fill(normalized);
 }
 
-async function ensureAdminLogin(page: Page, requiredSelector?: string) {
+export async function ensureAdminLogin(page: Page, requiredSelector?: string) {
   const url = page.url();
   const hasPassword = await page.locator('input[type="password"]').count() > 0;
   const hasRequired = requiredSelector ? await page.locator(requiredSelector).count() > 0 : true;
