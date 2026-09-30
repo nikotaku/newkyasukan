@@ -16,12 +16,16 @@ interface PaymentSetting {
   payment_method: string;
   payment_link: string | null;
   fee_percentage: number;
+  account_id: string | null;
+  account_password: string | null;
+  account_note: string | null;
+  status: string;
 }
 
 export default function SystemPaymentMethods() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settings, setSettings] = useState<PaymentSetting[]>([]);
-  const [drafts, setDrafts] = useState<Record<string, { payment_link: string; fee_percentage: string }>>({});
+  const [drafts, setDrafts] = useState<Record<string, { payment_link: string; fee_percentage: string; account_id: string; account_password: string; account_note: string; status: string }>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
 
@@ -45,9 +49,16 @@ export default function SystemPaymentMethods() {
       .order("payment_method");
     if (!error) {
       setSettings(data || []);
-      const d: Record<string, { payment_link: string; fee_percentage: string }> = {};
+      const d: Record<string, { payment_link: string; fee_percentage: string; account_id: string; account_password: string; account_note: string; status: string }> = {};
       (data || []).forEach((p: any) => {
-        d[p.id] = { payment_link: p.payment_link || "", fee_percentage: String(p.fee_percentage ?? 0) };
+        d[p.id] = {
+          payment_link: p.payment_link || "",
+          fee_percentage: String(p.fee_percentage ?? 0),
+          account_id: p.account_id || "",
+          account_password: p.account_password || "",
+          account_note: p.account_note || "",
+          status: p.status || "通常利用",
+        };
       });
       setDrafts(d);
     }
@@ -65,7 +76,14 @@ export default function SystemPaymentMethods() {
     setSavingId(id);
     const { error } = await supabase
       .from("payment_settings")
-      .update({ payment_link: draft.payment_link || null, fee_percentage: fee })
+      .update({
+        payment_link: draft.payment_link || null,
+        fee_percentage: fee,
+        account_id: draft.account_id || null,
+        account_password: draft.account_password || null,
+        account_note: draft.account_note || null,
+        status: draft.status,
+      })
       .eq("id", id);
     setSavingId(null);
     if (error) {
@@ -76,7 +94,7 @@ export default function SystemPaymentMethods() {
     fetchSettings();
   };
 
-  const updateDraft = (id: string, field: "payment_link" | "fee_percentage", val: string) => {
+  const updateDraft = (id: string, field: "payment_link" | "fee_percentage" | "account_id" | "account_password" | "account_note" | "status", val: string) => {
     setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], [field]: val } }));
   };
 
@@ -126,6 +144,29 @@ export default function SystemPaymentMethods() {
                           className="mt-1"
                         />
                       </div>
+                      {s.payment_method === "GMO掛け払い" && (
+                        <>
+                          <div>
+                            <Label className="text-xs">GMOアカウントID</Label>
+                            <Input value={drafts[s.id]?.account_id ?? ""} onChange={(e) => updateDraft(s.id, "account_id", e.target.value)} className="mt-1" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">GMOアカウントパスワード</Label>
+                            <Input type="password" value={drafts[s.id]?.account_password ?? ""} onChange={(e) => updateDraft(s.id, "account_password", e.target.value)} className="mt-1" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">契約者番号など</Label>
+                            <Input placeholder="契約者番号・補足メモ" value={drafts[s.id]?.account_note ?? ""} onChange={(e) => updateDraft(s.id, "account_note", e.target.value)} className="mt-1" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">ステータス</Label>
+                            <select value={drafts[s.id]?.status ?? "通常利用"} onChange={(e) => updateDraft(s.id, "status", e.target.value)} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                              <option value="通常利用">通常利用</option>
+                              <option value="限度額まで使用">限度額まで使用</option>
+                            </select>
+                          </div>
+                        </>
+                      )}
                     </div>
                     <div className="flex justify-end">
                       <Button onClick={() => handleSave(s.id)} disabled={savingId === s.id}>

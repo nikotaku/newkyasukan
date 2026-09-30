@@ -98,12 +98,14 @@ const PAYMENT_METHODS = [
   { value: "cash", label: "現金" },
   { value: "card", label: "カード" },
   { value: "paypay", label: "PayPay" },
+  { value: "gmo_kakebarai", label: "GMO掛け払い" },
 ];
 
 const normalizePaymentMethod = (value?: string | null) => {
   const raw = (value || "cash").toLowerCase();
   if (raw === "card" || raw.includes("カード") || raw.includes("クレジット")) return "card";
   if (raw === "paypay" || raw.includes("ペイペイ")) return "paypay";
+  if (raw === "gmo_kakebarai" || raw.includes("gmo") || raw.includes("掛け払い") || raw.includes("かけ払い")) return "gmo_kakebarai";
   return "cash";
 };
 
@@ -904,6 +906,7 @@ export default function TherapistCheckout() {
                                         <SelectItem value="cash" className="text-xs">現金</SelectItem>
                                         <SelectItem value="card" className="text-xs">カード{cardFeePct > 0 ? `（手数料${cardFeePct}%）` : ""}</SelectItem>
                                         <SelectItem value="paypay" className="text-xs">PayPay{paypayFeePct > 0 ? `（手数料${paypayFeePct}%）` : ""}</SelectItem>
+                                        <SelectItem value="gmo_kakebarai" className="text-xs">GMO掛け払い</SelectItem>
                                       </SelectContent>
                                     </Select>
                                   </div>
