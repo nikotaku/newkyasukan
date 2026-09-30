@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import simultaneousPostSystemImage from "@/assets/recruit/enka-simultaneous-post-system.png";
+import compensationGuideImage from "@/assets/interview/enka-compensation-guide.png";
 import {
   ArrowLeft, MapPin, Clock, Train, ShieldCheck,
   Home, IdCard, Camera, AlertTriangle, Sparkles, Check, ChevronDown,
@@ -141,12 +142,30 @@ export default function InterviewGuide() {
       </Section>
 
       {/* 料金・報酬システム */}
-      <Section icon={ShieldCheck} title="料金・報酬システム" tone="rose">
-        <Card className="py-5">
-          <p className="text-sm leading-relaxed text-gray-700">
-            料金・報酬の詳細は、面談時に個別にご案内します。
-          </p>
-        </Card>
+      <Section icon={ShieldCheck} title="料金・報酬システム" sub="お客様料金・セラピスト報酬・店舗分の内訳" tone="rose" wide>
+        <p className="mb-4 text-sm leading-relaxed text-gray-700">
+          コース・オプション・指名料に加え、雑費・宿泊費・交通費の取り扱いをまとめています。面談時はこちらの表をご確認ください。
+        </p>
+        <a
+          href={compensationGuideImage}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="艶華の料金・報酬システム表を原寸で開く"
+          className="block overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-sm transition hover:shadow-md"
+        >
+          <img
+            src={compensationGuideImage}
+            alt="艶華の料金・報酬システム表。コース、オプション、エスたま限定プラン、指名、雑費・宿泊費・交通費に関するお客様料金、セラピスト報酬、店舗分の内訳"
+            width={1520}
+            height={2568}
+            loading="lazy"
+            decoding="async"
+            className="h-auto w-full object-contain"
+          />
+        </a>
+        <p className="mt-2 text-center text-xs leading-5 text-gray-500">
+          画像をタップすると、原寸で詳細をご確認いただけます。
+        </p>
       </Section>
 
       {/* 集客・投稿サポート */}
