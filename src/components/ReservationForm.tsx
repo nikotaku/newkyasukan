@@ -1111,7 +1111,6 @@ export function ReservationForm({
               { value: "cash", label: "現金", note: "" },
               { value: "card", label: "カード", note: cardFeePct > 0 ? `手数料${cardFeePct}%` : "" },
               { value: "paypay", label: "PayPay", note: paypayFeePct > 0 ? `手数料${paypayFeePct}%` : "" },
-              { value: "gmo_kakebarai", label: "GMO掛け払い", note: "" },
             ].map((pm) => {
               const on = (formData.payment_method || "cash") === pm.value;
               return (
@@ -1152,7 +1151,6 @@ export function ReservationForm({
                       <SelectItem value="cash">現金</SelectItem>
                       <SelectItem value="card">カード</SelectItem>
                       <SelectItem value="paypay">PayPay</SelectItem>
-                      <SelectItem value="gmo_kakebarai">GMO掛け払い</SelectItem>
                     </SelectContent>
                   </Select>
                   <div className="flex-1 relative">

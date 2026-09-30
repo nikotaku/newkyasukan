@@ -104,8 +104,8 @@ export default function PricingManagement() {
     min_days: 1,
   });
 
-  const [paymentSettings, setPaymentSettings] = useState<Array<{ id: string; payment_method: string; payment_link: string | null; fee_percentage: number; account_id: string | null; account_password: string | null; account_note: string | null; status: string }>>([]);
-  const [paymentDrafts, setPaymentDrafts] = useState<Record<string, { payment_link: string; fee_percentage: string; account_id: string; account_password: string; account_note: string; status: string }>>({});
+  const [paymentSettings, setPaymentSettings] = useState<Array<{ id: string; payment_method: string; payment_link: string | null; fee_percentage: number }>>([]);
+  const [paymentDrafts, setPaymentDrafts] = useState<Record<string, { payment_link: string; fee_percentage: string }>>({});
   const [savingPaymentId, setSavingPaymentId] = useState<string | null>(null);
 
   const { toast } = useToast();
@@ -140,15 +140,11 @@ export default function PricingManagement() {
       return;
     }
     setPaymentSettings(data || []);
-    const drafts: Record<string, { payment_link: string; fee_percentage: string; account_id: string; account_password: string; account_note: string; status: string }> = {};
+    const drafts: Record<string, { payment_link: string; fee_percentage: string }> = {};
     (data || []).forEach((p: any) => {
       drafts[p.id] = {
         payment_link: p.payment_link || "",
         fee_percentage: String(p.fee_percentage ?? 0),
-        account_id: p.account_id || "",
-        account_password: p.account_password || "",
-        account_note: p.account_note || "",
-        status: p.status || "通常利用",
       };
     });
     setPaymentDrafts(drafts);
@@ -165,14 +161,7 @@ export default function PricingManagement() {
     setSavingPaymentId(id);
     const { error } = await supabase
       .from('payment_settings')
-      .update({
-        payment_link: draft.payment_link || null,
-        fee_percentage: fee,
-        account_id: draft.account_id || null,
-        account_password: draft.account_password || null,
-        account_note: draft.account_note || null,
-        status: draft.status,
-      })
+      .update({ payment_link: draft.payment_link, fee_percentage: fee })
       .eq('id', id);
     setSavingPaymentId(null);
     if (error) {
@@ -873,7 +862,7 @@ export default function PricingManagement() {
                     各決済方法の決済リンクと手数料率を設定してください。
                   </p>
                   {paymentSettings.map((p) => {
-                    const draft = paymentDrafts[p.id] ?? { payment_link: "", fee_percentage: "0", account_id: "", account_password: "", account_note: "", status: "通常利用" };
+                    const draft = paymentDrafts[p.id] ?? { payment_link: "", fee_percentage: "0" };
                     return (
                       <div key={p.id} className="border rounded-lg p-4 space-y-3">
                         <div className="font-semibold text-base flex items-center gap-2">
@@ -915,14 +904,6 @@ export default function PricingManagement() {
                               }
                             />
                           </div>
-                          {p.payment_method === "GMO掛け払い" && (
-                            <>
-                              <div><Label className="text-xs">GMOアカウントID</Label><Input value={draft.account_id} onChange={(e) => setPaymentDrafts((prev) => ({ ...prev, [p.id]: { ...draft, account_id: e.target.value } }))} /></div>
-                              <div><Label className="text-xs">GMOアカウントパスワード</Label><Input type="password" value={draft.account_password} onChange={(e) => setPaymentDrafts((prev) => ({ ...prev, [p.id]: { ...draft, account_password: e.target.value } }))} /></div>
-                              <div><Label className="text-xs">契約者番号など</Label><Input placeholder="契約者番号・補足メモ" value={draft.account_note} onChange={(e) => setPaymentDrafts((prev) => ({ ...prev, [p.id]: { ...draft, account_note: e.target.value } }))} /></div>
-                              <div><Label className="text-xs">ステータス</Label><select value={draft.status} onChange={(e) => setPaymentDrafts((prev) => ({ ...prev, [p.id]: { ...draft, status: e.target.value } }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="通常利用">通常利用</option><option value="限度額まで使用">限度額まで使用</option></select></div>
-                            </>
-                          )}
                           <div className="flex items-end">
                             <Button
                               className="w-full"

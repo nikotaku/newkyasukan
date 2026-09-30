@@ -3,10 +3,6 @@ export interface PaymentSetting {
   payment_method: string;
   payment_link: string | null;
   fee_percentage: number;
-  account_id?: string | null;
-  account_password?: string | null;
-  account_note?: string | null;
-  status?: string | null;
 }
 
 export interface PaymentDetail {
@@ -24,7 +20,6 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: "現金",
   card: "カード",
   paypay: "PayPay",
-  gmo_kakebarai: "GMO掛け払い",
 };
 
 export function findPaymentSetting(
@@ -36,9 +31,6 @@ export function findPaymentSetting(
   }
   if (methodCode === "paypay") {
     return settings.find((s) => /paypay/i.test(s.payment_method)) ?? null;
-  }
-  if (methodCode === "gmo_kakebarai") {
-    return settings.find((s) => /gmo.*掛け払い|gmo.*かけ払い/i.test(s.payment_method)) ?? null;
   }
   return null;
 }

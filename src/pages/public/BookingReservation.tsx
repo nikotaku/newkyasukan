@@ -1665,7 +1665,6 @@ const BookingReservation = () => {
                           { value: "cash", label: "現金" },
                           { value: "card", label: `カード${(findPaymentSetting(paymentSettings, "card")?.fee_percentage ?? 0) > 0 ? `（手数料${findPaymentSetting(paymentSettings, "card")!.fee_percentage}%）` : ""}` },
                           { value: "paypay", label: `PayPay${(findPaymentSetting(paymentSettings, "paypay")?.fee_percentage ?? 0) > 0 ? `（手数料${findPaymentSetting(paymentSettings, "paypay")!.fee_percentage}%）` : ""}` },
-                          { value: "gmo_kakebarai", label: "GMO掛け払い" },
                         ].map((method) => (
                           <div key={method.value} className="flex items-center space-x-2">
                             <input

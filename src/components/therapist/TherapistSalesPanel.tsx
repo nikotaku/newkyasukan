@@ -97,7 +97,6 @@ const PAYMENT_METHODS = [
   { value: "cash", label: "現金" },
   { value: "card", label: "カード" },
   { value: "paypay", label: "PayPay" },
-  { value: "gmo_kakebarai", label: "GMO掛け払い" },
 ];
 
 function errorMessage(error: unknown) {
@@ -113,7 +112,6 @@ function normalizePaymentMethod(value: string | null | undefined, details?: Paym
   const raw = (detailMethod || value || "cash").toLowerCase();
   if (raw === "card" || raw.includes("カード") || raw.includes("クレジット")) return "card";
   if (raw === "paypay" || raw.includes("ペイペイ")) return "paypay";
-  if (raw === "gmo_kakebarai" || raw.includes("gmo") || raw.includes("掛け払い") || raw.includes("かけ払い")) return "gmo_kakebarai";
   return "cash";
 }
 
@@ -533,7 +531,6 @@ export function TherapistSalesPanel({
                           <SelectItem value="cash">現金</SelectItem>
                           <SelectItem value="card">カード{cardFeePct ? `（手数料${cardFeePct}%）` : ""}</SelectItem>
                           <SelectItem value="paypay">PayPay{paypayFeePct ? `（手数料${paypayFeePct}%）` : ""}</SelectItem>
-                          <SelectItem value="gmo_kakebarai">GMO掛け払い</SelectItem>
                         </SelectContent>
                       </Select>
                     )}

@@ -4265,44 +4265,32 @@ export type Database = {
       }
       payment_settings: {
         Row: {
-          account_id: string | null
-          account_note: string | null
-          account_password: string | null
           created_at: string
           fee_percentage: number
           id: string
           is_active: boolean
           payment_link: string | null
           payment_method: string
-          status: string
           store_id: string
           updated_at: string
         }
         Insert: {
-          account_id?: string | null
-          account_note?: string | null
-          account_password?: string | null
           created_at?: string
           fee_percentage?: number
           id?: string
           is_active?: boolean
           payment_link?: string | null
           payment_method: string
-          status?: string
           store_id?: string
           updated_at?: string
         }
         Update: {
-          account_id?: string | null
-          account_note?: string | null
-          account_password?: string | null
           created_at?: string
           fee_percentage?: number
           id?: string
           is_active?: boolean
           payment_link?: string | null
           payment_method?: string
-          status?: string
           store_id?: string
           updated_at?: string
         }
