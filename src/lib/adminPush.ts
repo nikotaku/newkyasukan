@@ -11,6 +11,7 @@ export const PUSH_TOPICS = [
   { key: "web_booking", label: "WEB予約が入ったとき", hint: "公開サイト・セラピストの予約フォームからの予約" },
   { key: "sms_reply", label: "お客様からSMSの返信が来たとき", hint: "こちらから送ったことのある番号の返信だけ" },
   { key: "sms_balance", label: "SMSの残高が少ないとき", hint: "実質残高が1,000円を切ったら（1日1回まで）" },
+  { key: "estama_scout", label: "エステ魂スカウトの確認", hint: "毎日の候補がそろったとき（OKで送信）・送り終わったとき" },
 ] as const;
 export type PushTopic = (typeof PUSH_TOPICS)[number]["key"];
 export const ALL_PUSH_TOPICS: PushTopic[] = PUSH_TOPICS.map((topic) => topic.key);

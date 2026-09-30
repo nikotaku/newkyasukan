@@ -1,11 +1,18 @@
 // 管理画面を「ホーム画面に追加」したアプリへのプッシュ通知（LINE通知と並行して送る試験運用）。
-//  - { event: "web_booking" | "sms_reply" | "sms_balance", id } … DBトリガーから（x-push-notify-secret）
+//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout", id } … DBトリガーから（x-push-notify-secret）
 //  - { action: "test" } … ログイン中のスタッフが自分の端末にテスト通知を送る（JWT）
 // 購読（push_subscriptions）の topics に含まれる通知だけを、その店舗の端末へ送る。SMS残高は全店舗の購読へ。
 // 送れなくなった購読（アプリ削除・通知オフ）は消す。VAPIDの鍵は Vault（RPC get_web_push_vapid）。
 
 import { sendWebPush, type VapidKeys } from "../_shared/webPush.ts";
-import { smsBalanceMessage, smsReplyMessage, testMessage, webBookingMessage, type PushMessage } from "./messages.ts";
+import {
+  estamaScoutMessage,
+  smsBalanceMessage,
+  smsReplyMessage,
+  testMessage,
+  webBookingMessage,
+  type PushMessage,
+} from "./messages.ts";
 
 const SB_URL = Deno.env.get("SUPABASE_URL")!;
 const SB_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -96,6 +103,17 @@ async function buildEvent(event: string, id: string): Promise<{ message: PushMes
     if (!sent) return null;
     const [customer] = log.customer_id ? await sb(`customers?id=eq.${log.customer_id}&select=name`) : [null];
     return { message: smsReplyMessage({ fromNumber: log.from_number, body: log.body ?? "", customerName: customer?.name ?? null }), storeId: log.store_id };
+  }
+  if (event === "estama_scout") {
+    const [batch] = await sb(
+      `estama_scout_batches?id=eq.${id}&select=id,store_id,status,scout_date,candidate_count,sent_count,failed_count,error_message`,
+    );
+    if (!batch || !["pending_approval", "done", "failed"].includes(batch.status)) return null;
+    const candidates = (await sb(
+      `estama_scout_candidates?batch_id=eq.${id}&select=display_name&order=position.asc&limit=5`,
+    )) ?? [];
+    const names = candidates.map((candidate: { display_name: string | null }) => candidate.display_name ?? "");
+    return { message: estamaScoutMessage(batch, names), storeId: batch.store_id };
   }
   if (event === "sms_balance") {
     const [alert] = await sb(`sms_balance_alerts?id=eq.${id}&select=effective_balance`);

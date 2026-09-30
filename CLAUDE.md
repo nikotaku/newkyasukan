@@ -170,6 +170,15 @@
 - Edge Function は `src/lib/` のファイルを相対パスで読むので、デプロイするときは `src/lib/xPostContext.ts`・`xAutoPost.ts`・`xDailyPosts.ts`・`availability.ts`・`bookingUrl.ts`・`xOperationsPlan.ts` も一緒に送る（entrypoint は `supabase/functions/x-auto-post/index.ts`）
 - テスト: `npm run test:x-auto-post`
 
+## エステ魂スカウト求人の自動化（/recruit/estama-scout）
+
+- 毎日決まった時刻（`estama_scout_settings.propose_at`、既定11:00）に、エステ魂の「スカウト求人」（`/admin/esjob/`）と「スカウト検索」（`/admin/esjob_search/`）から候補を読み、1日 `daily_count` 人（既定10人）を選んでスマホ通知（push topic `estama_scout`）→ 画面で送る人を選んで「送る」→ エステ魂のスカウトテンプレートで自動送信。OKが出るまでは絶対に送らない
+- 選び方は `src/lib/estamaScout.ts` の `selectScoutCandidates`（スカウト済み・以前に送った人・男性を除き、優先エリア〔仙台・宮城・東北など〕を先に）。テスト `npm run test:estama-scout`
+- 表：`estama_scout_settings` / `estama_scout_batches`（1日1件、collecting → pending_approval → approved → sending → done）/ `estama_scout_candidates`（external_id = エステ魂の履歴書ID）
+- 流れ：pg_cron `estama-scout-every-5-minutes` → `private.dispatch_estama_scout()` → Vercel `/api/cron/estama-appeal?action=estama-scout`（関数数上限のため同居。本体は `server/estama-scout.ts`）。Vercelには管理鍵を置かないので、一回限りのトークン（`estama_sync_tokens.purpose = 'estama-scout:<store_id>'`）を `claim_estama_scout_run` で実行トークンに換え、`get_estama_scout_job` / `save_estama_scout_candidates` / `mark_estama_scout_sending` / `save_estama_scout_result` / `finish_estama_scout_batch` だけで読み書きする
+- 送信：小窓は `a.send-get_modal[data-row="resume,<ID>"]`（POST `/admin_post/modal/`）。`form#form-scout` の `select#mail_template` でテンプレートを選び、本文が入ったのを確かめてから `a.send-modal_post[data-post="scout"]`。返事 `["OK",…]` で送信済み、`["OUT",…]` は受け付けられず。押す直前に `mark_estama_scout_sending` で記録し、押した後に結果が分からなければ `uncertain`（重複を防ぐため再送しない）
+- 画面が変わって動かなくなったら、`mode: "inspect"` / `"inspect-detail"`（読むだけ）で構造を取り直す
+
 ## AI生成機能
 
 - Edge Function `generate-cast-content` がカテゴリ別のAIコンテンツ生成を担当

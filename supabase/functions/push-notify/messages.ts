@@ -76,3 +76,40 @@ export function testMessage(): PushMessage {
     tag: "test",
   };
 }
+
+export function estamaScoutMessage(batch: {
+  id: string;
+  status: string;
+  scout_date: string | null;
+  candidate_count: number | null;
+  sent_count: number | null;
+  failed_count: number | null;
+  error_message: string | null;
+}, names: string[]): PushMessage {
+  const day = dateLabel(batch.scout_date);
+  const url = "/recruit/estama-scout";
+  if (batch.status === "pending_approval") {
+    const preview = names.filter(Boolean).slice(0, 4).join("・");
+    return {
+      title: `📨 エステ魂スカウト：${day ? `${day}の` : ""}候補${batch.candidate_count ?? 0}人`,
+      body: `この人たちにスカウトを送っていいですか？ タップして確認→OKで送信します${preview ? `\n${preview}${names.length > 4 ? " ほか" : ""}` : ""}`,
+      url,
+      tag: `estama-scout-${batch.id}`,
+    };
+  }
+  if (batch.status === "done") {
+    const failed = batch.failed_count ?? 0;
+    return {
+      title: `✅ エステ魂スカウトを${batch.sent_count ?? 0}人に送りました`,
+      body: failed ? `${failed}人は送れなかった・確認できなかったので、画面で確認してください` : "今日の分は完了です",
+      url,
+      tag: `estama-scout-${batch.id}`,
+    };
+  }
+  return {
+    title: "⚠️ エステ魂スカウトが止まりました",
+    body: clip(batch.error_message || "画面で状況を確認してください", 120),
+    url,
+    tag: `estama-scout-${batch.id}`,
+  };
+}

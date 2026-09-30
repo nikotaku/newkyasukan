@@ -136,6 +136,7 @@ import ZenryokuBookManual from "./pages/ZenryokuBookManual";
 import RecruitmentCriteria from "./pages/RecruitmentCriteria";
 import RecruitTalk from "./pages/RecruitTalk";
 import RecruitScout from "./pages/RecruitScout";
+import EstamaScout from "./pages/EstamaScout";
 import ScoutInvitePage from "./pages/public/ScoutInvite";
 import RecruitLpAnalytics from "./pages/RecruitLpAnalytics";
 import InterviewGuide from "./pages/InterviewGuide";
@@ -306,6 +307,7 @@ const App = () => {
           <Route path="/recruitment-criteria" element={<RecruitmentCriteria />} />
           <Route path="/recruit-talk" element={<RecruitTalk />} />
           <Route path="/recruit-scout" element={<RecruitScout />} />
+          <Route path="/recruit/estama-scout" element={<EstamaScout />} />
           <Route path="/invite" element={<ScoutInvitePage />} />
           <Route path="/marketing/recruit-lp" element={<RecruitLpAnalytics />} />
           <Route path="/interview" element={<InterviewGuide />} />
