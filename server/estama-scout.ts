@@ -235,6 +235,157 @@ export async function inspectEstamaScoutPages(connection: Connection) {
   }
 }
 
+/** スカウト小窓の中身・検索条件・結果ページを読む（小窓は開くだけで、中のボタンは押さない） */
+export async function inspectEstamaScoutDetail(connection: Connection) {
+  if (!connection.browserbase_context_id) {
+    throw new LoginRequiredError("Browserbaseの保存済みログイン情報がありません");
+  }
+  const { bb, session } = await createBrowserSession(
+    connection.browserbase_context_id,
+    false,
+    { action: "scout-inspect-detail", storeId: connection.store_id },
+    { solveCaptchas: false },
+  );
+  try {
+    const { browser, page } = await connectSession(session.connectUrl);
+    const requests: string[] = [];
+    page.on("request", (request) => {
+      const url = request.url();
+      if (!/estama\.jp/.test(url) || /\.(?:png|jpe?g|gif|webp|svg|css|woff2?)(?:\?|$)/i.test(url)) return;
+      const post = request.postData() || "";
+      requests.push(`${request.method()} ${url.replace("https://estama.jp", "")}${post ? ` body=${post.slice(0, 400)}` : ""}`);
+    });
+    try {
+      page.setDefaultTimeout(10_000);
+      await page.goto("https://estama.jp/admin/esjob/", { waitUntil: "domcontentloaded" });
+      await ensureAdminLogin(page);
+      await page.waitForTimeout(1_000);
+
+      // 小窓を開く仕組み（send-get_modal）をページのスクリプトから探す
+      const scripts = await page.evaluate(async () => {
+        const hits: string[] = [];
+        const pick = (source: string, label: string) => {
+          for (const word of ["get_modal", "send-", "esjob", "scout", "resume"]) {
+            let index = source.indexOf(word);
+            let count = 0;
+            while (index >= 0 && count < 4) {
+              hits.push(`[${label}] ${source.slice(Math.max(0, index - 300), index + 700)}`);
+              index = source.indexOf(word, index + 700);
+              count += 1;
+            }
+          }
+        };
+        for (const script of Array.from(document.querySelectorAll("script"))) {
+          if (script.src) {
+            if (!/estama\.jp|^\//.test(script.src) || /jquery|bootstrap|google|gtag|analytics/i.test(script.src)) continue;
+            try {
+              const text = await (await fetch(script.src, { credentials: "same-origin" })).text();
+              pick(text, script.src.replace(location.origin, ""));
+            } catch { /* 読めないものは飛ばす */ }
+          } else {
+            pick(script.textContent || "", "inline");
+          }
+        }
+        return [...new Set(hits)].slice(0, 30).map((hit) => hit.slice(0, 1_000));
+      });
+
+      const readModal = async () => page.evaluate(() => {
+        const clean = (value: string | null | undefined, max = 200) =>
+          (value || "").normalize("NFKC").replace(/\s+/g, " ").trim().slice(0, max);
+        const visible = (element: Element) => {
+          const html = element as HTMLElement;
+          const style = window.getComputedStyle(html);
+          return html.getClientRects().length > 0 && style.display !== "none" && style.visibility !== "hidden";
+        };
+        const attrs = (element: Element) => Object.fromEntries(Array.from(element.attributes)
+          .filter((attribute) => /^(?:id|class|name|type|value|href|action|method|onclick|role|for|data-.+|aria-.+|formaction|target|disabled|checked|selected)$/.test(attribute.name))
+          .map((attribute) => [attribute.name, attribute.value.slice(0, 240)]));
+        const skeleton = (element: Element, depth = 0): string => {
+          if (depth > 9) return "";
+          const tag = element.tagName.toLowerCase();
+          if (tag === "script" || tag === "style" || tag === "svg") return "";
+          const a = attrs(element);
+          const attrText = Object.entries(a).map(([key, value]) => `${key}="${value}"`).join(" ");
+          const children = Array.from(element.children).slice(0, 40).map((child) => skeleton(child, depth + 1)).join("");
+          const ownText = Array.from(element.childNodes)
+            .filter((node) => node.nodeType === Node.TEXT_NODE)
+            .map((node) => clean(node.textContent, 60))
+            .filter(Boolean)
+            .join("|");
+          return `<${tag}${attrText ? ` ${attrText}` : ""}>${ownText ? `«${ownText}»` : ""}${children}</${tag}>`;
+        };
+        const modals = Array.from(document.querySelectorAll('.modal, [role="dialog"], dialog, .remodal, [class*="modal"]'))
+          .filter((element) => visible(element) && !element.classList.contains("send-get_modal"))
+          .filter((element, index, list) => !list.some((other) => other !== element && other.contains(element)));
+        return modals.slice(0, 3).map((modal) => ({
+          attrs: attrs(modal),
+          text: clean((modal as HTMLElement).innerText, 1_500),
+          skeleton: skeleton(modal).slice(0, 12_000),
+          forms: Array.from(modal.querySelectorAll("form")).map((form) => ({
+            attrs: attrs(form),
+            fields: Array.from(form.querySelectorAll("input,select,textarea,button")).slice(0, 60).map((field) => ({
+              tag: field.tagName.toLowerCase(),
+              attrs: attrs(field),
+              label: clean(field instanceof HTMLInputElement ? field.value : field.textContent, 60),
+              options: field instanceof HTMLSelectElement
+                ? Array.from(field.options).slice(0, 20).map((option) => `${option.value}:${clean(option.textContent, 40)}`)
+                : undefined,
+              visible: visible(field),
+            })),
+          })),
+        }));
+      });
+
+      const closeModal = async () => {
+        await page.keyboard.press("Escape").catch(() => undefined);
+        await page.waitForTimeout(500);
+        const close = page.locator('.modal:visible [data-dismiss="modal"], .modal:visible .close, .modal:visible button:has-text("閉じる")').first();
+        if (await close.count()) await close.click({ timeout: 3_000 }).catch(() => undefined);
+        await page.waitForTimeout(500);
+      };
+
+      const modals: Record<string, unknown> = {};
+      for (const [key, selector] of [
+        ["scouted", "a.btn-danger[data-row^='resume,']"],
+        ["notScouted", "a.btn.send-get_modal[data-row^='resume,']"],
+      ] as const) {
+        const button = page.locator(selector).first();
+        if (!await button.count()) {
+          modals[key] = "ボタンなし";
+          continue;
+        }
+        const row = await button.getAttribute("data-row");
+        const before = requests.length;
+        await button.click({ timeout: 10_000 });
+        await page.waitForTimeout(2_500);
+        modals[key] = { row, requests: requests.slice(before), modal: await readModal() };
+        await closeModal();
+      }
+
+      const others: Record<string, unknown> = {};
+      for (const target of ["https://estama.jp/admin/esjob_search/", "https://estama.jp/admin/esjob_offer/"]) {
+        await page.goto(target, { waitUntil: "domcontentloaded" });
+        await ensureAdminLogin(page);
+        await page.waitForTimeout(800);
+        const outline = await outlinePage(page);
+        const text = outline.bodyText;
+        const start = Math.max(0, text.indexOf("エスジョブユーザー検索") >= 0 ? text.lastIndexOf("エスジョブユーザー検索") : 0);
+        others[target.replace("https://estama.jp", "")] = {
+          headings: outline.headings,
+          bodyText: text.slice(start, start + 2_500),
+          forms: outline.forms,
+          actions: outline.actions.filter((action) => !/^\/admin\/(?!esjob)/.test(String(action.attrs.href || ""))).slice(0, 30),
+        };
+      }
+      return { scripts, modals, others, requests: requests.slice(0, 60) };
+    } finally {
+      await disconnect(browser);
+    }
+  } finally {
+    await releaseSession(bb, session.id);
+  }
+}
+
 /** /api/cron/estama-appeal?action=estama-scout（pg_cronなどが一回限りのトークン付きで呼ぶ） */
 export async function handleEstamaScoutRequest(req: RequestLike, res: ResponseLike) {
   res.setHeader("Cache-Control", "private, no-store");
@@ -266,11 +417,13 @@ export async function handleEstamaScoutRequest(req: RequestLike, res: ResponseLi
     }
     runToken = claimed.runToken;
     const mode = typeof body.mode === "string" ? body.mode : "inspect";
-    if (mode !== "inspect") {
+    if (mode !== "inspect" && mode !== "inspect-detail") {
       res.status(400).json({ error: "未対応の操作です" });
       return;
     }
-    const result = await inspectEstamaScoutPages(claimed.connection);
+    const result = mode === "inspect-detail"
+      ? await inspectEstamaScoutDetail(claimed.connection)
+      : await inspectEstamaScoutPages(claimed.connection);
     res.status(200).json({ ok: true, storeId: claimed.storeId, result });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
