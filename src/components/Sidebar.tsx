@@ -225,6 +225,7 @@ const menuItems: MenuItem[] = [
       { href: "/recruitment-criteria", label: "採用基準確認シート" },
       { href: "/recruit-talk", label: "求人LP" },
       { href: "/recruit-scout", label: "引き抜きDM" },
+      { href: "/recruit/estama-scout", label: "エステ魂スカウト" },
       { href: "/marketing/recruit-lp", label: "求人LP A/B分析" },
       { href: "/interview", label: "面談用ページ（画面共有）" },
     ],
