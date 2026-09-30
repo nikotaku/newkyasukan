@@ -455,7 +455,8 @@ async function readScoutEntries(page: Page, section: string, areaHint = ""): Pro
     const { age, gender } = parseAgeGender(ageText);
     const name = item.name || item.text.split(/[（(]\s*\d{2}\s*歳/)[0].replace(/^選択\s*/, "").trim().slice(0, 40);
     const pr = item.text
-      .replace(item.name, "")
+      .replace(/^選択\s*/, "")
+      .replace(name, "")
       .replace(/[（(]\s*\d{2}\s*歳\s*[男女]?\s*[)）]/, "")
       .replace(item.areas, "")
       .replace(/^選択\s*/, "")
