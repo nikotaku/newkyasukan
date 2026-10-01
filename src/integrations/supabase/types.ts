@@ -4375,6 +4375,7 @@ export type Database = {
           scheduled_on: string | null
           sort_order: number
           store_id: string
+          reward_points: number
           task_key: string
           task_type: string
           updated_at: string
@@ -4392,6 +4393,7 @@ export type Database = {
           scheduled_on?: string | null
           sort_order?: number
           store_id: string
+          reward_points?: number
           task_key: string
           task_type: string
           updated_at?: string
@@ -4409,6 +4411,7 @@ export type Database = {
           scheduled_on?: string | null
           sort_order?: number
           store_id?: string
+          reward_points?: number
           task_key?: string
           task_type?: string
           updated_at?: string
@@ -6663,6 +6666,7 @@ export type Database = {
           task_label: string | null
           task_type: string | null
           therapist_label: string
+          reward_points: number | null
         }[]
       }
       get_therapist_post_connections: {

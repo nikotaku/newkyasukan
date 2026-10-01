@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, ChevronRight, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart, PencilLine, Check, X, Copy, CheckCircle2, Megaphone, MapPin, KeyRound, ListOrdered, ImageIcon, Maximize2, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, ChevronRight, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart, PencilLine, Check, X, Copy, CheckCircle2, Megaphone, MapPin, KeyRound, ListOrdered, ImageIcon, Maximize2, ZoomIn, ZoomOut, RotateCcw, Sparkles, Trophy, Flame, Target, Zap, Medal } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format, startOfMonth, endOfMonth, isSameDay, addDays } from "date-fns";
@@ -215,6 +215,9 @@ export default function TherapistPortal() {
   // 投稿宣伝スケジュール（本人に紐付く計画のみ）
   const [promotionPlans, setPromotionPlans] = useState<TherapistPromotionPlan[]>([]);
   const [promotionLoading, setPromotionLoading] = useState(false);
+  const [growthStats, setGrowthStats] = useState<TherapistGrowthStats | null>(null);
+  const [savingTaskIds, setSavingTaskIds] = useState<Set<string>>(new Set());
+  const [celebratingTaskId, setCelebratingTaskId] = useState<string | null>(null);
 
   // 本日の予約タイムライン（メニュー上部）
   const [menuTodayRes, setMenuTodayRes] = useState<UpcomingReservation[]>([]);
@@ -471,6 +474,7 @@ export default function TherapistPortal() {
           label: row.task_label,
           isCompleted: Boolean(row.is_completed),
           sortOrder: row.sort_order ?? 0,
+          rewardPoints: Number(row.reward_points ?? 10),
         });
       }
     }
@@ -487,6 +491,37 @@ export default function TherapistPortal() {
     setPromotionLoading(false);
   };
 
+  const fetchGrowthStats = async () => {
+    if (!token) return;
+    const { data, error } = await supabase.rpc("get_therapist_growth_stats" as any, { p_token: token });
+    if (!error && data) {
+      const row = Array.isArray(data) ? data[0] : data;
+      setGrowthStats({
+        totalPoints: Number(row?.total_points ?? 0),
+        completedTasks: Number(row?.completed_tasks ?? 0),
+        totalTasks: Number(row?.total_tasks ?? 0),
+        activeDaysStreak: Number(row?.active_days_streak ?? 0),
+        bookings30d: Number(row?.bookings_30d ?? 0),
+        revenue30d: Number(row?.revenue_30d ?? 0),
+        reviews90d: Number(row?.reviews_90d ?? 0),
+      });
+    }
+  };
+  const togglePromotionTask = async (taskId: string, nextValue: boolean, rewardPoints: number) => {
+    if (!token || savingTaskIds.has(taskId)) return;
+    const before = promotionPlans;
+    setPromotionPlans((plans) => plans.map((plan) => ({ ...plan, tasks: plan.tasks.map((task) => task.id === taskId ? { ...task, isCompleted: nextValue } : task) })));
+    setSavingTaskIds((ids) => new Set(ids).add(taskId));
+    const { error } = await supabase.rpc("complete_therapist_promotion_task" as any, { p_token: token, p_task_id: taskId, p_completed: nextValue });
+    setSavingTaskIds((ids) => { const next = new Set(ids); next.delete(taskId); return next; });
+    if (error) { setPromotionPlans(before); toast.error("達成状況を保存できませんでした"); return; }
+    if (nextValue) {
+      setCelebratingTaskId(taskId);
+      setTimeout(() => setCelebratingTaskId((current) => current === taskId ? null : current), 900);
+      toast.success(`ミッション達成！ +${rewardPoints} pt`, { icon: "🏆" });
+    }
+    await fetchGrowthStats();
+  };
   const fetchSettlements = async () => {
     setSettlementLoading(true);
     const { data, error } = await supabase.rpc("get_therapist_monthly_settlements", {
@@ -610,7 +645,7 @@ export default function TherapistPortal() {
     { title: "シフト確認", description: "確定したシフトと出勤ルームを確認", icon: Calendar, action: () => setView("shift") },
     { title: "事前予約", description: "今日以降に入っている予約を確認", icon: CalendarPlus, action: () => setView("upcoming") },
     { title: "2媒体投稿", description: "O2・魂セラピストへ同時投稿", icon: Edit, action: () => navigate(`/therapist/${token}/posts`) },
-    { title: "投稿宣伝スケジュール", description: "自分の投稿予定・回数・画像サイズを確認", icon: Megaphone, action: () => { setView("promotion"); void fetchPromotionPlans(); } },
+    { title: "集客ミッション", description: "達成してポイントを貯め、集客実績を伸ばす", icon: Trophy, action: () => { setView("promotion"); void Promise.all([fetchPromotionPlans(), fetchGrowthStats()]); } },
     { title: "バック表", description: "コース別・オプション別のバック率を確認", icon: Receipt, action: () => setShowBackRates(true) },
     { title: "交通費申請", description: "交通費の申請・申請履歴を確認", icon: Plane, action: () => setView("transport") },
     { title: "退勤フォーム", description: "売上入力・清掃チェック・フィードバック", icon: LogOut, action: () => navigate(`/therapist/${token}/checkout`) },
@@ -627,6 +662,10 @@ export default function TherapistPortal() {
     o2: "O2（ゼロツー）",
     esutama: "魂セラピスト",
   };
+
+  const growthSummary = growthStats ?? { totalPoints: 0, completedTasks: 0, totalTasks: 0, activeDaysStreak: 0, bookings30d: 0, revenue30d: 0, reviews90d: 0 };
+  const growthLevel = Math.floor(growthSummary.totalPoints / 100) + 1;
+  const growthProgress = growthSummary.totalPoints % 100;
 
   return (
     <div className="min-h-screen bg-background">
@@ -1006,9 +1045,16 @@ export default function TherapistPortal() {
         {/* ── PROMOTION SCHEDULE ── */}
         {view === "promotion" && (
           <div className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-              あなたが対象の投稿予定です。宣伝先ごとの回数と画像サイズを確認して進めてください。
-            </p>
+            <section className="relative overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-600 via-fuchsia-600 to-rose-500 p-5 text-white shadow-lg">
+              <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/15 blur-2xl" />
+              <div className="relative flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.2em] text-white/75">GROWTH QUEST</p><h2 className="mt-1 text-xl font-black">今日の集客ミッション</h2><p className="mt-1 text-xs text-white/80">小さな一歩が、次の予約とあなたのファンにつながります。</p></div><Trophy className="h-9 w-9 shrink-0 text-yellow-200" /></div>
+              <div className="relative mt-5 flex items-end justify-between gap-4"><div><p className="text-xs text-white/75">LEVEL {growthLevel}</p><p className="text-3xl font-black tabular-nums">{growthSummary.totalPoints}<span className="ml-1 text-sm font-bold">pt</span></p></div><div className="w-40"><div className="mb-1 flex justify-between text-[10px] text-white/75"><span>次のレベルまで</span><span>{growthProgress}/100</span></div><div className="h-2 overflow-hidden rounded-full bg-black/20"><div className="h-full rounded-full bg-yellow-300 transition-all duration-700" style={{ width: `${growthProgress}%` }} /></div></div></div>
+            </section>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[{ icon: Flame, label: "連続達成", value: `${growthSummary.activeDaysStreak}日`, tone: "text-orange-500 bg-orange-50" }, { icon: Target, label: "ミッション", value: `${growthSummary.completedTasks}/${growthSummary.totalTasks}`, tone: "text-violet-500 bg-violet-50" }, { icon: Zap, label: "30日予約", value: `${growthSummary.bookings30d}件`, tone: "text-blue-500 bg-blue-50" }, { icon: Medal, label: "90日口コミ", value: `${growthSummary.reviews90d}件`, tone: "text-rose-500 bg-rose-50" }].map((item) => { const Icon = item.icon; return <div key={item.label} className="rounded-xl border bg-card p-3"><div className={`mb-2 flex h-7 w-7 items-center justify-center rounded-lg ${item.tone}`}><Icon size={15} /></div><p className="text-[11px] text-muted-foreground">{item.label}</p><p className="mt-0.5 text-lg font-black tabular-nums">{item.value}</p></div>; })}
+            </div>
+            <div className="rounded-xl border bg-card px-4 py-3"><div className="flex items-center gap-2"><Sparkles size={15} className="text-fuchsia-500" /><p className="text-sm font-bold">集客への手応え</p></div><p className="mt-1 text-xs text-muted-foreground">直近30日の予約は <span className="font-bold text-foreground">{growthSummary.bookings30d}件</span>、予約金額は <span className="font-bold text-foreground">¥{growthSummary.revenue30d.toLocaleString()}</span>。口コミは直近90日の公開件数です。施策の効果を見るための参考値として活用してください。</p></div>
+            <p className="text-xs text-muted-foreground">ミッションをタップして達成。完了するとポイントが加算され、レベルと連続達成日数が伸びます。</p>
             {promotionLoading ? (
               <div className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>
             ) : promotionPlans.length === 0 ? (
@@ -1073,10 +1119,7 @@ export default function TherapistPortal() {
                           <p className="mb-2 text-xs font-bold text-muted-foreground">準備物</p>
                           <div className="space-y-2">
                             {preparationTasks.map((task) => (
-                              <div key={task.id} className="flex items-start gap-2 text-sm">
-                                <CheckCircle2 size={16} className={task.isCompleted ? "mt-0.5 shrink-0 text-green-500" : "mt-0.5 shrink-0 text-muted-foreground/35"} />
-                                <span className={task.isCompleted ? "text-muted-foreground line-through" : ""}>{task.label}</span>
-                              </div>
+                              <button type="button" key={task.id} onClick={() => togglePromotionTask(task.id, !task.isCompleted, task.rewardPoints)} disabled={savingTaskIds.has(task.id)} className={`group relative flex w-full items-start gap-3 rounded-xl border p-3 text-left transition-all ${task.isCompleted ? "border-green-200 bg-green-50/70" : "bg-card hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"} ${celebratingTaskId === task.id ? "scale-[1.02] ring-2 ring-yellow-300" : ""}`}><span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${task.isCompleted ? "border-green-500 bg-green-500 text-white" : "border-muted-foreground/30 group-hover:border-primary"}`}>{task.isCompleted ? <Check size={14} /> : <span className="h-2 w-2 rounded-full bg-muted-foreground/30" />}</span><span className="min-w-0 flex-1"><span className={`block text-sm font-medium ${task.isCompleted ? "text-muted-foreground line-through" : ""}`}>{task.label}</span><span className="mt-1 flex items-center gap-1 text-[11px] font-bold text-violet-600">{task.isCompleted ? "達成済み" : <><Zap size={11} />+{task.rewardPoints} pt</>}</span></span>{celebratingTaskId === task.id && <span className="absolute -right-1 -top-3 animate-bounce text-xl">✨</span>}</button>
                             ))}
                           </div>
                         </div>
@@ -1093,10 +1136,7 @@ export default function TherapistPortal() {
                                 </p>
                                 <div className="mt-2 space-y-1.5">
                                   {group.map((task) => (
-                                    <div key={task.id} className="flex items-start gap-2 text-sm">
-                                      <CheckCircle2 size={15} className={task.isCompleted ? "mt-0.5 shrink-0 text-green-500" : "mt-0.5 shrink-0 text-muted-foreground/35"} />
-                                      <span className={task.isCompleted ? "text-muted-foreground line-through" : ""}>{task.label}</span>
-                                    </div>
+                                    <button type="button" key={task.id} onClick={() => togglePromotionTask(task.id, !task.isCompleted, task.rewardPoints)} disabled={savingTaskIds.has(task.id)} className={`group relative flex w-full items-start gap-3 rounded-xl border p-3 text-left transition-all ${task.isCompleted ? "border-green-200 bg-green-50/70" : "bg-card hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"} ${celebratingTaskId === task.id ? "scale-[1.02] ring-2 ring-yellow-300" : ""}`}><span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${task.isCompleted ? "border-green-500 bg-green-500 text-white" : "border-muted-foreground/30 group-hover:border-primary"}`}>{task.isCompleted ? <Check size={14} /> : <span className="h-2 w-2 rounded-full bg-muted-foreground/30" />}</span><span className="min-w-0 flex-1"><span className={`block text-sm font-medium ${task.isCompleted ? "text-muted-foreground line-through" : ""}`}>{task.label}</span><span className="mt-1 flex items-center gap-1 text-[11px] font-bold text-violet-600">{task.isCompleted ? "達成済み" : <><Zap size={11} />+{task.rewardPoints} pt</>}</span></span>{celebratingTaskId === task.id && <span className="absolute -right-1 -top-3 animate-bounce text-xl">✨</span>}</button>
                                   ))}
                                 </div>
                               </div>
