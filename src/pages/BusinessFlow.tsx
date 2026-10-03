@@ -8,13 +8,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, ChevronUp, ChevronDown, GripVertical, Loader2, ListChecks, Check } from "lucide-react";
+import type { Json } from "@/integrations/supabase/types";
+import { Plus, Trash2, ChevronUp, ChevronDown, GripVertical, Loader2, ListChecks, Check, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 interface Step {
   id: string;
   text: string;
   done: boolean;
+  // そのステップで話すこと・注意点（台本）。面接の流れなど、1行に収まらない内容を書く
+  note?: string;
 }
 interface Flow {
   id: string;
@@ -25,6 +28,9 @@ interface Flow {
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+// 文章の行数に合わせて入力欄の高さを決める（長い台本でも全部見えるように）
+const rowsFor = (text: string | null | undefined, min: number, max: number) =>
+  Math.min(max, Math.max(min, (text || "").split("\n").length));
 
 export default function BusinessFlow() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -32,6 +38,8 @@ export default function BusinessFlow() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [newStepText, setNewStepText] = useState<Record<string, string>>({});
+  const [openNotes, setOpenNotes] = useState<Record<string, boolean>>({});
+  const [hiddenNotes, setHiddenNotes] = useState<Record<string, boolean>>({});
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -75,7 +83,7 @@ export default function BusinessFlow() {
         .update({
           title: flow.title,
           description: flow.description,
-          steps: flow.steps,
+          steps: flow.steps as unknown as Json,
           display_order: flow.display_order,
           updated_at: new Date().toISOString(),
         })
@@ -142,6 +150,11 @@ export default function BusinessFlow() {
 
   const updateStepText = (flow: Flow, stepId: string, text: string) => {
     const steps = flow.steps.map((s) => (s.id === stepId ? { ...s, text } : s));
+    updateLocal(flow.id, { steps });
+  };
+
+  const updateStepNote = (flow: Flow, stepId: string, note: string) => {
+    const steps = flow.steps.map((s) => (s.id === stepId ? { ...s, note } : s));
     updateLocal(flow.id, { steps });
   };
 
@@ -222,7 +235,7 @@ export default function BusinessFlow() {
                             onChange={(e) => updateLocal(flow.id, { description: e.target.value })}
                             onBlur={() => persist(flow, true)}
                             placeholder="説明（任意）"
-                            rows={1}
+                            rows={rowsFor(flow.description, 1, 10)}
                             className="text-sm resize-none border-transparent hover:border-input focus:border-input px-2 -ml-2"
                           />
                         </div>
@@ -247,12 +260,23 @@ export default function BusinessFlow() {
                               リセット
                             </button>
                           )}
+                          {flow.steps.some((s) => s.note?.trim()) && (
+                            <button
+                              onClick={() => setHiddenNotes((p) => ({ ...p, [flow.id]: !p[flow.id] }))}
+                              className="text-xs text-muted-foreground hover:text-foreground underline whitespace-nowrap"
+                            >
+                              {hiddenNotes[flow.id] ? "台本を表示" : "台本を隠す"}
+                            </button>
+                          )}
                         </div>
                       )}
                     </CardHeader>
                     <CardContent className="space-y-1.5">
-                      {flow.steps.map((step, idx) => (
-                        <div key={step.id} className="flex items-center gap-2 group rounded-md hover:bg-accent/40 px-1 py-0.5">
+                      {flow.steps.map((step, idx) => {
+                        const showNote = openNotes[step.id] || (Boolean(step.note?.trim()) && !hiddenNotes[flow.id]);
+                        return (
+                        <div key={step.id} className="group rounded-md hover:bg-accent/40 px-1 py-0.5">
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={() => toggleStep(flow, step.id)}
                             className={`shrink-0 h-6 w-6 rounded-full border flex items-center justify-center transition-colors ${
@@ -269,6 +293,13 @@ export default function BusinessFlow() {
                             className={`flex-1 border-transparent hover:border-input focus:border-input h-8 ${step.done ? "line-through text-muted-foreground" : ""}`}
                           />
                           <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            <button
+                              onClick={() => setOpenNotes((p) => ({ ...p, [step.id]: !showNote }))}
+                              className={`p-1 hover:text-foreground ${step.note?.trim() ? "text-primary" : "text-muted-foreground"}`}
+                              title={step.note?.trim() ? "台本を開く・閉じる" : "台本（話す内容）を書く"}
+                            >
+                              <FileText size={14} />
+                            </button>
                             <button onClick={() => moveStep(flow, idx, -1)} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={idx === 0}>
                               <ChevronUp size={15} />
                             </button>
@@ -280,7 +311,19 @@ export default function BusinessFlow() {
                             </button>
                           </div>
                         </div>
-                      ))}
+                        {showNote && (
+                          <Textarea
+                            value={step.note || ""}
+                            onChange={(e) => updateStepNote(flow, step.id, e.target.value)}
+                            onBlur={() => persist(flow, true)}
+                            placeholder="このステップで話すこと・注意点（台本）"
+                            rows={rowsFor(step.note, 2, 14)}
+                            className="mt-1 mb-2 ml-[3.75rem] w-[calc(100%-3.75rem)] text-sm leading-relaxed resize-y bg-muted/40 border-transparent hover:border-input focus:border-input"
+                          />
+                        )}
+                        </div>
+                        );
+                      })}
 
                       <div className="flex gap-2 pt-2">
                         <Input
