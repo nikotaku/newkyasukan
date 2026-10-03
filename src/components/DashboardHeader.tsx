@@ -8,6 +8,7 @@ import { useAdminStore } from "@/hooks/useAdminStore";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminAppManifest } from "@/hooks/useAdminAppManifest";
 import { CtiCallPopup } from "@/components/CtiCallPopup";
+import { EstamaPendingAlert } from "@/components/EstamaPendingAlert";
 import caskanLogo from "@/assets/caskan-logo.png";
 import { STORE_DEFS, otherStore, switchToStore, ZENRYOKU_STORE_ID } from "@/lib/storeSwitch";
 import {
@@ -193,6 +194,7 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
       </Dialog>
       {/* CTI着信ポップ（全管理画面共通） */}
       <CtiCallPopup />
+      <EstamaPendingAlert />
     </header>
   );
 };
