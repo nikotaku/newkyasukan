@@ -170,6 +170,11 @@
 - Edge Function は `src/lib/` のファイルを相対パスで読むので、デプロイするときは `src/lib/xPostContext.ts`・`xAutoPost.ts`・`xDailyPosts.ts`・`availability.ts`・`bookingUrl.ts`・`xOperationsPlan.ts` も一緒に送る（entrypoint は `supabase/functions/x-auto-post/index.ts`）
 - テスト: `npm run test:x-auto-post`
 
+## エスたまへの反映待ちのお知らせ
+
+- セラピストのプロフィール変更は、まずキャスカン（HP）に保存される。エスたまへの同期ジョブ（`automation_jobs` の `estama_register_cast`）が `queued` / `waiting_for_login` のまま90秒以上残っていると、管理画面の左下に「エスたまに反映していない変更があります」を出す（`src/components/EstamaPendingAlert.tsx`、DashboardHeader に1つ）。「エスたまに反映する」で `run-queued` をログイン中スタッフの権限で実行する
+- 裏の自動同期（pg_cron `estama-profile-sync-every-minute` → `/api/automations/estama-profile-worker`）は Vercel に管理鍵が無く失敗するため止めてある（active=false）。DBを直接書き換えた変更もこのお知らせから反映する
+
 ## エステ魂スカウト求人の自動化（/recruit/estama-scout）
 
 - 毎日決まった時刻（`estama_scout_settings.propose_at`、既定11:00）に、エステ魂の「スカウト求人」（`/admin/esjob/`）と「スカウト検索」（`/admin/esjob_search/`）から候補を読み、1日 `daily_count` 人（既定10人）を選んでスマホ通知（push topic `estama_scout`）→ 画面で送る人を選んで「送る」→ エステ魂のスカウトテンプレートで自動送信。OKが出るまでは絶対に送らない
