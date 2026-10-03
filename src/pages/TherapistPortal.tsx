@@ -14,6 +14,8 @@ import { getCastBookingUrl, getCustomDomainBaseUrl } from "@/lib/bookingUrl";
 import { ja } from "date-fns/locale";
 import { TherapistSalesPanel } from "@/components/therapist/TherapistSalesPanel";
 import { allowPageZoom } from "@/lib/viewportZoomLock";
+import { useTherapistAppManifest } from "@/hooks/useTherapistAppManifest";
+import { TherapistPushCard } from "@/components/therapist/TherapistPushCard";
 
 
 interface Cast {
@@ -177,6 +179,7 @@ const POST_IDEAS: { title: string; body: string }[] = [
 export default function TherapistPortal() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  useTherapistAppManifest();
   const [portalDayStartTime, setPortalDayStartTime] = useState("10:00:00");
   const [dayStartHour, dayStartMinute] = portalDayStartTime.split(":").map(Number);
   const nowForBusinessDate = new Date();
@@ -694,6 +697,9 @@ export default function TherapistPortal() {
         {/* ── MENU ── */}
         {view === "menu" && (
           <div className="space-y-4">
+
+          {/* 予約の通知（マイページのスマホ通知）。未設定なら目立たせる */}
+          {token && <TherapistPushCard token={token} />}
 
           {/* 本日の出勤ルーム（女の子が今日どのルームか一目で分かるように） */}
           {(() => {

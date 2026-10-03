@@ -1,0 +1,13 @@
+{
+  "name": "艶華 マイページ",
+  "short_name": "艶華 マイページ",
+  "lang": "ja",
+  "scope": "/therapist/",
+  "display": "standalone",
+  "background_color": "#1a0f14",
+  "theme_color": "#1a0f14",
+  "icons": [
+    { "src": "/therapist-app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/therapist-app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

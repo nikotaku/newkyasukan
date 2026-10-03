@@ -131,13 +131,18 @@ test("本指名以外では担当履歴を通知へ載せない", () => {
 });
 
 test("呼出元は予約IDを渡し、Edge FunctionはDBの確定値を取得する", async () => {
-  const [scheduleSource, functionSource, migrationSource] = await Promise.all([
+  const [scheduleSource, resendSource, notifySource, functionSource, migrationSource] = await Promise.all([
     readFile(new URL("../src/pages/Schedule.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/lib/therapistNotifications.ts", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/functions/notify-therapist/index.ts", import.meta.url), "utf8"),
     readFile(new URL("../supabase/functions/notify-line-therapist/index.ts", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260901124500_reservation_line_notification_cast_identity.sql", import.meta.url), "utf8"),
   ]);
 
-  assert.match(scheduleSource, /reservation_id:\s*d\.id/);
+  // 予約表からの再通知は予約IDだけを渡し、送る内容は notify-therapist がDBから組み立てる
+  assert.doesNotMatch(scheduleSource, /notify-line-therapist/);
+  assert.match(resendSource, /resend_therapist_notification[\s\S]*p_reservation_id:\s*reservationId/);
+  assert.match(notifySource, /rpc\("get_reservation_line_context", \{ p_reservation_id: notification\.reservation_id \}\)/);
   assert.match(functionSource, /sb\.rpc\("get_reservation_line_context"/);
   assert.match(functionSource, /authClient\.auth\.getUser\(jwt\)/);
   assert.match(functionSource, /authClient\.rpc\("can_manage_store"/);

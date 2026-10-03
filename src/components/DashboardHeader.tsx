@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAdminAppManifest } from "@/hooks/useAdminAppManifest";
 import { CtiCallPopup } from "@/components/CtiCallPopup";
 import { EstamaPendingAlert } from "@/components/EstamaPendingAlert";
+import { TherapistNotifyAlert } from "@/components/TherapistNotifyAlert";
 import caskanLogo from "@/assets/caskan-logo.png";
 import { STORE_DEFS, otherStore, switchToStore, ZENRYOKU_STORE_ID } from "@/lib/storeSwitch";
 import {
@@ -194,7 +195,11 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
       </Dialog>
       {/* CTI着信ポップ（全管理画面共通） */}
       <CtiCallPopup />
-      <EstamaPendingAlert />
+      {/* 管理画面の左下のお知らせ（届いていないセラピスト通知・エスたまへの反映待ち） */}
+      <div className="pointer-events-none fixed bottom-4 left-4 md:left-[256px] z-50 flex w-[340px] max-w-[calc(100vw-6.5rem)] flex-col gap-2 [&>*]:pointer-events-auto">
+        <TherapistNotifyAlert />
+        <EstamaPendingAlert />
+      </div>
     </header>
   );
 };

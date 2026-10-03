@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { TherapistPushSetupList } from "@/components/TherapistPushSetupList";
 import {
   ALL_PUSH_TOPICS,
   PUSH_TOPICS,
@@ -235,6 +236,8 @@ export default function NotificationSettings() {
               </CardContent>
             </Card>
           )}
+
+          {adminStore?.id && <TherapistPushSetupList storeId={adminStore.id} customDomain={adminStore.custom_domain} />}
         </div>
       </main>
     </div>
