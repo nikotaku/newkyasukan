@@ -12,6 +12,7 @@ export const PUSH_TOPICS = [
   { key: "sms_reply", label: "お客様からSMSの返信が来たとき", hint: "こちらから送ったことのある番号の返信だけ" },
   { key: "sms_balance", label: "SMSの残高が少ないとき", hint: "実質残高が1,000円を切ったら（1日1回まで）" },
   { key: "estama_scout", label: "エステ魂スカウトの確認", hint: "毎日の候補がそろったとき（OKで送信）・送り終わったとき" },
+  { key: "therapist_notify", label: "セラピストに予約通知が届かないとき", hint: "マイページの通知が未設定・送信に失敗したとき（直接連絡が必要）" },
 ] as const;
 export type PushTopic = (typeof PUSH_TOPICS)[number]["key"];
 export const ALL_PUSH_TOPICS: PushTopic[] = PUSH_TOPICS.map((topic) => topic.key);
@@ -31,7 +32,7 @@ export function isStandalone() {
   return window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
-function base64UrlToBytes(value: string) {
+export function base64UrlToBytes(value: string) {
   const base64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
   const binary = atob(base64);
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
@@ -44,7 +45,7 @@ export function deviceLabel() {
   return [device, isStandalone() ? "ホーム画面" : browser].filter(Boolean).join("・");
 }
 
-async function workerRegistration() {
+export async function workerRegistration() {
   const existing = await navigator.serviceWorker.getRegistration("/");
   if (existing?.active?.scriptURL.endsWith(WORKER_URL)) return existing;
   await navigator.serviceWorker.register(WORKER_URL, { scope: "/" });

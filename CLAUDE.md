@@ -149,6 +149,16 @@
 - 送信は DBトリガー `trg_push_notify()` → Edge Function `push-notify`（`x-push-notify-secret` は Vault の `push_notify_internal_secret`）。購読がない店舗では呼ばない。暗号化とVAPID署名は `_shared/webPush.ts`（外部ライブラリなし）。VAPIDの鍵は Vault の `web_push_vapid_public_key` / `web_push_vapid_private_jwk`（公開鍵は `src/lib/adminPush.ts` にも載せている）
 - テスト: `npm run test:push-notify`
 
+## セラピストへの予約通知（マイページのスマホ通知に一本化）
+
+- 予約の **確定・変更・キャンセル・担当変更** は、DBトリガー `reservations_therapist_notification` が `therapist_notifications`（通知待ち・送った記録）に積む。同じ予約の続けての変更は送る前に1件にまとめる（新規→取り消しは送らない、変更→変更は最初の変更前の値を残す）。過去の営業日の予約の手直しでは送らない
+- pg_cron `therapist-notify-every-30-seconds` → `private.dispatch_therapist_notifications()`（送るものがあるときだけ）→ Edge Function `notify-therapist`（`x-therapist-notify-secret` は Vault の `therapist_notify_internal_secret`）。文面は `notify-therapist/messages.ts`（予約内容は `get_reservation_line_context`）
+- 送り先は **セラピストのマイページ**（`/therapist/:token` をホーム画面に追加したアプリ「艶華 マイページ」、manifest は `public/therapist-app/`、start_url なしで本人のURLが開く）へのプッシュ通知。端末は `therapist_push_subscriptions`（マイページの「通知をオンにする」→ RPC `save_therapist_push_subscription`、トークンで本人確認）
+- 端末が無い人だけ、移行中は**本人のLINEグループ**（`casts.line_group_id`）へ。**共通グループには送らない**。どちらも無い・送れない → `unreachable` / `failed` にして、管理画面の左下（`TherapistNotifyAlert`）とスマホ通知（topic `therapist_notify`）で知らせる。直接連絡して「連絡した」で消す
+- 予約表の「再送」（`ReservationResendDialog`）で、お客様への予約確認SMS（`send-sms`）とセラピストへの通知（RPC `resend_therapist_notification`）を送り直せる。端末のSMSアプリを開く旧方式と `notify-line-therapist` の呼び出しはやめた
+- 設定状況は `/settings/notifications` の「セラピストの予約通知（マイページ）」。未設定の人にはURLを送って設定してもらう
+- テスト: `npm run test:therapist-notify`
+
 ## Claude用のブラウザ操作（jev-ultrafast）
 
 - 外部サイトを自然文の目的で操作するときは `.claude/skills/jev-browser/SKILL.md`（`scripts/claude/jev.sh setup|check|run|stop`）。本体は作業環境の `~/.cache/jev-ultrafast` に入れる（リポジトリには入れない）

@@ -129,7 +129,7 @@ export function EstamaPendingAlert() {
   return (
     <div
       role="status"
-      className="fixed bottom-4 left-4 md:left-[256px] z-50 w-[340px] max-w-[calc(100vw-6.5rem)] rounded-xl border border-amber-400/70 bg-card p-3 shadow-xl"
+      className="w-full rounded-xl border border-amber-400/70 bg-card p-3 shadow-xl"
     >
       <div className="flex items-start gap-2">
         <RefreshCw size={16} className="mt-0.5 shrink-0 text-amber-500" />

@@ -1,6 +1,6 @@
-// 管理画面アプリ（ホーム画面に追加したもの）のプッシュ通知を受け取る Service Worker。
+// ホーム画面に追加したアプリ（管理画面・セラピストのマイページ）のプッシュ通知を受け取る Service Worker。
 // fetch は横取りしない（公開サイト・管理画面の表示やキャッシュには関わらない）。
-// 通知の中身は Edge Function push-notify が送る { title, body, url, tag }。
+// 通知の中身は Edge Function push-notify（管理画面）・notify-therapist（マイページ）が送る { title, body, url, tag, icon }。
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
@@ -18,8 +18,8 @@ self.addEventListener("push", (event) => {
       body: data.body || "",
       tag: data.tag || undefined,
       renotify: Boolean(data.tag),
-      icon: "/admin-app/icon-192.png",
-      badge: "/admin-app/icon-192.png",
+      icon: data.icon || "/admin-app/icon-192.png",
+      badge: data.icon || "/admin-app/icon-192.png",
       data: { url: data.url || "/admin-schedule" },
     }),
   );

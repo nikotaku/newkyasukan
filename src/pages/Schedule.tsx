@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { format, addDays, subDays, addMonths, subMonths, parse, addMinutes, startOfMonth, endOfMonth, startOfWeek, eachDayOfInterval } from "date-fns";
 import { toExtTime, toStoredTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, MessageSquare, Heart, Zap, Trash2, Share2, Loader2, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Heart, Zap, Trash2, Share2, Loader2, RefreshCw } from "lucide-react";
 import paypayGuideUrl from "@/assets/paypay-guide.jpeg";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
@@ -29,15 +29,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import {
-  buildSplitCardPaymentSmsLines,
-  findPaymentSetting,
-  getSplitCardPaymentSummary,
-  PaymentDetail,
-  PaymentSetting,
-} from "@/lib/paymentFee";
+import { PaymentDetail } from "@/lib/paymentFee";
 import { openSmsApp } from "@/lib/sms";
 import { SmsHistory } from "@/components/SmsHistory";
+import { ReservationResendDialog } from "@/components/ReservationResendDialog";
+import { therapistPortalUrl } from "@/lib/therapistNotifications";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { PaymentReminderPopup } from "@/components/PaymentReminderPopup";
 import { loadReceptionEndGuide, shareReceptionEndContent } from "@/lib/receptionEndShare";
@@ -101,6 +97,8 @@ interface Reservation {
   line_notification_status: string;
   email_notification_status: string;
   notification_last_error: string | null;
+  sms_notification_status?: string | null;
+  sms_notification_sent_at?: string | null;
   settlement_submitted?: boolean;
 }
 
@@ -122,7 +120,6 @@ interface StoreDiscount {
   store_id: string;
 }
 
-type StorePaymentSetting = PaymentSetting & { store_id: string };
 
 function forStore<T extends { store_id: string }>(items: T[], storeId: string): T[] {
   return items.filter((item) => item.store_id === storeId);
@@ -229,7 +226,7 @@ function StatusBox({
   castNameMap,
   onStatusChange,
   onEdit,
-  onSms,
+  onResend,
   onThanksSms,
   onCouponSms,
   onRetryNotification,
@@ -241,7 +238,7 @@ function StatusBox({
   castNameMap: Map<string, string>;
   onStatusChange: (id: string, status: string) => void;
   onEdit: (res: Reservation) => void;
-  onSms: (res: Reservation) => void;
+  onResend: (res: Reservation) => void;
   onThanksSms: (res: Reservation) => void;
   onCouponSms: (res: Reservation) => void;
   onRetryNotification: (res: Reservation) => void;
@@ -326,10 +323,11 @@ function StatusBox({
               )}
               <div className="mt-1.5 flex gap-1 flex-wrap">
                 <button
-                  onClick={() => onSms(res)}
+                  onClick={() => onResend(res)}
+                  title="お客様へのSMS・セラピストへの通知を送り直す"
                   className="text-[10px] px-1.5 py-0.5 rounded border bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors font-medium"
                 >
-                  SMS
+                  再送
                 </button>
                 <button
                   onClick={() => onThanksSms(res)}
@@ -453,7 +451,6 @@ export default function Schedule() {
   const [optionRates, setOptionRates] = useState<any[]>([]);
   const [nominationRates, setNominationRates] = useState<any[]>([]);
   const [discounts, setDiscounts] = useState<StoreDiscount[]>([]);
-  const [paymentSettings, setPaymentSettings] = useState<StorePaymentSetting[]>([]);
   const [thanksTemplate, setThanksTemplate] = useState<string | null>(null);
   const [couponTemplate, setCouponTemplate] = useState<string | null>(null);
 
@@ -528,19 +525,6 @@ export default function Schedule() {
     return () => { active = false; };
   }, [adminStore?.id]);
 
-  // クーポン案内SMS用の店舗公式LINE URL（store_info から自店舗分を取得）
-  const [storeLineUrl, setStoreLineUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!adminStore?.id) return;
-    supabase
-      .from("store_info")
-      .select("line_url")
-      .eq("store_id", adminStore.id)
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => setStoreLineUrl(data?.line_url ?? null));
-  }, [adminStore?.id]);
-
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
   }, [user, authLoading]);
@@ -565,14 +549,13 @@ export default function Schedule() {
 
   const fetchFormData = async () => {
     if (!adminStore?.id) return;
-    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }, { data: p }, { data: t }, { data: cp }, tokenResult] = await Promise.all([
+    const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }, { data: t }, { data: cp }, tokenResult] = await Promise.all([
       supabase.from("casts").select("id, name, photo, store_id, is_active").order("name"),
       supabase.from("rooms").select("id, name, address, sms_text, map_url, caution_text, store_id").eq("is_active", true).order("name"),
       supabase.from("back_rates").select("*").order("display_order"),
       supabase.from("option_rates").select("*").order("display_order"),
       supabase.from("nomination_rates").select("*"),
       supabase.from("discounts").select("id, name, discount_type, discount_value, is_active, store_id").eq("is_active", true).order("name"),
-      supabase.from("payment_settings").select("id, payment_method, payment_link, fee_percentage, store_id"),
       supabase.from("sms_auto_templates").select("message").eq("store_id", adminStore.id).eq("trigger", "thanks").eq("is_active", true).limit(1),
       supabase.from("sms_auto_templates").select("message").eq("store_id", adminStore.id).eq("trigger", "coupon").eq("is_active", true).limit(1),
       supabase.rpc("get_cast_access_tokens"),
@@ -583,7 +566,6 @@ export default function Schedule() {
     if (o) setOptionRates(o);
     if (n) setNominationRates(n);
     if (d) setDiscounts(d as any);
-    if (p) setPaymentSettings(p as StorePaymentSetting[]);
     setThanksTemplate(t && t.length > 0 ? t[0].message : null);
     setCouponTemplate(cp && cp.length > 0 ? cp[0].message : null);
     if (tokenResult.error) {
@@ -898,203 +880,10 @@ export default function Schedule() {
     }
   };
 
-  const buildReservationSms = (d: Reservation): string => {
-    const { dateStr, timeStr } = extBusinessDateTime(d.reservation_date, d.start_time);
-    const castName = castNameMap.get(d.cast_id) ?? "";
-    const nominationLabel = d.nomination_type && d.nomination_type !== "none" ? d.nomination_type : "フリー";
-    const fee = d.payment_fee || 0;
-    const grandTotal = d.price + fee;
-    const storePaymentSettings = paymentSettings.filter((setting) => setting.store_id === d.store_id);
-    const splitCardPayment = getSplitCardPaymentSummary(
-      d.payment_details,
-      storePaymentSettings,
-      d.payment_fee,
-    );
-    const paySetting = findPaymentSetting(
-      storePaymentSettings,
-      d.payment_method || "",
-    );
-    const payLink = fee > 0 && paySetting?.payment_link ? paySetting.payment_link : null;
-    const splitCardPaymentLines = buildSplitCardPaymentSmsLines(splitCardPayment);
-    const roomRecord = rooms.find((r) => r.store_id === d.store_id && r.name === d.room);
-    const roomSmsText = roomRecord?.sms_text ?? null;
-    const roomAddress = roomRecord?.address ?? null;
-    const roomMapUrl = roomRecord?.map_url ?? null;
-    const roomCautionText = roomRecord?.caution_text ?? null;
-
-    const backRate = backRates.find(
-      (r) => r.store_id === d.store_id && r.course_type === d.course_type && r.duration === d.duration
-    );
-    const coursePrice = backRate?.customer_price ?? 0;
-    const optionsTotal = (d.options ?? []).reduce((sum, optName) => {
-      const opt = optionRates.find((r) => r.store_id === d.store_id && r.option_name === optName);
-      return sum + (opt?.customer_price ?? 0);
-    }, 0);
-    const nominationFee = d.nomination_type && d.nomination_type !== "none"
-      ? (nominationRates.find((r) => r.store_id === d.store_id && r.nomination_type === d.nomination_type)?.customer_price ?? 0)
-      : 0;
-    const discountAmount = d.discount ?? 0;
-
-    // 「総額10,000円クーポン(初回)」選択時はLINE追加の案内を追記する
-    const needsLineCouponNote = (d.discount_ids ?? []).some((discId) => {
-      const disc = discounts.find((x) => x.store_id === d.store_id && x.id === discId);
-      return !!disc && disc.name.includes("総額10,000円クーポン");
-    });
-
-    // 艶華の予約確認SMSは、来店に必要な情報だけを短く表示する。
-    // ルームの住所・地図・道順・入室時の注意は予約ごとの案内ページ（/g/:token）にまとめてリンクだけ載せる。
-    // 案内ページが使えない予約（トークンなし）は従来どおり住所・目印・地図を本文に入れる。
-    if (adminStore?.custom_domain === "enka-salon.jp") {
-      const guideUrl = d.guide_token && d.room ? `https://${adminStore.custom_domain}/g/${d.guide_token}` : null;
-      const roomGuideText = roomSmsText?.split("【注意事項】")[0] ?? "";
-      const rawRoomNote = roomGuideText
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .find((line) => line.startsWith("※"));
-      const roomNote = rawRoomNote
-        ?.replace(
-          "※1階にある炭火焼き鳥四代目『はしもとや』が目印です。",
-          "目印：1階「はしもとや」"
-        )
-        .replace(
-          "※11階にお部屋がございます。1階とお間違い無いようにご注意ください。",
-          "※11階です（1階とお間違いないようご注意ください）"
-        );
-      const embeddedMapUrl = roomSmsText?.match(/https?:\/\/[^\s]+/)?.[0] ?? null;
-      const effectiveMapUrl = roomMapUrl ?? embeddedMapUrl;
-      const therapistLabel = !castName || castName === "フリー"
-        ? "フリー"
-        : `${castName}（${nominationLabel}）`;
-
-      return [
-        `${d.customer_name} 様`,
-        "ご予約ありがとうございます。",
-        "",
-        "【予約内容】",
-        `${dateStr} ${timeStr}〜`,
-        d.course_name,
-        (d.options ?? []).length > 0 ? `オプション：${(d.options ?? []).join("、")}` : null,
-        `担当：${therapistLabel}`,
-        `合計：${grandTotal.toLocaleString()}円`,
-        d.notes?.trim() ? `ご要望：${d.notes.trim()}` : null,
-        ...splitCardPaymentLines,
-        ...(!splitCardPayment && payLink ? ["", `${paySetting?.payment_method ?? "カード"}決済：${payLink}`] : []),
-        ...(needsLineCouponNote && storeLineUrl
-          ? ["", `クーポン受取LINE：${storeLineUrl}`]
-          : []),
-        guideUrl
-          ? ["", "▼入室方法・地図・道順はこちら", guideUrl].join("\n")
-          : d.room || roomAddress || effectiveMapUrl
-          ? [
-              "",
-              d.room ? `【ルーム案内｜${d.room}】` : "【ルーム案内】",
-              roomAddress,
-              roomNote,
-              effectiveMapUrl ? `地図：${effectiveMapUrl}` : null,
-              "",
-              "※予約時間ちょうどにインターホンを押してください。",
-              "開始前は応答できません。",
-            ].filter((line) => line !== null).join("\n")
-          : null,
-      ].filter((line) => line !== null).join("\n");
-    }
-
-    return [
-      `${d.customer_name} 様`,
-      `ご予約ありがとうございます。`,
-      ``,
-      `[予約情報]`,
-      `予約日時：${dateStr} ${timeStr}〜`,
-      `コース：${d.course_name}`,
-      (d.options ?? []).length > 0 ? `オプション：${(d.options ?? []).join("、")}` : null,
-      `セラピスト：${castName ? `${castName}（${nominationLabel}）` : nominationLabel}`,
-      d.room ? `ルーム：${d.room}` : null,
-      roomAddress ? `住所：${roomAddress}` : null,
-      `予約名：${d.customer_name}`,
-      `ご要望など：${d.notes ?? ""}`,
-      ``,
-      `[料金]`,
-      `コース料金：${coursePrice.toLocaleString()}円`,
-      optionsTotal > 0 ? `オプション料金：${optionsTotal.toLocaleString()}円` : null,
-      `指名料：${nominationFee.toLocaleString()}円`,
-      discountAmount > 0 ? `割引：-${discountAmount.toLocaleString()}円` : null,
-      `決済手数料：${fee.toLocaleString()}円`,
-      `総額：${grandTotal.toLocaleString()}円`,
-      ...splitCardPaymentLines,
-      ...(!splitCardPayment && payLink ? [``, `▼${paySetting?.payment_method ?? "カード"}決済はこちら`, payLink] : []),
-      ...(needsLineCouponNote
-        ? [``, `クーポン受け取り用に下記のLINEを追加お願いいたします。`, ...(storeLineUrl ? [storeLineUrl] : [])]
-        : []),
-      roomSmsText
-        ? `\n${roomSmsText}${roomMapUrl ? `\n\n📍${roomMapUrl}` : ""}`
-        : roomAddress
-          ? `\n【住所】\n${roomAddress}${roomMapUrl ? `\n📍${roomMapUrl}` : ""}`
-          : roomMapUrl ? `\n📍${roomMapUrl}` : null,
-      roomCautionText ? `\n【注意事項】\n${roomCautionText}` : null,
-      castName
-        ? [
-            `\n▼口コミはこちら`,
-            `${reviewBaseUrl}/review`,
-            `（担当名に「${castName}」とご記入いただけると嬉しいです）`,
-          ].join("\n")
-        : null,
-    ].filter((l) => l !== null).join("\n");
-  };
-
-  // コピーしつつ端末のSMS送信画面を開く（宛先＝予約の電話番号、本文プリセット）
-  // 同時にセラピストのグループLINEへも予約内容を自動共有（送り忘れ防止）
-  const openReservationSms = (d: Reservation) => {
-    const splitCardPayment = getSplitCardPaymentSummary(
-      d.payment_details,
-      paymentSettings.filter((setting) => setting.store_id === d.store_id),
-      d.payment_fee,
-    );
-    if (splitCardPayment?.chargeAmount == null && splitCardPayment) {
-      toast({
-        title: "カード決済金額を確定できません",
-        description: "カードとPayPayを併用した旧予約です。予約を編集して保存し直してください。",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (splitCardPayment && !splitCardPayment.paymentLink) {
-      toast({
-        title: "カード決済リンクが未設定です",
-        description: "料金管理でカードの決済リンクを登録してから再度お試しください。",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const body = buildReservationSms(d);
-    navigator.clipboard.writeText(body).catch(() => {});
-    toast({ title: "SMS送信画面を開きます", description: "本文はコピー済みです" });
-    openSmsApp(d.customer_phone, body);
-
-    const { dateStr, timeStr } = extBusinessDateTime(d.reservation_date, d.start_time);
-    supabase.functions
-      .invoke("notify-line-therapist", {
-        body: {
-          reservation_id: d.id,
-          cast_id: d.cast_id,
-          customer_name: d.customer_name,
-          cast_name: castNameMap.get(d.cast_id) ?? "未設定",
-          reservation_date: dateStr,
-          start_time: timeStr,
-          course_name: d.course_name,
-          room: d.room,
-          options: d.options,
-          notes: d.notes,
-        },
-      })
-      .then(({ error }) => {
-        if (error) {
-          toast({ title: "セラピストLINEへの共有に失敗", description: "このセラピストのグループが未連携の可能性があります（グループ内で「連携 名前」を送信）", variant: "destructive" });
-        } else {
-          toast({ title: "セラピストLINEへ共有しました" });
-        }
-      });
-  };
+  // 予約確認SMS（お客様）とセラピストへの予約通知は、予約が確定したときに自動で送られる。
+  // 予約表の「再送」は、届いていない・もう一度送りたいときにどちらかを送り直すダイアログを開く。
+  const [resendRes, setResendRes] = useState<Reservation | null>(null);
+  const openResend = (d: Reservation) => setResendRes(d);
 
   const buildThanksSms = (d: Reservation): string | null => {
     if (!thanksTemplate) return null;
@@ -1547,7 +1336,7 @@ export default function Schedule() {
                       castNameMap={castNameMap}
                       onStatusChange={handleQuickStatusChange}
                       onEdit={(res) => startEdit(res)}
-                      onSms={openReservationSms}
+                      onResend={openResend}
                       onThanksSms={openThanksSms}
                       onCouponSms={openCouponSms}
                       onRetryNotification={handleRetryNotification}
@@ -1910,9 +1699,9 @@ export default function Schedule() {
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      onClick={() => openReservationSms(detailRes)}
+                      onClick={() => openResend(detailRes)}
                     >
-                      <MessageSquare size={14} className="mr-1" />予約確認SMS
+                      <RefreshCw size={14} className="mr-1" />再送（お客様SMS・セラピスト通知）
                     </Button>
                     <Button
                       variant="outline"
@@ -1958,6 +1747,18 @@ export default function Schedule() {
           )}
         </SheetContent>
       </Sheet>
+
+      {resendRes && (
+        <ReservationResendDialog
+          reservation={resendRes}
+          castName={castNameMap.get(resendRes.cast_id) ?? ""}
+          portalUrl={castAccessTokens[resendRes.cast_id]
+            ? therapistPortalUrl(adminStore?.custom_domain, castAccessTokens[resendRes.cast_id])
+            : null}
+          onOpenChange={(open) => { if (!open) setResendRes(null); }}
+          onChanged={fetchData}
+        />
+      )}
 
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>
