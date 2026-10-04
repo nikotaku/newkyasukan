@@ -476,18 +476,25 @@ function castToEstama(cast: CastRecord) {
   };
 }
 
+// エステ魂のプロフィール「ブログ・SNS」欄。id が変わっても入れられるよう、name と入力例（placeholder）でも探す
+const ESTAMA_BLOG_FIELD = '#Blog, input[name="blog"], input[placeholder*="ameblo"]';
+const ESTAMA_TWITTER_FIELD = '#Twitter, input[name="twitter"], input[placeholder*="twitter.com"], input[placeholder*="x.com"]';
+const ESTAMA_INSTAGRAM_FIELD = '#Instagram, input[name="instagram"], input[placeholder*="instagram.com"]';
+
+/** 入力欄に値を入れる。欄が見つからなければ false */
 async function setField(page: Page, selector: string, value: unknown) {
   const locator = page.locator(selector).first();
-  if (!await locator.count()) return;
+  if (!await locator.count()) return false;
   const normalized = value === null || value === undefined ? "" : String(value);
   const tag = await locator.evaluate((element) => element.tagName.toLowerCase()).catch(() => "");
   if (tag === "select") {
     if (!normalized) {
       if (await locator.locator('option[value=""]').count()) await locator.selectOption("");
-      return;
+      return true;
     }
     await locator.selectOption(normalized).catch(async () => locator.selectOption({ label: normalized }));
   } else await locator.fill(normalized);
+  return true;
 }
 
 export async function ensureAdminLogin(page: Page, requiredSelector?: string) {
@@ -907,6 +914,8 @@ async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, 
     && current?.last_profile_hash === profileHash
     && current?.last_photo_hash === photoHash
   ) {
+    // 変更なし。履歴のスクリーンショットに今の登録内容が写るよう、編集画面だけ開いておく
+    await page.goto(editUrl, { waitUntil: "domcontentloaded" }).catch(() => null);
     return { externalId: current.external_cast_id || null, publicUrl: current.public_profile_url || null, unchanged: true };
   }
 
@@ -924,9 +933,18 @@ async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, 
     ['[name="size_w"]', data.size_w], ['[name="size_h"]', data.size_h], ['[name="blood"]', data.blood],
     ["#ForteProcedure", data.forte_procedure], ["#Food", data.food], ["#ManLikeType", data.man_like_type],
     ["#LikeTalent", data.like_talent], ["#Holiday", data.holiday], ["#Vogue", data.vogue],
-    ["#Blog", data.blog], ["#Twitter", data.twitter], ["#Instagram", data.instagram],
   ];
   for (const [selector, value] of fields) await setField(page, selector, value);
+  // ブログ・SNS 欄（外部ブログ＝O2、X＝SNS運用管理のX）。見つからない欄は結果に残す
+  const snsFields: Array<[string, string, string]> = [
+    ["blog", ESTAMA_BLOG_FIELD, data.blog],
+    ["twitter", ESTAMA_TWITTER_FIELD, data.twitter],
+    ["instagram", ESTAMA_INSTAGRAM_FIELD, data.instagram],
+  ];
+  const missingSnsFields: string[] = [];
+  for (const [key, selector, value] of snsFields) {
+    if (!await setField(page, selector, value)) missingSnsFields.push(key);
+  }
   const selectedTypes = new Set(data.types);
   for (const type of Object.values(FEATURE_MAP)) {
     const checkbox = page.locator(`#type_${type}`);
@@ -946,6 +964,11 @@ async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, 
   await clickSave(page);
 
   const savedEditUrl = page.url();
+  // 保存後の画面に残っている値（送った値と比べられるように結果に残す）
+  const savedSns = {
+    blog: await page.locator(ESTAMA_BLOG_FIELD).first().inputValue({ timeout: 3_000 }).catch(() => null),
+    twitter: await page.locator(ESTAMA_TWITTER_FIELD).first().inputValue({ timeout: 3_000 }).catch(() => null),
+  };
   const publicHref = await page.locator('a[href*="/shop/"][href*="/cast/"]').first().getAttribute("href").catch(() => null);
   const publicUrl = publicHref ? new URL(publicHref, page.url()).toString() : castRecord.estama_profile_url || null;
   const externalId = publicUrl?.match(/\/cast\/(\d+)\//)?.[1]
@@ -979,7 +1002,18 @@ async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, 
   const { error: profileError } = await admin.from("external_cast_profiles").upsert(profilePatch, { onConflict: "cast_id,provider" });
   if (profileError) throw new Error(`エステ魂の連携情報を保存できませんでした: ${describeError(profileError)}`);
   await admin.from("casts").update({ estama_profile_url: publicUrl, estama_listed: true }).eq("id", job.cast_id);
-  return { externalId, publicUrl, uploadedPhotos, photoRemoval, soul: soulResult };
+  return {
+    externalId,
+    publicUrl,
+    uploadedPhotos,
+    photoRemoval,
+    soul: soulResult,
+    snsLinks: {
+      sent: { blog: data.blog, twitter: data.twitter },
+      saved: savedSns,
+      missing: missingSnsFields,
+    },
+  };
 }
 
 async function configureSoulLogin(page: Page, credentials: SoulCredentials, mode: "setup" | "login" = "setup") {
