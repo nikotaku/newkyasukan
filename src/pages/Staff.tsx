@@ -20,7 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { getEstamaJobStatus, runEstamaCastAutomation, runEstamaProfileSync, startEstamaCastAutomation, type EstamaJobStatus } from "@/lib/estamaAutomation";
+import { getEstamaJobStatus, runEstamaCastAutomation, startEstamaCastAutomation, startEstamaProfileSync, type EstamaJobStatus } from "@/lib/estamaAutomation";
 import { getCastBookingUrl, getCustomDomainBaseUrl } from "@/lib/bookingUrl";
 import { ESTHE_RANKING_ACTIVE } from "@/lib/mediaRegistration";
 
@@ -852,17 +852,12 @@ export default function Staff() {
 
       if (editingCast.estama_listed || editingCast.estama_profile_url) {
         const syncTarget = { storeId: editingCast.store_id, castId: editingCast.id };
-        void runEstamaProfileSync(syncTarget).then((result) => {
+        // サーバー側のバックグラウンドで反映する（画面を閉じても続く）。進み具合と結果は左下のお知らせに出る
+        void startEstamaProfileSync(syncTarget).then((result) => {
           if (result.skipped) return;
-          const first = result.results?.[0];
-          if (first?.status === "completed") {
-            toast({ title: "エスたまへ自動同期しました" });
-          } else if (first) {
-            toast({
-              title: "エスたま同期は再試行待ちです",
-              description: first.error || "自動で再実行します",
-            });
-          }
+          toast(result.queued
+            ? { title: "エスたまへの反映を始めました", description: "1〜2分かかります。画面を閉じても続きます" }
+            : { title: "エスたまへの反映を予約しました", description: "毎時40分の空き枠更新が終わったら自動で反映します" });
         }).catch((syncError) => {
           toast({
             title: "エスたま同期は再試行待ちです",

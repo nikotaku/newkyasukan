@@ -76,17 +76,28 @@ export async function getEstamaJobStatus(storeId: string, jobId: string): Promis
   return (body.jobs || []).find((job) => job.id === jobId) || null;
 }
 
-export async function runEstamaProfileSync(input: {
-  storeId: string;
-  castId: string;
-}): Promise<EstamaRunResult> {
-  return requestEstamaAutomation({
+export async function runQueuedEstamaAutomation(storeId: string): Promise<EstamaRunResult> {
+  return requestEstamaAutomation({ action: "run-queued", storeId }) as Promise<EstamaRunResult>;
+}
+
+/** プロフィールの反映待ちをサーバー側のバックグラウンドで反映する（画面を閉じても続く。すでに実行中なら何もしない） */
+export async function startQueuedEstamaProfileSync(storeId: string) {
+  const result = await requestEstamaAutomation({
+    action: "run-queued",
+    storeId,
+    jobType: "estama_register_cast",
+    background: true,
+  });
+  return { queued: result.queued === true, reason: typeof result.reason === "string" ? result.reason : undefined };
+}
+
+/** 1人分のプロフィール変更をバックグラウンドで反映する（保存直後・反映できなかった変更のやり直し） */
+export async function startEstamaProfileSync(input: { storeId: string; castId: string }) {
+  const result = await requestEstamaAutomation({
     action: "run-profile-sync",
     storeId: input.storeId,
     castId: input.castId,
-  }) as Promise<EstamaRunResult>;
-}
-
-export async function runQueuedEstamaAutomation(storeId: string): Promise<EstamaRunResult> {
-  return requestEstamaAutomation({ action: "run-queued", storeId }) as Promise<EstamaRunResult>;
+    background: true,
+  });
+  return { queued: result.queued === true, skipped: result.skipped === true, reason: typeof result.reason === "string" ? result.reason : undefined };
 }
