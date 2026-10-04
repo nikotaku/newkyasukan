@@ -145,8 +145,9 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_enqueue_estama_cast_update on public.casts;
-create trigger trg_enqueue_estama_cast_update
+-- drop trigger は casts 全体を強くロックして公開サイトの読み込みまで止めるので、create or replace にする
+set lock_timeout = '5s';
+create or replace trigger trg_enqueue_estama_cast_update
 after update of
   name, photo, photos, shop_comment, therapist_comment, profile, message,
   therapist_years, therapist_experience, age, height, bust_size, bust,
