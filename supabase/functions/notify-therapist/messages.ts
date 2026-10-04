@@ -8,7 +8,7 @@ import {
   type ReservationLineContext,
 } from "../notify-line-therapist/reservationLineNotification.ts";
 
-export type TherapistNotificationKind = "new" | "changed" | "cancelled";
+export type TherapistNotificationKind = "new" | "changed" | "cancelled" | "sns_ready";
 
 export interface TherapistPushMessage {
   title: string;
@@ -135,6 +135,31 @@ export function buildTherapistPush(input: {
   };
 }
 
+/** SNSアカウント（X・O2）の準備ができたお知らせ。マイページの「SNSアカウント」を開く */
+export function buildSnsReadyPush(input: { portalUrl: string; castId: string }): TherapistPushMessage {
+  const separator = input.portalUrl.includes("?") ? "&" : "?";
+  return {
+    title: "📱 XとO2のアカウントの準備ができました",
+    body: "マイページでログインIDとパスワードを確認して、アイコン・トップ画像・自己紹介・初回ポストを設定してください",
+    url: `${input.portalUrl}${separator}view=sns`,
+    tag: `sns-ready-${input.castId}`,
+    icon: ICON,
+  };
+}
+
+export function buildSnsReadyLineText() {
+  return [
+    "📱 XとO2のアカウントの準備ができました",
+    "",
+    "マイページの「SNSアカウント」に、ログインIDとパスワード・設定マニュアルがあります。",
+    "① Xのトップ（アイコン・ヘッダー・名前）",
+    "② O2のトップ",
+    "③ 自己紹介（BIO）",
+    "④ 初回ポスト",
+    "の順に設定してください。",
+  ].join("\n") + "\n\n📲 マイページをホーム画面に追加して通知をオンにすると、お知らせがスマホに直接届きます";
+}
+
 /** LINEグループ用（マイページの通知をまだ設定していないセラピストだけ） */
 export function buildTherapistLineText(input: {
   kind: TherapistNotificationKind;
@@ -177,10 +202,15 @@ export function unreachableAdminMessage(input: {
   reason: "no_device" | "failed";
   notificationId: string;
 }) {
-  const kindLabel = input.kind === "new" ? "新しい予約" : input.kind === "changed" ? "予約の変更" : "キャンセル";
+  const kindLabel = input.kind === "new" ? "新しい予約"
+    : input.kind === "changed" ? "予約の変更"
+    : input.kind === "sns_ready" ? "SNSアカウント準備完了のお知らせ"
+    : "キャンセル";
   return {
-    title: `⚠️ ${input.castName}さんに予約通知が届いていません`,
-    body: `${input.when} の${kindLabel}。${
+    title: input.kind === "sns_ready"
+      ? `⚠️ ${input.castName}さんにSNSのお知らせが届いていません`
+      : `⚠️ ${input.castName}さんに予約通知が届いていません`,
+    body: `${input.when ? `${input.when} の` : ""}${kindLabel}。${
       input.reason === "no_device"
         ? "マイページのスマホ通知が未設定です。直接連絡してください"
         : "送信に失敗しました。直接連絡してください"

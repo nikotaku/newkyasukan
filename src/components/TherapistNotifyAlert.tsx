@@ -101,7 +101,7 @@ export function TherapistNotifyAlert() {
       <div className="flex items-start gap-2">
         <BellOff size={16} className="mt-0.5 shrink-0 text-rose-500" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">セラピストに予約通知が届いていません</p>
+          <p className="text-sm font-semibold">セラピストに通知が届いていません</p>
           <p className="mt-0.5 text-xs text-muted-foreground">直接連絡してから「連絡した」を押してください</p>
           <ul className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
             {visible.map((row) => {

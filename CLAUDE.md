@@ -159,6 +159,12 @@
 - 設定状況は `/settings/notifications` の「セラピストの予約通知（マイページ）」。未設定の人にはURLを送って設定してもらう
 - テスト: `npm run test:therapist-notify`
 
+## セラピストのSNSアカウント（X・O2）の受け渡し
+
+- お店が作った X・O2 のログインID・パスワード（`cast_site_credentials`、管理画面の SNS連携 `/education?tab=sns` で保存）を、セラピストのマイページのメニュー「SNSアカウント」（`?view=sns`）で本人が見られる。RPC `get_therapist_sns_account(p_token)`（anon可・トークンで本人確認）。画面は `src/components/therapist/TherapistSnsAccount.tsx`、例文・データは `src/lib/therapistSns.ts`
+- SNS連携の各セラピストの「設定完了を通知」→ RPC `notify_therapist_sns_ready(p_cast_id)` → `therapist_notifications`（kind = `sns_ready`）。届け方は予約通知と同じ（マイページのプッシュ → 本人のLINEグループ → 届かなければ管理画面の左下）。通知日時と「確認済み」は `therapist_sns_setup_notices`（マイページで開くと `mark_therapist_sns_setup_seen`）
+- 設定マニュアルは画像4枚（`public/therapist-guide/sns-setup-*.png`：Xのトップ・O2のトップ・自己紹介（BIO）・初回ポスト）。艶華向けの文面。マイページの例文（BIO・初回ポスト）には本人の名前と専用予約リンクが入る
+
 ## Claude用のブラウザ操作（jev-ultrafast）
 
 - 外部サイトを自然文の目的で操作するときは `.claude/skills/jev-browser/SKILL.md`（`scripts/claude/jev.sh setup|check|run|stop`）。本体は作業環境の `~/.cache/jev-ultrafast` に入れる（リポジトリには入れない）

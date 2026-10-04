@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildSnsReadyLineText,
+  buildSnsReadyPush,
   buildTherapistLineText,
   buildTherapistPush,
   describeChanges,
@@ -109,4 +111,16 @@ test("届かなかったときの管理画面への通知", () => {
   });
   assert.equal(message.title, "⚠️ 望月せなさんに予約通知が届いていません");
   assert.match(message.body, /新しい予約。マイページのスマホ通知が未設定です/);
+});
+
+test("SNSアカウントの準備ができたお知らせ：マイページのSNSアカウントを開く", () => {
+  const message = buildSnsReadyPush({ portalUrl: "/therapist/token-abc", castId: "cast-1" });
+  assert.equal(message.title, "📱 XとO2のアカウントの準備ができました");
+  assert.equal(message.url, "/therapist/token-abc?view=sns");
+  assert.equal(message.tag, "sns-ready-cast-1");
+  assert.match(buildSnsReadyLineText(), /① Xのトップ[\s\S]*④ 初回ポスト/);
+
+  const admin = unreachableAdminMessage({ castName: "望月せな", kind: "sns_ready", when: "", reason: "no_device", notificationId: "n-2" });
+  assert.equal(admin.title, "⚠️ 望月せなさんにSNSのお知らせが届いていません");
+  assert.match(admin.body, /^SNSアカウント準備完了のお知らせ。マイページのスマホ通知が未設定です/);
 });
