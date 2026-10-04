@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, ChevronRight, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart, PencilLine, Check, X, Copy, CheckCircle2, Megaphone, MapPin, KeyRound, ListOrdered, ImageIcon, Maximize2, ZoomIn, ZoomOut, RotateCcw, Sparkles, Trophy, Flame, Target, Zap, Medal } from "lucide-react";
+import { AtSign, Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, ChevronRight, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart, PencilLine, Check, X, Copy, CheckCircle2, Megaphone, MapPin, KeyRound, ListOrdered, ImageIcon, Maximize2, ZoomIn, ZoomOut, RotateCcw, Sparkles, Trophy, Flame, Target, Zap, Medal } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format, startOfMonth, endOfMonth, isSameDay, addDays } from "date-fns";
@@ -16,6 +16,8 @@ import { TherapistSalesPanel } from "@/components/therapist/TherapistSalesPanel"
 import { allowPageZoom } from "@/lib/viewportZoomLock";
 import { useTherapistAppManifest } from "@/hooks/useTherapistAppManifest";
 import { TherapistPushCard } from "@/components/therapist/TherapistPushCard";
+import { TherapistSnsAccount } from "@/components/therapist/TherapistSnsAccount";
+import { hasUnseenSnsNotice, useTherapistSnsAccount } from "@/lib/therapistSns";
 
 
 interface Cast {
@@ -78,7 +80,7 @@ interface EntryPhotoViewer {
   total: number;
 }
 
-type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers" | "upcoming" | "promotion";
+type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers" | "upcoming" | "promotion" | "sns";
 
 interface PromotionScheduleTask {
   id: string;
@@ -179,6 +181,7 @@ const POST_IDEAS: { title: string; body: string }[] = [
 export default function TherapistPortal() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   useTherapistAppManifest();
   const [portalDayStartTime, setPortalDayStartTime] = useState("10:00:00");
   const [dayStartHour, dayStartMinute] = portalDayStartTime.split(":").map(Number);
@@ -190,7 +193,17 @@ export default function TherapistPortal() {
   const [cast, setCast] = useState<Cast | null>(null);
   const [castStoreId, setCastStoreId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<View>("menu");
+  const [view, setView] = useState<View>(() => (searchParams.get("view") === "sns" ? "sns" : "menu"));
+  // お店が用意した X・O2 のアカウント（スマホ通知の「SNSアカウントの準備ができました」から ?view=sns で開く）
+  const snsAccount = useTherapistSnsAccount(token);
+  const { reload: reloadSnsAccount } = snsAccount;
+  const markSnsSeen = useCallback(() => {
+    void reloadSnsAccount();
+  }, [reloadSnsAccount]);
+  useEffect(() => {
+    if (view === "sns") void reloadSnsAccount();
+    if (view !== "sns" && searchParams.get("view")) setSearchParams({}, { replace: true });
+  }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showBackRates, setShowBackRates] = useState(false);
   const [therapistBackRates, setTherapistBackRates] = useState<TherapistBackRate[]>([]);
   const [therapistBackRatesLoading, setTherapistBackRatesLoading] = useState(false);
@@ -653,6 +666,7 @@ export default function TherapistPortal() {
     { title: "交通費申請", description: "交通費の申請・申請履歴を確認", icon: Plane, action: () => setView("transport") },
     { title: "退勤フォーム", description: "売上入力・清掃チェック・フィードバック", icon: LogOut, action: () => navigate(`/therapist/${token}/checkout`) },
     { title: "顧客カルテ", description: "担当したお客様の好み・来店履歴を確認", icon: Users, action: () => setView("customers") },
+    { title: "SNSアカウント", description: "X・O2のログイン情報と設定マニュアル", icon: AtSign, action: () => setView("sns") },
     { title: "入室方法", description: "各ルームへの入室手順・鍵の場所を確認", icon: DoorOpen, action: () => setView("entry") },
     { title: "振り込み申請", description: "報酬の振り込み申請フォーム", icon: ExternalLink, action: () => window.open("https://yoom.fun/5eee42a7-b4ff-49a8-8373-606c66495142/forms/shared/Cu2K735X9qaSAdMs45x6Bw", "_blank") },
   ];
@@ -686,7 +700,7 @@ export default function TherapistPortal() {
           <div className="min-w-0">
             <p className="font-bold text-base leading-tight truncate">{cast.name}様</p>
             <p className="text-xs text-muted-foreground">
-              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : view === "upcoming" ? "事前予約" : view === "promotion" ? "投稿宣伝スケジュール" : "交通費申請"}
+              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : view === "upcoming" ? "事前予約" : view === "promotion" ? "投稿宣伝スケジュール" : view === "sns" ? "SNSアカウント" : "交通費申請"}
             </p>
           </div>
         </div>
@@ -700,6 +714,18 @@ export default function TherapistPortal() {
 
           {/* 予約の通知（マイページのスマホ通知）。未設定なら目立たせる */}
           {token && <TherapistPushCard token={token} />}
+
+          {/* お店から「XとO2の準備ができました」のお知らせ（まだ開いていないとき） */}
+          {hasUnseenSnsNotice(snsAccount.account) && (
+            <button
+              type="button"
+              onClick={() => setView("sns")}
+              className="w-full rounded-xl border-2 border-sky-400/60 bg-sky-50 px-4 py-3 text-left dark:bg-sky-950/30"
+            >
+              <p className="flex items-center gap-2 text-sm font-bold"><AtSign size={16} className="text-sky-600" />XとO2のアカウントの準備ができました</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">ログインIDとパスワード・設定マニュアルを確認する <ChevronRight size={12} className="inline" /></p>
+            </button>
+          )}
 
           {/* 本日の出勤ルーム（女の子が今日どのルームか一目で分かるように） */}
           {(() => {
@@ -1041,7 +1067,7 @@ export default function TherapistPortal() {
                 </div>
               ))}
               <p className="text-xs text-muted-foreground">
-                O2のログイン情報は本人用ポータルだけで設定します。管理画面やスタッフへパスワードは表示されません。
+                お店が用意したX・O2のログイン情報は、メニューの「SNSアカウント」で確認できます。
               </p>
             </div>
           </div>
@@ -1438,6 +1464,18 @@ export default function TherapistPortal() {
           </div>
         )}
         {/* ── CUSTOMERS（顧客カルテ） ── */}
+        {/* ── SNS ACCOUNT（X・O2） ── */}
+        {view === "sns" && token && (
+          <TherapistSnsAccount
+            token={token}
+            castName={cast.name}
+            bookingUrl={getCastBookingUrl(bookingBaseUrl, cast.id)}
+            account={snsAccount.account}
+            loading={snsAccount.loading}
+            onSeen={markSnsSeen}
+          />
+        )}
+
         {view === "customers" && (
           <div className="space-y-3">
             <div className="relative">

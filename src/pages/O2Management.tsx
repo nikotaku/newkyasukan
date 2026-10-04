@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, ExternalLink, Eye, EyeOff, Link2, Loader2, Pencil, RefreshCw, Send, ShieldCheck, Users, XCircle } from "lucide-react";
+import { BellRing, CheckCircle, ExternalLink, Eye, EyeOff, Link2, Loader2, Pencil, RefreshCw, Send, ShieldCheck, Users, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -160,6 +160,11 @@ const xOnboardingBadge = (label: string, completed: boolean) => (
 const rpc = (name: string, args: Record<string, unknown>) =>
   (supabase.rpc as unknown as (rpcName: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: { code?: string; message: string } | null }>)(name, args);
 
+type SnsNotice = { notified_at: string; seen_at: string | null };
+
+const formatNoticeTime = (value: string) =>
+  new Date(value).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
 const statusLabel: Record<string, string> = {
   pending: "送信待ち",
   posting: "送信中",
@@ -243,6 +248,9 @@ export default function O2Management() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [openingCastId, setOpeningCastId] = useState<string | null>(null);
+  // マイページへの「XとO2の準備ができました」のお知らせ（セラピストごとに最新の1件）
+  const [notices, setNotices] = useState<Map<string, SnsNotice>>(new Map());
+  const [notifyingCastId, setNotifyingCastId] = useState<string | null>(null);
   const [refreshingSettings, setRefreshingSettings] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState<CredentialSite | null>(null);
   const [revealedPasswords, setRevealedPasswords] = useState<RevealedPasswords>({});
@@ -267,10 +275,12 @@ export default function O2Management() {
   const load = useCallback(async () => {
     if (!user || storeLoading) return;
     setLoading(true);
-    const [{ data, error }, { data: activeCasts, error: activeCastsError }] = await Promise.all([
+    const [{ data, error }, { data: activeCasts, error: activeCastsError }, { data: noticeRows }] = await Promise.all([
       rpc("get_sns_connection_overview_v9", { p_store_id: storeId }),
       supabase.from("casts").select("id").eq("store_id", storeId).eq("is_active", true),
+      supabase.from("therapist_sns_setup_notices" as never).select("cast_id,notified_at,seen_at").eq("store_id", storeId),
     ]);
+    setNotices(new Map(((noticeRows || []) as Array<SnsNotice & { cast_id: string }>).map((notice) => [notice.cast_id, notice])));
     if (error) toast.error(error.message);
     if (activeCastsError) toast.error(activeCastsError.message);
     const activeCastIds = new Set((activeCasts || []).map((cast) => cast.id));
@@ -313,6 +323,50 @@ export default function O2Management() {
     setShowO2Password(false);
     setShowXPassword(false);
     setShowEstamaPassword(false);
+  };
+
+  // XとO2のアカウントを用意したら、セラピストのマイページに通知する（ログイン情報と設定マニュアルが見られる）
+  const notifySnsReady = async (row: O2Row) => {
+    const again = notices.has(row.cast_id);
+    if (!window.confirm(`${row.cast_name}さんに「XとO2のアカウントの準備ができました」を${again ? "もう一度" : ""}通知します。\nマイページの「SNSアカウント」で、ログインIDとパスワード・設定マニュアル（Xのトップ・O2のトップ・自己紹介・初回ポスト）が見られます。`)) return;
+    setNotifyingCastId(row.cast_id);
+    const { error } = await rpc("notify_therapist_sns_ready", { p_cast_id: row.cast_id });
+    setNotifyingCastId(null);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`${row.cast_name}さんに通知しました`, { description: "届かなかったときは管理画面の左下に表示されます" });
+    void load();
+  };
+
+  const canNotifySnsReady = (row: O2Row) => row.credential_configured || isXConfigured(row);
+
+  const snsNoticeButton = (row: O2Row, size: "sm" | "default" = "sm") => {
+    const notice = notices.get(row.cast_id);
+    return (
+      <Button
+        size={size}
+        variant="outline"
+        className={size === "default" ? "w-full" : undefined}
+        onClick={() => void notifySnsReady(row)}
+        disabled={notifyingCastId === row.cast_id || !canNotifySnsReady(row)}
+        title={canNotifySnsReady(row) ? "セラピストのマイページに通知します" : "XかO2のログインIDを先に保存してください"}
+      >
+        {notifyingCastId === row.cast_id ? <Loader2 size={13} className="mr-1 animate-spin" /> : <BellRing size={13} className="mr-1" />}
+        {notice ? "もう一度通知" : "設定完了を通知"}
+      </Button>
+    );
+  };
+
+  const snsNoticeStatus = (row: O2Row) => {
+    const notice = notices.get(row.cast_id);
+    if (!notice) return null;
+    return (
+      <p className="text-[11px] text-muted-foreground">
+        通知 {formatNoticeTime(notice.notified_at)}・{notice.seen_at ? <span className="text-green-700">確認済み</span> : <span className="text-amber-700">未確認</span>}
+      </p>
+    );
   };
 
   const openEdit = async (row: O2Row) => {
@@ -598,6 +652,10 @@ export default function O2Management() {
                   <div className="rounded-lg bg-muted/60 p-2"><p className="text-muted-foreground">公開URL</p>{row.profile_url ? <a className="mt-1 inline-flex items-center text-primary" href={row.profile_url} target="_blank" rel="noreferrer">確認<ExternalLink size={12} className="ml-1" /></a> : <p className="mt-1">未設定</p>}</div>
                 </div>
                 <Button className="w-full" onClick={() => openPostForm(row)}><Send size={14} className="mr-1" />投稿フォーム</Button>
+                <div className="space-y-1">
+                  {snsNoticeButton(row, "default")}
+                  {snsNoticeStatus(row)}
+                </div>
                 {row.last_o2_error && <p className="rounded-lg bg-red-50 p-2 text-xs text-red-600 break-words">{row.last_o2_error}</p>}
               </div>
             ))}
@@ -623,7 +681,7 @@ export default function O2Management() {
                       <td className="px-3 py-3">{row.o2_linkage_requested ? <span className="text-green-700">✓ 申請済み</span> : <span className="text-muted-foreground">未申請</span>}</td>
                       <td className="px-3 py-3"><span>{statusLabel[row.last_o2_status || ""] || "投稿なし"}</span>{row.last_posted_at && <p className="text-[11px] text-muted-foreground mt-1">{new Date(row.last_posted_at).toLocaleString("ja-JP")}</p>}</td>
                       <td className="px-3 py-3 max-w-[250px] text-xs text-red-600 break-words">{row.last_o2_error || "—"}</td>
-                      <td className="px-4 py-3"><div className="flex flex-wrap justify-end gap-2"><Button size="sm" onClick={() => openPostForm(row)}><Send size={13} className="mr-1" />投稿フォーム</Button>{row.profile_url && <Button size="sm" variant="outline" asChild><a href={row.profile_url} target="_blank" rel="noreferrer">O2<ExternalLink size={13} className="ml-1" /></a></Button>}<Button size="sm" variant="outline" onClick={() => void openEdit(row)} disabled={openingCastId === row.cast_id}>{openingCastId === row.cast_id ? <Loader2 size={13} className="mr-1 animate-spin" /> : hasSavedSettings(row) ? <Eye size={13} className="mr-1" /> : <Pencil size={13} className="mr-1" />}{hasSavedSettings(row) ? "確認" : "設定"}</Button></div></td>
+                      <td className="px-4 py-3"><div className="flex flex-wrap justify-end gap-2">{snsNoticeButton(row)}<Button size="sm" onClick={() => openPostForm(row)}><Send size={13} className="mr-1" />投稿フォーム</Button>{row.profile_url && <Button size="sm" variant="outline" asChild><a href={row.profile_url} target="_blank" rel="noreferrer">O2<ExternalLink size={13} className="ml-1" /></a></Button>}<Button size="sm" variant="outline" onClick={() => void openEdit(row)} disabled={openingCastId === row.cast_id}>{openingCastId === row.cast_id ? <Loader2 size={13} className="mr-1 animate-spin" /> : hasSavedSettings(row) ? <Eye size={13} className="mr-1" /> : <Pencil size={13} className="mr-1" />}{hasSavedSettings(row) ? "確認" : "設定"}</Button></div><div className="mt-1 text-right">{snsNoticeStatus(row)}</div></td>
                     </tr>
                   ))}
                 </tbody>

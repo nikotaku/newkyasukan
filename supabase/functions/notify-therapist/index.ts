@@ -4,6 +4,7 @@
 //    ① セラピストのマイページ（ホーム画面に追加）へプッシュ通知
 //    ② 端末が無い人だけ、移行中は本人のLINEグループへ（共通グループには送らない）
 //    ③ どちらも無い・送れない → 管理画面のスマホ通知（topic therapist_notify）で知らせる
+//    予約の確定・変更・キャンセルのほか、SNSアカウント（X・O2）の準備ができたお知らせ（kind = sns_ready）も送る
 //  - マイページから { action: "test", token } … 本人の端末にテスト通知を送る
 // VAPIDの鍵は Vault（RPC get_web_push_vapid）。暗号化と署名は _shared/webPush.ts。
 
@@ -11,6 +12,8 @@ import { sendWebPush, type VapidKeys } from "../_shared/webPush.ts";
 import { pushLineText } from "../_shared/linePush.ts";
 import type { ReservationLineContext } from "../notify-line-therapist/reservationLineNotification.ts";
 import {
+  buildSnsReadyLineText,
+  buildSnsReadyPush,
   buildTherapistLineText,
   buildTherapistPush,
   unreachableAdminMessage,
@@ -127,7 +130,7 @@ async function processNotification(notification: Notification) {
   }
 
   let context: ReservationLineContext | null = null;
-  if (notification.kind !== "cancelled") {
+  if (notification.kind === "new" || notification.kind === "changed") {
     const [reservation] = notification.reservation_id
       ? await sb(`reservations?id=eq.${notification.reservation_id}&select=status,cast_id`)
       : [null];
@@ -142,7 +145,9 @@ async function processNotification(notification: Notification) {
     }
   }
 
-  const when = notification.kind === "cancelled"
+  const when = notification.kind === "sns_ready"
+    ? ""
+    : notification.kind === "cancelled"
     ? whenLabel(notification.snapshot?.reservation_date, notification.snapshot?.start_time)
     : whenLabel(context!.reservation_date, context!.start_time);
   const portalUrl = cast.access_token ? `/therapist/${cast.access_token}` : "/";
@@ -151,15 +156,17 @@ async function processNotification(notification: Notification) {
   const devices: Subscription[] = (await sb(
     `therapist_push_subscriptions?cast_id=eq.${cast.id}&select=${subscriptionColumns}`,
   )) ?? [];
-  const pushMessage = buildTherapistPush({
-    kind: notification.kind,
-    portalUrl,
-    notificationId: notification.id,
-    reservationId: notification.reservation_id,
-    context,
-    changes: notification.changes,
-    snapshot: notification.snapshot,
-  });
+  const pushMessage = notification.kind === "sns_ready"
+    ? buildSnsReadyPush({ portalUrl, castId: cast.id })
+    : buildTherapistPush({
+      kind: notification.kind,
+      portalUrl,
+      notificationId: notification.id,
+      reservationId: notification.reservation_id,
+      context,
+      changes: notification.changes,
+      snapshot: notification.snapshot,
+    });
   const pushed = await deliver("therapist_push_subscriptions", devices, pushMessage, pushMessage.tag);
   if (pushed.sent > 0) {
     await finish(notification.id, { status: "sent", channel: "push", sent_at: new Date().toISOString(), error_message: null });
@@ -170,7 +177,9 @@ async function processNotification(notification: Notification) {
   let lineError = "";
   let lineQuotaExceeded = false;
   if (!devices.length && cast.line_group_id && LINE_TOKEN) {
-    const text = buildTherapistLineText({ kind: notification.kind, context, changes: notification.changes, snapshot: notification.snapshot });
+    const text = notification.kind === "sns_ready"
+      ? buildSnsReadyLineText()
+      : buildTherapistLineText({ kind: notification.kind, context, changes: notification.changes, snapshot: notification.snapshot });
     const line = await pushLineText(LINE_TOKEN, cast.line_group_id, text, notification.id);
     if (line.ok) {
       await finish(notification.id, { status: "sent", channel: "line", sent_at: new Date().toISOString(), error_message: null });
