@@ -12,8 +12,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Trash2, Plus, MapPin, KeyRound, DoorOpen, Save, Upload, X, MessageSquare, Link, AlertTriangle, ArrowUp, ArrowDown, Route } from "lucide-react";
 import { RouteGuideSteps, type RouteGuideStep } from "@/components/public/RouteGuideSteps";
+import { RoomEntryGuideEditor, type RoomEntryGuideFields } from "@/components/entry/RoomEntryGuideEditor";
+import { normalizeKeyType, normalizeRouteSteps, normalizeWifiSecurity } from "@/lib/roomEntry";
 
-interface Room {
+interface Room extends RoomEntryGuideFields {
   id: string;
   name: string;
   room_type: string | null;
@@ -104,10 +106,15 @@ export default function FacilitiesRooms() {
     try {
       const { data, error } = await supabase
         .from("rooms" as any)
-        .select("id,name,room_type,address,entry_flow,key_number,key_info,entry_photos,sms_text,map_url,caution_text,customer_guide_steps")
+        .select("id,name,room_type,address,entry_flow,key_number,key_info,entry_photos,sms_text,map_url,caution_text,customer_guide_steps,key_type,key_close_code,entry_route_steps,wifi_ssid,wifi_password,wifi_security,show_in_therapist_portal")
         .order("name");
       if (error && error.code !== "PGRST116") throw error;
-      const list = (data || []) as unknown as Room[];
+      const list = ((data || []) as unknown as Room[]).map((room) => ({
+        ...room,
+        key_type: normalizeKeyType(room.key_type),
+        entry_route_steps: normalizeRouteSteps(room.entry_route_steps),
+        wifi_security: normalizeWifiSecurity(room.wifi_security),
+      }));
       setRooms(list);
       if (!selectedId && list.length > 0) setSelectedId(list[0].id);
     } catch (error) {
@@ -161,6 +168,13 @@ export default function FacilitiesRooms() {
           map_url: draft.map_url || null,
           caution_text: draft.caution_text || null,
           customer_guide_steps: (draft.customer_guide_steps || []).filter((step) => step.image_url || step.text?.trim()),
+          key_type: draft.key_type,
+          key_close_code: draft.key_close_code?.trim() || null,
+          entry_route_steps: normalizeRouteSteps(draft.entry_route_steps),
+          wifi_ssid: draft.wifi_ssid?.trim() || null,
+          wifi_password: draft.wifi_password || null,
+          wifi_security: draft.wifi_security || "WPA",
+          show_in_therapist_portal: Boolean(draft.show_in_therapist_portal),
         })
         .eq("id", draft.id);
       if (error) throw error;
@@ -468,6 +482,15 @@ export default function FacilitiesRooms() {
                   </Button>
                 </CardContent>
               </Card>
+
+              {/* セラピスト向けの入室案内（マイページ） */}
+              <RoomEntryGuideEditor
+                roomId={draft.id}
+                value={draft}
+                onChange={(patch) => setDraft({ ...draft, ...patch })}
+                onSave={handleSaveRoom}
+                saving={saving}
+              />
 
               {/* お客様向けの道順（予約案内ページ） */}
               <Card>

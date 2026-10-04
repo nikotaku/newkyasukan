@@ -103,6 +103,16 @@
 - 道順は `rooms.customer_guide_steps`（[{ image_url, text }]）。ルーム管理（`/facilities/rooms`）で編集する。`entry_flow` / `entry_photos` / `key_*` はセラピスト向けの入室情報なのでお客様に出さないこと
 - 来店時のお願いは `rooms.caution_text`
 
+## 入室方法（セラピストのマイページ）
+
+- マイページの「入室方法」は RPC `get_therapist_entry_rooms(p_token)`（トークンで本人確認・辞めた人には返さない）で読む。`rooms` の暗証番号・入室情報・Wi-Fi は anon から直接読めない（公開しても困らない列だけ anon に grant）。出すルームは `rooms.show_in_therapist_portal`
+- 鍵の開け方のアニメーション：`rooms.key_type`（`keypad` = ドアのテンキー・SwitchBot キーパッド、`dial_lock` = ダイヤル式の鍵）と `key_number`。ダイヤル式は閉めるときに戻す番号 `key_close_code`。部品は `src/components/entry/`（`KeypadUnlockAnimation` / `DialLockAnimation`）、計算は `src/lib/roomEntry.ts`
+- 鍵の場所までの道順：`rooms.entry_route_steps`（[{ image_url, video_url, text, focus: { x, y, zoom } }]）。写真は focus の位置に寄って赤い丸で示し、動画は最後まで流れたら次へ。お客様向けの `customer_guide_steps` とは別
+- Wi-Fi：`rooms.wifi_ssid` / `wifi_password` / `wifi_security`。マイページにカメラで読み取るとつながる QR コード（`qrcode-generator`）を出す
+- 編集はルーム管理（`/facilities/rooms`）の「セラピスト向けの入室案内（マイページ）」。写真・動画は `entry-photos` バケット（表示は公開URL、アップロード・一覧はログイン中のスタッフだけ）
+- 実際の暗証番号・Wi-Fi のパスワードはリポジトリ（公開）に書かないこと
+- テスト: `npm run test:room-entry`
+
 ## SMS送信（send-sms）
 
 - 公開鍵だけでは呼べない（料金がかかるため）。予約確定トリガー `trg_send_reservation_sms` は Vault の `send_sms_internal_secret` を `x-send-sms-secret` で付ける。管理画面はログイン中スタッフのJWT（所属店舗のSMSのみ）、他のEdge Functionは service_role
