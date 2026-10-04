@@ -7,9 +7,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { startEstamaProfileSync, startQueuedEstamaProfileSync } from "@/lib/estamaAutomation";
 
-// セラピストのプロフィール変更は、まずキャスカン（HP）に保存される。エステ魂（エスたま）への反映待ちがあれば、
-// 管理画面を開いている端末からサーバー側のバックグラウンド反映を自動で始める（画面を閉じても最後まで続く）。
-// 反映はログイン中のスタッフの権限で行う（Vercelには管理鍵が無いので、裏の定期同期は動かない）。
+// セラピストのプロフィール変更は、まずキャスカン（HP）に保存される。エステ魂（エスたま）への反映は
+// 裏の定期実行（pg_cron estama-profile-sync-every-minute → Vercel の管理鍵で実行）が進める。
+// それでも反映待ちが残っているときは、管理画面を開いている端末からバックグラウンド反映を始める（予備）。
 // 左下には「反映中」「ログイン切れ」「反映できなかった変更」だけを出す。
 
 type Job = {
@@ -26,8 +26,8 @@ type Job = {
 
 const ACTIVE_POLL_MS = 15_000;
 const IDLE_POLL_MS = 60_000;
-// 保存した画面が自分で反映を始めるので、少し待ってから自動で始める
-const GRACE_MS = 30_000;
+// 普段は裏の定期実行（毎分）が反映する。それでも3分残っているときだけ、この画面から始める（予備）
+const GRACE_MS = 3 * 60_000;
 // 同じ端末の複数のタブ・画面から続けて始めないための間隔
 const KICK_INTERVAL_MS = 60_000;
 // 関数の時間切れで「実行中」のまま止まったとみなす時間（サーバー側で再開する）

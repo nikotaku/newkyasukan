@@ -188,12 +188,11 @@
 
 ## エスたまへの反映（バックグラウンド）
 
-- セラピストのプロフィール変更は、まずキャスカン（HP）に保存される。エスたまへの同期ジョブ（`automation_jobs` の `estama_register_cast`）は、**サーバー側のバックグラウンド**で反映する（Vercel の `waitUntil`。画面を閉じても・通信が切れても関数の時間内は続く）
-  - スタッフ画面で保存したとき：`run-profile-sync` を `background: true` で呼ぶ（`startEstamaProfileSync`）
-  - 反映待ちが30秒以上残っているとき：管理画面を開いている端末の `EstamaPendingAlert`（DashboardHeader に1つ）が `run-queued`（`jobType: estama_register_cast`, `background: true`）を自動で呼ぶ（`startQueuedEstamaProfileSync`。同じ端末からは60秒に1回まで、1回で2件まで、実行中があれば何もしない。7分以上「実行中」のままのものは再開する）
-- 毎時40分の空き枠更新が同じエステ魂のログインを使うので、27〜42分はバックグラウンドの反映を始めない（その間は反映待ちのまま。過ぎたら自動で始まる）
-- 左下には「自動で反映しています」「ログイン切れ（再ログインが必要）」「反映できなかった変更（もう一度反映する）」だけを出す。反映が終わると画面を開いていればトーストで知らせる
-- 裏の自動同期（pg_cron `estama-profile-sync-every-minute` → `/api/automations/estama-profile-worker`）は Vercel に管理鍵が無く失敗するため止めてある（active=false）。誰も管理画面を開いていない間に積まれた変更は、次に管理画面を開いたときに自動で反映される
+- セラピストのプロフィール変更は、まずキャスカン（HP）に保存される。エスたまへの同期ジョブ（`automation_jobs` の `estama_register_cast`）は、**管理画面を開いていなくても裏で反映する**
+  - pg_cron `estama-profile-sync-every-minute` → `private.dispatch_estama_profile_sync()` → Vercel `/api/automations/estama-profile-worker`（一回限りのトークン＋ Vercel の環境変数 `SUPABASE_SECRET_KEY`）。毎時27〜42分は空き枠更新のため動かさない
+  - Vercel に鍵が無い・ワーカーが失敗したときは、ディスパッチャーが15分あけて再試行する
+- 予備：スタッフ画面で保存したときは `run-profile-sync` を `background: true` で呼ぶ（`startEstamaProfileSync`、Vercel の `waitUntil` で画面を閉じても続く）。反映待ちが3分以上残っていれば、管理画面の `EstamaPendingAlert` が `run-queued`（`jobType: estama_register_cast`, `background: true`）を呼ぶ（同じ端末からは60秒に1回まで、1回で2件まで、実行中があれば何もしない）
+- 左下には「自動で反映しています」「ログイン切れ（再ログインが必要）」「反映できなかった変更（もう一度反映する）」だけを出す
 
 ## エステ魂スカウト求人の自動化（/recruit/estama-scout）
 
