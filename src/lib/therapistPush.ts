@@ -9,6 +9,7 @@ import {
   currentPushSubscription,
   deviceLabel,
   isPushSupported,
+  isStandalone,
   workerRegistration,
 } from "@/lib/adminPush";
 
@@ -19,6 +20,8 @@ export interface TherapistPushStatus {
   devices: number;
   /** この端末が登録されているか */
   thisDevice: boolean;
+  /** この端末でテスト通知を受け取ったか */
+  thisDeviceTestConfirmed: boolean;
 }
 
 const callRpc = (name: string, args: Record<string, unknown>) => supabase.rpc(name as never, args as never);
@@ -30,11 +33,12 @@ export async function getTherapistPushStatus(token: string): Promise<TherapistPu
     p_endpoint: subscription?.endpoint ?? null,
   });
   if (error) throw new Error(error.message);
-  const status = (data ?? {}) as { devices?: number; this_device?: boolean };
+  const status = (data ?? {}) as { devices?: number; this_device?: boolean; this_device_test_confirmed?: boolean };
   return {
     devices: Number(status.devices ?? 0),
     // 通知の許可が取り消されていたら届かないので、未設定として扱う
     thisDevice: Boolean(status.this_device) && (typeof Notification === "undefined" || Notification.permission === "granted"),
+    thisDeviceTestConfirmed: Boolean(status.this_device_test_confirmed),
   };
 }
 
@@ -56,6 +60,19 @@ export async function enableTherapistPush(token: string) {
     p_device_label: deviceLabel(),
   });
   if (error) throw new Error(error.message);
+  // ホーム画面に追加したアプリから開いているか（管理画面の「SNS・媒体登録の完了状況」に出す）
+  if (isStandalone()) {
+    await callRpc("mark_therapist_push_standalone", { p_token: token, p_endpoint: json.endpoint });
+  }
+}
+
+/** テスト通知が届いた（通知をタップした・「届いた」を押した）ことを記録する */
+export async function confirmTherapistPushTest(token: string) {
+  const subscription = await currentPushSubscription();
+  if (!subscription) return false;
+  const { data, error } = await callRpc("confirm_therapist_push_test", { p_token: token, p_endpoint: subscription.endpoint });
+  if (error) throw new Error(error.message);
+  return data === true;
 }
 
 /**

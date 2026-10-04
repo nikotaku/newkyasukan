@@ -17,6 +17,7 @@ import {
   type MediaAutoStatus,
   type MediaChecklist,
   type MediaChecklistField,
+  type PortalDevice,
 } from "@/lib/mediaRegistration";
 
 type CastRow = MediaChecklist & { id: string; name: string; photo: string | null };
@@ -47,7 +48,7 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
   const load = useCallback(async () => {
     if (storeLoading || !storeId) return;
     setLoading(true);
-    const [castsRes, profilesRes, snsRes] = await Promise.all([
+    const [castsRes, profilesRes, snsRes, devicesRes] = await Promise.all([
       supabase
         .from("casts")
         .select(`id,name,photo,${MEDIA_CHECKLIST_FIELDS.join(",")}`)
@@ -60,16 +61,29 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
         .eq("store_id", storeId)
         .eq("provider", "estama"),
       rpc("get_sns_connection_overview_v9", { p_store_id: storeId }),
+      // マイページの通知の登録（ホーム画面から通知をオンにしたか・テスト通知を受け取ったか）
+      supabase
+        .from("therapist_push_subscriptions" as never)
+        .select("cast_id,standalone,test_confirmed_at")
+        .eq("store_id", storeId),
     ]);
     if (castsRes.error) toast.error(`セラピストを読み込めませんでした: ${castsRes.error.message}`);
     const profiles = new Map(((profilesRes.data || []) as Array<{ cast_id: string; sync_status: string | null; soul_status: string | null; last_error: string | null }>)
       .map((row) => [row.cast_id, row]));
     const sns = new Map(((snsRes.data || []) as SnsOverviewRow[]).map((row) => [row.cast_id, row]));
+    const devices = new Map<string, PortalDevice[]>();
+    for (const device of (devicesRes.data || []) as Array<PortalDevice & { cast_id: string }>) {
+      devices.set(device.cast_id, [...(devices.get(device.cast_id) || []), device]);
+    }
     const rows = (castsRes.data || []) as unknown as CastRow[];
     setCasts(rows);
     setAuto(Object.fromEntries(rows.map((cast) => [
       cast.id,
-      autoStatusFrom({ estamaProfile: profiles.get(cast.id) || null, sns: sns.get(cast.id) || null }),
+      autoStatusFrom({
+        estamaProfile: profiles.get(cast.id) || null,
+        sns: sns.get(cast.id) || null,
+        portalDevices: devices.get(cast.id) || [],
+      }),
     ])));
     setLoading(false);
   }, [storeId, storeLoading]);
@@ -128,6 +142,7 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
       </div>
       <p className="text-xs text-muted-foreground">
         ○をタップすると登録済み／未登録を切り替えます。「自動連携」「魂セラピスト」「ログイン情報」は連携の結果から自動で表示されます（ログイン情報の登録は「SNS連携・ログイン情報」タブ）。
+        「マイページ」は、セラピストがマイページをホーム画面に追加して通知をオンにすると「ホーム画面・通知」、テスト通知を受け取る（タップする・「届いた」を押す）と「テスト通知」に✓が付きます。
       </p>
 
       <div className="overflow-x-auto rounded-xl border bg-card">

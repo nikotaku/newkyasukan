@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Bell, BellOff, BellRing, CheckCircle2, Copy, Loader2, Send, Share, SquarePlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
+  confirmTherapistPushTest,
   disableTherapistPush,
   enableTherapistPush,
   getTherapistPushStatus,
@@ -28,7 +30,7 @@ export function TherapistPushCard({ token }: { token: string }) {
 
   const [status, setStatus] = useState<TherapistPushStatus | null>(null);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(supported ? Notification.permission : "unsupported");
-  const [busy, setBusy] = useState<"enable" | "disable" | "test" | null>(null);
+  const [busy, setBusy] = useState<"enable" | "disable" | "test" | "confirm" | null>(null);
   const [showSteps, setShowSteps] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -36,13 +38,30 @@ export function TherapistPushCard({ token }: { token: string }) {
     try {
       setStatus(await getTherapistPushStatus(token));
     } catch {
-      setStatus({ devices: 0, thisDevice: false });
+      setStatus({ devices: 0, thisDevice: false, thisDeviceTestConfirmed: false });
     }
   }, [supported, token]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // テスト通知をタップして開いたとき（?push_test=1）は、届いたことを記録する
+  const [searchParams, setSearchParams] = useSearchParams();
+  const confirmedFromLink = useRef(false);
+  useEffect(() => {
+    if (searchParams.get("push_test") !== "1" || confirmedFromLink.current) return;
+    confirmedFromLink.current = true;
+    const next = new URLSearchParams(searchParams);
+    next.delete("push_test");
+    setSearchParams(next, { replace: true });
+    confirmTherapistPushTest(token)
+      .then((confirmed) => {
+        if (confirmed) toast.success("テスト通知の受け取りを確認しました。設定は完了です");
+      })
+      .catch(() => null)
+      .finally(refresh);
+  }, [searchParams, setSearchParams, token, refresh]);
 
   const run = async (kind: NonNullable<typeof busy>, action: () => Promise<void>) => {
     setBusy(kind);
@@ -59,13 +78,18 @@ export function TherapistPushCard({ token }: { token: string }) {
   const enable = () => run("enable", async () => {
     await enableTherapistPush(token);
     const result = await sendTherapistTestPush(token).catch(() => null);
-    toast.success(result?.sent ? "通知をオンにしました。テスト通知が届きます" : "通知をオンにしました");
+    toast.success(result?.sent ? "通知をオンにしました。テスト通知が届いたら、タップするか「届いた」を押してください" : "通知をオンにしました");
   });
 
   const test = () => run("test", async () => {
     const result = await sendTherapistTestPush(token);
     if (result.sent) toast.success("テスト通知を送りました。数秒で届きます");
     else toast.error("送れませんでした。通知をいったんオフにして、もう一度オンにしてください");
+  });
+
+  const confirmReceived = () => run("confirm", async () => {
+    if (!await confirmTherapistPushTest(token)) throw new Error("この端末の通知の設定が見つかりません。通知をいったんオフにして、もう一度オンにしてください");
+    toast.success("テスト通知の受け取りを確認しました。設定は完了です");
   });
 
   const disable = () => run("disable", async () => {
@@ -85,13 +109,33 @@ export function TherapistPushCard({ token }: { token: string }) {
   if (!status) return null;
 
   // 設定済み：小さく出す
+  // 通知はオンだが、テスト通知が届いたことをまだ確かめていない
+  if (status.thisDevice && !status.thisDeviceTestConfirmed) {
+    return (
+      <div className="rounded-xl border-2 border-amber-500/60 bg-amber-500/5 p-4 space-y-2">
+        <p className="flex items-center gap-2 text-sm font-bold"><BellRing size={16} className="text-amber-600" />テスト通知が届いたか確かめてください</p>
+        <p className="text-xs text-muted-foreground">
+          「テスト通知を送る」を押して、通知が届いたら、その通知をタップするか「届いた」を押してください。これで設定完了です。
+        </p>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="flex-1" onClick={test} disabled={busy !== null}>
+            {busy === "test" ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Send size={14} className="mr-1" />}テスト通知を送る
+          </Button>
+          <Button size="sm" className="flex-1" onClick={confirmReceived} disabled={busy !== null}>
+            {busy === "confirm" ? <Loader2 size={14} className="mr-1 animate-spin" /> : <CheckCircle2 size={14} className="mr-1" />}届いた
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (status.thisDevice) {
     return (
       <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 px-4 py-2.5 flex items-center gap-2">
         <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
         <p className="text-sm flex-1 min-w-0">
           <span className="font-semibold">予約の通知：オン</span>
-          <span className="text-xs text-muted-foreground ml-1">（この端末）</span>
+          <span className="text-xs text-muted-foreground ml-1">（この端末・テスト済み）</span>
         </p>
         <Button size="sm" variant="ghost" className="h-8 px-2" onClick={test} disabled={busy !== null}>
           {busy === "test" ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
