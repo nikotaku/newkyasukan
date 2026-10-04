@@ -180,10 +180,14 @@
 - Edge Function は `src/lib/` のファイルを相対パスで読むので、デプロイするときは `src/lib/xPostContext.ts`・`xAutoPost.ts`・`xDailyPosts.ts`・`availability.ts`・`bookingUrl.ts`・`xOperationsPlan.ts` も一緒に送る（entrypoint は `supabase/functions/x-auto-post/index.ts`）
 - テスト: `npm run test:x-auto-post`
 
-## エスたまへの反映待ちのお知らせ
+## エスたまへの反映（バックグラウンド）
 
-- セラピストのプロフィール変更は、まずキャスカン（HP）に保存される。エスたまへの同期ジョブ（`automation_jobs` の `estama_register_cast`）が `queued` / `waiting_for_login` のまま90秒以上残っていると、管理画面の左下に「エスたまに反映していない変更があります」を出す（`src/components/EstamaPendingAlert.tsx`、DashboardHeader に1つ）。「エスたまに反映する」で `run-queued` をログイン中スタッフの権限で実行する
-- 裏の自動同期（pg_cron `estama-profile-sync-every-minute` → `/api/automations/estama-profile-worker`）は Vercel に管理鍵が無く失敗するため止めてある（active=false）。DBを直接書き換えた変更もこのお知らせから反映する
+- セラピストのプロフィール変更は、まずキャスカン（HP）に保存される。エスたまへの同期ジョブ（`automation_jobs` の `estama_register_cast`）は、**サーバー側のバックグラウンド**で反映する（Vercel の `waitUntil`。画面を閉じても・通信が切れても関数の時間内は続く）
+  - スタッフ画面で保存したとき：`run-profile-sync` を `background: true` で呼ぶ（`startEstamaProfileSync`）
+  - 反映待ちが30秒以上残っているとき：管理画面を開いている端末の `EstamaPendingAlert`（DashboardHeader に1つ）が `run-queued`（`jobType: estama_register_cast`, `background: true`）を自動で呼ぶ（`startQueuedEstamaProfileSync`。同じ端末からは60秒に1回まで、1回で2件まで、実行中があれば何もしない。7分以上「実行中」のままのものは再開する）
+- 毎時40分の空き枠更新が同じエステ魂のログインを使うので、27〜42分はバックグラウンドの反映を始めない（その間は反映待ちのまま。過ぎたら自動で始まる）
+- 左下には「自動で反映しています」「ログイン切れ（再ログインが必要）」「反映できなかった変更（もう一度反映する）」だけを出す。反映が終わると画面を開いていればトーストで知らせる
+- 裏の自動同期（pg_cron `estama-profile-sync-every-minute` → `/api/automations/estama-profile-worker`）は Vercel に管理鍵が無く失敗するため止めてある（active=false）。誰も管理画面を開いていない間に積まれた変更は、次に管理画面を開いたときに自動で反映される
 
 ## エステ魂スカウト求人の自動化（/recruit/estama-scout）
 
