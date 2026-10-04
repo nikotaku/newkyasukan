@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { AtSign, Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, ChevronRight, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart, PencilLine, Check, X, Copy, CheckCircle2, Megaphone, MapPin, KeyRound, ListOrdered, ImageIcon, Maximize2, ZoomIn, ZoomOut, RotateCcw, Sparkles, Trophy, Flame, Target, Zap, Medal } from "lucide-react";
+import { AtSign, Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, ChevronRight, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart, PencilLine, Check, X, Copy, CheckCircle2, Megaphone, MapPin, KeyRound, ListOrdered, ImageIcon, Maximize2, ZoomIn, ZoomOut, RotateCcw, Sparkles, Trophy, Flame, Target, Zap, Medal, Footprints } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format, startOfMonth, endOfMonth, isSameDay, addDays } from "date-fns";
@@ -18,6 +18,10 @@ import { useTherapistAppManifest } from "@/hooks/useTherapistAppManifest";
 import { TherapistPushCard } from "@/components/therapist/TherapistPushCard";
 import { TherapistSnsAccount } from "@/components/therapist/TherapistSnsAccount";
 import { hasUnseenSnsNotice, useTherapistSnsAccount } from "@/lib/therapistSns";
+import { normalizeKeyType, normalizeRouteSteps, normalizeWifiSecurity, type EntryRouteStep, type RoomKeyType, type WifiSecurity } from "@/lib/roomEntry";
+import { EntryRouteSteps } from "@/components/entry/EntryRouteSteps";
+import { RoomKeySection } from "@/components/entry/RoomKeySection";
+import { WifiConnectCard } from "@/components/entry/WifiConnectCard";
 
 
 interface Cast {
@@ -70,7 +74,13 @@ interface Room {
   entry_flow: string | null;
   key_info: string | null;
   key_number: string | null;
+  key_type: RoomKeyType | null;
+  key_close_code: string | null;
   entry_photos: string[] | null;
+  entry_route_steps: EntryRouteStep[];
+  wifi_ssid: string | null;
+  wifi_password: string | null;
+  wifi_security: WifiSecurity;
 }
 
 interface EntryPhotoViewer {
@@ -413,10 +423,20 @@ export default function TherapistPortal() {
     if (view === "upcoming" && cast) fetchUpcoming();
   }, [view, year, month, cast]);
 
+  // 暗証番号・Wi-Fi が入るので、表を直接読まずにマイページのトークンで本人確認して受け取る
   useEffect(() => {
-    supabase.from("rooms").select("id, name, address, entry_flow, key_info, key_number, entry_photos").eq("is_active", true).in("name", ["華月", "艶月"]).order("name")
-      .then(({ data }) => { if (data) setRooms(data as Room[]); });
-  }, []);
+    if (!token) return;
+    supabase.rpc("get_therapist_entry_rooms" as never, { p_token: token } as never)
+      .then(({ data }) => {
+        if (!Array.isArray(data)) return;
+        setRooms((data as Array<Record<string, unknown>>).map((room) => ({
+          ...(room as unknown as Room),
+          key_type: normalizeKeyType(room.key_type),
+          entry_route_steps: normalizeRouteSteps(room.entry_route_steps),
+          wifi_security: normalizeWifiSecurity(room.wifi_security),
+        })));
+      });
+  }, [token]);
 
   // シフトのステータス変更をリアルタイム反映
   useEffect(() => {
@@ -1619,7 +1639,7 @@ export default function TherapistPortal() {
                 入室前に確認してください
               </p>
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                住所・暗証番号・鍵の場所を確認できます。写真はタップすると大きく表示され、さらに拡大できます。
+                住所・鍵の場所・開け方・Wi-Fi を確認できます。写真はタップすると大きく表示され、さらに拡大できます。
               </p>
             </div>
             {rooms.length === 0 ? (
@@ -1662,24 +1682,21 @@ export default function TherapistPortal() {
                         </div>
                       </div>
                     )}
-                    {room.key_number && (
-                      <div className="rounded-lg border-2 border-primary/25 bg-primary/5 p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                            <KeyRound size={14} />暗証番号
-                          </p>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2.5 text-xs text-primary"
-                            onClick={() => void copyEntryValue(room.key_number!, "暗証番号")}
-                          >
-                            <Copy size={13} />コピー
-                          </Button>
-                        </div>
-                        <p className="mt-1 font-mono text-3xl font-bold tracking-[0.2em] text-primary">{room.key_number}</p>
+                    {room.entry_route_steps.length > 0 && (
+                      <div>
+                        <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                          <Footprints size={14} />鍵の場所まで
+                        </p>
+                        <EntryRouteSteps steps={room.entry_route_steps} />
                       </div>
+                    )}
+                    {room.key_number && (
+                      <RoomKeySection
+                        keyType={room.key_type}
+                        code={room.key_number}
+                        closeCode={room.key_close_code}
+                        onCopy={(value) => void copyEntryValue(value, "暗証番号")}
+                      />
                     )}
                     {room.entry_flow && (
                       <div>
@@ -1728,7 +1745,10 @@ export default function TherapistPortal() {
                         </div>
                       </div>
                     )}
-                    {!room.key_number && !room.entry_flow && !room.key_info && (!room.entry_photos || room.entry_photos.length === 0) && (
+                    {room.wifi_ssid && (
+                      <WifiConnectCard ssid={room.wifi_ssid} password={room.wifi_password} security={room.wifi_security} />
+                    )}
+                    {!room.key_number && !room.entry_flow && !room.key_info && (!room.entry_photos || room.entry_photos.length === 0) && room.entry_route_steps.length === 0 && !room.wifi_ssid && (
                       <p className="text-sm text-muted-foreground">入室方法の情報が登録されていません</p>
                     )}
                   </div>
