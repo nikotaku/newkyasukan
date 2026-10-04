@@ -193,6 +193,7 @@
   - Vercel に鍵が無い・ワーカーが失敗したときは、ディスパッチャーが15分あけて再試行する
 - 予備：スタッフ画面で保存したときは `run-profile-sync` を `background: true` で呼ぶ（`startEstamaProfileSync`、Vercel の `waitUntil` で画面を閉じても続く）。反映待ちが3分以上残っていれば、管理画面の `EstamaPendingAlert` が `run-queued`（`jobType: estama_register_cast`, `background: true`）を呼ぶ（同じ端末からは60秒に1回まで、1回で2件まで、実行中があれば何もしない）
 - 左下には「自動で反映しています」「ログイン切れ（再ログインが必要）」「反映できなかった変更（もう一度反映する）」だけを出す
+- プロフィールの「ブログ・SNS」欄：**X(旧Twitter)＝SNS運用管理のXのプロフィールURL**（`casts.x_account` を `https://x.com/ID` に直して送る）、**外部ブログ＝O2のプロフィールURL**（`casts.o2_url`、O2が無い人だけ `blog_url`）。変換は `server/estama-sns-links.ts`。`o2_url` の変更でも同期が積まれる（トリガー `trg_enqueue_estama_cast_update`）
 
 ## エステ魂スカウト求人の自動化（/recruit/estama-scout）
 

@@ -7,6 +7,7 @@ import { PNG } from "pngjs";
 import { assertFormPhotoCount, assertUploadedPhotoCount, uploadPhotos } from "./estama-photo-upload.js";
 import { assertEstamaDiaryPhotoReady, completeEstamaDiaryPhotoCrop } from "./estama-diary-photo.js";
 import { describeError } from "./estama-error.js";
+import { estamaBlogUrl, estamaXProfileUrl } from "./estama-sns-links.js";
 import {
   ESTAMA_SOUL_DIARY_POST_URL,
   PUBLIC_DIARY_LIST_TEXT,
@@ -105,6 +106,7 @@ type CastRecord = {
   hobbies?: string | null;
   blog_url?: string | null;
   x_account?: string | null;
+  o2_url?: string | null;
   instagram_url?: string | null;
   estama_profile_url?: string | null;
 };
@@ -117,7 +119,7 @@ const ESTAMA_CAST_COLUMNS = [
   "shop_comment", "therapist_comment", "profile", "message", "therapist_years", "therapist_experience",
   "age", "height", "blood_type", "favorite_techniques", "favorite_food", "ideal_type",
   "celebrity_lookalike", "celebrity_like", "day_off_activities", "hobby", "hobbies",
-  "blog_url", "x_account", "instagram_url", "estama_profile_url",
+  "blog_url", "x_account", "o2_url", "instagram_url", "estama_profile_url",
 ] as const satisfies ReadonlyArray<keyof CastRecord>;
 
 type ShiftRecord = {
@@ -466,7 +468,10 @@ function castToEstama(cast: CastRecord) {
     like_talent: cut(cast.celebrity_lookalike || cast.celebrity_like, 20),
     holiday: cut(cast.day_off_activities, 20),
     vogue: cut(cast.hobby || cast.hobbies, 20),
-    blog: cut(cast.blog_url, 255), twitter: cut(cast.x_account, 255), instagram: cut(cast.instagram_url, 255),
+    // 外部ブログ欄＝O2のプロフィールURL、X(旧Twitter)欄＝SNS運用管理のXのプロフィールURL（server/estama-sns-links.ts）
+    blog: cut(estamaBlogUrl(cast.o2_url, cast.blog_url), 255),
+    twitter: cut(estamaXProfileUrl(cast.x_account), 255),
+    instagram: cut(cast.instagram_url, 255),
     types, photos,
   };
 }
