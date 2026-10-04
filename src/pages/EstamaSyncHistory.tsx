@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { EstamaProfileSyncHistory } from "@/components/EstamaProfileSyncHistory";
 
 type Status = "success" | "warning" | "error";
 
@@ -108,6 +109,7 @@ export default function EstamaSyncHistory() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const { user, loading: authLoading, isAdmin } = useAuth();
   const { storeId, loading: storeLoading } = useAdminStore();
   const navigate = useNavigate();
@@ -194,10 +196,10 @@ export default function EstamaSyncHistory() {
             <div>
               <h1 className="text-2xl font-bold">エスたま自動化履歴</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                自動同期、シフト同期、ご案内状況、セラピストアピールの結果をここで確認できます。
+                プロフィール同期（終わった画面のスクリーンショット付き）、自動同期、シフト同期、ご案内状況、セラピストアピールの結果をここで確認できます。
               </p>
             </div>
-            <Button variant="outline" disabled={refreshing} onClick={() => void loadReports(true)}>
+            <Button variant="outline" disabled={refreshing} onClick={() => { setReloadKey((key) => key + 1); void loadReports(true); }}>
               <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               再読み込み
             </Button>
@@ -247,6 +249,8 @@ export default function EstamaSyncHistory() {
             </Card>
           ) : (
             <>
+              {storeId && <EstamaProfileSyncHistory storeId={storeId} reloadKey={reloadKey} />}
+
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">シフト同期履歴</CardTitle>

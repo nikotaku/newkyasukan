@@ -226,11 +226,19 @@ Deno.serve(async (req) => {
       if (!devices.length) return json({ error: "この端末はまだ通知を受け取る設定になっていません" }, 400);
       const result = await deliver("therapist_push_subscriptions", devices, {
         title: "✅ 通知のテスト",
-        body: `${cast.name}さんの端末に通知が届きました。予約の確定・変更・キャンセルをお知らせします`,
-        url: `/therapist/${token}`,
+        body: `${cast.name}さんの端末に通知が届きました。この通知をタップすると設定完了です`,
+        // タップして開くと、マイページが「届いた」と記録する（管理画面の完了状況に出る）
+        url: `/therapist/${token}?push_test=1`,
         tag: "therapist-test",
         icon: "/therapist-app/icon-192.png",
       }, "therapist-test");
+      if (result.sent > 0) {
+        await sb(`therapist_push_subscriptions?cast_id=eq.${cast.id}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ test_sent_at: new Date().toISOString() }),
+        }).catch(() => null);
+      }
       return json({ targets: devices.length, sent: result.sent });
     }
 

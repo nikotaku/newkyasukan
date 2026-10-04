@@ -3731,6 +3731,54 @@ export async function appealEstamaTherapist(
   }
 }
 
+// ── 作業が終わった画面のスクリーンショット ───────────────────────────
+// エスたまの同期作業（プロフィール・シフト・日記・照合）ごとに、終わった画面を非公開バケットに残し、
+// エスたま自動化の履歴から見られるようにする。プロフィールは全項目が分かるようにページ全体を撮る。
+// 撮れなくても作業の結果は変えない。30日より古いものは時々まとめて消す。
+const JOB_SCREENSHOT_BUCKET = "estama-job-screenshots";
+const JOB_SCREENSHOT_KEEP_DAYS = 30;
+
+async function saveJobScreenshot(admin: AdminClient, job: AutomationJob, page: Page | null) {
+  if (!page || page.isClosed()) return null;
+  const url = page.url();
+  if (!url || url === "about:blank") return null;
+  try {
+    const fullPage = job.job_type === "estama_register_cast";
+    if (!fullPage) await page.evaluate(() => window.scrollTo(0, 0)).catch(() => null);
+    const image = await page.screenshot({ type: "jpeg", quality: fullPage ? 50 : 60, fullPage, timeout: 15_000 });
+    const path = `${job.store_id}/${job.id}.jpg`;
+    const { error } = await admin.storage.from(JOB_SCREENSHOT_BUCKET).upload(path, image, {
+      contentType: "image/jpeg",
+      upsert: true,
+    });
+    if (error) throw error;
+    await admin.from("automation_jobs").update({ screenshot_path: path, screenshot_at: new Date().toISOString() }).eq("id", job.id);
+    return path;
+  } catch (error) {
+    console.warn(JSON.stringify({ event: "estama_job_screenshot_failed", jobId: job.id, error: describeError(error) }));
+    return null;
+  }
+}
+
+async function pruneOldJobScreenshots(admin: AdminClient, storeId: string) {
+  try {
+    const before = new Date(Date.now() - JOB_SCREENSHOT_KEEP_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const { data } = await admin.from("automation_jobs")
+      .select("id,screenshot_path")
+      .eq("store_id", storeId)
+      .not("screenshot_path", "is", null)
+      .lt("screenshot_at", before)
+      .limit(100);
+    const rows = (data || []) as Array<{ id: string; screenshot_path: string }>;
+    if (!rows.length) return;
+    const { error } = await admin.storage.from(JOB_SCREENSHOT_BUCKET).remove(rows.map((row) => row.screenshot_path));
+    if (error) throw error;
+    await admin.from("automation_jobs").update({ screenshot_path: null }).in("id", rows.map((row) => row.id));
+  } catch (error) {
+    console.warn(JSON.stringify({ event: "estama_job_screenshot_prune_failed", storeId, error: describeError(error) }));
+  }
+}
+
 export async function processAvailableJobs(
   admin: AdminClient,
   options: {
@@ -3755,6 +3803,8 @@ export async function processAvailableJobs(
     for (let index = 0; index < limit; index += 1) {
       const job = await claimNextJob(admin, options.storeId, options.castId, options.jobId, options.jobType);
       if (!job) break;
+      // この作業でブラウザを使ったか（使っていなければ前の作業の画面なので撮らない）
+      let usedPage = false;
       try {
         if (job.cast_id && (job.job_type === "estama_register_cast" || job.job_type === "estama_post_diary")) {
           const { data: activeCast, error: activeCastError } = await admin.from("casts")
@@ -3814,15 +3864,18 @@ export async function processAvailableJobs(
           await admin.from("automation_jobs").update({ browserbase_session_id: sessionId }).eq("id", job.id);
         }
         if (!page || !connection) throw new Error("ブラウザセッションを開始できませんでした");
+        usedPage = true;
         let result: Json;
         if (job.job_type === "estama_register_cast") result = await registerCast(admin, page, job, options.soulCredentials);
         else if (job.job_type === "estama_sync_shift") result = await syncShift(admin, page, job, connection);
         else if (job.job_type === "estama_post_diary") result = await postEstamaDiary(admin, page, job);
         else result = await reconcileShifts(admin, page, job, connection);
         await completeJob(admin, job, result);
+        await saveJobScreenshot(admin, job, page);
         results.push({ id: job.id, status: "completed", result });
       } catch (error) {
         await failJob(admin, job, error);
+        if (usedPage) await saveJobScreenshot(admin, job, page);
         const waitingForLogin = error instanceof LoginRequiredError || error instanceof SoulActivationRequiredError;
         results.push({ id: job.id, status: waitingForLogin ? "waiting_for_login" : "failed", error: describeError(error) });
         if (waitingForLogin) break;
@@ -3832,6 +3885,7 @@ export async function processAvailableJobs(
     if (browser) await disconnect(browser);
     if (bb && sessionId) await releaseSession(bb, sessionId);
   }
+  if (activeStore && results.length && Math.random() < 0.2) await pruneOldJobScreenshots(admin, activeStore);
   return results;
 }
 
