@@ -4,12 +4,14 @@ import { chromium, type Browser, type Dialog, type Locator, type Page } from "pl
 import { createHash, randomUUID } from "node:crypto";
 import jsQR from "jsqr";
 import { PNG } from "pngjs";
-import { assertFormPhotoCount, assertUploadedPhotoCount, uploadPhotos } from "./estama-photo-upload.js";
+import { assertFormPhotoCount, assertUploadedPhotoCount, fetchEstamaPhoto, uploadPhotos } from "./estama-photo-upload.js";
 import { assertEstamaDiaryPhotoReady, completeEstamaDiaryPhotoCrop } from "./estama-diary-photo.js";
+import { assertEstamaDiarySlotPhotoReady, attachEstamaDiarySlotPhoto, hasEstamaDiaryPhotoSlots } from "./estama-diary-photo-slots.js";
 import { describeError } from "./estama-error.js";
 import { estamaBlogUrl, estamaXProfileUrl } from "./estama-sns-links.js";
 import {
   ESTAMA_SOUL_DIARY_POST_URL,
+  fitEstamaDiaryTitle,
   PUBLIC_DIARY_LIST_TEXT,
   SOUL_DIARY_NEW_POST_TEXT,
   SOUL_DIARY_THANKS_POST_TEXT,
@@ -1899,6 +1901,54 @@ async function updatePostOverallStatus(admin: AdminClient, postId: string) {
   }).eq("id", postId);
 }
 
+const ESTAMA_DIARY_TITLE_FIELD = 'input[name*="title" i], input[id*="title" i], input[name*="subject" i]';
+const ESTAMA_DIARY_BODY_FIELD = 'textarea[name*="body" i], textarea[name*="content" i], textarea[name*="diary" i], textarea';
+
+// 投稿画面のタイトル欄の文字数上限（新しい画面は30文字）に合わせたタイトル
+async function estamaDiaryTitle(page: Page, title: string | null | undefined) {
+  const maxLength = Number(await page.locator(ESTAMA_DIARY_TITLE_FIELD).first().getAttribute("maxlength").catch(() => null));
+  return fitEstamaDiaryTitle(title || "写メ日記", Number.isFinite(maxLength) ? maxLength : null);
+}
+
+// カテゴリ（新しい画面で必須）が選ばれていなければ、最初の「日常」を選ぶ
+async function ensureEstamaDiaryCategory(form: Locator) {
+  await form.evaluate((element) => {
+    const radios = Array.from(element.querySelectorAll<HTMLInputElement>('input[type="radio"][name="category_id"]'));
+    if (radios.length && !radios.some((radio) => radio.checked)) radios[0].click();
+  });
+}
+
+/**
+ * 写メ日記の写真を1枚入れる。新しい画面（2026年10月〜）は写真枠＋縦長の切り抜き、
+ * 以前の画面はフォーム内の写真欄＋600×600の切り抜き。戻り値の assertReady は送信直前の確認に使う。
+ */
+async function attachEstamaDiaryPhoto(page: Page, diaryForm: Locator, imageUrls: [string]) {
+  if (await hasEstamaDiaryPhotoSlots(diaryForm)) {
+    const photo = await fetchEstamaPhoto(imageUrls[0], 0, {
+      requiredWidth: ESTAMA_DIARY_IMAGE_SIZE,
+      requiredHeight: ESTAMA_DIARY_IMAGE_SIZE,
+    });
+    await attachEstamaDiarySlotPhoto(page, diaryForm, photo);
+    await assertEstamaDiarySlotPhotoReady(diaryForm, imageUrls.length);
+    return {
+      uploadedPhotos: imageUrls.length,
+      assertReady: () => assertEstamaDiarySlotPhotoReady(diaryForm, imageUrls.length),
+    };
+  }
+  const uploadedPhotos = await uploadPhotos(page, imageUrls, {
+    maxPhotos: 1,
+    strict: true,
+    root: diaryForm,
+    requiredWidth: ESTAMA_DIARY_IMAGE_SIZE,
+    requiredHeight: ESTAMA_DIARY_IMAGE_SIZE,
+  });
+  assertUploadedPhotoCount(imageUrls.length, uploadedPhotos);
+  await assertFormPhotoCount(diaryForm, imageUrls.length);
+  await completeEstamaDiaryPhotoCrop(page, diaryForm);
+  await assertEstamaDiaryPhotoReady(diaryForm);
+  return { uploadedPhotos, assertReady: () => assertEstamaDiaryPhotoReady(diaryForm) };
+}
+
 async function postEstamaDiary(admin: AdminClient, page: Page, job: AutomationJob) {
   const postId = typeof job.payload?.post_id === "string" ? job.payload.post_id : "";
   if (!job.cast_id || !postId) throw new Error("写メ日記の投稿情報がありません");
@@ -1946,27 +1996,19 @@ async function postEstamaDiary(admin: AdminClient, page: Page, job: AutomationJo
   await gotoSoulDiary(accountPage);
   await openSoulDiaryPostForm(accountPage);
 
-  await setField(accountPage, 'input[name*="title" i], input[id*="title" i], input[name*="subject" i]', post.title || "写メ日記");
-  await setField(accountPage, 'textarea[name*="body" i], textarea[name*="content" i], textarea[name*="diary" i], textarea', post.body);
-  const bodyField = accountPage.locator('textarea[name*="body" i], textarea[name*="content" i], textarea[name*="diary" i], textarea').first();
+  const diaryTitle = await estamaDiaryTitle(accountPage, post.title);
+  await setField(accountPage, ESTAMA_DIARY_TITLE_FIELD, diaryTitle);
+  await setField(accountPage, ESTAMA_DIARY_BODY_FIELD, post.body);
+  const bodyField = accountPage.locator(ESTAMA_DIARY_BODY_FIELD).first();
   if (!await bodyField.count()) throw new Error("エステ魂の写メ日記本文欄が見つかりません");
   const diaryForm = bodyField.locator("xpath=ancestor::form[1]");
   if (!await diaryForm.count()) throw new Error("エステ魂の写メ日記投稿フォームが見つかりません");
-  const uploadedPhotos = await uploadPhotos(accountPage, imageUrls, {
-    maxPhotos: 1,
-    strict: true,
-    root: diaryForm,
-    requiredWidth: ESTAMA_DIARY_IMAGE_SIZE,
-    requiredHeight: ESTAMA_DIARY_IMAGE_SIZE,
-  });
-  assertUploadedPhotoCount(imageUrls.length, uploadedPhotos);
-  await assertFormPhotoCount(diaryForm, imageUrls.length);
-  await completeEstamaDiaryPhotoCrop(accountPage, diaryForm);
-  await assertEstamaDiaryPhotoReady(diaryForm);
+  await ensureEstamaDiaryCategory(diaryForm);
+  const { uploadedPhotos, assertReady } = await attachEstamaDiaryPhoto(accountPage, diaryForm, imageUrls);
   const publishedDiaryInput: PublishedDiaryInput = {
     publicProfileUrl: external.public_profile_url,
     externalId: external.external_cast_id,
-    title: post.title || "写メ日記",
+    title: diaryTitle,
     body: post.body,
     expectedPhotos: imageUrls.length,
   };
@@ -1975,7 +2017,7 @@ async function postEstamaDiary(admin: AdminClient, page: Page, job: AutomationJo
   const baselineSuccessMessages = await visibleEstamaSuccessMessages(accountPage);
   // The public baseline fetch can take a few seconds. Re-check the image payload
   // that the URL-encoded diary form will actually submit immediately before click.
-  await assertEstamaDiaryPhotoReady(diaryForm);
+  await assertReady();
   const submission = await clickSave(accountPage, { diary: true, root: diaryForm });
   if (!submission) throw new EstamaSubmissionUncertainError();
   await verifyEstamaDiarySubmission(
@@ -2046,35 +2088,27 @@ export async function runPreparedEstamaDiary(input: PreparedEstamaDiary) {
     await gotoSoulDiary(accountPage);
     await openSoulDiaryPostForm(accountPage);
 
-    await setField(accountPage, 'input[name*="title" i], input[id*="title" i], input[name*="subject" i]', input.post.title || "写メ日記");
-    await setField(accountPage, 'textarea[name*="body" i], textarea[name*="content" i], textarea[name*="diary" i], textarea', input.post.body);
-    const bodyField = accountPage.locator('textarea[name*="body" i], textarea[name*="content" i], textarea[name*="diary" i], textarea').first();
+    const diaryTitle = await estamaDiaryTitle(accountPage, input.post.title);
+    await setField(accountPage, ESTAMA_DIARY_TITLE_FIELD, diaryTitle);
+    await setField(accountPage, ESTAMA_DIARY_BODY_FIELD, input.post.body);
+    const bodyField = accountPage.locator(ESTAMA_DIARY_BODY_FIELD).first();
     if (!await bodyField.count()) throw new Error("エステ魂の写メ日記本文欄が見つかりません");
     const diaryForm = bodyField.locator("xpath=ancestor::form[1]");
     if (!await diaryForm.count()) throw new Error("エステ魂の写メ日記投稿フォームが見つかりません");
-    const uploadedPhotos = await uploadPhotos(accountPage, imageUrls, {
-      maxPhotos: 1,
-      strict: true,
-      root: diaryForm,
-      requiredWidth: ESTAMA_DIARY_IMAGE_SIZE,
-      requiredHeight: ESTAMA_DIARY_IMAGE_SIZE,
-    });
-    assertUploadedPhotoCount(imageUrls.length, uploadedPhotos);
-    await assertFormPhotoCount(diaryForm, imageUrls.length);
-    await completeEstamaDiaryPhotoCrop(accountPage, diaryForm);
-    await assertEstamaDiaryPhotoReady(diaryForm);
+    await ensureEstamaDiaryCategory(diaryForm);
+    const { uploadedPhotos, assertReady } = await attachEstamaDiaryPhoto(accountPage, diaryForm, imageUrls);
     const publishedDiaryInput: PublishedDiaryInput = {
       publicProfileUrl: input.cast.publicUrl,
       shopId: input.cast.shopId,
       externalId: input.cast.externalId,
-      title: input.post.title || "写メ日記",
+      title: diaryTitle,
       body: input.post.body,
       expectedPhotos: imageUrls.length,
     };
     const publishedDiaryBaseline = await capturePublishedDiaryBaseline(accountPage, publishedDiaryInput);
     const submittedBody = await bodyField.inputValue();
     const baselineSuccessMessages = await visibleEstamaSuccessMessages(accountPage);
-    await assertEstamaDiaryPhotoReady(diaryForm);
+    await assertReady();
     const submission = await clickSave(accountPage, { diary: true, root: diaryForm });
     if (!submission) throw new EstamaSubmissionUncertainError();
     await verifyEstamaDiarySubmission(

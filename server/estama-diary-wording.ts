@@ -8,3 +8,18 @@ export const SOUL_DIARY_NEW_POST_TEXT = /Noteを書く|新規投稿|日記を書
 export const SOUL_DIARY_THANKS_POST_TEXT = /お礼/;
 
 export const PUBLIC_DIARY_LIST_TEXT = /THERAPIST DIARY|THERAPIST NOTE|セラピスト写メ日記|写メ日記|写メNote/i;
+
+/**
+ * 2026年10月の新しい投稿画面ではタイトルが30文字まで（input の maxlength）。長いタイトルは
+ * 文字の途中（絵文字の片割れ）で切れないように、maxlength（UTF-16 の長さ）に収まるところまでにする。
+ */
+export function fitEstamaDiaryTitle(title: string, maxLength: number | null | undefined) {
+  const value = title.trim() || "写メ日記";
+  if (!maxLength || maxLength <= 0 || value.length <= maxLength) return value;
+  let fitted = "";
+  for (const char of value) {
+    if (fitted.length + char.length > maxLength) break;
+    fitted += char;
+  }
+  return fitted.trim() || "写メ日記";
+}
