@@ -75,3 +75,25 @@ test("VAPIDの署名はプッシュサービスの origin 宛てで、公開鍵�
   assert.equal(JSON.parse(Buffer.from(base64UrlDecode(c)).toString()).aud, "https://web.push.apple.com");
   assert.ok(crypto.verify("sha256", Buffer.from(`${h}.${c}`), { key: publicKey, dsaEncoding: "ieee-p1363" }, base64UrlDecode(s)));
 });
+
+test("精算入力の通知：誰が・何本・合計と内訳、タップで日別精算を開く", async () => {
+  const { dailySalesMessage } = await import("../supabase/functions/push-notify/messages.ts");
+  const message = dailySalesMessage({
+    id: "11111111-1111-1111-1111-111111111111",
+    date: "2026-10-05",
+    total_amount: 45_000,
+    cash_amount: 30_000,
+    card_amount: 15_000,
+    paypay_amount: 0,
+    customer_count: 3,
+    manual_adjustment: 0,
+    notes: null,
+  }, "伊藤れな", false);
+  assert.equal(message.title, "🧾 伊藤れなさんが精算を入力しました");
+  assert.equal(message.body, "10/5(月) 3本 合計¥45,000\n現金¥30,000 / カード¥15,000");
+  assert.equal(message.url, "/sales/daily-sales");
+  const again = dailySalesMessage({ ...{ id: "x", date: null, total_amount: 0, cash_amount: 0, card_amount: 0, paypay_amount: 0, customer_count: 0, manual_adjustment: -500, notes: "釣り銭" } }, null, true);
+  assert.equal(again.title, "🧾 セラピストが精算を送り直しました");
+  assert.match(again.body, /調整−¥500/);
+  assert.match(again.body, /メモ：釣り銭/);
+});

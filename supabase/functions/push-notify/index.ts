@@ -1,11 +1,12 @@
 // 管理画面を「ホーム画面に追加」したアプリへのプッシュ通知（LINE通知と並行して送る試験運用）。
-//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout", id } … DBトリガーから（x-push-notify-secret）
+//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout" | "daily_sales", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
 //  - { action: "test" } … ログイン中のスタッフが自分の端末にテスト通知を送る（JWT）
 // 購読（push_subscriptions）の topics に含まれる通知だけを、その店舗の端末へ送る。SMS残高は全店舗の購読へ。
 // 送れなくなった購読（アプリ削除・通知オフ）は消す。VAPIDの鍵は Vault（RPC get_web_push_vapid）。
 
 import { sendWebPush, type VapidKeys } from "../_shared/webPush.ts";
 import {
+  dailySalesMessage,
   estamaScoutMessage,
   smsBalanceMessage,
   smsReplyMessage,
@@ -86,7 +87,7 @@ async function subscribersFor(topic: string, storeId: string | null): Promise<Su
   return (await sb(`push_subscriptions?topics=cs.{${topic}}${store}&select=${subscriptionColumns}`)) ?? [];
 }
 
-async function buildEvent(event: string, id: string): Promise<{ message: PushMessage; storeId: string | null } | null> {
+async function buildEvent(event: string, id: string, resubmitted = false): Promise<{ message: PushMessage; storeId: string | null } | null> {
   if (event === "web_booking") {
     const [reservation] = await sb(
       `reservations?id=eq.${id}&select=id,store_id,booking_origin,reservation_date,start_time,duration,course_name,customer_name,price,nomination_type,cast_id`,
@@ -115,6 +116,14 @@ async function buildEvent(event: string, id: string): Promise<{ message: PushMes
     const names = candidates.map((candidate: { display_name: string | null }) => candidate.display_name ?? "");
     return { message: estamaScoutMessage(batch, names), storeId: batch.store_id };
   }
+  if (event === "daily_sales") {
+    const [record] = await sb(
+      `daily_sales_records?id=eq.${id}&select=id,store_id,cast_id,date,status,total_amount,cash_amount,card_amount,paypay_amount,customer_count,manual_adjustment,notes`,
+    );
+    if (!record || record.status !== "pending") return null;
+    const [cast] = record.cast_id ? await sb(`casts?id=eq.${record.cast_id}&select=name`) : [null];
+    return { message: dailySalesMessage(record, cast?.name ?? null, resubmitted), storeId: record.store_id };
+  }
   if (event === "sms_balance") {
     const [alert] = await sb(`sms_balance_alerts?id=eq.${id}&select=effective_balance`);
     if (!alert) return null;
@@ -137,7 +146,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
   try {
-    const input = await req.json().catch(() => ({})) as { event?: string; id?: string; action?: string };
+    const input = await req.json().catch(() => ({})) as { event?: string; id?: string; action?: string; resubmitted?: boolean };
 
     if (input.action === "test") {
       const userId = await signedInUser(req);
@@ -152,7 +161,7 @@ Deno.serve(async (req) => {
     if (verified !== true) return json({ error: "権限がありません" }, 403);
     if (!input.event || !input.id || !/^[0-9a-f-]{36}$/i.test(input.id)) return json({ error: "event と id が必要です" }, 400);
 
-    const built = await buildEvent(input.event, input.id);
+    const built = await buildEvent(input.event, input.id, input.resubmitted === true);
     if (!built) return json({ skipped: true });
     const subscriptions = await subscribersFor(input.event, built.storeId);
     if (!subscriptions.length) return json({ targets: 0, sent: 0 });

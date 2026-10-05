@@ -71,7 +71,7 @@ export function smsBalanceMessage(effectiveBalance: number): PushMessage {
 export function testMessage(): PushMessage {
   return {
     title: "✅ 通知のテスト",
-    body: "この端末に通知が届きました。WEB予約・SMSの返信・SMS残高をお知らせします",
+    body: "この端末に通知が届きました。WEB予約・SMSの返信・精算の入力などをお知らせします",
     url: "/settings/notifications",
     tag: "test",
   };
@@ -111,5 +111,37 @@ export function estamaScoutMessage(batch: {
     body: clip(batch.error_message || "画面で状況を確認してください", 120),
     url,
     tag: `estama-scout-${batch.id}`,
+  };
+}
+
+// セラピストがマイページから精算（その日の売上）を送ったとき。日別精算の画面で確認して清算する
+export function dailySalesMessage(record: {
+  id: string;
+  date: string | null;
+  total_amount: number | null;
+  cash_amount: number | null;
+  card_amount: number | null;
+  paypay_amount: number | null;
+  customer_count: number | null;
+  manual_adjustment: number | null;
+  notes: string | null;
+}, castName: string | null, resubmitted: boolean): PushMessage {
+  const yen = (value: number | null) => `¥${Number(value ?? 0).toLocaleString("ja-JP")}`;
+  const breakdown = [
+    record.cash_amount ? `現金${yen(record.cash_amount)}` : "",
+    record.card_amount ? `カード${yen(record.card_amount)}` : "",
+    record.paypay_amount ? `PayPay${yen(record.paypay_amount)}` : "",
+    record.manual_adjustment ? `調整${record.manual_adjustment > 0 ? "+" : "−"}${yen(Math.abs(record.manual_adjustment))}` : "",
+  ].filter(Boolean).join(" / ");
+  const lines = [
+    [dateLabel(record.date), `${record.customer_count ?? 0}本`, `合計${yen(record.total_amount)}`].filter(Boolean).join(" "),
+    breakdown,
+    record.notes ? `メモ：${clip(record.notes, 60)}` : "",
+  ];
+  return {
+    title: `🧾 ${castName ? `${castName}さん` : "セラピスト"}が精算を${resubmitted ? "送り直しました" : "入力しました"}`,
+    body: lines.filter(Boolean).join("\n"),
+    url: "/sales/daily-sales",
+    tag: `daily-sales-${record.id}`,
   };
 }
