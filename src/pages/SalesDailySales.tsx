@@ -23,6 +23,7 @@ import {
   splitClearanceExtraItems,
   sumClearanceExtraItems,
 } from "@/lib/clearanceExtraItems";
+import { DEKASEGI_ACCOMMODATION_PER_DAY, defaultMiscExpenses, isDekasegiTherapist, miscExpensesHint } from "@/lib/clearanceDefaults";
 
 interface Reservation {
   id: string;
@@ -40,7 +41,7 @@ interface Reservation {
   payment_fee: number | null;
   payment_method: string | null;
   payment_details: { method: string; amount: number }[] | null;
-  casts: { id: string; name: string } | null;
+  casts: { id: string; name: string; tags: string[] | null } | null;
   // 計算済みバック内訳
   courseBack?: number;
   optionBacks?: { name: string; back: number }[];
@@ -57,6 +58,8 @@ interface CastGroup {
   totalSales: number;
   cashSales: number;
   autoBack: number;
+  // 出稼ぎのセラピスト（宿泊費を自動で入れる）
+  isDekasegi: boolean;
 }
 
 interface Clearance {
@@ -133,7 +136,7 @@ export default function SalesDailySales() {
       const [resResult, nextResResult, backRatesResult, optionRatesResult, nominationRatesResult, clearResult, tokensResult] = await Promise.all([
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, payment_method, payment_details, casts(id, name)")
+          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, payment_method, payment_details, casts(id, name, tags)")
           .eq("reservation_date", dateStr)
           .gte("start_time", dayStartTime) // 営業開始時刻以前は前日の深夜またぎ分なので除外
           .in("status", ["confirmed", "completed"])
@@ -141,7 +144,7 @@ export default function SalesDailySales() {
         // 深夜またぎ分：翌日日付で保存されているが営業開始前の予約は当日扱い
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, payment_method, payment_details, casts(id, name)")
+          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, payment_method, payment_details, casts(id, name, tags)")
           .eq("reservation_date", nextDateStr)
           .lt("start_time", dayStartTime)
           .in("status", ["confirmed", "completed"])
@@ -214,7 +217,10 @@ export default function SalesDailySales() {
         const castName = r.casts?.name ?? "未設定";
         if (!groups[castId]) {
           const accessToken = tokenMap.get(castId) ?? null;
-          groups[castId] = { castId, castName, accessToken, reservations: [], totalSales: 0, cashSales: 0, autoBack: 0 };
+          groups[castId] = {
+            castId, castName, accessToken, reservations: [], totalSales: 0, cashSales: 0, autoBack: 0,
+            isDekasegi: isDekasegiTherapist(r.casts?.tags),
+          };
         }
         // 予約ごとのバック内訳を計算
         const courseBack = findCourseBack(r.course_type, r.course_name, r.duration);
@@ -259,8 +265,9 @@ export default function SalesDailySales() {
         const { deductions, salaryAdditions } = splitClearanceExtraItems(ex?.other_expenses);
         inputs[g.castId] = {
           therapistBack: ex?.therapist_back ?? g.autoBack,
-          miscExpenses: ex?.misc_expenses ?? 0,
-          accommodationFee: ex?.accommodation_fee ?? 0,
+          // まだ保存していない日は、雑費（1本¥1,000・1日¥2,000まで）と出稼ぎの宿泊費（1日¥2,000）を自動で入れる
+          miscExpenses: ex?.misc_expenses ?? defaultMiscExpenses(g.reservations.length),
+          accommodationFee: ex?.accommodation_fee ?? (g.isDekasegi ? DEKASEGI_ACCOMMODATION_PER_DAY : 0),
           transportationFee: ex?.transportation_fee ?? 0,
           otherItems: deductions,
           salaryAdjustmentItems: salaryAdditions,
@@ -720,6 +727,9 @@ export default function SalesDailySales() {
                             value={input.miscExpenses === 0 ? "" : input.miscExpenses}
                             onChange={(e) => updateInput(g.castId, "miscExpenses", Number(e.target.value) || 0)}
                           />
+                          {!cleared && input.miscExpenses === defaultMiscExpenses(g.reservations.length) && input.miscExpenses > 0 && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{miscExpensesHint(g.reservations.length)}</p>
+                          )}
                         </div>
                         <div>
                           <Label className="text-xs mb-1 block">宿泊費（円）</Label>
@@ -731,6 +741,9 @@ export default function SalesDailySales() {
                             value={input.accommodationFee === 0 ? "" : input.accommodationFee}
                             onChange={(e) => updateInput(g.castId, "accommodationFee", Number(e.target.value) || 0)}
                           />
+                          {g.isDekasegi && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">出稼ぎ：1日¥2,000{!cleared && input.accommodationFee === DEKASEGI_ACCOMMODATION_PER_DAY ? "（自動入力）" : ""}</p>
+                          )}
                         </div>
                         <div>
                           <Label className="text-xs mb-1 block">交通費（円）</Label>
