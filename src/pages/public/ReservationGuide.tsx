@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { CalendarClock, Copy, Loader2, MapPin, MessageCircle, Phone, TriangleAlert } from "lucide-react";
+import { CalendarClock, Copy, CreditCard, ExternalLink, Loader2, MapPin, MessageCircle, Phone, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPhone } from "@/hooks/useStoreContact";
 import { RouteGuideSteps, type RouteGuideStep } from "@/components/public/RouteGuideSteps";
+import { GUIDE_PAYMENT_LABELS, normalizeGuidePayments, type GuidePayment } from "@/lib/reservationGuidePayment";
 
 // RPC get_reservation_guide の返り値（supabase/migrations/20260928120000_reservation_guide.sql）
 interface ReservationGuideData {
@@ -25,6 +26,8 @@ interface ReservationGuideData {
     caution_text: string | null;
     guide_steps: RouteGuideStep[] | null;
   } | null;
+  // カード・PayPayで払う分（手数料込みの金額・決済ページ・手順）。現金だけの予約は空
+  payments?: unknown;
 }
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -55,6 +58,65 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex gap-3 py-1.5 text-sm">
       <span className="w-[4.5rem] shrink-0" style={{ color: "var(--pub-text-muted,#a98496)" }}>{label}</span>
       <span className="flex-1 min-w-0 break-words" style={{ color: "var(--pub-text,#f7e9f0)" }}>{value}</span>
+    </div>
+  );
+}
+
+const yen = (value: number) => `${value.toLocaleString("ja-JP")}円`;
+
+/** カード・PayPayで予約したお客様への、お支払いのご案内（金額・手順・決済ページ） */
+function PaymentGuide({ payment, onCopyAmount }: { payment: GuidePayment; onCopyAmount: (amount: number) => void }) {
+  const label = GUIDE_PAYMENT_LABELS[payment.method];
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl p-3" style={{ backgroundColor: "var(--pub-card2,#2b1a28)" }}>
+        <p className="text-xs" style={{ color: "var(--pub-text-muted,#a98496)" }}>{label.name}でのお支払い金額（手数料込み）</p>
+        <div className="mt-1 flex items-center gap-2">
+          <p className="flex-1 text-2xl font-bold tabular-nums">{yen(payment.amount)}</p>
+          <button
+            type="button"
+            onClick={() => onCopyAmount(payment.amount)}
+            className="shrink-0 rounded-full p-2"
+            style={{ border: "1px solid var(--pub-border,#4a2740)" }}
+            aria-label="金額をコピー"
+          >
+            <Copy size={14} />
+          </button>
+        </div>
+        {payment.fee > 0 && (
+          <p className="mt-1 text-xs" style={{ color: "var(--pub-text-mid,#dfc0cf)" }}>
+            料金 {yen(payment.amount - payment.fee)} ＋ 決済手数料 {yen(payment.fee)}
+          </p>
+        )}
+      </div>
+
+      {payment.steps.length > 0 && (
+        <ol className="space-y-2">
+          {payment.steps.map((step, index) => (
+            <li key={index} className="flex gap-2.5 text-sm leading-6">
+              <span
+                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
+                style={{ backgroundColor: "var(--pub-accent,#d4547a)" }}
+              >
+                {index + 1}
+              </span>
+              <span className="flex-1">{step}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {payment.link && (
+        <a
+          href={payment.link}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center justify-center gap-2 rounded-full py-3 text-sm font-bold text-white"
+          style={{ backgroundColor: "var(--pub-accent,#d4547a)" }}
+        >
+          <CreditCard size={16} />{label.button}<ExternalLink size={14} />
+        </a>
+      )}
     </div>
   );
 }
@@ -95,14 +157,15 @@ export default function ReservationGuide() {
     document.title = guide?.store.name ? `ご予約のご案内｜${guide.store.name}` : "ご予約のご案内";
   }, [guide?.store.name]);
 
-  const copyAddress = async (address: string) => {
+  const copyText = async (text: string, message: string) => {
     try {
-      await navigator.clipboard.writeText(address);
-      toast.success("住所をコピーしました");
+      await navigator.clipboard.writeText(text);
+      toast.success(message);
     } catch {
       toast.error("コピーできませんでした");
     }
   };
+  const copyAddress = (address: string) => copyText(address, "住所をコピーしました");
 
   const page = (children: React.ReactNode) => (
     <div className="min-h-screen px-4 py-6" style={{ backgroundColor: "var(--pub-bg,#150a11)", color: "var(--pub-text,#f7e9f0)" }}>
@@ -130,6 +193,7 @@ export default function ReservationGuide() {
 
   const phone = guide.store.phone?.replace(/\D/g, "") || "";
   const steps = (guide.room?.guide_steps || []).filter((step) => step.image_url || step.text?.trim());
+  const payments = normalizeGuidePayments(guide.payments);
 
   return page(
     <>
@@ -151,6 +215,20 @@ export default function ReservationGuide() {
         {guide.cast_name && <Row label="担当" value={guide.cast_name} />}
         {guide.price != null && guide.price > 0 && <Row label="料金" value={`${guide.price.toLocaleString("ja-JP")}円`} />}
       </Section>
+
+      {payments.length > 0 && (
+        <Section title="お支払いのご案内" icon={<CreditCard size={16} />}>
+          <div className="space-y-5">
+            {payments.map((payment) => (
+              <PaymentGuide
+                key={payment.method}
+                payment={payment}
+                onCopyAmount={(amount) => copyText(String(amount), "金額をコピーしました")}
+              />
+            ))}
+          </div>
+        </Section>
+      )}
 
       {guide.room && (
         <Section title={`ルームのご案内｜${guide.room.name}`} icon={<MapPin size={16} />}>

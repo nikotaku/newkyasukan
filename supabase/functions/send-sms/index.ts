@@ -12,7 +12,7 @@
 //   - 管理画面: ログイン中のスタッフ（送信先の予約・店舗に所属していること）
 
 import { loadTwilioCredentials, twilioAuthHeader, type TwilioCredentials } from "../_shared/twilio.ts";
-import { fillTemplate, reservationGuideUrl, toE164 } from "./template.ts";
+import { fillTemplate, paymentGuideNote, reservationGuideUrl, toE164 } from "./template.ts";
 
 const TW_FROM = Deno.env.get("TWILIO_SMS_FROM") || "";
 const TW_MSID = Deno.env.get("TWILIO_MESSAGING_SERVICE_SID") || "";
@@ -124,6 +124,7 @@ async function buildVars(r: Record<string, any>) {
     [room] = await sb(q);
   }
   const [store] = r.store_id ? await sb(`stores?id=eq.${r.store_id}&select=custom_domain`) : [null];
+  const guideUrl = reservationGuideUrl(store?.custom_domain, r.guide_token);
   return {
     name: r.customer_name || "お客",
     date: dt ? `${dt.getMonth() + 1}/${dt.getDate()}(${WEEK[dt.getDay()]})` : "",
@@ -138,7 +139,8 @@ async function buildVars(r: Record<string, any>) {
     room_address: room?.address || "",
     room_landmark: room?.sms_landmark || "",
     room_map: room?.map_url || "",
-    guide_url: reservationGuideUrl(store?.custom_domain, r.guide_token),
+    guide_url: guideUrl,
+    payment_guide: paymentGuideNote(r, guideUrl),
   } as Record<string, string>;
 }
 

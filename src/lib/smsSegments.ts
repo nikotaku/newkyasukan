@@ -42,6 +42,8 @@ export const SMS_TEMPLATE_SAMPLE_VALUES: Record<string, string> = {
   room_landmark: "1階「はしもとや」",
   room_map: "https://x.gd/nf3ip",
   guide_url: "https://enka-salon.jp/g/Ab3dE7fG9h_k",
+  // カード・PayPayの予約だけに入る1行（通数の目安は入るほうで数える）
+  payment_guide: "リンクを開くと決済方法の案内が出ます",
 };
 
 export function fillSmsTemplateSample(template: string, values: Record<string, string> = SMS_TEMPLATE_SAMPLE_VALUES) {
