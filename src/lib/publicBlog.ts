@@ -58,16 +58,23 @@ export const slugifyBlogTitle = (title: string) => {
 };
 
 export type BlogContentBlock =
-  | { type: "h2" | "h3" | "paragraph" | "list"; text: string; items?: string[] };
+  | { type: "h2" | "h3" | "paragraph" | "list" | "quote"; text: string; items?: string[] };
 
 export const blogContentBlocks = (content: string | null | undefined): BlogContentBlock[] => {
   const lines = (content || "").replace(/\r\n/g, "\n").split("\n");
   const blocks: BlogContentBlock[] = [];
   let paragraph: string[] = [];
   let list: string[] = [];
+  let quote: string[] = [];
 
+  const pushQuote = () => {
+    const text = quote.join("\n").trim();
+    if (text) blocks.push({ type: "quote", text });
+    quote = [];
+  };
   const pushParagraph = () => {
-    const text = paragraph.join(" ").trim();
+    pushQuote();
+    const text = paragraph.join("\n").trim();
     if (text) blocks.push({ type: "paragraph", text });
     paragraph = [];
   };
@@ -83,6 +90,16 @@ export const blogContentBlocks = (content: string | null | undefined): BlogConte
       pushList();
       continue;
     }
+    const quoted = line.match(/^>\s?(.*)$/);
+    if (quoted) {
+      const text = paragraph.join("\n").trim();
+      if (text) blocks.push({ type: "paragraph", text });
+      paragraph = [];
+      pushList();
+      quote.push(quoted[1]);
+      continue;
+    }
+    pushQuote();
     const heading = line.match(/^(#{2,3})\s+(.+)$/);
     if (heading) {
       pushParagraph();
@@ -101,6 +118,7 @@ export const blogContentBlocks = (content: string | null | undefined): BlogConte
   }
   pushParagraph();
   pushList();
+  pushQuote();
   return blocks;
 };
 

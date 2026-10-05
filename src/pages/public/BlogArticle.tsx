@@ -27,6 +27,19 @@ const linkedText = (text: string) => text.split(/(https?:\/\/[^\s]+)/g).map((par
   ) : part,
 );
 
+// **強調** を太字＋マーカーで表示（URLのリンク化はそのまま）
+const richText = (text: string) => text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+  const bold = part.match(/^\*\*([^*]+)\*\*$/);
+  if (bold) {
+    return (
+      <strong key={`b-${index}`} className="font-bold" style={{ color: "var(--pub-text,#f7e9f0)", backgroundImage: "linear-gradient(transparent 62%, var(--pub-accent-a30,#d4547a55) 62%)" }}>
+        {bold[1]}
+      </strong>
+    );
+  }
+  return <span key={`t-${index}`}>{linkedText(part)}</span>;
+});
+
 const upsertMeta = (selector: string, attributes: Record<string, string>) => {
   let element = document.head.querySelector<HTMLMetaElement>(selector);
   if (!element) {
@@ -208,10 +221,11 @@ export default function BlogArticle() {
           <div className="px-5 py-7 md:px-9 md:py-10">
             <div className="space-y-5 text-[15px] leading-8 md:text-base" style={{ color: "var(--pub-text-mid,#dfc0cf)" }}>
               {blocks.map((block, index) => {
-                if (block.type === "h2") return <h2 key={index} className="mt-10 border-l-4 pl-3 text-xl font-bold leading-snug md:text-2xl" style={{ borderColor: "var(--pub-accent,#d4547a)", color: "var(--pub-text,#f7e9f0)" }}>{linkedText(block.text)}</h2>;
-                if (block.type === "h3") return <h3 key={index} className="mt-8 text-lg font-bold" style={{ color: "var(--pub-text,#f7e9f0)" }}>{linkedText(block.text)}</h3>;
-                if (block.type === "list") return <ul key={index} className="space-y-2 pl-5">{(block.items || []).map((item, itemIndex) => <li key={itemIndex} className="list-disc pl-1">{linkedText(item)}</li>)}</ul>;
-                return <p key={index}>{linkedText(block.text)}</p>;
+                if (block.type === "h2") return <h2 key={index} className="mt-12 border-l-4 pl-3 text-xl font-bold leading-snug md:text-2xl" style={{ borderColor: "var(--pub-accent,#d4547a)", color: "var(--pub-text,#f7e9f0)" }}>{richText(block.text)}</h2>;
+                if (block.type === "h3") return <h3 key={index} className="mt-8 flex items-baseline gap-2 border-b pb-2 text-lg font-bold" style={{ borderColor: "var(--pub-border,#4a2740)", color: "var(--pub-accent-light,#f2a0bc)" }}>{richText(block.text)}</h3>;
+                if (block.type === "list") return <ul key={index} className="space-y-2 rounded-xl border px-5 py-4 pl-9" style={{ borderColor: "var(--pub-border,#4a2740)", backgroundColor: "var(--pub-card2,#2b1a28)" }}>{(block.items || []).map((item, itemIndex) => <li key={itemIndex} className="list-disc pl-1">{richText(item)}</li>)}</ul>;
+                if (block.type === "quote") return <blockquote key={index} className="whitespace-pre-line rounded-xl border-l-4 px-5 py-4" style={{ borderColor: "var(--pub-accent,#d4547a)", backgroundColor: "var(--pub-accent-a10,#d4547a1a)", color: "var(--pub-text,#f7e9f0)" }}>{richText(block.text)}</blockquote>;
+                return <p key={index} className="whitespace-pre-line">{richText(block.text)}</p>;
               })}
             </div>
 
