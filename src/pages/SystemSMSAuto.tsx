@@ -223,7 +223,7 @@ export default function SystemSMSAuto() {
                   <div>
                     <Label>メッセージ（{"{name}"} {"{date}"} {"{time}"} {"{course}"} {"{cast}"} {"{price}"} {"{room}"} {"{guide_url}"} などの変数が使えます）</Label>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {"{guide_url}"} は予約ごとの案内ページ（予約内容・住所・地図・道順・来店時のお願い）のリンクです。住所や注意事項を本文に書かずに済むのでSMSが短くなります
+                      {"{guide_url}"} は予約ごとの案内ページ（予約内容・住所・地図・道順・来店時のお願い・カード/PayPayの支払い方法）のリンクです。住所や注意事項を本文に書かずに済むのでSMSが短くなります。{"{payment_guide}"} はカード・PayPayで予約した方だけ「リンクを開くと決済方法の案内が出ます」になり、現金の方は行ごと消えます
                     </p>
                     <Textarea
                       value={formData.message}

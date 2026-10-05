@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,12 +17,16 @@ interface PaymentSetting {
   payment_method: string;
   payment_link: string | null;
   fee_percentage: number;
+  // 予約案内ページ（/g/:token）に出すお客様向けの手順（1行に1つ）
+  customer_guide: string | null;
 }
+
+type Draft = { payment_link: string; fee_percentage: string; customer_guide: string };
 
 export default function SystemPaymentMethods() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settings, setSettings] = useState<PaymentSetting[]>([]);
-  const [drafts, setDrafts] = useState<Record<string, { payment_link: string; fee_percentage: string }>>({});
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
 
@@ -44,10 +49,11 @@ export default function SystemPaymentMethods() {
       .select("*")
       .order("payment_method");
     if (!error) {
-      setSettings(data || []);
-      const d: Record<string, { payment_link: string; fee_percentage: string }> = {};
-      (data || []).forEach((p: any) => {
-        d[p.id] = { payment_link: p.payment_link || "", fee_percentage: String(p.fee_percentage ?? 0) };
+      const rows = (data || []) as unknown as PaymentSetting[];
+      setSettings(rows);
+      const d: Record<string, Draft> = {};
+      rows.forEach((p) => {
+        d[p.id] = { payment_link: p.payment_link || "", fee_percentage: String(p.fee_percentage ?? 0), customer_guide: p.customer_guide || "" };
       });
       setDrafts(d);
     }
@@ -65,7 +71,7 @@ export default function SystemPaymentMethods() {
     setSavingId(id);
     const { error } = await supabase
       .from("payment_settings")
-      .update({ payment_link: draft.payment_link || null, fee_percentage: fee })
+      .update({ payment_link: draft.payment_link || null, fee_percentage: fee, customer_guide: draft.customer_guide.trim() || null } as never)
       .eq("id", id);
     setSavingId(null);
     if (error) {
@@ -76,7 +82,7 @@ export default function SystemPaymentMethods() {
     fetchSettings();
   };
 
-  const updateDraft = (id: string, field: "payment_link" | "fee_percentage", val: string) => {
+  const updateDraft = (id: string, field: keyof Draft, val: string) => {
     setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], [field]: val } }));
   };
 
@@ -118,7 +124,7 @@ export default function SystemPaymentMethods() {
                         />
                       </div>
                       <div>
-                        <Label className="text-xs">決済リンク（SMSに自動付与）</Label>
+                        <Label className="text-xs">決済リンク（予約案内ページのボタン）</Label>
                         <Input
                           placeholder="https://..."
                           value={drafts[s.id]?.payment_link ?? ""}
@@ -126,6 +132,19 @@ export default function SystemPaymentMethods() {
                           className="mt-1"
                         />
                       </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">お客様への支払い手順（予約案内ページに出す・1行に1つ）</Label>
+                      <Textarea
+                        rows={5}
+                        placeholder={"例：\n下の「カード決済ページを開く」を押します\n決済ページでお支払い金額を入力します"}
+                        value={drafts[s.id]?.customer_guide ?? ""}
+                        onChange={(e) => updateDraft(s.id, "customer_guide", e.target.value)}
+                        className="mt-1"
+                      />
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        この決済方法で予約したお客様の案内ページ（SMSのリンク先）に、手数料込みの金額・この手順・決済リンクのボタンを出します。予約確認SMSには「リンクを開くと決済方法の案内が出ます」が入ります。
+                      </p>
                     </div>
                     <div className="flex justify-end">
                       <Button onClick={() => handleSave(s.id)} disabled={savingId === s.id}>
