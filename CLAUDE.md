@@ -207,6 +207,13 @@
 - **作業が終わった画面のスクリーンショット**：`processAvailableJobs` で処理した作業（プロフィール同期・シフト同期・照合）は、終わった（失敗した）画面を非公開バケット `estama-job-screenshots`（`<store_id>/<job_id>.jpg`、プロフィールはページ全体）に保存し、`automation_jobs.screenshot_path` に記録する。「エスたま自動化履歴」（`/schedule/estama-sync-history`）の「プロフィール同期の履歴」（`src/components/EstamaProfileSyncHistory.tsx`）で見られる。30日より古いものはワーカーが時々消す。トークン方式のシフト同期（`estama-worker`）は従来どおり公開ページの確認画像を `estama_sync_reports` に残す
 - プロフィールの「ブログ・SNS」欄：**X(旧Twitter)＝SNS運用管理のXのプロフィールURL**（`casts.x_account` を `https://x.com/ID` に直して送る）、**外部ブログ＝O2のプロフィールURL**（`casts.o2_url`、O2が無い人だけ `blog_url`）。変換は `server/estama-sns-links.ts`。`o2_url` の変更でも同期が積まれる（トリガー `trg_enqueue_estama_cast_update`）
 
+## 魂セラピストへの写メ日記の同時投稿
+
+- マイページの同時投稿（HP・O2・魂）の魂分は Edge Function `post-to-sites`（`target: "esutama"`）→ Vercel `/api/automations/estama-portal-worker` → `runPreparedEstamaDiary`（`server/estama-automation.ts`）。失敗した分はマイページの「再送」で送り直す
+- 2026年10月にエステ魂の投稿画面（`/tamathera/diary/post/`）が新しくなった：写真の選択欄 `#diary-photo-files` がフォームの外、写真枠3つ（`photos[n][data]` の hidden）、選ぶと切り抜き画面（`#photo-crop-modal`、714×1112）が開き「追加する」で枠に入る。カテゴリ（必須・既定は日常）とタイトル30文字までが増えた。処理は `server/estama-diary-photo-slots.ts`（以前の画面の処理 `estama-diary-photo.ts` も残して両対応）
+- 600×600 の投稿画像は、魂側では縦長（714×1112）に中央で切り抜かれる
+- テスト: `npm run test:estama`
+
 ## エステ魂スカウト求人の自動化（/recruit/estama-scout）
 
 - 毎日決まった時刻（`estama_scout_settings.propose_at`、既定11:00）に、エステ魂の「スカウト求人」（`/admin/esjob/`）と「スカウト検索」（`/admin/esjob_search/`）から候補を読み、1日 `daily_count` 人（既定10人）を選んでスマホ通知（push topic `estama_scout`）→ 画面で送る人を選んで「送る」→ エステ魂のスカウトテンプレートで自動送信。OKが出るまでは絶対に送らない

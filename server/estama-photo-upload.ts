@@ -103,6 +103,37 @@ export async function assertFormPhotoCount(form: Locator, requested: number) {
   return inspection.selected;
 }
 
+/** 写真URLから画像を取り込む（許可した保存先だけ・15MBまで・サイズ指定があればその大きさだけ） */
+export async function fetchEstamaPhoto(
+  rawUrl: string,
+  index: number,
+  options: { fetchPhoto?: typeof fetch; requiredWidth?: number; requiredHeight?: number } = {},
+): Promise<PhotoFile> {
+  const { fetchPhoto = fetch, requiredWidth, requiredHeight } = options;
+  const hasRequiredDimensions = requiredWidth !== undefined || requiredHeight !== undefined;
+  if (hasRequiredDimensions && (requiredWidth === undefined || requiredHeight === undefined)) {
+    throw new Error("写真サイズは幅と高さを両方指定してください");
+  }
+  const response = await fetchPhoto(normalizePhotoUrl(rawUrl), {
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) throw new Error(`写真取得HTTP ${response.status}`);
+  const declaredSize = Number(response.headers.get("content-length") || 0);
+  if (declaredSize > 15 * 1024 * 1024) throw new Error("写真が15MBを超えています");
+  const contentType = response.headers.get("content-type") || "image/jpeg";
+  if (!contentType.startsWith("image/")) throw new Error("写真URLが画像を返しませんでした");
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.byteLength > 15 * 1024 * 1024) throw new Error("写真が15MBを超えています");
+  if (hasRequiredDimensions) {
+    assertImageSize(buffer, contentType, requiredWidth!, requiredHeight!);
+  }
+  return {
+    name: `photo-${index + 1}.${photoExtension(contentType)}`,
+    mimeType: contentType,
+    buffer,
+  };
+}
+
 export async function uploadPhotos(
   page: Page,
   urls: string[],
@@ -144,26 +175,9 @@ export async function uploadPhotos(
   const prepared: PreparedPhoto[] = [];
   for (let index = 0; index < requestedUrls.length; index += 1) {
     try {
-      const response = await fetchPhoto(normalizePhotoUrl(requestedUrls[index]), {
-        signal: AbortSignal.timeout(20_000),
-      });
-      if (!response.ok) throw new Error(`写真取得HTTP ${response.status}`);
-      const declaredSize = Number(response.headers.get("content-length") || 0);
-      if (declaredSize > 15 * 1024 * 1024) throw new Error("写真が15MBを超えています");
-      const contentType = response.headers.get("content-type") || "image/jpeg";
-      if (!contentType.startsWith("image/")) throw new Error("写真URLが画像を返しませんでした");
-      const buffer = Buffer.from(await response.arrayBuffer());
-      if (buffer.byteLength > 15 * 1024 * 1024) throw new Error("写真が15MBを超えています");
-      if (hasRequiredDimensions) {
-        assertImageSize(buffer, contentType, requiredWidth!, requiredHeight!);
-      }
       prepared.push({
         index,
-        file: {
-          name: `photo-${index + 1}.${photoExtension(contentType)}`,
-          mimeType: contentType,
-          buffer,
-        },
+        file: await fetchEstamaPhoto(requestedUrls[index], index, { fetchPhoto, requiredWidth, requiredHeight }),
       });
     } catch (error) {
       errors.push(`${index + 1}枚目: ${error instanceof Error ? error.message : String(error)}`);
