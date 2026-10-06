@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildSettlementLineText,
+  buildSettlementPush,
   buildSnsReadyLineText,
   buildSnsReadyPush,
   buildTherapistLineText,
@@ -123,4 +125,22 @@ test("SNSアカウントの準備ができたお知らせ：マイページのSN
   const admin = unreachableAdminMessage({ castName: "望月せな", kind: "sns_ready", when: "", reason: "no_device", notificationId: "n-2" });
   assert.equal(admin.title, "⚠️ 望月せなさんにSNSのお知らせが届いていません");
   assert.match(admin.body, /^SNSアカウント準備完了のお知らせ。マイページのスマホ通知が未設定です/);
+});
+
+test("精算の承認：不足分があるときは振込・相殺を選んでもらう。タップでマイページの精算を開く", () => {
+  const snapshot = { clearance_id: "clr-1", date: "2026-10-05", salary: 26_000, cash_sales: 20_000, shortage: 6_000 };
+  const push = buildSettlementPush({ portalUrl: "/therapist/tok", snapshot });
+  assert.equal(push.title, "✅ 精算が承認されました（不足分があります）");
+  assert.equal(push.body, "10月5日(月)の精算　お給料 ¥26,000\n不足分 ¥6,000 は、振込もしくは次回出勤日の相殺になります。マイページで選んでください");
+  assert.equal(push.url, "/therapist/tok?settlement=clr-1");
+  assert.equal(push.tag, "settlement-clr-1");
+
+  const noShortage = buildSettlementPush({ portalUrl: "/therapist/tok", snapshot: { ...snapshot, shortage: 0 } });
+  assert.equal(noShortage.title, "✅ 精算が承認されました");
+  assert.match(noShortage.body, /明細はマイページで見られます/);
+  assert.equal(buildSettlementPush({ portalUrl: "/therapist/tok", snapshot: { ...snapshot, re_approved: true } }).title, "✏️ 精算の内容が直りました");
+
+  const line = buildSettlementLineText(snapshot);
+  assert.match(line, /不足分 ¥6,000 は、振込もしくは次回出勤日の相殺になります/);
+  assert.match(line, /ホーム画面に追加/);
 });

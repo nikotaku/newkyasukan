@@ -76,10 +76,11 @@ test("VAPIDの署名はプッシュサービスの origin 宛てで、公開鍵�
   assert.ok(crypto.verify("sha256", Buffer.from(`${h}.${c}`), { key: publicKey, dsaEncoding: "ieee-p1363" }, base64UrlDecode(s)));
 });
 
-test("精算入力の通知：誰が・何本・合計と内訳、タップで日別精算を開く", async () => {
+test("精算入力の通知：誰が・何本・合計と内訳、タップでその人の清算明細を開く", async () => {
   const { dailySalesMessage } = await import("../supabase/functions/push-notify/messages.ts");
   const message = dailySalesMessage({
     id: "11111111-1111-1111-1111-111111111111",
+    cast_id: "22222222-2222-2222-2222-222222222222",
     date: "2026-10-05",
     total_amount: 45_000,
     cash_amount: 30_000,
@@ -90,10 +91,23 @@ test("精算入力の通知：誰が・何本・合計と内訳、タップで�
     notes: null,
   }, "伊藤れな", false);
   assert.equal(message.title, "🧾 伊藤れなさんが精算を入力しました");
-  assert.equal(message.body, "10/5(月) 3本 合計¥45,000\n現金¥30,000 / カード¥15,000");
-  assert.equal(message.url, "/sales/daily-sales");
+  assert.equal(message.body, "10/5(月) 3本 合計¥45,000\n現金¥30,000 / カード¥15,000\nタップして明細を確認・承認");
+  assert.equal(message.url, "/sales/daily-sales?date=2026-10-05&cast=22222222-2222-2222-2222-222222222222");
   const again = dailySalesMessage({ ...{ id: "x", date: null, total_amount: 0, cash_amount: 0, card_amount: 0, paypay_amount: 0, customer_count: 0, manual_adjustment: -500, notes: "釣り銭" } }, null, true);
   assert.equal(again.title, "🧾 セラピストが精算を送り直しました");
   assert.match(again.body, /調整−¥500/);
   assert.match(again.body, /メモ：釣り銭/);
+  assert.equal(again.url, "/sales/daily-sales");
+});
+
+test("不足分の振込希望の通知：金額と振込先（口座番号は末尾4桁）", async () => {
+  const { settlementTransferMessage } = await import("../supabase/functions/push-notify/messages.ts");
+  const approval = { clearance_id: "c1", cast_id: "22222222-2222-2222-2222-222222222222", date: "2026-10-05", shortage_amount: 6_000 };
+  const message = settlementTransferMessage(approval, "伊藤れな", {
+    bank_name: "七十七銀行", branch_name: "本店", account_type: "普通", account_number: "1234567", account_holder: "イトウ　レナ",
+  });
+  assert.equal(message.title, "🏦 伊藤れなさんが不足分¥6,000の振込を希望しました");
+  assert.equal(message.body, "10/5(月)の精算\n振込先：七十七銀行 本店 普通 ＊＊＊4567 イトウ　レナ");
+  assert.equal(message.url, "/sales/daily-sales?date=2026-10-05&cast=22222222-2222-2222-2222-222222222222");
+  assert.match(settlementTransferMessage(approval, null, null).body, /マイページで入力/);
 });

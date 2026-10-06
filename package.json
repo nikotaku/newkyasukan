@@ -25,7 +25,7 @@
     "test:report-email": "node --experimental-strip-types --test tests/reportEmailParse.test.ts",
     "test:media-registration": "node --experimental-strip-types --test tests/mediaRegistration.test.ts",
     "test:room-entry": "node --experimental-strip-types --test tests/roomEntry.test.ts",
-    "test:clearance-defaults": "node --experimental-strip-types --test tests/clearanceDefaults.test.ts",
+    "test:clearance-defaults": "node --experimental-strip-types --test tests/clearanceDefaults.test.ts tests/settlementApproval.test.ts",
     "test:reservation-guide-payment": "node --experimental-strip-types --test tests/reservationGuidePayment.test.ts",
     "test:x-daily-posts": "node --experimental-strip-types --test tests/xDailyPosts.test.ts",
     "test:sms-billing": "node --experimental-strip-types --test tests/smsBilling.test.ts tests/smsSegments.test.ts tests/sendSmsTemplate.test.ts",
