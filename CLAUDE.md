@@ -227,6 +227,12 @@
 - マイページの通知は届かなくても管理画面には知らせない（マイページを開けば `TherapistSettlementNotice` に出る）。画面・計算は `src/lib/settlementApproval.ts`（テスト `npm run test:clearance-defaults`）・`settlementAdmin.ts`・`therapistSettlement.ts`
 - `daily_clearances` は昔から anon に全部開いているので、明細（お客様名）・不足分・口座は anon が読めない `settlement_approvals` / `cast_bank_accounts` に分けている。新しい列を `daily_clearances` に足さないこと
 
+## セラピストのマイページ：その月の本数
+
+- メニューの「◯月の本数」（`src/components/therapist/TherapistMonthlyCount.tsx`）。施術済み（completed）を大きく、予定（confirmed）を別に出す。キャンセルは数えない。指名の種類（指名なしはフリー）・コースの時間・日ごとの内訳つき。左右で過去24か月まで切り替え
+- RPC `get_therapist_monthly_counts(p_token, p_month)`（anon可・トークンで本人確認・金額は返さない）。月は営業日（朝6時切り替え）。整形は `src/lib/therapistMonthlyCount.ts`
+- テスト: `npm run test:therapist-monthly-count`
+
 ## 魂セラピストへの写メ日記の同時投稿
 
 - マイページの同時投稿（HP・O2・魂）の魂分は Edge Function `post-to-sites`（`target: "esutama"`）→ Vercel `/api/automations/estama-portal-worker` → `runPreparedEstamaDiary`（`server/estama-automation.ts`）。失敗した分はマイページの「再送」で送り直す
