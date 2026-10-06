@@ -17,6 +17,7 @@ import { allowPageZoom } from "@/lib/viewportZoomLock";
 import { useTherapistAppManifest } from "@/hooks/useTherapistAppManifest";
 import { TherapistPushCard } from "@/components/therapist/TherapistPushCard";
 import { TherapistSettlementNotice } from "@/components/therapist/TherapistSettlementNotice";
+import { BackRateTable, type BackRateRow } from "@/components/therapist/BackRateTable";
 import { TherapistSnsAccount } from "@/components/therapist/TherapistSnsAccount";
 import { hasUnseenSnsNotice, useTherapistSnsAccount } from "@/lib/therapistSns";
 import { normalizeKeyType, normalizeRouteSteps, normalizeWifiSecurity, type EntryRouteStep, type RoomKeyType, type WifiSecurity } from "@/lib/roomEntry";
@@ -40,12 +41,6 @@ interface Settlement {
   customer_price: number;
   therapist_back: number;
   status: string;
-}
-
-interface TherapistBackRate {
-  course_type: string;
-  duration: number;
-  therapist_back: number;
 }
 
 interface TransportExpense {
@@ -216,7 +211,7 @@ export default function TherapistPortal() {
     if (view !== "sns" && searchParams.get("view")) setSearchParams({}, { replace: true });
   }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showBackRates, setShowBackRates] = useState(false);
-  const [therapistBackRates, setTherapistBackRates] = useState<TherapistBackRate[]>([]);
+  const [therapistBackRates, setTherapistBackRates] = useState<BackRateRow[]>([]);
   const [therapistBackRatesLoading, setTherapistBackRatesLoading] = useState(false);
   const [guideSite, setGuideSite] = useState<"o2" | "esutama" | null>(null);
 
@@ -1886,13 +1881,8 @@ export default function TherapistPortal() {
           ) : therapistBackRates.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted-foreground">表示できるバック情報がありません</p>
           ) : (
-            <div className="mt-2 overflow-hidden rounded-lg border">
-              {therapistBackRates.map((rate) => (
-                <div key={`${rate.course_type}-${rate.duration}`} className="grid grid-cols-[1fr_auto] gap-4 border-b px-4 py-3 last:border-b-0">
-                  <span className="text-sm">{rate.course_type} {rate.duration}分</span>
-                  <span className="font-bold text-primary">¥{rate.therapist_back.toLocaleString()}</span>
-                </div>
-              ))}
+            <div className="mt-2">
+              <BackRateTable rates={therapistBackRates} />
             </div>
           )}
         </DialogContent>
