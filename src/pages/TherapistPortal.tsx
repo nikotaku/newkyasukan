@@ -17,6 +17,7 @@ import { allowPageZoom } from "@/lib/viewportZoomLock";
 import { useTherapistAppManifest } from "@/hooks/useTherapistAppManifest";
 import { TherapistPushCard } from "@/components/therapist/TherapistPushCard";
 import { TherapistSettlementNotice } from "@/components/therapist/TherapistSettlementNotice";
+import { TherapistMonthlyCount } from "@/components/therapist/TherapistMonthlyCount";
 import { BackRateTable, type BackRateRow } from "@/components/therapist/BackRateTable";
 import { TherapistSnsAccount } from "@/components/therapist/TherapistSnsAccount";
 import { hasUnseenSnsNotice, useTherapistSnsAccount } from "@/lib/therapistSns";
@@ -842,6 +843,9 @@ export default function TherapistPortal() {
               </div>
             )}
           </div>
+
+          {/* その月の本数（施術済み・予定。月を切り替えられる） */}
+          {token && <TherapistMonthlyCount token={token} />}
 
           {/* Current month shift widget */}
           <div className="rounded-xl border bg-card overflow-hidden">
