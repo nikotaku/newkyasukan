@@ -10,7 +10,7 @@ export interface TherapistNotificationRow {
   id: string;
   cast_id: string;
   reservation_id: string | null;
-  kind: "new" | "changed" | "cancelled" | "sns_ready";
+  kind: "new" | "changed" | "cancelled" | "sns_ready" | "settlement";
   status: TherapistNotificationStatus;
   channel: "push" | "line" | null;
   source: "auto" | "manual";
@@ -26,6 +26,7 @@ export const THERAPIST_NOTIFICATION_COLUMNS =
 
 export function therapistNotificationKindLabel(row: Pick<TherapistNotificationRow, "kind" | "snapshot" | "source">) {
   if (row.kind === "sns_ready") return "SNSアカウントの準備完了";
+  if (row.kind === "settlement") return "精算の承認";
   if (row.kind === "cancelled") return row.snapshot?.reason === "cast_changed" ? "担当変更" : "キャンセル";
   if (row.kind === "changed") return "予約の変更";
   return row.source === "manual" ? "再通知" : "新しい予約";

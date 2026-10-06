@@ -4,7 +4,8 @@
 //    ① セラピストのマイページ（ホーム画面に追加）へプッシュ通知
 //    ② 端末が無い人だけ、移行中は本人のLINEグループへ（共通グループには送らない）
 //    ③ どちらも無い・送れない → 管理画面のスマホ通知（topic therapist_notify）で知らせる
-//    予約の確定・変更・キャンセルのほか、SNSアカウント（X・O2）の準備ができたお知らせ（kind = sns_ready）も送る
+//    予約の確定・変更・キャンセルのほか、SNSアカウント（X・O2）の準備ができたお知らせ（kind = sns_ready）と
+//    精算の承認（kind = settlement。届かなくてもマイページを開けば見られるので、管理画面には知らせない）も送る
 //  - マイページから { action: "test", token } … 本人の端末にテスト通知を送る
 // VAPIDの鍵は Vault（RPC get_web_push_vapid）。暗号化と署名は _shared/webPush.ts。
 
@@ -12,6 +13,8 @@ import { sendWebPush, type VapidKeys } from "../_shared/webPush.ts";
 import { pushLineText } from "../_shared/linePush.ts";
 import type { ReservationLineContext } from "../notify-line-therapist/reservationLineNotification.ts";
 import {
+  buildSettlementLineText,
+  buildSettlementPush,
   buildSnsReadyLineText,
   buildSnsReadyPush,
   buildTherapistLineText,
@@ -20,6 +23,7 @@ import {
   whenLabel,
   type CancelledSnapshot,
   type ReservationChanges,
+  type SettlementSnapshot,
   type TherapistNotificationKind,
 } from "./messages.ts";
 
@@ -55,7 +59,7 @@ interface Notification {
   reservation_id: string | null;
   kind: TherapistNotificationKind;
   changes: ReservationChanges;
-  snapshot: CancelledSnapshot;
+  snapshot: CancelledSnapshot & SettlementSnapshot;
   source: string;
   attempts: number;
 }
@@ -145,7 +149,7 @@ async function processNotification(notification: Notification) {
     }
   }
 
-  const when = notification.kind === "sns_ready"
+  const when = notification.kind === "sns_ready" || notification.kind === "settlement"
     ? ""
     : notification.kind === "cancelled"
     ? whenLabel(notification.snapshot?.reservation_date, notification.snapshot?.start_time)
@@ -158,6 +162,8 @@ async function processNotification(notification: Notification) {
   )) ?? [];
   const pushMessage = notification.kind === "sns_ready"
     ? buildSnsReadyPush({ portalUrl, castId: cast.id })
+    : notification.kind === "settlement"
+    ? buildSettlementPush({ portalUrl, snapshot: notification.snapshot })
     : buildTherapistPush({
       kind: notification.kind,
       portalUrl,
@@ -179,6 +185,8 @@ async function processNotification(notification: Notification) {
   if (!devices.length && cast.line_group_id && LINE_TOKEN) {
     const text = notification.kind === "sns_ready"
       ? buildSnsReadyLineText()
+      : notification.kind === "settlement"
+      ? buildSettlementLineText(notification.snapshot)
       : buildTherapistLineText({ kind: notification.kind, context, changes: notification.changes, snapshot: notification.snapshot });
     const line = await pushLineText(LINE_TOKEN, cast.line_group_id, text, notification.id);
     if (line.ok) {
@@ -190,7 +198,13 @@ async function processNotification(notification: Notification) {
   }
 
   // ③ 送れなかった
+  // 精算の承認はマイページを開けば見られるので、管理画面には知らせない
+  const quiet = notification.kind === "settlement";
   if (!devices.length && !cast.line_group_id) {
+    if (quiet) {
+      await finish(notification.id, { status: "skipped", error_message: "マイページのスマホ通知が未設定です（マイページを開くと見られます）" });
+      return "skipped";
+    }
     await finish(notification.id, { status: "unreachable", error_message: "マイページのスマホ通知が未設定です" });
     await notifyAdmins(notification, cast.name, when, "no_device");
     return "unreachable";
@@ -205,7 +219,8 @@ async function processNotification(notification: Notification) {
     });
     return "retry";
   }
-  await finish(notification.id, { status: "failed", error_message: error.slice(0, 500) });
+  await finish(notification.id, { status: quiet ? "skipped" : "failed", error_message: error.slice(0, 500) });
+  if (quiet) return "skipped";
   await notifyAdmins(notification, cast.name, when, "failed");
   return "failed";
 }

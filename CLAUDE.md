@@ -156,7 +156,7 @@
 
 ## スマホ通知（管理画面をホーム画面に追加・Web Push）
 
-- LINE通知はそのまま残し、並行してお試し中。WEB予約（booking_origin が web_form / cast_form）・お客様からのSMS返信・SMS残高不足・セラピストの精算入力（マイページの `/therapist/:token/checkout` → `daily_sales_records` が pending で入った・送り直された、topic `daily_sales`）を、管理画面を「ホーム画面に追加」した端末へプッシュ通知する
+- LINE通知はそのまま残し、並行してお試し中。WEB予約（booking_origin が web_form / cast_form）・お客様からのSMS返信・SMS残高不足・セラピストの精算入力（マイページの `/therapist/:token/checkout` → `daily_sales_records` が pending で入った・送り直された、topic `daily_sales`。タップで清算明細を開いて承認、下記「精算の承認」）を、管理画面を「ホーム画面に追加」した端末へプッシュ通知する
 - 設定画面は `/settings/notifications`（右上の人のアイコン →「スマホ通知の設定」、サイドバーの システム → 設定 → スマホ通知）。iPhoneはホーム画面に追加したアイコンから開かないと通知を受け取れない（iOS 16.4以降）
 - 管理画面を開いている間だけ `useAdminAppManifest()`（DashboardHeader）が manifest（`public/admin-app/`、名前「艶華 管理」・起動は `/admin-schedule`）を head に入れる。公開サイトには manifest を付けない
 - Service Worker は `public/sw-push.js`（push と通知タップだけ。fetch は横取りしない）。端末の登録は RPC `save_push_subscription`、購読は `push_subscriptions`（topics で通知の種類を選ぶ）
@@ -214,6 +214,16 @@
 ## 日別精算の雑費・宿泊費の自動入力（/sales/daily-sales）
 
 - その日の精算をまだ保存していないセラピストは、雑費を「1本¥1,000・1日¥2,000まで」（給与画面の雑費と同じ決まり）、出稼ぎ（`casts.tags` に「出稼ぎ」）の人は宿泊費を「1日¥2,000」で自動で入れる。保存済み・手で直した金額はそのまま。計算は `src/lib/clearanceDefaults.ts`（テスト `npm run test:clearance-defaults`）
+
+## 精算の承認（清算明細をLINEで送る代わり）
+
+- セラピストがマイページで精算（売上）を送る → 管理画面アプリにスマホ通知（topic `daily_sales`）。タップすると `/sales/daily-sales?date=…&cast=…` でその人の**清算明細の画像**（`SettlementReceiptDialog`）が開き、「金額を承認」を押すだけ。各セラピストの欄のボタンも「明細を見て金額を承認」
+- 承認 = 既存の `complete_daily_clearance`（清算の保存・予約の完了）のあとに RPC `approve_daily_settlement`（給与・現金預かり・不足分・明細を `settlement_approvals` に記録し、`therapist_notifications`（kind = `settlement`）でマイページへ知らせる）。明細の画像は `src/lib/clearanceReceipt.ts` の `renderClearanceReceipt`（管理画面とマイページで同じ絵。承認時の中身を `receipt` に保存し `fromReceiptSnapshot` で描き直す）
+- **不足分** = 給与 − 現金預かり（カード・PayPayが多い日に出る。お店があとで払う）。マイページに「精算が承認されました。不足分 ¥X は、振込もしくは次回出勤日の相殺になります」と出て、本人が「振込」か「次回出勤日に相殺」を選ぶ（`choose_therapist_shortage_method`）。振込なら「振込先入力はこちら」→ `cast_bank_accounts`（`save_therapist_bank_account`、口座番号は7桁にそろえる・名義はカタカナ。マイページには末尾4桁だけ返す）
+- 振込を選んで振込先がそろったら管理画面アプリに知らせる（push-notify の `settlement_transfer`、通知の種類は精算と同じ `daily_sales`）。日別精算の上の「まだ払っていない給与の不足分」で口座を見て振り込み、「振込済みにする」（`mark_settlement_shortage_paid`）
+- 「次回出勤日に相殺」は、次の精算に「前回の不足分（M/D）」として給与調整に自動で入り（`source_clearance_id` 付き）、その精算を承認すると相殺済みになる
+- マイページの通知は届かなくても管理画面には知らせない（マイページを開けば `TherapistSettlementNotice` に出る）。画面・計算は `src/lib/settlementApproval.ts`（テスト `npm run test:clearance-defaults`）・`settlementAdmin.ts`・`therapistSettlement.ts`
+- `daily_clearances` は昔から anon に全部開いているので、明細（お客様名）・不足分・口座は anon が読めない `settlement_approvals` / `cast_bank_accounts` に分けている。新しい列を `daily_clearances` に足さないこと
 
 ## 魂セラピストへの写メ日記の同時投稿
 

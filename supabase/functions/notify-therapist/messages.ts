@@ -8,7 +8,7 @@ import {
   type ReservationLineContext,
 } from "../notify-line-therapist/reservationLineNotification.ts";
 
-export type TherapistNotificationKind = "new" | "changed" | "cancelled" | "sns_ready";
+export type TherapistNotificationKind = "new" | "changed" | "cancelled" | "sns_ready" | "settlement";
 
 export interface TherapistPushMessage {
   title: string;
@@ -160,6 +160,53 @@ export function buildSnsReadyLineText() {
   ].join("\n") + "\n\n📲 マイページをホーム画面に追加して通知をオンにすると、お知らせがスマホに直接届きます";
 }
 
+// 精算の承認（承認した時点の金額。マイページでは最新の内容を出す）
+export interface SettlementSnapshot {
+  clearance_id?: string;
+  date?: string;
+  salary?: number;
+  cash_sales?: number;
+  shortage?: number;
+  re_approved?: boolean;
+}
+
+const yen = (value: number | null | undefined) => `¥${Math.round(Number(value ?? 0)).toLocaleString("ja-JP")}`;
+
+/** 精算の承認。タップするとマイページで明細と、不足分の受け取り方（振込・次回出勤日に相殺）を選ぶ画面が開く */
+export function buildSettlementPush(input: { portalUrl: string; snapshot: SettlementSnapshot }): TherapistPushMessage {
+  const snapshot = input.snapshot || {};
+  const shortage = Math.max(0, Math.round(Number(snapshot.shortage ?? 0)));
+  const date = snapshot.date ? formatBusinessDateLabel(snapshot.date, "12:00") : "";
+  const separator = input.portalUrl.includes("?") ? "&" : "?";
+  return {
+    title: snapshot.re_approved
+      ? "✏️ 精算の内容が直りました"
+      : shortage > 0 ? "✅ 精算が承認されました（不足分があります）" : "✅ 精算が承認されました",
+    body: [
+      `${date ? `${date}の精算　` : ""}お給料 ${yen(snapshot.salary)}`,
+      shortage > 0
+        ? `不足分 ${yen(shortage)} は、振込もしくは次回出勤日の相殺になります。マイページで選んでください`
+        : "明細はマイページで見られます",
+    ].join("\n"),
+    url: snapshot.clearance_id ? `${input.portalUrl}${separator}settlement=${snapshot.clearance_id}` : input.portalUrl,
+    tag: `settlement-${snapshot.clearance_id ?? "latest"}`,
+    icon: ICON,
+  };
+}
+
+export function buildSettlementLineText(snapshot: SettlementSnapshot) {
+  const shortage = Math.max(0, Math.round(Number(snapshot.shortage ?? 0)));
+  const date = snapshot.date ? formatBusinessDateLabel(snapshot.date, "12:00") : "";
+  return [
+    snapshot.re_approved ? "✏️ 精算の内容が直りました" : "✅ 精算が承認されました",
+    "",
+    date ? `📅 ${date}` : "",
+    `💰 お給料 ${yen(snapshot.salary)}`,
+    shortage > 0 ? `\n不足分 ${yen(shortage)} は、振込もしくは次回出勤日の相殺になります。マイページの「精算」で受け取り方を選んでください（振込の方は振込先も入力できます）` : "",
+    "明細はマイページで見られます",
+  ].filter((line) => line !== "").join("\n") + "\n\n📲 マイページをホーム画面に追加して通知をオンにすると、お知らせがスマホに直接届きます";
+}
+
 /** LINEグループ用（マイページの通知をまだ設定していないセラピストだけ） */
 export function buildTherapistLineText(input: {
   kind: TherapistNotificationKind;
@@ -205,6 +252,7 @@ export function unreachableAdminMessage(input: {
   const kindLabel = input.kind === "new" ? "新しい予約"
     : input.kind === "changed" ? "予約の変更"
     : input.kind === "sns_ready" ? "SNSアカウント準備完了のお知らせ"
+    : input.kind === "settlement" ? "精算の承認"
     : "キャンセル";
   return {
     title: input.kind === "sns_ready"

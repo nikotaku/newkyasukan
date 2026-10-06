@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,14 +9,28 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useShopSettings, getBusinessDateFromCache } from "@/hooks/useShopSettings";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { format, subDays, addDays, isToday } from "date-fns";
+import { format, subDays, addDays, isToday, parseISO } from "date-fns";
 import { toExtTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CheckCircle, Loader2, CreditCard, Download, Plus, Save, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle, Loader2, CreditCard, Download, Plus, Save, Smartphone, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { downloadClearanceReceipt } from "@/lib/clearanceReceipt";
+import { downloadClearanceReceipt, toReceiptSnapshot, type ClearanceReceiptData } from "@/lib/clearanceReceipt";
+import { offsetClearanceIds, offsetItemsFor } from "@/lib/settlementApproval";
+import {
+  approveDailySettlement,
+  loadBankAccounts,
+  loadDayApprovals,
+  loadOutstandingShortages,
+  loadSettlementNotices,
+  settlementNoticeLabel,
+  type CastBankAccountRow,
+  type SettlementApprovalRow,
+  type SettlementNoticeRow,
+} from "@/lib/settlementAdmin";
+import { SettlementReceiptDialog } from "@/components/sales/SettlementReceiptDialog";
+import { OutstandingShortages, ShortageState } from "@/components/sales/SettlementShortageStatus";
 import {
   type ClearanceExtraItem,
   combineClearanceExtraItems,
@@ -104,19 +118,67 @@ const getClearanceAmounts = (input: ClearanceInput) => {
   return { otherTotal, salaryAdjustmentTotal, salary };
 };
 
+// 清算明細（画像）の中身。管理画面のダウンロード・承認の確認と、マイページに届ける明細で同じものを使う
+const buildReceiptData = (date: Date, group: CastGroup, input: ClearanceInput): ClearanceReceiptData => {
+  const { salary } = getClearanceAmounts(input);
+  return {
+    date,
+    castName: group.castName,
+    cashTotal: group.cashSales,
+    reservations: group.reservations.map((r) => ({
+      start_time: r.start_time,
+      customer_name: r.customer_name,
+      course_name: r.course_name,
+      price: (r.price ?? 0) + (r.payment_fee ?? 0),
+      totalBack: r.totalBack ?? 0,
+    })),
+    totalSales: group.totalSales,
+    therapistBack: input.therapistBack,
+    miscExpenses: input.miscExpenses,
+    accommodationFee: input.accommodationFee,
+    transportationFee: input.transportationFee,
+    deductionItems: input.otherItems,
+    salaryAdjustmentItems: input.salaryAdjustmentItems,
+    salary,
+    payout: group.totalSales - salary,
+    payoutMethod: input.payoutMethod,
+  };
+};
+
+// スマホ通知（精算が届いた）から ?date=YYYY-MM-DD&cast=<id> で開く
+const linkedDate = (value: string | null) => {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = parseISO(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 export default function SalesDailySales() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(getBusinessDateFromCache);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedDateRef = useRef(linkedDate(searchParams.get("date")));
+  // 開いたあと、その人の明細を出す（スマホ通知から）・その人の欄まで動かす（不足分の一覧から）
+  const focusRef = useRef<{ castId: string; openReceipt: boolean } | null>(
+    searchParams.get("cast") ? { castId: searchParams.get("cast") as string, openReceipt: true } : null,
+  );
+  const [selectedDate, setSelectedDate] = useState(() => linkedDateRef.current ?? getBusinessDateFromCache());
   const [castGroups, setCastGroups] = useState<CastGroup[]>([]);
   const [clearances, setClearances] = useState<Record<string, Clearance>>({});
   const [clearanceInputs, setClearanceInputs] = useState<Record<string, ClearanceInput>>({});
   const [draftSavedAt, setDraftSavedAt] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  // マイページから届いた精算（売上）・承認した精算・不足分
+  const [submissions, setSubmissions] = useState<Record<string, { status: string; created_at: string }>>({});
+  const [approvals, setApprovals] = useState<Record<string, SettlementApprovalRow>>({});
+  const [notices, setNotices] = useState<Map<string, SettlementNoticeRow>>(new Map());
+  const [outstanding, setOutstanding] = useState<SettlementApprovalRow[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<Record<string, CastBankAccountRow>>({});
+  const [receiptCastId, setReceiptCastId] = useState<string | null>(null);
 
   const { user, loading: authLoading } = useAuth();
   const { dayStartTime, loaded: settingsLoaded, businessToday } = useShopSettings();
   useEffect(() => {
-    if (settingsLoaded) setSelectedDate(businessToday);
+    // スマホ通知から日付つきで開いたときは、その日のまま
+    if (settingsLoaded && !linkedDateRef.current) setSelectedDate(businessToday);
   }, [settingsLoaded]); // eslint-disable-line
   const navigate = useNavigate();
 
@@ -128,12 +190,43 @@ export default function SalesDailySales() {
     if (user) fetchDay();
   }, [user, selectedDate]);
 
+  // 承認・不足分・振込先（表がまだ無くても日別精算は使えるように、失敗しても止めない）
+  const loadSettlementState = useCallback(async (dateStr: string, castIds: string[], outstandingRows?: SettlementApprovalRow[]) => {
+    try {
+      const [dayApprovals, outstandingList, salesResult] = await Promise.all([
+        loadDayApprovals(dateStr),
+        outstandingRows ? Promise.resolve(outstandingRows) : loadOutstandingShortages(),
+        supabase
+          .from("daily_sales_records")
+          .select("cast_id, status, created_at")
+          .eq("date", dateStr)
+          .order("created_at", { ascending: false }),
+      ]);
+      const submissionMap: Record<string, { status: string; created_at: string }> = {};
+      for (const row of salesResult.data ?? []) {
+        if (row.cast_id && !submissionMap[row.cast_id]) submissionMap[row.cast_id] = { status: row.status, created_at: row.created_at };
+      }
+      const accountCastIds = [...new Set([...castIds, ...outstandingList.map((row) => row.cast_id)])];
+      const [accounts, noticeMap] = await Promise.all([
+        loadBankAccounts(accountCastIds),
+        loadSettlementNotices(dayApprovals.map((row) => row.clearance_id)),
+      ]);
+      setSubmissions(submissionMap);
+      setApprovals(Object.fromEntries(dayApprovals.map((row) => [row.cast_id, row])));
+      setOutstanding(outstandingList);
+      setBankAccounts(Object.fromEntries(accounts.map((row) => [row.cast_id, row])));
+      setNotices(noticeMap);
+    } catch (error) {
+      console.error("精算の承認状況を読めませんでした", error);
+    }
+  }, []);
+
   const fetchDay = useCallback(async () => {
     setLoading(true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
     const nextDateStr = format(addDays(selectedDate, 1), "yyyy-MM-dd");
     try {
-      const [resResult, nextResResult, backRatesResult, optionRatesResult, nominationRatesResult, clearResult, tokensResult] = await Promise.all([
+      const [resResult, nextResResult, backRatesResult, optionRatesResult, nominationRatesResult, clearResult, tokensResult, outstandingRows] = await Promise.all([
         supabase
           .from("reservations")
           .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, payment_method, payment_details, casts(id, name, tags)")
@@ -157,6 +250,8 @@ export default function SalesDailySales() {
           .select("*")
           .eq("date", dateStr),
         supabase.rpc("get_cast_access_tokens"),
+        // まだ払っていない不足分（「次回出勤日に相殺」は今回の給与に上乗せする）
+        loadOutstandingShortages().catch(() => [] as SettlementApprovalRow[]),
       ]);
 
       if (tokensResult.error) throw tokensResult.error;
@@ -270,7 +365,12 @@ export default function SalesDailySales() {
           accommodationFee: ex?.accommodation_fee ?? (g.isDekasegi ? DEKASEGI_ACCOMMODATION_PER_DAY : 0),
           transportationFee: ex?.transportation_fee ?? 0,
           otherItems: deductions,
-          salaryAdjustmentItems: salaryAdditions,
+          // まだ保存していない日は、「次回出勤日に相殺」を選んだ前回までの不足分を上乗せする
+          salaryAdjustmentItems: ex
+            ? salaryAdditions
+            : offsetItemsFor(outstandingRows.filter((row) => (
+              row.cast_id === g.castId && row.shortage_method === "offset" && row.date < dateStr
+            ))),
           payoutMethod: ex?.payout_method ?? "",
           submitting: false,
           saving: false,
@@ -284,12 +384,33 @@ export default function SalesDailySales() {
         if (ex?.status === "draft" && ex.created_at) draftMap[g.castId] = ex.created_at;
       }
       setDraftSavedAt(draftMap);
+      await loadSettlementState(dateStr, groupList.map((g) => g.castId), outstandingRows);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, loadSettlementState]);
+
+  const reloadSettlement = useCallback(() => {
+    void loadSettlementState(format(selectedDate, "yyyy-MM-dd"), castGroups.map((g) => g.castId));
+  }, [castGroups, loadSettlementState, selectedDate]);
+
+  // スマホ通知・不足分の一覧から開いたとき：その人の欄へ動かし、通知からなら明細（承認の画面）を出す
+  useEffect(() => {
+    const focus = focusRef.current;
+    if (!focus || loading) return;
+    focusRef.current = null;
+    if (searchParams.get("cast") || searchParams.get("date")) setSearchParams({}, { replace: true });
+    if (!castGroups.some((g) => g.castId === focus.castId)) {
+      toast.info("この日の予約が見つかりませんでした");
+      return;
+    }
+    requestAnimationFrame(() => {
+      document.getElementById(`clearance-${focus.castId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    if (focus.openReceipt) setReceiptCastId(focus.castId);
+  }, [loading, castGroups]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateInput = (castId: string, field: keyof ClearanceInput, value: any) => {
     setClearanceInputs((prev) => ({ ...prev, [castId]: { ...prev[castId], [field]: value } }));
@@ -334,30 +455,7 @@ export default function SalesDailySales() {
   const handleDownloadReceipt = (group: CastGroup) => {
     const input = clearanceInputs[group.castId];
     if (!input) return;
-    const { salary } = getClearanceAmounts(input);
-    const payout = group.totalSales - salary;
-    downloadClearanceReceipt({
-      date: selectedDate,
-      castName: group.castName,
-      cashTotal: group.cashSales,
-      reservations: group.reservations.map((r) => ({
-        start_time: r.start_time,
-        customer_name: r.customer_name,
-        course_name: r.course_name,
-        price: (r.price ?? 0) + (r.payment_fee ?? 0),
-        totalBack: r.totalBack ?? 0,
-      })),
-      totalSales: group.totalSales,
-      therapistBack: input.therapistBack,
-      miscExpenses: input.miscExpenses,
-      accommodationFee: input.accommodationFee,
-      transportationFee: input.transportationFee,
-      deductionItems: input.otherItems,
-      salaryAdjustmentItems: input.salaryAdjustmentItems,
-      salary,
-      payout,
-      payoutMethod: input.payoutMethod,
-    });
+    downloadClearanceReceipt(buildReceiptData(selectedDate, group, input));
     toast.success(`${group.castName} の清算明細をダウンロードしました`);
   };
 
@@ -416,7 +514,24 @@ export default function SalesDailySales() {
       }
 
       const completedLabel = completedCount > 0 ? `（予約${completedCount}件を完了）` : "";
-      toast.success(`${group.castName} の清算が完了しました${completedLabel}`);
+      // 金額の承認：明細をセラピストのマイページに届ける（LINEで送らなくてよい）。不足分があれば受け取り方を選んでもらう
+      try {
+        const approved = await approveDailySettlement({
+          castId: group.castId,
+          date: dateStr,
+          salary,
+          cashSales: group.cashSales,
+          receipt: toReceiptSnapshot(buildReceiptData(selectedDate, group, input)),
+          offsetClearanceIds: offsetClearanceIds(input.salaryAdjustmentItems),
+        });
+        toast.success(
+          `${group.castName} さんの金額を承認しました${completedLabel}。明細をマイページに届けます`
+          + (approved.shortage_amount > 0 ? `（不足分 ${yen(approved.shortage_amount)} は振込か次回出勤日の相殺を選んでもらいます）` : ""),
+        );
+        setReceiptCastId(null);
+      } catch (approveError) {
+        toast.error(`清算は保存しましたが、マイページへのお知らせに失敗しました。もう一度「承認し直す」を押してください：${approveError instanceof Error ? approveError.message : "不明なエラー"}`);
+      }
       setCastGroups((groups) => groups.map((current) => (
         current.castId === group.castId
           ? {
@@ -432,12 +547,23 @@ export default function SalesDailySales() {
       const clearMap: Record<string, Clearance> = {};
       for (const c of (data as Clearance[]) || []) clearMap[c.cast_id] = c;
       setClearances(clearMap);
+      reloadSettlement();
     } catch (e: any) {
       toast.error(`清算に失敗しました: ${e?.message ?? "不明なエラー"}`);
     } finally {
       updateInput(group.castId, "submitting", false);
     }
   };
+
+  const receiptGroup = receiptCastId ? castGroups.find((g) => g.castId === receiptCastId) ?? null : null;
+  const receiptInput = receiptGroup ? clearanceInputs[receiptGroup.castId] ?? null : null;
+  const receiptData = useMemo(
+    () => (receiptGroup && receiptInput ? buildReceiptData(selectedDate, receiptGroup, receiptInput) : null),
+    // 承認中の表示切り替え（submitting）では描き直さない
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [receiptGroup, selectedDate, receiptInput?.therapistBack, receiptInput?.miscExpenses, receiptInput?.accommodationFee,
+      receiptInput?.transportationFee, receiptInput?.otherItems, receiptInput?.salaryAdjustmentItems, receiptInput?.payoutMethod],
+  );
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
   const allCleared = castGroups.length > 0 && castGroups.every((g) => clearances[g.castId]);
@@ -482,6 +608,25 @@ export default function SalesDailySales() {
                 <ChevronRight size={16} />
               </Button>
             </div>
+          </div>
+
+          {/* まだ払っていない給与の不足分（振込・次回出勤日に相殺） */}
+          <div className="mb-4">
+            <OutstandingShortages
+              rows={outstanding}
+              accounts={bankAccounts}
+              onOpenDate={(date, castId) => {
+                focusRef.current = { castId, openReceipt: false };
+                const next = parseISO(date);
+                if (format(next, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd")) {
+                  focusRef.current = null;
+                  document.getElementById(`clearance-${castId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                } else {
+                  setSelectedDate(next);
+                }
+              }}
+              onChanged={reloadSettlement}
+            />
           </div>
 
           {/* 当日合計サマリー */}
@@ -604,22 +749,35 @@ export default function SalesDailySales() {
                 // 投函する現金 = 現金預かり額 - セラピスト給与（クレカ分は店舗が別途回収）
                 const cashPayout = g.cashSales - salary;
                 const hasCard = g.cashSales !== g.totalSales;
+                const submission = submissions[g.castId];
+                const approval = approvals[g.castId];
 
                 return (
-                  <Card key={g.castId} className={cleared ? "border-green-200" : "border-primary/20"}>
+                  <Card key={g.castId} id={`clearance-${g.castId}`} className={`scroll-mt-20 ${cleared ? "border-green-200" : "border-primary/20"}`}>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base flex items-center justify-between">
                         <span className="flex items-center gap-2">
                           <CreditCard size={15} className="text-primary" />
                           {g.castName}
                         </span>
-                        {cleared ? (
-                          <Badge className="bg-green-100 text-green-700 text-xs border-0">
-                            <CheckCircle size={10} className="mr-1" />清算済み
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs">未清算</Badge>
-                        )}
+                        <span className="flex items-center gap-1.5">
+                          {submission && !approval && (
+                            <Badge variant="outline" className="text-sky-700 border-sky-300 text-[10px]">
+                              <Smartphone size={10} className="mr-1" />精算が届いています {format(new Date(submission.created_at), "HH:mm")}
+                            </Badge>
+                          )}
+                          {approval ? (
+                            <Badge className="bg-green-100 text-green-700 text-xs border-0">
+                              <CheckCircle size={10} className="mr-1" />承認済み
+                            </Badge>
+                          ) : cleared ? (
+                            <Badge className="bg-green-100 text-green-700 text-xs border-0">
+                              <CheckCircle size={10} className="mr-1" />清算済み
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs">未清算</Badge>
+                          )}
+                        </span>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -910,10 +1068,17 @@ export default function SalesDailySales() {
                               <span className="text-muted-foreground">❷ 店落ち（売上 − 給与）</span>
                               <span className="tabular-nums font-medium">{yen(payout)}</span>
                             </div>
-                            <div className="flex justify-between items-center border-t pt-1.5">
-                              <span className="text-sm font-bold text-primary">❸ 投函する現金（❶ − 給与）</span>
-                              <span className="text-lg font-bold text-primary tabular-nums">{yen(cashPayout)}</span>
-                            </div>
+                            {cashPayout < 0 ? (
+                              <div className="flex justify-between items-center border-t pt-1.5">
+                                <span className="text-sm font-bold text-amber-700">❸ 給与の不足分（振込か次回出勤日に相殺）</span>
+                                <span className="text-lg font-bold text-amber-700 tabular-nums">{yen(-cashPayout)}</span>
+                              </div>
+                            ) : (
+                              <div className="flex justify-between items-center border-t pt-1.5">
+                                <span className="text-sm font-bold text-primary">❸ 投函する現金（❶ − 給与）</span>
+                                <span className="text-lg font-bold text-primary tabular-nums">{yen(cashPayout)}</span>
+                              </div>
+                            )}
                             <p className="text-[10px] text-muted-foreground text-right">セラピスト給与 {yen(salary)}</p>
                           </div>
                         </div>
@@ -960,17 +1125,18 @@ export default function SalesDailySales() {
                       </div>
 
                       <div className="flex gap-2">
+                        {/* 明細の画像を見てから「金額を承認」（承認すると明細がマイページに届く） */}
                         <Button
                           className="flex-1"
-                          onClick={() => handleClear(g)}
+                          onClick={() => setReceiptCastId(g.castId)}
                           disabled={input.submitting}
                         >
                           {input.submitting ? (
                             <><Loader2 size={14} className="mr-2 animate-spin" />処理中...</>
-                          ) : cleared ? (
-                            <><CheckCircle size={14} className="mr-2" />再清算（上書き）</>
+                          ) : approval || cleared ? (
+                            <><CheckCircle size={14} className="mr-2" />明細を見て承認し直す</>
                           ) : (
-                            <><CreditCard size={14} className="mr-2" />{g.castName} を清算する</>
+                            <><CreditCard size={14} className="mr-2" />明細を見て金額を承認</>
                           )}
                         </Button>
                         <Button
@@ -982,10 +1148,21 @@ export default function SalesDailySales() {
                         </Button>
                       </div>
 
-                      {cleared && (
+                      {cleared && !approval && cleared.cleared_at && (
                         <p className="text-xs text-center text-muted-foreground">
-                          {format(new Date(cleared.cleared_at!), "M/d HH:mm")} に清算済み · 投函金額 {yen(cleared.payout_amount)}
+                          {format(new Date(cleared.cleared_at), "M/d HH:mm")} に清算済み · 投函金額 {yen(cleared.payout_amount)}
                         </p>
+                      )}
+                      {approval && (
+                        <div className="rounded-md border bg-muted/20 px-3 py-2 space-y-1.5">
+                          <p className="flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
+                            <Smartphone size={12} />
+                            {format(new Date(approval.approved_at), "M/d HH:mm")} に承認
+                            {notices.get(approval.clearance_id) && ` · ${settlementNoticeLabel(notices.get(approval.clearance_id))}`}
+                            {approval.therapist_seen_at && " · 本人が確認済み"}
+                          </p>
+                          <ShortageState approval={approval} account={bankAccounts[g.castId] ?? null} onChanged={reloadSettlement} />
+                        </div>
                       )}
                     </CardContent>
                   </Card>
@@ -995,6 +1172,16 @@ export default function SalesDailySales() {
           )}
         </div>
       </main>
+
+      <SettlementReceiptDialog
+        receipt={receiptData}
+        submittedAt={receiptGroup ? submissions[receiptGroup.castId]?.created_at ?? null : null}
+        approvedAt={receiptGroup ? approvals[receiptGroup.castId]?.approved_at ?? null : null}
+        approving={Boolean(receiptInput?.submitting)}
+        onApprove={() => receiptGroup && handleClear(receiptGroup)}
+        onDownload={() => receiptGroup && handleDownloadReceipt(receiptGroup)}
+        onClose={() => setReceiptCastId(null)}
+      />
     </div>
   );
 }

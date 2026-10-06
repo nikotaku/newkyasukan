@@ -4,6 +4,8 @@ export interface ClearanceExtraItem {
   label: string;
   amount: number;
   kind: ClearanceExtraItemKind;
+  /** 前回の不足分を相殺する行だけ：相殺する元の清算（daily_clearances.id） */
+  source_clearance_id?: string;
 }
 
 const toAmount = (value: unknown): number => {
@@ -32,6 +34,7 @@ export function splitClearanceExtraItems(value: unknown): {
       label: typeof item.label === "string" ? item.label : "",
       amount: toAmount(item.amount),
       kind,
+      ...(typeof item.source_clearance_id === "string" ? { source_clearance_id: item.source_clearance_id } : {}),
     };
 
     if (kind === "salary_addition") salaryAdditions.push(normalized);
@@ -55,6 +58,7 @@ export function combineClearanceExtraItems(
       label: item.label.trim() || fallbackLabel,
       amount: toAmount(item.amount),
       kind,
+      ...(item.source_clearance_id ? { source_clearance_id: item.source_clearance_id } : {}),
     }))
     // keepZeroAmount=true のときは金額未入力（0円）の入力途中項目も保持する
     .filter((item) => options?.keepZeroAmount || item.amount > 0);

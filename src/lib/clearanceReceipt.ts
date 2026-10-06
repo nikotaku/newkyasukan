@@ -76,7 +76,8 @@ function stepH(subLines: number): number {
  * 清算明細をPNG画像として生成しダウンロードする。
  * セラピストへLINE/SMS等で送付しやすいレシート形式。
  */
-export function downloadClearanceReceipt(data: ClearanceReceiptData): void {
+/** 清算明細の画像を描く（管理画面の承認・ダウンロードと、セラピストのマイページで同じものを出す） */
+export function renderClearanceReceipt(data: ClearanceReceiptData): HTMLCanvasElement {
   const scale = 2;
   const W = 600;
   const pad = 28;
@@ -269,11 +270,15 @@ export function downloadClearanceReceipt(data: ClearanceReceiptData): void {
     y += rh;
   };
 
-  // 投函金額 = 現金預かり額 − セラピスト給与
+  // 投函金額 = 現金預かり額 − セラピスト給与。足りないときは不足分（後日お店から振込か次回出勤日に相殺）
   const cashPayout = data.cashTotal - data.salary;
   payoutRow("❶", "現金預かり額", data.cashTotal);
   payoutRow("❷", "セラピスト給与", data.salary);
-  payoutRow("❸", "投函金額", cashPayout, { highlight: true });
+  if (cashPayout < 0) {
+    payoutRow("❸", "給与の不足分（振込か次回出勤日に相殺）", -cashPayout, { highlight: true });
+  } else {
+    payoutRow("❸", "投函金額", cashPayout, { highlight: true });
+  }
   y += 8;
 
   // 投函方法
@@ -513,6 +518,15 @@ export function downloadClearanceReceipt(data: ClearanceReceiptData): void {
   ctx.fillText(`発行日時 ${format(new Date(), "yyyy/MM/dd HH:mm")}`, right, y + 12);
   ctx.textAlign = "left";
 
+  return canvas;
+}
+
+export function clearanceReceiptDataUrl(data: ClearanceReceiptData) {
+  return renderClearanceReceipt(data).toDataURL("image/png");
+}
+
+export function downloadClearanceReceipt(data: ClearanceReceiptData): void {
+  const canvas = renderClearanceReceipt(data);
   canvas.toBlob(async (blob) => {
     if (!blob) return;
     const fileName = `清算明細_${data.castName}_${format(data.date, "yyyyMMdd")}.png`;
@@ -540,4 +554,42 @@ export function downloadClearanceReceipt(data: ClearanceReceiptData): void {
     a.remove();
     URL.revokeObjectURL(url);
   }, "image/png");
+}
+
+/** 承認したときの明細（マイページで同じ画像を描き直すために保存する） */
+export type ClearanceReceiptSnapshot = Omit<ClearanceReceiptData, "date"> & { date: string };
+
+export function toReceiptSnapshot(data: ClearanceReceiptData): ClearanceReceiptSnapshot {
+  return { ...data, date: format(data.date, "yyyy-MM-dd") };
+}
+
+export function fromReceiptSnapshot(value: unknown): ClearanceReceiptData | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<ClearanceReceiptSnapshot>;
+  if (typeof raw.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw.date) || !Array.isArray(raw.reservations)) return null;
+  const [year, month, day] = raw.date.split("-").map(Number);
+  const amount = (input: unknown) => (Number.isFinite(Number(input)) ? Number(input) : 0);
+  const items = (input: unknown) => (Array.isArray(input) ? input : []) as ClearanceExtraItem[];
+  return {
+    date: new Date(year, month - 1, day),
+    castName: typeof raw.castName === "string" ? raw.castName : "",
+    cashTotal: amount(raw.cashTotal),
+    reservations: raw.reservations.map((reservation) => ({
+      start_time: String(reservation?.start_time ?? ""),
+      customer_name: String(reservation?.customer_name ?? ""),
+      course_name: String(reservation?.course_name ?? ""),
+      price: amount(reservation?.price),
+      totalBack: amount(reservation?.totalBack),
+    })),
+    totalSales: amount(raw.totalSales),
+    therapistBack: amount(raw.therapistBack),
+    miscExpenses: amount(raw.miscExpenses),
+    accommodationFee: amount(raw.accommodationFee),
+    transportationFee: amount(raw.transportationFee),
+    deductionItems: items(raw.deductionItems),
+    salaryAdjustmentItems: items(raw.salaryAdjustmentItems),
+    salary: amount(raw.salary),
+    payout: amount(raw.payout),
+    payoutMethod: typeof raw.payoutMethod === "string" ? raw.payoutMethod : "",
+  };
 }

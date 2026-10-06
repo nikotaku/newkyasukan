@@ -16,6 +16,7 @@ import { TherapistSalesPanel } from "@/components/therapist/TherapistSalesPanel"
 import { allowPageZoom } from "@/lib/viewportZoomLock";
 import { useTherapistAppManifest } from "@/hooks/useTherapistAppManifest";
 import { TherapistPushCard } from "@/components/therapist/TherapistPushCard";
+import { TherapistSettlementNotice } from "@/components/therapist/TherapistSettlementNotice";
 import { TherapistSnsAccount } from "@/components/therapist/TherapistSnsAccount";
 import { hasUnseenSnsNotice, useTherapistSnsAccount } from "@/lib/therapistSns";
 import { normalizeKeyType, normalizeRouteSteps, normalizeWifiSecurity, type EntryRouteStep, type RoomKeyType, type WifiSecurity } from "@/lib/roomEntry";
@@ -735,6 +736,9 @@ export default function TherapistPortal() {
           {/* 予約の通知（マイページのスマホ通知）。未設定なら目立たせる */}
           {token && <TherapistPushCard token={token} />}
 
+          {/* 精算が承認されました（不足分があれば、振込か次回出勤日に相殺を選ぶ・振込先を入れる） */}
+          {token && <TherapistSettlementNotice token={token} />}
+
           {/* お店から「XとO2の準備ができました」のお知らせ（まだ開いていないとき） */}
           {hasUnseenSnsNotice(snsAccount.account) && (
             <button
@@ -1335,6 +1339,9 @@ export default function TherapistPortal() {
                 <ChevronLeft size={20} className="rotate-180" />
               </button>
             </div>
+
+            {/* 承認された精算（明細・不足分の受け取り方・振込先） */}
+            {token && <TherapistSettlementNotice token={token} mode="list" />}
 
             {/* Summary cards */}
             <div className="grid grid-cols-3 gap-3">

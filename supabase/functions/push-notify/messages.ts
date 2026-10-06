@@ -114,9 +114,19 @@ export function estamaScoutMessage(batch: {
   };
 }
 
-// セラピストがマイページから精算（その日の売上）を送ったとき。日別精算の画面で確認して清算する
+/** 日別精算の画面で、そのセラピストの清算明細（承認の画面）を開くURL */
+export function settlementApprovalUrl(date: string | null, castId: string | null | undefined) {
+  const params = new URLSearchParams();
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) params.set("date", date);
+  if (castId) params.set("cast", castId);
+  const query = params.toString();
+  return query ? `/sales/daily-sales?${query}` : "/sales/daily-sales";
+}
+
+// セラピストがマイページから精算（その日の売上）を送ったとき。タップするとその人の清算明細が開き、金額を承認する
 export function dailySalesMessage(record: {
   id: string;
+  cast_id?: string | null;
   date: string | null;
   total_amount: number | null;
   cash_amount: number | null;
@@ -137,11 +147,37 @@ export function dailySalesMessage(record: {
     [dateLabel(record.date), `${record.customer_count ?? 0}本`, `合計${yen(record.total_amount)}`].filter(Boolean).join(" "),
     breakdown,
     record.notes ? `メモ：${clip(record.notes, 60)}` : "",
+    "タップして明細を確認・承認",
   ];
   return {
     title: `🧾 ${castName ? `${castName}さん` : "セラピスト"}が精算を${resubmitted ? "送り直しました" : "入力しました"}`,
     body: lines.filter(Boolean).join("\n"),
-    url: "/sales/daily-sales",
+    url: settlementApprovalUrl(record.date, record.cast_id),
     tag: `daily-sales-${record.id}`,
+  };
+}
+
+// 精算の不足分を、セラピストが「振込」で受け取ると選んだとき
+export function settlementTransferMessage(approval: {
+  clearance_id: string;
+  cast_id: string;
+  date: string | null;
+  shortage_amount: number | null;
+}, castName: string | null, account: {
+  bank_name: string;
+  branch_name: string;
+  account_type: string;
+  account_number: string;
+  account_holder: string;
+} | null): PushMessage {
+  const amount = `¥${Number(approval.shortage_amount ?? 0).toLocaleString("ja-JP")}`;
+  const where = account
+    ? `振込先：${account.bank_name} ${account.branch_name} ${account.account_type} ＊＊＊${account.account_number.slice(-4)} ${account.account_holder}`
+    : "振込先はマイページで入力してもらっています";
+  return {
+    title: `🏦 ${castName ? `${castName}さん` : "セラピスト"}が不足分${amount}の振込を希望しました`,
+    body: [`${dateLabel(approval.date)}の精算`.replace(/^の/, ""), where].filter(Boolean).join("\n"),
+    url: settlementApprovalUrl(approval.date, approval.cast_id),
+    tag: `settlement-transfer-${approval.clearance_id}`,
   };
 }

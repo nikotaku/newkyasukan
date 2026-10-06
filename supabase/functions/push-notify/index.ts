@@ -1,5 +1,5 @@
 // 管理画面を「ホーム画面に追加」したアプリへのプッシュ通知（LINE通知と並行して送る試験運用）。
-//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout" | "daily_sales", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
+//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout" | "daily_sales" | "settlement_transfer", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
 //  - { action: "test" } … ログイン中のスタッフが自分の端末にテスト通知を送る（JWT）
 // 購読（push_subscriptions）の topics に含まれる通知だけを、その店舗の端末へ送る。SMS残高は全店舗の購読へ。
 // 送れなくなった購読（アプリ削除・通知オフ）は消す。VAPIDの鍵は Vault（RPC get_web_push_vapid）。
@@ -8,6 +8,7 @@ import { sendWebPush, type VapidKeys } from "../_shared/webPush.ts";
 import {
   dailySalesMessage,
   estamaScoutMessage,
+  settlementTransferMessage,
   smsBalanceMessage,
   smsReplyMessage,
   testMessage,
@@ -87,7 +88,8 @@ async function subscribersFor(topic: string, storeId: string | null): Promise<Su
   return (await sb(`push_subscriptions?topics=cs.{${topic}}${store}&select=${subscriptionColumns}`)) ?? [];
 }
 
-async function buildEvent(event: string, id: string, resubmitted = false): Promise<{ message: PushMessage; storeId: string | null } | null> {
+// topic を省くと event と同じ名前の通知の種類へ送る
+async function buildEvent(event: string, id: string, resubmitted = false): Promise<{ message: PushMessage; storeId: string | null; topic?: string } | null> {
   if (event === "web_booking") {
     const [reservation] = await sb(
       `reservations?id=eq.${id}&select=id,store_id,booking_origin,reservation_date,start_time,duration,course_name,customer_name,price,nomination_type,cast_id`,
@@ -123,6 +125,20 @@ async function buildEvent(event: string, id: string, resubmitted = false): Promi
     if (!record || record.status !== "pending") return null;
     const [cast] = record.cast_id ? await sb(`casts?id=eq.${record.cast_id}&select=name`) : [null];
     return { message: dailySalesMessage(record, cast?.name ?? null, resubmitted), storeId: record.store_id };
+  }
+  if (event === "settlement_transfer") {
+    const [approval] = await sb(
+      `settlement_approvals?clearance_id=eq.${id}&select=clearance_id,store_id,cast_id,date,shortage_amount,shortage_method,shortage_settled_at`,
+    );
+    if (!approval || approval.shortage_method !== "transfer" || approval.shortage_settled_at) return null;
+    const [[cast], [account]] = await Promise.all([
+      sb(`casts?id=eq.${approval.cast_id}&select=name`),
+      sb(`cast_bank_accounts?cast_id=eq.${approval.cast_id}&select=bank_name,branch_name,account_type,account_number,account_holder`),
+    ]);
+    // 振込先がそろってから1回だけ知らせる（振込先の保存でもう一度呼ばれる）
+    if (!account) return null;
+    // 精算の通知（daily_sales）を受け取っている端末へ
+    return { message: settlementTransferMessage(approval, cast?.name ?? null, account), storeId: approval.store_id, topic: "daily_sales" };
   }
   if (event === "sms_balance") {
     const [alert] = await sb(`sms_balance_alerts?id=eq.${id}&select=effective_balance`);
@@ -163,7 +179,7 @@ Deno.serve(async (req) => {
 
     const built = await buildEvent(input.event, input.id, input.resubmitted === true);
     if (!built) return json({ skipped: true });
-    const subscriptions = await subscribersFor(input.event, built.storeId);
+    const subscriptions = await subscribersFor(built.topic ?? input.event, built.storeId);
     if (!subscriptions.length) return json({ targets: 0, sent: 0 });
     return json(await deliver(subscriptions, built.message));
   } catch (error) {
