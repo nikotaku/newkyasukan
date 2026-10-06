@@ -6,15 +6,37 @@ export interface BackRateRow {
   therapist_back: number;
 }
 
-export function BackRateTable({ rates }: { rates: BackRateRow[] }) {
+export interface BackListRow {
+  key: string;
+  label: string;
+  /** バックが無いものは null（「なし」と出す） */
+  back: number | null;
+}
+
+/** バック表の見た目（コース・オプション・指名で共通） */
+export function BackList({ rows }: { rows: BackListRow[] }) {
   return (
     <div className="overflow-hidden rounded-lg border">
-      {rates.map((rate) => (
-        <div key={`${rate.course_type}-${rate.duration}`} className="grid grid-cols-[1fr_auto] gap-4 border-b px-4 py-3 last:border-b-0">
-          <span className="text-sm">{rate.course_type} {rate.duration}分</span>
-          <span className="font-bold text-primary">¥{rate.therapist_back.toLocaleString()}</span>
+      {rows.map((row) => (
+        <div key={row.key} className="grid grid-cols-[1fr_auto] gap-4 border-b px-4 py-3 last:border-b-0">
+          <span className="text-sm">{row.label}</span>
+          {row.back === null
+            ? <span className="text-sm text-muted-foreground">なし</span>
+            : <span className="font-bold text-primary">¥{row.back.toLocaleString()}</span>}
         </div>
       ))}
     </div>
+  );
+}
+
+export function BackRateTable({ rates }: { rates: BackRateRow[] }) {
+  return (
+    <BackList
+      rows={rates.map((rate) => ({
+        key: `${rate.course_type}-${rate.duration}`,
+        label: `${rate.course_type} ${rate.duration}分`,
+        back: rate.therapist_back,
+      }))}
+    />
   );
 }

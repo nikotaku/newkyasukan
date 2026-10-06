@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/hooks/useStore";
 import { useAdminStore } from "@/hooks/useAdminStore";
-import { BackRateTable, type BackRateRow } from "@/components/therapist/BackRateTable";
+import { BackList, BackRateTable, type BackListRow, type BackRateRow } from "@/components/therapist/BackRateTable";
 import simultaneousPostSystemImage from "@/assets/recruit/enka-simultaneous-post-system.png";
 import {
   ArrowLeft, MapPin, Clock, Train, ShieldCheck,
@@ -34,21 +34,44 @@ export default function InterviewGuide() {
     : user
       ? (adminStoreLoading ? null : adminStoreId)
       : (siteStoreLoading ? null : siteStoreId);
-  const [backRates, setBackRates] = useState<BackRateRow[] | null>(null);
+  // コース・オプション・指名のバック（マイページ・精算と同じ並び。表示を止めているものもそのまま載せる）
+  const [backRates, setBackRates] = useState<{
+    courses: BackRateRow[];
+    options: BackListRow[];
+    nominations: BackListRow[];
+  } | null>(null);
   useEffect(() => {
     if (!backRateStoreId) return;
     let active = true;
-    supabase
-      .from("back_rates")
-      .select("course_type, duration, therapist_back")
-      .eq("store_id", backRateStoreId)
-      .order("display_order")
-      .order("duration")
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (error) console.error("バック表を読めませんでした", error);
-        setBackRates((data ?? []) as BackRateRow[]);
+    Promise.all([
+      supabase
+        .from("back_rates")
+        .select("course_type, duration, therapist_back")
+        .eq("store_id", backRateStoreId)
+        .order("display_order")
+        .order("duration"),
+      supabase
+        .from("option_rates")
+        .select("id, option_name, therapist_back")
+        .eq("store_id", backRateStoreId)
+        .order("display_order")
+        .order("option_name"),
+      supabase
+        .from("nomination_rates")
+        .select("id, nomination_type, therapist_back")
+        .eq("store_id", backRateStoreId)
+        .order("customer_price")
+        .order("nomination_type"),
+    ]).then(([courses, options, nominations]) => {
+      if (!active) return;
+      const error = courses.error || options.error || nominations.error;
+      if (error) console.error("バック表を読めませんでした", error);
+      setBackRates({
+        courses: (courses.data ?? []) as BackRateRow[],
+        options: (options.data ?? []).map((row) => ({ key: row.id, label: row.option_name, back: row.therapist_back })),
+        nominations: (nominations.data ?? []).map((row) => ({ key: row.id, label: row.nomination_type, back: row.therapist_back })),
       });
+    });
     return () => { active = false; };
   }, [backRateStoreId]);
 
@@ -174,13 +197,32 @@ export default function InterviewGuide() {
 
       {/* 料金・報酬システム（セラピストのバック表をそのまま） */}
       <Section icon={ShieldCheck} title="料金・報酬システム" sub="バック表（1本あたりのお給料）" tone="rose">
-        <div className="bg-white rounded-2xl">
+        <div>
           {backRates === null ? (
             <div className="py-10 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-rose-400" /></div>
-          ) : backRates.length === 0 ? (
+          ) : backRates.courses.length + backRates.options.length + backRates.nominations.length === 0 ? (
             <p className="py-6 text-center text-sm text-gray-500">料金・報酬の詳細は、面談時に個別にご案内します。</p>
           ) : (
-            <BackRateTable rates={backRates} />
+            <div className="space-y-5">
+              {backRates.courses.length > 0 && (
+                <div>
+                  <p className="mb-2 text-sm font-bold text-gray-700">コース</p>
+                  <div className="rounded-lg bg-white"><BackRateTable rates={backRates.courses} /></div>
+                </div>
+              )}
+              {backRates.options.length > 0 && (
+                <div>
+                  <p className="mb-2 text-sm font-bold text-gray-700">オプション</p>
+                  <div className="rounded-lg bg-white"><BackList rows={backRates.options} /></div>
+                </div>
+              )}
+              {backRates.nominations.length > 0 && (
+                <div>
+                  <p className="mb-2 text-sm font-bold text-gray-700">指名</p>
+                  <div className="rounded-lg bg-white"><BackList rows={backRates.nominations} /></div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </Section>
