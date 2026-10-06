@@ -67,6 +67,20 @@ test("在籍一覧に同じ名前が1人だけいればそのIDを使う（二�
   assert.equal(findEstamaCastIdByName(twice, "51445", ["栗山みく"]), null);
 });
 
+test("PC版の在籍一覧（リンクは「VIEW DETAIL」、名前はカードの見出し）でも名前からIDを引く", () => {
+  const links = [
+    { href: "https://estama.jp/shop/51445/cast/969557/", text: "VIEW DETAIL", context: "葵みずき(26) T.154 B.86(D) VIEW DETAIL 葵みずき" },
+    { href: "https://estama.jp/shop/51445/cast/968450/", text: "VIEW DETAIL", context: "栗山みく(32) T.156 B.84(C) VIEW DETAIL 栗山みく" },
+    // 複数の人が入ったまとまりの文字は使わない（context は空）
+    { href: "https://estama.jp/shop/51445/cast/971160/", text: "VIEW DETAIL", context: "" },
+  ];
+  assert.equal(findEstamaCastIdByName(links, "51445", ["栗山みく"]), "968450");
+  assert.equal(findEstamaCastIdByName(links, "51445", ["伊藤れな🔰"]), null);
+  // リンクの文字で決まるときは、まわりの文字より優先する
+  const withText = [...links, { href: "https://estama.jp/shop/51445/cast/968450/#CastProfile", text: "栗山みく(32)", context: "栗山みく 葵みずき" }];
+  assert.equal(findEstamaCastIdByName(withText, "51445", ["栗山みく"]), "968450");
+});
+
 test("管理画面のセラピストへのリンクを結果に残す", () => {
   const rows = estamaAdminCastLinks([
     { href: "https://estama.jp/admin/schedule/928853/", text: "一ノ瀬ひなた" },

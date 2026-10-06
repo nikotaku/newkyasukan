@@ -45,6 +45,8 @@ export function estamaCastEditUrlCandidates(externalId: string | null | undefine
 export interface PageLink {
   href: string;
   text: string;
+  /** リンクを囲むカード（figure など）の文字と画像の alt。PC版の在籍一覧はリンクが「VIEW DETAIL」で、名前は隣の見出しにある */
+  context?: string;
 }
 
 /** 管理画面のリンクのうち、そのセラピストの編集画面らしいもの */
@@ -59,17 +61,23 @@ export function estamaCastEditLinks(links: PageLink[], externalId: string) {
 
 /** 公開ページの在籍一覧から、同じ名前のセラピストのIDを探す（新規登録で同じ人を二重に作らないため） */
 export function findEstamaCastIdByName(links: PageLink[], shopId: string, names: Array<string | null | undefined>) {
-  const ids = new Set<string>();
-  for (const link of links) {
-    const match = link.href.match(new RegExp(`/shop/${shopId}/cast/(\\d+)/?(?:$|[?#])`));
-    if (!match) continue;
-    const label = link.text.replace(/\s+/g, " ").trim();
-    // 一覧のリンクは「名前（年齢）」や「NEW 名前」のように飾りが付くことがあるので、語ごとにも比べる
-    const parts = [label, ...label.split(/[\s(（]/)];
-    if (parts.some((part) => estamaNameMatches(part, names))) ids.add(match[1]);
-  }
-  // 同じ名前が2人いるときは決められないので、何もしない
-  return ids.size === 1 ? [...ids][0] : null;
+  const castLinks = links.flatMap((link) => {
+    const id = link.href.match(new RegExp(`/shop/${shopId}/cast/(\\d+)/?(?:$|[?#])`))?.[1];
+    return id ? [{ ...link, id }] : [];
+  });
+  // 一覧のリンクは「名前（年齢）」や「NEW 名前」のように飾りが付くことがあるので、語ごとにも比べる
+  const matches = (value: string | undefined) => {
+    const label = String(value || "").replace(/\s+/g, " ").trim();
+    return [label, ...label.split(/[\s(（]/)].some((part) => estamaNameMatches(part, names));
+  };
+  const pick = (ids: string[]) => {
+    const unique = [...new Set(ids)];
+    // 同じ名前が2人いるときは決められないので、何もしない
+    return unique.length === 1 ? unique[0] : null;
+  };
+  const byText = castLinks.filter((link) => matches(link.text)).map((link) => link.id);
+  if (byText.length) return pick(byText);
+  return pick(castLinks.filter((link) => matches(link.context)).map((link) => link.id));
 }
 
 /** 管理画面にあるセラピストへのリンク（同じ名前が二重に登録されていないかを後から確かめるため結果に残す） */
