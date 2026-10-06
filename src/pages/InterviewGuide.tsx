@@ -1,10 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useStore } from "@/hooks/useStore";
+import { useAdminStore } from "@/hooks/useAdminStore";
+import { BackRateTable, type BackRateRow } from "@/components/therapist/BackRateTable";
 import simultaneousPostSystemImage from "@/assets/recruit/enka-simultaneous-post-system.png";
 import {
   ArrowLeft, MapPin, Clock, Train, ShieldCheck,
   Home, IdCard, Camera, AlertTriangle, Sparkles, Check, ChevronDown,
-  Footprints, Tablet, Share2, type LucideIcon,
+  Footprints, Tablet, Share2, Loader2, type LucideIcon,
 } from "lucide-react";
 
 /**
@@ -19,6 +24,33 @@ export default function InterviewGuide() {
   useEffect(() => {
     document.title = "艶華｜面談資料";
   }, []);
+
+  // バック表（マイページの「バック表」と同じもの）。ログイン中は自分の店舗、そうでなければ開いているサイトの店舗
+  const { user, loading: authLoading } = useAuth();
+  const { storeId: siteStoreId, loading: siteStoreLoading } = useStore();
+  const { storeId: adminStoreId, loading: adminStoreLoading } = useAdminStore();
+  const backRateStoreId = authLoading
+    ? null
+    : user
+      ? (adminStoreLoading ? null : adminStoreId)
+      : (siteStoreLoading ? null : siteStoreId);
+  const [backRates, setBackRates] = useState<BackRateRow[] | null>(null);
+  useEffect(() => {
+    if (!backRateStoreId) return;
+    let active = true;
+    supabase
+      .from("back_rates")
+      .select("course_type, duration, therapist_back")
+      .eq("store_id", backRateStoreId)
+      .order("display_order")
+      .order("duration")
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) console.error("バック表を読めませんでした", error);
+        setBackRates((data ?? []) as BackRateRow[]);
+      });
+    return () => { active = false; };
+  }, [backRateStoreId]);
 
   const Section = ({ id, icon: Icon, title, sub, children, tone = "rose", wide = false }: {
     id?: string; icon: LucideIcon; title: string; sub?: string; children: React.ReactNode;
@@ -140,13 +172,17 @@ export default function InterviewGuide() {
         </Card>
       </Section>
 
-      {/* 料金・報酬システム */}
-      <Section icon={ShieldCheck} title="料金・報酬システム" tone="rose">
-        <Card className="py-5">
-          <p className="text-sm leading-relaxed text-gray-700">
-            料金・報酬の詳細は、面談時に個別にご案内します。
-          </p>
-        </Card>
+      {/* 料金・報酬システム（セラピストのバック表をそのまま） */}
+      <Section icon={ShieldCheck} title="料金・報酬システム" sub="バック表（1本あたりのお給料）" tone="rose">
+        <div className="bg-white rounded-2xl">
+          {backRates === null ? (
+            <div className="py-10 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-rose-400" /></div>
+          ) : backRates.length === 0 ? (
+            <p className="py-6 text-center text-sm text-gray-500">料金・報酬の詳細は、面談時に個別にご案内します。</p>
+          ) : (
+            <BackRateTable rates={backRates} />
+          )}
+        </div>
       </Section>
 
       {/* 集客・投稿サポート */}
