@@ -898,10 +898,22 @@ async function clickSoulAction(action: Locator) {
   }
 }
 
-const readPageLinks = (page: Page) => page.locator("a[href]").evaluateAll((elements) => elements.map((element) => ({
-  href: (element as HTMLAnchorElement).href,
-  text: (element.textContent || "").replace(/\s+/g, " ").trim(),
-}))).catch(() => [] as PageLink[]);
+const readPageLinks = (page: Page) => page.locator("a[href]").evaluateAll((elements) => elements.map((element) => {
+  // 名前がリンクの外（同じカードの見出し・画像の alt）にある画面もあるので、囲むカードの文字も残す
+  // （カードに別の人へのリンクもあるときは、取り違えないよう使わない）
+  const card = element.closest("figure, li, article, tr") || element.parentElement;
+  const castIds = new Set(Array.from(card?.querySelectorAll("a[href]") || [])
+    .map((link) => (link as HTMLAnchorElement).href.match(/\/cast\/(\d+)/)?.[1])
+    .filter(Boolean));
+  const alts = card && castIds.size <= 1
+    ? Array.from(card.querySelectorAll("img[alt]")).map((image) => image.getAttribute("alt") || "").join(" ")
+    : "";
+  return {
+    href: (element as HTMLAnchorElement).href,
+    text: (element.textContent || "").replace(/\s+/g, " ").trim(),
+    context: castIds.size <= 1 ? `${card?.textContent || ""} ${alts}`.replace(/\s+/g, " ").trim().slice(0, 300) : "",
+  };
+})).catch(() => [] as PageLink[]);
 
 const isAdminLoginPage = async (page: Page) =>
   /\/login\/?(?:\?|$)/i.test(page.url()) || await page.locator('input[type="password"]').count() > 0;
