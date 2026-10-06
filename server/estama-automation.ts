@@ -10,6 +10,17 @@ import { assertEstamaDiarySlotPhotoReady, attachEstamaDiarySlotPhoto, hasEstamaD
 import { describeError } from "./estama-error.js";
 import { estamaBlogUrl, estamaXProfileUrl } from "./estama-sns-links.js";
 import {
+  estamaAdminCastLinks,
+  estamaCastEditLinks,
+  estamaCastEditUrlCandidates,
+  estamaCastIdFromUrl,
+  estamaNameMatches,
+  estamaSyncFields,
+  findEstamaCastIdByName,
+  normalizeEstamaName,
+  type PageLink,
+} from "./estama-cast-editor.js";
+import {
   ESTAMA_SOUL_DIARY_POST_URL,
   fitEstamaDiaryTitle,
   PUBLIC_DIARY_LIST_TEXT,
@@ -799,13 +810,6 @@ async function verifyPublishedEstamaDiary(
   throw new EstamaSubmissionUncertainError(`魂セラピストの公開結果を確認できません（${detail}）。魂側を確認するまで再送できません`);
 }
 
-const normalizeEstamaName = (value: string) => value
-  .normalize("NFKC")
-  .toLocaleLowerCase("ja-JP")
-  .replace(/[\s\u3000・･·_＿―—–-]+/g, "")
-  .replace(/[()（）\u005b\u005d【】「」『』]/g, "")
-  .trim();
-
 async function findEstamaCastRow(
   page: Page,
   options: { externalId?: string | null; remoteName?: string | null; localName: string },
@@ -894,7 +898,77 @@ async function clickSoulAction(action: Locator) {
   }
 }
 
-async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, soul?: SoulCredentials) {
+const readPageLinks = (page: Page) => page.locator("a[href]").evaluateAll((elements) => elements.map((element) => ({
+  href: (element as HTMLAnchorElement).href,
+  text: (element.textContent || "").replace(/\s+/g, " ").trim(),
+}))).catch(() => [] as PageLink[]);
+
+const isAdminLoginPage = async (page: Page) =>
+  /\/login\/?(?:\?|$)/i.test(page.url()) || await page.locator('input[type="password"]').count() > 0;
+
+/**
+ * エステ魂に載っているセラピストの編集画面を開く。名前が入った（＝そのセラピストの）画面でなければ保存しない。
+ * 見つからなければエラーにする（新規登録の画面で保存すると、既存のセラピストは変わらないため）。
+ */
+async function openExistingEstamaCastEditor(
+  page: Page,
+  target: { externalId: string; savedUrl?: string | null; names: Array<string | null | undefined> },
+) {
+  const tried: string[] = [];
+  const seenNames = new Set<string>();
+  const adminLinks: PageLink[] = [];
+  const tryUrl = async (url: string) => {
+    if (tried.includes(url)) return false;
+    tried.push(url);
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+    if (await isAdminLoginPage(page)) throw new LoginRequiredError();
+    const field = page.locator("#Name").first();
+    if (!await field.count()) return false;
+    const name = (await field.inputValue({ timeout: 3_000 }).catch(() => "")).trim();
+    if (name) seenNames.add(name);
+    return estamaNameMatches(name, target.names);
+  };
+
+  for (const url of estamaCastEditUrlCandidates(target.externalId, target.savedUrl)) {
+    if (await tryUrl(url)) return { editUrl: page.url(), tried };
+  }
+  // 管理画面の中から、そのセラピストの編集画面へのリンクを探す
+  for (const source of [
+    `https://estama.jp/admin/schedule/${target.externalId}/`,
+    ESTAMA_CAST_EDIT_URL,
+    "https://estama.jp/admin/",
+  ]) {
+    await page.goto(source, { waitUntil: "domcontentloaded" });
+    if (await isAdminLoginPage(page)) throw new LoginRequiredError();
+    const links = await readPageLinks(page);
+    adminLinks.push(...links);
+    for (const href of estamaCastEditLinks(links, target.externalId)) {
+      if (await tryUrl(href)) return { editUrl: page.url(), tried };
+    }
+  }
+  const castLinks = estamaAdminCastLinks(adminLinks).slice(0, 20).map((link) => `${link.text || "?"}=${link.href}`);
+  throw new Error(
+    `エステ魂で「${target.names.find(Boolean)}」（ID ${target.externalId}）の編集画面を開けませんでした。`
+    + "新規登録の画面では保存していません"
+    + `（試したURL: ${tried.join(" , ")}${seenNames.size ? ` / 画面の名前: ${[...seenNames].join("、")}` : ""}`
+    + `${castLinks.length ? ` / 管理画面のリンク: ${castLinks.join(" , ")}` : ""}）`,
+  );
+}
+
+/** 公開ページの在籍一覧に同じ名前のセラピストがいれば、そのIDを返す（新規登録で二重に作らないため） */
+async function findListedEstamaCastId(page: Page, shopId: string | null | undefined, names: Array<string | null | undefined>) {
+  if (!shopId || !/^\d+$/.test(shopId)) return null;
+  await page.goto(`https://estama.jp/shop/${shopId}/cast/`, { waitUntil: "domcontentloaded" }).catch(() => null);
+  return findEstamaCastIdByName(await readPageLinks(page), shopId, names);
+}
+
+async function registerCast(
+  admin: AdminClient,
+  page: Page,
+  job: AutomationJob,
+  connection: Connection | null,
+  soul?: SoulCredentials,
+) {
   if (!job.cast_id) throw new Error("登録対象のセラピストがありません");
   const { data: cast, error: castError } = await admin.from("casts")
     .select(ESTAMA_CAST_COLUMNS.join(","))
@@ -904,20 +978,27 @@ async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, 
   if (!cast) throw new Error("セラピストが見つかりません");
   const { data: current } = await admin.from("external_cast_profiles").select("*")
     .eq("cast_id", job.cast_id).eq("provider", "estama").maybeSingle();
-  const editUrl = current?.admin_edit_url || ESTAMA_CAST_EDIT_URL;
   const castRecord = cast as unknown as CastRecord;
   const data = castToEstama(castRecord);
+  const syncFields = estamaSyncFields(job.payload);
   const profileHash = createHash("sha256").update(JSON.stringify(data)).digest("hex");
   const photoHash = createHash("sha256").update(JSON.stringify(data.photos)).digest("hex");
+  const names = [current?.remote_name, data.name, castRecord.name];
+  let externalId: string | null = current?.external_cast_id
+    || estamaCastIdFromUrl(current?.public_profile_url)
+    || estamaCastIdFromUrl(castRecord.estama_profile_url)
+    || null;
+  const knownEditUrl = externalId ? estamaCastEditUrlCandidates(externalId, current?.admin_edit_url)[0] : ESTAMA_CAST_EDIT_URL;
 
   if (
     !soul
+    && syncFields === "all"
     && current?.sync_status === "synced"
     && current?.last_profile_hash === profileHash
     && current?.last_photo_hash === photoHash
   ) {
     // 変更なし。履歴のスクリーンショットに今の登録内容が写るよう、編集画面だけ開いておく
-    await page.goto(editUrl, { waitUntil: "domcontentloaded" }).catch(() => null);
+    await page.goto(knownEditUrl, { waitUntil: "domcontentloaded" }).catch(() => null);
     return { externalId: current.external_cast_id || null, publicUrl: current.public_profile_url || null, unchanged: true };
   }
 
@@ -926,9 +1007,24 @@ async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, 
     sync_status: "syncing", last_error: null,
   }, { onConflict: "cast_id,provider" });
 
-  await page.goto(editUrl, { waitUntil: "domcontentloaded" });
+  // まだつながっていない人でも、エステ魂の在籍一覧に同じ名前がいれば、その人を更新する（二重登録しない）
+  let linkedByName = false;
+  if (!externalId) {
+    externalId = await findListedEstamaCastId(page, connection?.shop_id, names);
+    linkedByName = Boolean(externalId);
+  }
+  if (!externalId && syncFields === "sns") throw new Error("エステ魂のセラピストとつながっていないため、SNS欄だけの更新はできません");
+  const isExisting = Boolean(externalId);
+  let editUrl = ESTAMA_CAST_EDIT_URL;
+  if (externalId) {
+    editUrl = (await openExistingEstamaCastEditor(page, {
+      externalId, savedUrl: current?.admin_edit_url, names,
+    })).editUrl;
+  } else {
+    await page.goto(editUrl, { waitUntil: "domcontentloaded" });
+  }
   await ensureAdminLogin(page, "#Name");
-  const fields: Array<[string, unknown]> = [
+  const fields: Array<[string, unknown]> = syncFields === "sns" ? [] : [
     ["#Name", data.name], ["#Description", data.description], ["#CastPr", data.cast_pr],
     ['[name="experience"]', data.experience], ['[name="age"]', data.age], ['[name="tall"]', data.tall],
     ['[name="size_b"]', data.size_b], ['[name="size_cup"]', data.size_cup],
@@ -947,14 +1043,16 @@ async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, 
   for (const [key, selector, value] of snsFields) {
     if (!await setField(page, selector, value)) missingSnsFields.push(key);
   }
-  const selectedTypes = new Set(data.types);
-  for (const type of Object.values(FEATURE_MAP)) {
-    const checkbox = page.locator(`#type_${type}`);
-    if (await checkbox.count() && await checkbox.isChecked() !== selectedTypes.has(type)) {
-      await checkbox.setChecked(selectedTypes.has(type));
+  if (syncFields === "all") {
+    const selectedTypes = new Set(data.types);
+    for (const type of Object.values(FEATURE_MAP)) {
+      const checkbox = page.locator(`#type_${type}`);
+      if (await checkbox.count() && await checkbox.isChecked() !== selectedTypes.has(type)) {
+        await checkbox.setChecked(selectedTypes.has(type));
+      }
     }
   }
-  const shouldSyncPhotos = current?.last_photo_hash !== photoHash;
+  const shouldSyncPhotos = syncFields === "all" && current?.last_photo_hash !== photoHash;
   const uploadedPhotos = shouldSyncPhotos
     ? await uploadPhotos(page, data.photos, { maxPhotos: 6, strict: true, indexedSlots: true })
     : 0;
@@ -964,18 +1062,32 @@ async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, 
     : { requested: 0, marked: 0 };
   const photoRemovalPending = photoRemoval.marked < photoRemoval.requested;
   await clickSave(page);
+  const saveErrors = await visibleEstamaErrors(page);
+  if (saveErrors.length) {
+    throw new Error(`エステ魂で保存できませんでした: ${[...new Set(saveErrors)].join(" / ").slice(0, 240)}`);
+  }
 
-  const savedEditUrl = page.url();
-  // 保存後の画面に残っている値（送った値と比べられるように結果に残す）
+  let publicUrl: string | null;
+  let savedEditUrl: string;
+  if (isExisting && externalId) {
+    // 保存できたかは、編集画面を開き直して確かめる（保存後の画面の入力欄は送った値が残っているだけのことがある）
+    savedEditUrl = editUrl;
+    await page.goto(editUrl, { waitUntil: "domcontentloaded" });
+    publicUrl = castRecord.estama_profile_url && estamaCastIdFromUrl(castRecord.estama_profile_url) === externalId
+      ? castRecord.estama_profile_url
+      : connection?.shop_id ? `https://estama.jp/shop/${connection.shop_id}/cast/${externalId}/` : current?.public_profile_url || null;
+  } else {
+    savedEditUrl = page.url();
+    const publicHref = await page.locator('a[href*="/shop/"][href*="/cast/"]').first().getAttribute("href").catch(() => null);
+    publicUrl = publicHref ? new URL(publicHref, page.url()).toString() : castRecord.estama_profile_url || null;
+    externalId = estamaCastIdFromUrl(publicUrl) || estamaCastIdFromUrl(page.url()) || current?.external_cast_id || null;
+  }
   const savedSns = {
     blog: await page.locator(ESTAMA_BLOG_FIELD).first().inputValue({ timeout: 3_000 }).catch(() => null),
     twitter: await page.locator(ESTAMA_TWITTER_FIELD).first().inputValue({ timeout: 3_000 }).catch(() => null),
   };
-  const publicHref = await page.locator('a[href*="/shop/"][href*="/cast/"]').first().getAttribute("href").catch(() => null);
-  const publicUrl = publicHref ? new URL(publicHref, page.url()).toString() : castRecord.estama_profile_url || null;
-  const externalId = publicUrl?.match(/\/cast\/(\d+)\//)?.[1]
-    || page.url().match(/(?:cast_id=|\/cast_edit\/)(\d+)/)?.[1]
-    || current?.external_cast_id || null;
+  const snsMismatch = isExisting && missingSnsFields.length === 0
+    && ((savedSns.blog ?? "") !== data.blog || (savedSns.twitter ?? "") !== data.twitter);
   let soulResult: Json = {};
   if (soul) {
     try { soulResult = await setupSoulTherapist(page, data.name, soul); }
@@ -987,14 +1099,20 @@ async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, 
     }
   }
 
+  const lastError = snsMismatch
+    ? "エステ魂のブログ・SNS欄が保存後に変わっていませんでした"
+    : photoRemovalPending ? "エステ魂の削除対象写真を自動判別できませんでした" : null;
   const profilePatch = {
     store_id: job.store_id, cast_id: job.cast_id, provider: "estama",
     external_cast_id: externalId, admin_edit_url: savedEditUrl, public_profile_url: publicUrl,
-    remote_name: data.name, sync_status: "synced", last_profile_sync_at: new Date().toISOString(),
-    last_profile_hash: profileHash,
-    last_photo_hash: photoRemovalPending ? current?.last_photo_hash || null : photoHash,
-    last_photo_count: photoRemovalPending ? previousPhotoCount : data.photos.length,
-    last_error: photoRemovalPending ? "エステ魂の削除対象写真を自動判別できませんでした" : null,
+    remote_name: syncFields === "all" ? data.name : current?.remote_name || data.name,
+    sync_status: snsMismatch ? "error" : "synced",
+    last_profile_sync_at: new Date().toISOString(),
+    // SNS欄だけ直したときは、プロフィール全体は送っていないので前の値のまま（次の変更で全体を送る）
+    last_profile_hash: syncFields === "all" && !snsMismatch ? profileHash : current?.last_profile_hash || null,
+    last_photo_hash: photoRemovalPending || syncFields === "sns" ? current?.last_photo_hash || null : photoHash,
+    last_photo_count: photoRemovalPending || syncFields === "sns" ? previousPhotoCount : data.photos.length,
+    last_error: lastError,
     ...(soul ? {
       soul_status: soulResult.status === "configured" ? "configured" : soulResult.status === "issued" ? "issued" : "error",
       soul_login_url: soulResult.loginUrl || null,
@@ -1004,9 +1122,15 @@ async function registerCast(admin: AdminClient, page: Page, job: AutomationJob, 
   const { error: profileError } = await admin.from("external_cast_profiles").upsert(profilePatch, { onConflict: "cast_id,provider" });
   if (profileError) throw new Error(`エステ魂の連携情報を保存できませんでした: ${describeError(profileError)}`);
   await admin.from("casts").update({ estama_profile_url: publicUrl, estama_listed: true }).eq("id", job.cast_id);
+  if (snsMismatch) {
+    throw new Error(`エステ魂のブログ・SNS欄が保存後に変わっていませんでした（送った値: ${data.blog || "空"} / ${data.twitter || "空"}、編集画面: ${savedSns.blog || "空"} / ${savedSns.twitter || "空"}）`);
+  }
   return {
     externalId,
     publicUrl,
+    editUrl: savedEditUrl,
+    linkedByName,
+    fields: syncFields,
     uploadedPhotos,
     photoRemoval,
     soul: soulResult,
@@ -3934,7 +4058,7 @@ export async function processAvailableJobs(
         if (!page || !connection) throw new Error("ブラウザセッションを開始できませんでした");
         usedPage = true;
         let result: Json;
-        if (job.job_type === "estama_register_cast") result = await registerCast(admin, page, job, options.soulCredentials);
+        if (job.job_type === "estama_register_cast") result = await registerCast(admin, page, job, connection, options.soulCredentials);
         else if (job.job_type === "estama_sync_shift") result = await syncShift(admin, page, job, connection);
         else if (job.job_type === "estama_post_diary") result = await postEstamaDiary(admin, page, job);
         else result = await reconcileShifts(admin, page, job, connection);

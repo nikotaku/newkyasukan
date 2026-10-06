@@ -209,6 +209,8 @@
 - 予備：スタッフ画面で保存したときは `run-profile-sync` を `background: true` で呼ぶ（`startEstamaProfileSync`、Vercel の `waitUntil` で画面を閉じても続く）。反映待ちが3分以上残っていれば、管理画面の `EstamaPendingAlert` が `run-queued`（`jobType: estama_register_cast`, `background: true`）を呼ぶ（同じ端末からは60秒に1回まで、1回で2件まで、実行中があれば何もしない）
 - 左下には「自動で反映しています」「ログイン切れ（再ログインが必要）」「反映できなかった変更（もう一度反映する）」だけを出す
 - **作業が終わった画面のスクリーンショット**：`processAvailableJobs` で処理した作業（プロフィール同期・シフト同期・照合）は、終わった（失敗した）画面を非公開バケット `estama-job-screenshots`（`<store_id>/<job_id>.jpg`、プロフィールはページ全体）に保存し、`automation_jobs.screenshot_path` に記録する。「エスたま自動化履歴」（`/schedule/estama-sync-history`）の「プロフィール同期の履歴」（`src/components/EstamaProfileSyncHistory.tsx`）で見られる。30日より古いものはワーカーが時々消す。トークン方式のシフト同期（`estama-worker`）は従来どおり公開ページの確認画像を `estama_sync_reports` に残す
+- **既存のセラピストの更新**は、エステ魂のID（`external_cast_profiles.external_cast_id`）の編集画面を開き、名前が入っている（＝その人の画面）ことを確かめてから保存する（`server/estama-cast-editor.ts`）。`/admin/cast_edit/`（IDなし）は**新規登録の画面**なので更新に使わない（2026年10月まで、この画面で保存していたため変更が反映されていなかった）。保存後は編集画面を開き直してSNS欄を確かめ、違えば失敗にする。まだつながっていない人も、公開の在籍一覧に同じ名前が1人いればその人を更新する（二重登録しない）
+- `payload.fields = "sns"` のジョブはブログ・SNS欄だけを直す（写真・紹介文はエステ魂のまま）
 - プロフィールの「ブログ・SNS」欄：**X(旧Twitter)＝SNS運用管理のXのプロフィールURL**（`casts.x_account` を `https://x.com/ID` に直して送る）、**外部ブログ＝O2のプロフィールURL**（`casts.o2_url`、O2が無い人だけ `blog_url`）。変換は `server/estama-sns-links.ts`。`o2_url` の変更でも同期が積まれる（トリガー `trg_enqueue_estama_cast_update`）
 
 ## 日別精算の雑費・宿泊費の自動入力（/sales/daily-sales）
