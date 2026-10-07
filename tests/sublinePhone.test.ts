@@ -69,3 +69,14 @@ test("スマホは SUBLINE アプリを開くリンク、そうでなければ�
   assert.ok(!isLikelyPhoneDevice("Mozilla/5.0 (Windows NT 10.0; Win64; x64)"));
   assert.ok(!isLikelyPhoneDevice("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"));
 });
+
+test("着信ポップの「予約を入力」：電話番号入りで予約入力を開き、URLから番号を取り出す", async () => {
+  const { reservationUrlForCall, phoneFromCallParam } = await import("../src/lib/incomingCall.ts");
+  assert.equal(reservationUrlForCall("090-1234-5678"), "/admin-schedule?call=09012345678");
+  assert.equal(reservationUrlForCall("+81 90 1234 5678"), "/admin-schedule?call=09012345678");
+  assert.equal(reservationUrlForCall(""), "/admin-schedule");
+  assert.equal(phoneFromCallParam("?call=09012345678"), "09012345678");
+  assert.equal(phoneFromCallParam("?call=090-1234-5678&x=1"), "09012345678");
+  assert.equal(phoneFromCallParam("?call=abc"), null);
+  assert.equal(phoneFromCallParam(""), null);
+});

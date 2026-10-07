@@ -154,6 +154,12 @@
 - 接続確認の画面から「この番号をHPの電話番号にする」で `store_info.phone`（HP・Xの投稿文の番号）を切り替える
 - テスト: `npm run test:subline`
 
+## 着信ポップ（CTI・Twilio）
+
+- お客様の着信で、管理画面の右下に顧客データ（ランク・来店・前回の担当・NG・好み・最近の来店）のポップを出す（`src/components/CtiCallPopup.tsx`、DashboardHeader に1つ）。「予約を入力」で `/admin-schedule?call=<番号>` → 新規予約が電話番号入りで開き、予約フォームがお客様の情報を出す（`src/lib/incomingCall.ts`）
+- 着信の記録は Twilio の番号の Voice Webhook → Edge Function `cti-incoming` → RPC `cti_log_incoming`（service_role のみ）→ `cti_calls`（Realtime）。店舗はかかってきた番号（To）が `store_info.phone` か `stores.settings.cti_number` と同じ店舗（無ければ既定店舗）。`cti_calls` は store_isolation で他店から見えない
+- 転送先は Edge Function の環境変数 `CTI_FORWARD_NUMBER`（E.164）。SUBLINEには着信を知らせる仕組みが無いので、自動ポップを使うには Twilio の番号を表に出し、SUBLINEの050番号へ転送する形になる（2026年10月時点で未稼働）
+
 ## 問い合わせ集計のメール取り込み
 
 - 電話（IVRy着信通知）とエステ魂デイリーレポート（アクセス数・問い合わせ数）は、店舗のGmailで動く Google Apps Script（`scripts/gmail-report-sync.gs`）が15分ごとに Edge Function `report-email-ingest` へ送って取り込む。Codex は使わない

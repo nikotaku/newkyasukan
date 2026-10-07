@@ -25,7 +25,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ReservationForm, ReservationFormData } from "@/components/ReservationForm";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -38,6 +38,7 @@ import { useAdminStore } from "@/hooks/useAdminStore";
 import { PaymentReminderPopup } from "@/components/PaymentReminderPopup";
 import { loadReceptionEndGuide, shareReceptionEndContent } from "@/lib/receptionEndShare";
 import { ENKA_STORE_ID } from "@/lib/storeSwitch";
+import { phoneFromCallParam } from "@/lib/incomingCall";
 import {
   DEFAULT_RESERVATION_INTERVAL_MINUTES,
   findNextAvailableStart,
@@ -829,6 +830,16 @@ export default function Schedule() {
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const isToday = format(selectedDate, "yyyy-MM-dd") === format(now, "yyyy-MM-dd");
   const nowPx = minutesToPx(nowMinutes);
+
+  // 着信ポップの「予約を入力」：電話番号を入れて新規予約を開く（お客様の情報は予約フォームが自動で出す）
+  const location = useLocation();
+  useEffect(() => {
+    const phone = phoneFromCallParam(location.search);
+    if (!phone || !isAdmin) return;
+    setFormData((prev) => ({ ...prev, customer_phone: phone, customer_name: "", customer_email: "", reservation_date: new Date() }));
+    setIsAddOpen(true);
+    navigate("/admin-schedule", { replace: true });
+  }, [location.search, isAdmin, navigate]);
 
   const handleTimelineClick = (castId: string, clickY: number) => {
     if (!isAdmin) return;
