@@ -143,6 +143,17 @@
 - リポジトリは公開なので、ダンプを暗号化せずにコミット・アップロードしないこと
 - Secrets: `SUPABASE_DB_URL`（Session poolerの接続文字列）/ `BACKUP_PASSPHRASE`。復元手順は `docs/db-backup.md`
 
+## 電話（SUBLINE）
+
+- 店の電話はIVRyから SUBLINE（050番号アプリ、株式会社インターパーク）に乗り換え。設定は `/settings/phone`（`src/pages/PhoneSettings.tsx`、サイドバーの システム → 設定 → 電話（SUBLINE））
+- SUBLINEは汎用のAPIを公開していない（ヘルプ「SUBLINEでできないこと」）。使えるのは公式kintoneプラグインと同じ2つだけ：`GET https://api.subline.jp/v1/setting/member/`（メンバー・050番号・外部連携オンなら device_id）と `POST /v1/push-call/`（そのメンバーのスマホへ発信の通知）。認証はヘッダー `x-subline-token`（SUBLINE管理画面「外部連携管理 › API設定」のアクセストークン）
+- **着信・通話履歴を外に知らせる仕組みは無い**ので、SUBLINEだけでは着信ポップ・電話の問い合わせ件数の自動集計はできない
+- アクセストークンは Vault（`subline_token:<store_id>`）。登録は画面から RPC `save_subline_token`（店長・オーナー）、やめるときは `clear_subline_token`（値を空にする。空は未登録扱い）。画面には「登録済み」だけ（`get_subline_settings`）。トークンをリポジトリ・チャットに書かないこと
+- Edge Function `subline`（ログイン中スタッフのJWT・所属店舗だけ）：`members`（接続確認、店長・オーナー）/ `call`（パソコンから発信 → `subline_settings.member_account_code` のスマホへ通知）。処理は `supabase/functions/subline/sublineApi.ts`
+- 管理画面の電話番号は `PhoneCallLink`（`src/components/phone/PhoneCallLink.tsx`）。登録済みの店舗では、スマホは `subline://?number=<番号>` でSUBLINEアプリを開き、パソコンは通知を送る。未登録なら今まで通り `tel:`
+- 接続確認の画面から「この番号をHPの電話番号にする」で `store_info.phone`（HP・Xの投稿文の番号）を切り替える
+- テスト: `npm run test:subline`
+
 ## 問い合わせ集計のメール取り込み
 
 - 電話（IVRy着信通知）とエステ魂デイリーレポート（アクセス数・問い合わせ数）は、店舗のGmailで動く Google Apps Script（`scripts/gmail-report-sync.gs`）が15分ごとに Edge Function `report-email-ingest` へ送って取り込む。Codex は使わない

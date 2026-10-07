@@ -71,3 +71,6 @@ verify_jwt = false
 [functions.public-kpi-summary]
 # Modern publishable keyを関数内で検証し、個人情報を含まない集計値だけを返す。
 verify_jwt = false
+
+[functions.subline]
+verify_jwt = true

@@ -154,6 +154,7 @@ const menuItems: MenuItem[] = [
         items: [
           { href: "/system/page-content", label: "料金ページ文言" },
           { href: "/settings/notifications", label: "スマホ通知" },
+          { href: "/settings/phone", label: "電話（SUBLINE）" },
         ],
       },
     ],

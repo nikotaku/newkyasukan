@@ -1,4 +1,5 @@
 import { Property, SelectOption } from "./types";
+import { PhoneCallLink } from "@/components/phone/PhoneCallLink";
 
 const COLOR_MAP: Record<string, string> = {
   gray: "bg-gray-100 text-gray-700",
@@ -59,9 +60,9 @@ export function PropertyValue({ property, value, compact }: Props) {
 
     case "phone":
       return (
-        <a href={`tel:${String(value).replace(/\D/g, "")}`} className="text-sm text-blue-600 hover:underline" onClick={(e) => e.stopPropagation()}>
+        <PhoneCallLink phone={String(value)} className="text-sm text-blue-600 hover:underline" stopPropagation>
           {String(value)}
-        </a>
+        </PhoneCallLink>
       );
 
     case "email":
