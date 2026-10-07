@@ -28,6 +28,7 @@
     "test:clearance-defaults": "node --experimental-strip-types --test tests/clearanceDefaults.test.ts tests/settlementApproval.test.ts",
     "test:subline": "node --experimental-strip-types --test tests/sublinePhone.test.ts",
     "test:therapist-monthly-count": "node --experimental-strip-types --test tests/therapistMonthlyCount.test.ts",
+    "test:promotion-quota": "node --experimental-strip-types --test tests/promotionQuota.test.ts",
     "test:reservation-guide-payment": "node --experimental-strip-types --test tests/reservationGuidePayment.test.ts",
     "test:x-daily-posts": "node --experimental-strip-types --test tests/xDailyPosts.test.ts",
     "test:sms-billing": "node --experimental-strip-types --test tests/smsBilling.test.ts tests/smsSegments.test.ts tests/sendSmsTemplate.test.ts",

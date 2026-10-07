@@ -89,6 +89,16 @@
 - エスラン（メンズエステランキング）は今は掲載していないので、`src/lib/mediaRegistration.ts` の `ESTHE_RANKING_ACTIVE = false` で登録状況の列・スタッフ画面のチェック・セラピストDBのランキング転記・シフトのエスラン登録欄を隠している。掲載を再開したら true に戻す（データは残してある）
 - SNS連携・ログイン情報は `src/pages/O2Management.tsx`（教育画面のタブとして表示）。以前の `/marketing/o2` は `/education?tab=sns` へ転送
 
+## 宣伝ノルマ（/promotion-schedule の「露出ノルマ」タブ）
+
+- セラピストごとに、その月の**出勤日数**で媒体ごとの最低露出回数を決め、実績と比べる。媒体は HPトップバナー（新人のみ）・HPニュース・X・O2・エスたまニュース・エスたまトップバナー。画面は `src/components/promotion/PromotionQuotaBoard.tsx`、計算は `src/lib/promotionQuota.ts`（テスト `npm run test:promotion-quota`）
+- 決まりは `promotion_quota_settings.config`（店長・オーナーだけ変更。無ければ既定：1〜4日 / 5〜9日 / 10〜14日 / 15日以上の4段階）。出勤日数はその月のシフト（取り消し・却下を除く）の日数
+- 新人は `casts.join_date` から30日。上乗せ（HPトップバナーなど）は新人の期間がいちばん長く入っている月に1回だけ
+- 実績 = `promotion_exposures`（「露出を記録」）＋ 企画（`promotion_plan_tasks` の完了した投稿。O2ストーリーはO2、宣伝先が空の古い企画は「店舗X：」などの見出しから）＋ HPニュース（`hp_articles` に名前が出た公開記事）＋ X運用表で投稿したもの（`x_daily_posts` の集客アカウント。出勤・空き枠のまとめは除く）。企画のまだ終わっていない投稿は「予定」
+- 名前は絵文字・空白を無視して探す。2文字の名前は「さん・ちゃん」付きか前後が文字でないときだけ、ペア（りりか&ももか）は両方の名前でも数える
+- 「今日までに足りていない露出」は月の日割り（`expectedByNow`）より少ないもの。媒体登録状況（`/education?tab=media`）にも「今月の露出」列（同じ数え方）
+- 企画スケジュールは同じ画面の「企画スケジュール」タブ（`?tab=plans`）
+
 ## X運用表「今日の投稿」（/hp/x-operations）
 
 - 運用表の「1日の投稿スケジュール」の各行に、その日のデータを流し込んで投稿文を作る（`src/lib/xDailyPosts.ts`）。集客アカウントの 本日の出勤・明日の出勤・空き枠速報・セラピスト紹介・イベント・直前枠／口コミ は shifts・reservations・discounts・customer_reviews から開くたびに作り直す。求人・店長アカウントと、データが無いときは Edge Function `generate-cast-content` の `type: "x_post"`（ログイン必須）でAIが作る

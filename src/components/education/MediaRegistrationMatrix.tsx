@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AlertTriangle, Check, Loader2, Minus, RefreshCw, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminStore } from "@/hooks/useAdminStore";
+import { currentBusinessDate, usePromotionQuota } from "@/hooks/usePromotionQuota";
 import { driveImgUrl } from "@/lib/drive";
 import { cn } from "@/lib/utils";
+import { monthOf } from "@/lib/promotionQuota";
 import {
   autoStatusFrom,
   estamaStage,
@@ -44,6 +47,11 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"progressAsc" | "name">("progressAsc");
+  const navigate = useNavigate();
+  // 今月の露出ノルマ（投稿宣伝スケジュールの「露出ノルマ」と同じ数え方）
+  const [quotaMonth] = useState(() => monthOf(currentBusinessDate()));
+  const quota = usePromotionQuota(storeLoading ? null : storeId, quotaMonth);
+  const quotaByCast = useMemo(() => new Map(quota.rows.map((row) => [row.castId, row])), [quota.rows]);
 
   const load = useCallback(async () => {
     if (storeLoading || !storeId) return;
@@ -133,7 +141,7 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
             </button>
           ))}
         </div>
-        <Button size="sm" variant="outline" onClick={load} disabled={loading}>
+        <Button size="sm" variant="outline" onClick={() => { void load(); void quota.reload(); }} disabled={loading}>
           <RefreshCw size={14} className={cn("mr-1", loading && "animate-spin")} />更新
         </Button>
         {onOpenSns && (
@@ -143,13 +151,18 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
       <p className="text-xs text-muted-foreground">
         ○をタップすると登録済み／未登録を切り替えます。「自動連携」「魂セラピスト」「ログイン情報」は連携の結果から自動で表示されます（ログイン情報の登録は「SNS連携・ログイン情報」タブ）。
         「マイページ」は、セラピストがマイページをホーム画面に追加して通知をオンにすると「ホーム画面・通知」、テスト通知を受け取る（タップする・「届いた」を押す）と「テスト通知」に✓が付きます。
+        「今月の露出」は、今月の出勤日数で決まる宣伝ノルマ（HP・X・O2・エスたま）の達成です。タップすると投稿宣伝スケジュールの「露出ノルマ」を開きます。
       </p>
 
       <div className="overflow-x-auto rounded-xl border bg-card">
-        <table className="w-full min-w-[920px] text-xs">
+        <table className="w-full min-w-[1000px] text-xs">
           <thead className="bg-muted/60 text-muted-foreground">
             <tr>
               <th rowSpan={2} className="sticky left-0 z-10 bg-muted px-3 py-2 text-left">セラピスト</th>
+              <th rowSpan={2} className="border-l px-2 py-2 text-center font-semibold text-foreground whitespace-nowrap">
+                今月の露出
+                <div className="text-[10px] font-normal text-muted-foreground">ノルマ達成</div>
+              </th>
               {groupSpans.map(({ media, span }) => (
                 <th key={media} colSpan={span} className="border-l px-2 py-1.5 text-center font-semibold text-foreground">{media}</th>
               ))}
@@ -172,9 +185,9 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={MEDIA_COLUMNS.length + 1} className="py-12 text-center"><Loader2 className="inline-block animate-spin text-primary" /></td></tr>
+              <tr><td colSpan={MEDIA_COLUMNS.length + 2} className="py-12 text-center"><Loader2 className="inline-block animate-spin text-primary" /></td></tr>
             ) : visible.length === 0 ? (
-              <tr><td colSpan={MEDIA_COLUMNS.length + 1} className="py-10 text-center text-muted-foreground">セラピストがいません</td></tr>
+              <tr><td colSpan={MEDIA_COLUMNS.length + 2} className="py-10 text-center text-muted-foreground">セラピストがいません</td></tr>
             ) : visible.map((cast) => {
               const progress = mediaProgress(cast);
               const status = auto[cast.id];
@@ -201,6 +214,9 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
                         </p>
                       </div>
                     </div>
+                  </td>
+                  <td className="border-l px-2 py-2 text-center">
+                    <QuotaCellLink row={quotaByCast.get(cast.id)} loading={quota.loading} onOpen={() => navigate("/promotion-schedule?tab=quota")} />
                   </td>
                   {MEDIA_COLUMNS.map((column, index) => {
                     const on = column.field ? cast[column.field] : Boolean(column.auto && status?.[column.auto]);
@@ -240,5 +256,40 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
         </table>
       </div>
     </div>
+  );
+}
+
+function QuotaCellLink({
+  row,
+  loading,
+  onOpen,
+}: {
+  row: ReturnType<typeof usePromotionQuota>["rows"][number] | undefined;
+  loading: boolean;
+  onOpen: () => void;
+}) {
+  if (loading) return <span className="text-muted-foreground/60">…</span>;
+  if (!row || row.rate === null) {
+    return (
+      <button type="button" onClick={onOpen} className="text-[11px] text-muted-foreground hover:text-primary" title="今月は出勤がないのでノルマなし">
+        —
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      title={`${row.achieved}/${row.required}回（出勤${row.shiftDays}日）`}
+      className={cn(
+        "inline-flex min-w-[56px] flex-col items-center rounded-md px-1.5 py-1 hover:bg-muted",
+        row.status === "done" ? "text-emerald-700" : row.status === "behind" ? "text-amber-700" : "text-foreground",
+      )}
+    >
+      <span className="text-sm font-bold tabular-nums">{Math.round(row.rate * 100)}%</span>
+      <span className="whitespace-nowrap text-[10px] text-muted-foreground tabular-nums">
+        {row.achieved}/{row.required}{row.status === "behind" ? "・遅れ" : ""}
+      </span>
+    </button>
   );
 }

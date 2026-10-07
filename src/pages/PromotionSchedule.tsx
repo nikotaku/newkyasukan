@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CalendarDays,
   CheckCircle2,
@@ -31,7 +31,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { PromotionQuotaBoard } from "@/components/promotion/PromotionQuotaBoard";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -174,6 +176,13 @@ export default function PromotionSchedule() {
   const { user, loading: authLoading } = useAuth();
   const { store, storeId, loading: storeLoading } = useAdminStore();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get("tab") === "plans" ? "plans" : "quota";
+  const changeTab = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", value);
+    setSearchParams(next, { replace: true });
+  };
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -396,6 +405,7 @@ export default function PromotionSchedule() {
       setExpandedPlanIds((previous) => new Set(previous).add(createdPlan.id));
       setCreateOpen(false);
       resetCreateForm();
+      changeTab("plans");
       toast.success("AIが宣伝スケジュールを作成しました");
     } catch (error) {
       if (createdPlanId) {
@@ -515,7 +525,7 @@ export default function PromotionSchedule() {
                 投稿宣伝スケジュール
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                {store?.name || "店舗"}の撮影準備と、投稿日・投稿先ごとの進捗を管理
+                {store?.name || "店舗"}のセラピストごとの露出ノルマ（月の出勤日数で決まる最低回数）と、企画の準備・投稿の進捗
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -523,183 +533,196 @@ export default function PromotionSchedule() {
                 <Plus size={16} className="mr-1.5" />
                 新たな宣伝スケジュールを作成
               </Button>
-              <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-                <RefreshCw size={15} className={loading ? "mr-1.5 animate-spin" : "mr-1.5"} />
-                再読み込み
-              </Button>
+              {tab === "plans" && (
+                <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+                  <RefreshCw size={15} className={loading ? "mr-1.5 animate-spin" : "mr-1.5"} />
+                  再読み込み
+                </Button>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <div className="rounded-xl border bg-card p-4">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground"><UsersRound size={15} />計画</div>
-              <p className="mt-1 text-2xl font-bold">{summary.plans}</p>
-            </div>
-            <div className="rounded-xl border bg-card p-4">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground"><CheckCircle2 size={15} />全体完了</div>
-              <p className="mt-1 text-2xl font-bold">{summary.completed}<span className="ml-1 text-sm font-normal text-muted-foreground">/ {summary.total}</span></p>
-            </div>
-            <div className="rounded-xl border bg-card p-4">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground"><Megaphone size={15} />告知完了</div>
-              <p className="mt-1 text-2xl font-bold">{summary.postingCompleted}<span className="ml-1 text-sm font-normal text-muted-foreground">/ {summary.postingTotal}</span></p>
-            </div>
-            <div className="rounded-xl border bg-card p-4">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock3 size={15} />残り</div>
-              <p className="mt-1 text-2xl font-bold text-amber-600">{Math.max(summary.total - summary.completed, 0)}</p>
-            </div>
-          </div>
+          <Tabs value={tab} onValueChange={changeTab}>
+            <TabsList className="mb-4 h-auto flex-wrap justify-start">
+              <TabsTrigger value="quota">露出ノルマ</TabsTrigger>
+              <TabsTrigger value="plans">企画スケジュール</TabsTrigger>
+            </TabsList>
+            <TabsContent value="quota" className="mt-0">
+              <PromotionQuotaBoard storeId={storeLoading ? null : storeId} />
+            </TabsContent>
+            <TabsContent value="plans" className="mt-0 space-y-5">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <div className="rounded-xl border bg-card p-4">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><UsersRound size={15} />計画</div>
+                  <p className="mt-1 text-2xl font-bold">{summary.plans}</p>
+                </div>
+                <div className="rounded-xl border bg-card p-4">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><CheckCircle2 size={15} />全体完了</div>
+                  <p className="mt-1 text-2xl font-bold">{summary.completed}<span className="ml-1 text-sm font-normal text-muted-foreground">/ {summary.total}</span></p>
+                </div>
+                <div className="rounded-xl border bg-card p-4">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><Megaphone size={15} />告知完了</div>
+                  <p className="mt-1 text-2xl font-bold">{summary.postingCompleted}<span className="ml-1 text-sm font-normal text-muted-foreground">/ {summary.postingTotal}</span></p>
+                </div>
+                <div className="rounded-xl border bg-card p-4">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock3 size={15} />残り</div>
+                  <p className="mt-1 text-2xl font-bold text-amber-600">{Math.max(summary.total - summary.completed, 0)}</p>
+                </div>
+              </div>
 
-          {loading ? (
-            <div className="rounded-xl border bg-card py-20 text-center">
-              <Loader2 className="inline-block animate-spin text-primary" size={28} />
-              <p className="mt-3 text-sm text-muted-foreground">スケジュールを読み込んでいます</p>
-            </div>
-          ) : errorMessage ? (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
-              <p className="font-semibold text-destructive">読み込みに失敗しました</p>
-              <p className="mt-1 break-all text-xs text-muted-foreground">{errorMessage}</p>
-              <Button className="mt-4" variant="outline" onClick={() => void load()}>再試行</Button>
-            </div>
-          ) : plans.length === 0 ? (
-            <div className="rounded-xl border bg-card py-16 text-center text-muted-foreground">
-              投稿宣伝スケジュールはまだ登録されていません
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {plans.map((plan) => {
-                const planTasks = tasks.filter((task) => task.plan_id === plan.id);
-                const planChannels = channels.filter((channel) => channel.plan_id === plan.id);
-                const preparationTasks = planTasks.filter((task) => task.task_type === "preparation");
-                const postingTasks = planTasks.filter((task) => task.task_type === "posting");
-                const overall = taskProgress(planTasks);
-                const preparation = taskProgress(preparationTasks);
-                const posting = taskProgress(postingTasks);
-                const expanded = expandedPlanIds.has(plan.id);
-                const percentage = overall.total ? Math.round((overall.completed / overall.total) * 100) : 0;
-                const postingGroups = postingTasks.reduce<Array<{ key: string; date: string | null; label: string; tasks: PromotionTask[] }>>((groups, task) => {
-                  const key = `${task.scheduled_on || "none"}:${task.group_label}`;
-                  const existing = groups.find((group) => group.key === key);
-                  if (existing) existing.tasks.push(task);
-                  else groups.push({ key, date: task.scheduled_on, label: task.group_label, tasks: [task] });
-                  return groups;
-                }, []);
+              {loading ? (
+                <div className="rounded-xl border bg-card py-20 text-center">
+                  <Loader2 className="inline-block animate-spin text-primary" size={28} />
+                  <p className="mt-3 text-sm text-muted-foreground">スケジュールを読み込んでいます</p>
+                </div>
+              ) : errorMessage ? (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
+                  <p className="font-semibold text-destructive">読み込みに失敗しました</p>
+                  <p className="mt-1 break-all text-xs text-muted-foreground">{errorMessage}</p>
+                  <Button className="mt-4" variant="outline" onClick={() => void load()}>再試行</Button>
+                </div>
+              ) : plans.length === 0 ? (
+                <div className="rounded-xl border bg-card py-16 text-center text-muted-foreground">
+                  投稿宣伝スケジュールはまだ登録されていません
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {plans.map((plan) => {
+                    const planTasks = tasks.filter((task) => task.plan_id === plan.id);
+                    const planChannels = channels.filter((channel) => channel.plan_id === plan.id);
+                    const preparationTasks = planTasks.filter((task) => task.task_type === "preparation");
+                    const postingTasks = planTasks.filter((task) => task.task_type === "posting");
+                    const overall = taskProgress(planTasks);
+                    const preparation = taskProgress(preparationTasks);
+                    const posting = taskProgress(postingTasks);
+                    const expanded = expandedPlanIds.has(plan.id);
+                    const percentage = overall.total ? Math.round((overall.completed / overall.total) * 100) : 0;
+                    const postingGroups = postingTasks.reduce<Array<{ key: string; date: string | null; label: string; tasks: PromotionTask[] }>>((groups, task) => {
+                      const key = `${task.scheduled_on || "none"}:${task.group_label}`;
+                      const existing = groups.find((group) => group.key === key);
+                      if (existing) existing.tasks.push(task);
+                      else groups.push({ key, date: task.scheduled_on, label: task.group_label, tasks: [task] });
+                      return groups;
+                    }, []);
 
-                return (
-                  <section key={plan.id} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-                    <button
-                      type="button"
-                      className="w-full p-4 text-left transition-colors hover:bg-muted/30 sm:p-5"
-                      onClick={() => togglePlan(plan.id)}
-                      aria-expanded={expanded}
-                      aria-controls={`promotion-plan-${plan.id}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                          <UsersRound size={21} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-lg font-bold">{plan.therapist_label}</h2>
-                            {overall.completed === overall.total && overall.total > 0 ? (
-                              <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">すべて完了</Badge>
-                            ) : (
-                              <Badge variant="secondary">進行中</Badge>
-                            )}
-                          </div>
-                          <p className="mt-0.5 text-sm font-medium">{plan.title}</p>
-                          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <CalendarDays size={13} />{formatPeriod(plan.starts_on, plan.ends_on)}
-                          </p>
-                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-                            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percentage}%` }} />
-                          </div>
-                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                            <span>全体 {overall.completed}/{overall.total}</span>
-                            <span>準備物 {preparation.completed}/{preparation.total}</span>
-                            <span>告知 {posting.completed}/{posting.total}</span>
-                          </div>
-                        </div>
-                        {expanded ? <ChevronDown className="mt-2 flex-shrink-0 text-muted-foreground" size={20} /> : <ChevronRight className="mt-2 flex-shrink-0 text-muted-foreground" size={20} />}
-                      </div>
-                    </button>
-
-                    {expanded && (
-                      <div id={`promotion-plan-${plan.id}`} className="space-y-6 border-t bg-muted/10 p-4 sm:p-5">
-                        {plan.description && <p className="text-sm text-muted-foreground">{plan.description}</p>}
-
-                        <div>
-                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                            <h3 className="flex items-center gap-2 font-bold"><Megaphone size={18} className="text-primary" />宣伝先・掲載量</h3>
-                            <Button type="button" variant="outline" size="sm" onClick={() => openChannelEditor(plan)}>
-                              <Pencil size={14} className="mr-1.5" />編集
-                            </Button>
-                          </div>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            {planChannels.map((channel) => (
-                              <div key={channel.id} className={`rounded-lg border p-3 ${channel.is_enabled ? "bg-background" : "bg-muted/30 text-muted-foreground"}`}>
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="text-sm font-semibold">{channel.channel_label}</p>
-                                  <Badge variant={channel.is_enabled ? "secondary" : "outline"}>
-                                    {channel.is_enabled ? `${channel.placement_count}回` : "使用しない"}
-                                  </Badge>
-                                </div>
-                                <p className="mt-1.5 text-xs text-muted-foreground">
-                                  サイズ・仕様：{channel.size_spec || "未設定"}
-                                </p>
+                    return (
+                      <section key={plan.id} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+                        <button
+                          type="button"
+                          className="w-full p-4 text-left transition-colors hover:bg-muted/30 sm:p-5"
+                          onClick={() => togglePlan(plan.id)}
+                          aria-expanded={expanded}
+                          aria-controls={`promotion-plan-${plan.id}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                              <UsersRound size={21} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h2 className="text-lg font-bold">{plan.therapist_label}</h2>
+                                {overall.completed === overall.total && overall.total > 0 ? (
+                                  <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">すべて完了</Badge>
+                                ) : (
+                                  <Badge variant="secondary">進行中</Badge>
+                                )}
                               </div>
-                            ))}
+                              <p className="mt-0.5 text-sm font-medium">{plan.title}</p>
+                              <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <CalendarDays size={13} />{formatPeriod(plan.starts_on, plan.ends_on)}
+                              </p>
+                              <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percentage}%` }} />
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                <span>全体 {overall.completed}/{overall.total}</span>
+                                <span>準備物 {preparation.completed}/{preparation.total}</span>
+                                <span>告知 {posting.completed}/{posting.total}</span>
+                              </div>
+                            </div>
+                            {expanded ? <ChevronDown className="mt-2 flex-shrink-0 text-muted-foreground" size={20} /> : <ChevronRight className="mt-2 flex-shrink-0 text-muted-foreground" size={20} />}
                           </div>
-                        </div>
+                        </button>
 
-                        <div>
-                          <div className="mb-3 flex items-center justify-between">
-                            <h3 className="flex items-center gap-2 font-bold"><PackageCheck size={18} className="text-primary" />準備物</h3>
-                            <span className="text-xs font-semibold text-muted-foreground">{preparation.completed}/{preparation.total} 完了</span>
-                          </div>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            {preparationTasks.map((task) => (
-                              <TaskCheckbox key={task.id} task={task} saving={savingTaskIds.has(task.id)} onChange={toggleTask} />
-                            ))}
-                          </div>
-                        </div>
+                        {expanded && (
+                          <div id={`promotion-plan-${plan.id}`} className="space-y-6 border-t bg-muted/10 p-4 sm:p-5">
+                            {plan.description && <p className="text-sm text-muted-foreground">{plan.description}</p>}
 
-                        <div>
-                          <div className="mb-3 flex items-center justify-between">
-                            <h3 className="flex items-center gap-2 font-bold"><Megaphone size={18} className="text-primary" />告知スケジュール</h3>
-                            <span className="text-xs font-semibold text-muted-foreground">{posting.completed}/{posting.total} 完了</span>
-                          </div>
-                          <div className="space-y-3">
-                            {postingGroups.map((group) => {
-                              const groupProgress = taskProgress(group.tasks);
-                              const done = groupProgress.completed === groupProgress.total;
-                              return (
-                                <div key={group.key} className="overflow-hidden rounded-xl border bg-background">
-                                  <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/35 px-4 py-3">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-primary">{formatDate(group.date)}</span>
-                                      <span className="text-sm font-semibold">{group.label}</span>
+                            <div>
+                              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <h3 className="flex items-center gap-2 font-bold"><Megaphone size={18} className="text-primary" />宣伝先・掲載量</h3>
+                                <Button type="button" variant="outline" size="sm" onClick={() => openChannelEditor(plan)}>
+                                  <Pencil size={14} className="mr-1.5" />編集
+                                </Button>
+                              </div>
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                {planChannels.map((channel) => (
+                                  <div key={channel.id} className={`rounded-lg border p-3 ${channel.is_enabled ? "bg-background" : "bg-muted/30 text-muted-foreground"}`}>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <p className="text-sm font-semibold">{channel.channel_label}</p>
+                                      <Badge variant={channel.is_enabled ? "secondary" : "outline"}>
+                                        {channel.is_enabled ? `${channel.placement_count}回` : "使用しない"}
+                                      </Badge>
                                     </div>
-                                    <Badge variant={done ? "default" : "outline"} className={done ? "bg-emerald-600 hover:bg-emerald-600" : ""}>
-                                      {done ? "完了" : `${groupProgress.completed}/${groupProgress.total}`}
-                                    </Badge>
+                                    <p className="mt-1.5 text-xs text-muted-foreground">
+                                      サイズ・仕様：{channel.size_spec || "未設定"}
+                                    </p>
                                   </div>
-                                  <div className="grid gap-2 p-3 sm:grid-cols-2">
-                                    {group.tasks.map((task) => (
-                                      <TaskCheckbox key={task.id} task={task} saving={savingTaskIds.has(task.id)} onChange={toggleTask} />
-                                    ))}
-                                  </div>
-                                </div>
-                              );
-                            })}
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="mb-3 flex items-center justify-between">
+                                <h3 className="flex items-center gap-2 font-bold"><PackageCheck size={18} className="text-primary" />準備物</h3>
+                                <span className="text-xs font-semibold text-muted-foreground">{preparation.completed}/{preparation.total} 完了</span>
+                              </div>
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                {preparationTasks.map((task) => (
+                                  <TaskCheckbox key={task.id} task={task} saving={savingTaskIds.has(task.id)} onChange={toggleTask} />
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="mb-3 flex items-center justify-between">
+                                <h3 className="flex items-center gap-2 font-bold"><Megaphone size={18} className="text-primary" />告知スケジュール</h3>
+                                <span className="text-xs font-semibold text-muted-foreground">{posting.completed}/{posting.total} 完了</span>
+                              </div>
+                              <div className="space-y-3">
+                                {postingGroups.map((group) => {
+                                  const groupProgress = taskProgress(group.tasks);
+                                  const done = groupProgress.completed === groupProgress.total;
+                                  return (
+                                    <div key={group.key} className="overflow-hidden rounded-xl border bg-background">
+                                      <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/35 px-4 py-3">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-bold text-primary">{formatDate(group.date)}</span>
+                                          <span className="text-sm font-semibold">{group.label}</span>
+                                        </div>
+                                        <Badge variant={done ? "default" : "outline"} className={done ? "bg-emerald-600 hover:bg-emerald-600" : ""}>
+                                          {done ? "完了" : `${groupProgress.completed}/${groupProgress.total}`}
+                                        </Badge>
+                                      </div>
+                                      <div className="grid gap-2 p-3 sm:grid-cols-2">
+                                        {group.tasks.map((task) => (
+                                          <TaskCheckbox key={task.id} task={task} saving={savingTaskIds.has(task.id)} onChange={toggleTask} />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    )}
-                  </section>
-                );
-              })}
-            </div>
-          )}
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
 
