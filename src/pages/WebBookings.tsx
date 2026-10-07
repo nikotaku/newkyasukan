@@ -16,6 +16,7 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { PhoneCallLink } from "@/components/phone/PhoneCallLink";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -144,10 +145,6 @@ function formatBookingDate(dateValue: string, timeValue: string): string {
     ? subDays(storedDate, 1)
     : storedDate;
   return format(displayedDate, "yyyy/MM/dd（E）", { locale: ja });
-}
-
-function phoneHref(phone: string): string {
-  return `tel:${phone.replace(/(?!^\+)\D/g, "")}`;
 }
 
 function reservationStatusLabel(status: string): string {
@@ -559,13 +556,14 @@ export default function WebBookings() {
                           {booking.customer_name} 様
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
-                          <a
-                            href={phoneHref(booking.customer_phone)}
+                          <PhoneCallLink
+                            phone={booking.customer_phone}
+                            name={`${booking.customer_name} 様`}
                             className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline"
                           >
                             <Phone className="h-3.5 w-3.5" />
                             {booking.customer_phone}
-                          </a>
+                          </PhoneCallLink>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">{castName(booking)}</td>
                         <td className="max-w-56 px-4 py-3">{booking.course_name}</td>
@@ -631,13 +629,14 @@ export default function WebBookings() {
                       />
                     </div>
 
-                    <a
-                      href={phoneHref(booking.customer_phone)}
+                    <PhoneCallLink
+                      phone={booking.customer_phone}
+                      name={`${booking.customer_name} 様`}
                       className="flex items-center gap-2 rounded-lg border bg-primary/5 px-3 py-2.5 font-semibold text-primary"
                     >
                       <Phone className="h-4 w-4" />
                       {booking.customer_phone}
-                    </a>
+                    </PhoneCallLink>
 
                     <div className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-2.5 text-sm">
                       <span className="text-muted-foreground">予約日時</span>

@@ -19,6 +19,7 @@ import {
 } from "@/lib/customerRank";
 import { getCustomerInsights } from "@/lib/customerInsights";
 import { SmsHistory } from "@/components/SmsHistory";
+import { PhoneCallLink } from "@/components/phone/PhoneCallLink";
 
 /**
  * 顧客詳細ページ（/database/customers/:id）。
@@ -359,9 +360,9 @@ export default function CustomerDetail() {
                         ))}
                       </div>
                       {customer.phone && (
-                        <a href={`tel:${customer.phone.replace(/\D/g, "")}`} className="text-sm text-muted-foreground mt-1 inline-flex items-center gap-1.5 hover:underline">
+                        <PhoneCallLink phone={customer.phone} name={`${customer.name} 様`} className="text-sm text-muted-foreground mt-1 inline-flex items-center gap-1.5 hover:underline">
                           <Phone size={13} />{customer.phone}
-                        </a>
+                        </PhoneCallLink>
                       )}
                       {customer.is_banned && customer.ban_reason && (
                         <p className="text-xs text-red-600 mt-1">禁止理由：{customer.ban_reason}</p>

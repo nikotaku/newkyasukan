@@ -120,6 +120,7 @@ import InquiryStats from "./pages/InquiryStats";
 import Tasks from "./pages/Tasks";
 import SmsInbox from "./pages/SmsInbox";
 import NotificationSettings from "./pages/NotificationSettings";
+import PhoneSettings from "./pages/PhoneSettings";
 import Bios from "./pages/Bios";
 import CtiCalls from "./pages/CtiCalls";
 import CustomerDetail from "./pages/CustomerDetail";
@@ -300,6 +301,7 @@ const App = () => {
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/sms" element={<SmsInbox />} />
           <Route path="/settings/notifications" element={<NotificationSettings />} />
+          <Route path="/settings/phone" element={<PhoneSettings />} />
           <Route path="/bios" element={<Bios />} />
           <Route path="/panel-manual" element={<PanelPhotoManual />} />
           <Route path="/service-manual" element={<CustomerServiceManual />} />
