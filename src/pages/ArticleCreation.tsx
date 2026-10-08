@@ -104,13 +104,13 @@ export default function ArticleCreation() {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) throw new Error("ログインが期限切れです");
-      const response = await fetch("/api/automations/estama-store-news", {
+      const response = await fetch("/api/automations/estama", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ articleId }),
+        body: JSON.stringify({ action: "store-news", storeId, articleId }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "エステ魂への投稿に失敗しました");

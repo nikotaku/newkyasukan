@@ -2,7 +2,10 @@ import {
   assertStoreManager,
   authenticateUser,
   enqueueCastJob,
+  EstamaSubmissionUncertainError,
+  getAdminClient,
   getConnection,
+  LoginRequiredError,
   processAvailableJobs,
   startLoginSetup,
   verifyLoginSetup,
@@ -10,6 +13,7 @@ import {
 import { waitUntil } from "@vercel/functions";
 import { describeError } from "../../server/estama-error.js";
 import { processO2StoreAvailabilityPost } from "../../server/o2-store-availability.js";
+import { postEstamaStoreNews } from "../../server/estama-store-news.js";
 
 export const config = { maxDuration: 300 };
 
@@ -26,6 +30,106 @@ type ResponseLike = {
 };
 
 const stringValue = (value: unknown) => typeof value === "string" ? value : "";
+
+async function publishStoreNews(
+  admin: Awaited<ReturnType<typeof authenticateUser>>["admin"],
+  storeId: string,
+  articleId: string,
+) {
+  if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(articleId)) {
+    return { statusCode: 400, body: { error: "記事IDを確認してください" } };
+  }
+
+  let service: ReturnType<typeof getAdminClient> | null = null;
+  let lockedArticleId: string | null = null;
+  try {
+    const { data: article, error } = await admin
+      .from("hp_articles")
+      .select("id,store_id,title,content,image_urls,is_published,estama_status,estama_error,estama_attempts,estama_news_url")
+      .eq("id", articleId)
+      .eq("store_id", storeId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!article) return { statusCode: 404, body: { error: "記事が見つかりません" } };
+    if (!article.is_published) {
+      return { statusCode: 422, body: { error: "公開済みの記事だけエステ魂へ投稿できます" } };
+    }
+    if (article.estama_status === "posted") {
+      return { statusCode: 200, body: { status: "posted", skipped: true, url: article.estama_news_url } };
+    }
+    if (article.estama_status === "posting") {
+      return { statusCode: 409, body: { error: "エステ魂への投稿処理中です" } };
+    }
+    if (article.estama_error?.startsWith("【要確認・再送停止】")) {
+      return { statusCode: 409, body: { error: article.estama_error, status: "review_required" } };
+    }
+
+    service = getAdminClient();
+    const { data: locked, error: lockError } = await service
+      .from("hp_articles")
+      .update({
+        estama_status: "posting",
+        estama_error: null,
+        estama_attempts: (article.estama_attempts || 0) + 1,
+      })
+      .eq("id", article.id)
+      .eq("store_id", storeId)
+      .eq("estama_status", article.estama_status || "pending")
+      .select("id,store_id,title,content,image_urls")
+      .maybeSingle();
+    if (lockError) throw lockError;
+    if (!locked) return { statusCode: 409, body: { error: "別の投稿処理が開始されています" } };
+    lockedArticleId = locked.id;
+
+    const connection = await getConnection(service, storeId);
+    if (!connection) throw new LoginRequiredError("エステ魂の連携設定がありません");
+    const result = await postEstamaStoreNews(service, connection, locked);
+    const postedAt = new Date().toISOString();
+    const { error: updateError } = await service.from("hp_articles").update({
+      estama_status: "posted",
+      estama_error: null,
+      estama_posted_at: postedAt,
+      estama_news_url: result.url,
+    }).eq("id", locked.id);
+    if (updateError) {
+      throw new EstamaSubmissionUncertainError(
+        "エステ魂への掲載は確認できましたが、HP側の完了記録に失敗しました",
+      );
+    }
+    return { statusCode: 200, body: { status: "posted", url: result.url, postedAt } };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const loginRequired = error instanceof LoginRequiredError;
+    const uncertain = error instanceof EstamaSubmissionUncertainError;
+    if (service && lockedArticleId) {
+      await service.from("hp_articles").update({
+        estama_status: loginRequired ? "pending" : "failed",
+        estama_error: message,
+      }).eq("id", lockedArticleId);
+      if (loginRequired) {
+        await service.from("automation_connections").update({
+          status: "expired",
+          last_error: message,
+        }).eq("provider", "estama").eq("store_id", storeId);
+      }
+    }
+    console.warn(JSON.stringify({
+      level: "warn",
+      msg: "estama_store_news_failed",
+      articleId,
+      loginRequired,
+      uncertain,
+      error: message,
+    }));
+    return {
+      statusCode: loginRequired ? 409 : uncertain ? 422 : 500,
+      body: {
+        error: message,
+        status: loginRequired ? "login_required" : uncertain ? "review_required" : "failed",
+      },
+    };
+  }
+}
 
 // レスポンスを返した後も、関数の時間内（maxDuration）は処理を続ける。画面を閉じても・通信が切れても止まらない
 function runInBackground(event: string, work: Promise<Array<{ id: string; status: string }>>) {
@@ -86,6 +190,18 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       return;
     }
 
+    const action = stringValue(source.action);
+    if (action === "store-news") {
+      if (req.method !== "POST") {
+        res.setHeader("Allow", "POST");
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+      }
+      const result = await publishStoreNews(admin, storeId, stringValue(source.articleId).trim());
+      res.status(result.statusCode).json(result.body);
+      return;
+    }
+
     if (req.method === "GET") {
       const [connection, jobsResult] = await Promise.all([
         getConnection(admin, storeId),
@@ -97,7 +213,6 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       return;
     }
 
-    const action = stringValue(source.action);
     if (action === "setup") {
       const result = await startLoginSetup(admin, storeId);
       res.status(200).json(result);
