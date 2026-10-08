@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
@@ -18,6 +18,7 @@ import {
 import { ESTAMA_CAST_PHOTO_STYLE } from "@/lib/publicCastPhoto";
 import { trackPublicEvent } from "@/lib/publicAnalytics";
 import { menestheNowEmbedUrl, parseMenestheNowWidget } from "@/lib/menestheNowWidget";
+import { ENKA_FALLBACK_HERO_BANNER, normalizeHeroBanners } from "@/lib/heroBanners";
 
 /**
  * 艶華専用トップページ（デフォルト店舗以外で "/" に表示）。
@@ -122,13 +123,12 @@ export default function EnkaHome() {
   const storeName = store?.name ?? "艶華";
   const storeSettings = store?.settings ?? {};
   const tagline = typeof storeSettings.tagline === "string" ? storeSettings.tagline : "艶やかに、咲き誇る。";
-  const banners = Array.isArray(storeSettings.hero_banners)
-    ? storeSettings.hero_banners.filter(
-        (value): value is string => typeof value === "string" && value.trim().length > 0,
-      )
-    : [];
+  const configuredBanners = useMemo(
+    () => normalizeHeroBanners(storeSettings.hero_banners),
+    [storeSettings.hero_banners],
+  );
   // PLANにはプランに関係する3枚目以降だけを表示する。
-  const planBanners = banners.slice(2);
+  const planBanners = configuredBanners.slice(2);
 
   // イベント動画を既定表示し、stores.settings.hero_video でURLや表示可否を上書きできる。
   // イベント終了後は { enabled: false } にするだけで通常のバナーへ戻せる。
@@ -147,6 +147,7 @@ export default function EnkaHome() {
 
   const [slide, setSlide] = useState(0);
   const [failedHeroVideoUrl, setFailedHeroVideoUrl] = useState<string | null>(null);
+  const [failedHeroBanners, setFailedHeroBanners] = useState<string[]>([]);
   const [todayShifts, setTodayShifts] = useState<ShiftRow[]>([]);
   const [reservations, setReservations] = useState<ReservationRow[]>([]);
   const [intervalMinutes, setIntervalMinutes] = useState(DEFAULT_RESERVATION_INTERVAL_MINUTES);
@@ -159,6 +160,20 @@ export default function EnkaHome() {
 
   const showHeroVideo =
     heroVideoEnabled && heroVideoUrl.length > 0 && failedHeroVideoUrl !== heroVideoUrl;
+  const availableBanners = configuredBanners.filter((url) => !failedHeroBanners.includes(url));
+  const banners = availableBanners.length > 0
+    ? availableBanners
+    : failedHeroBanners.includes(ENKA_FALLBACK_HERO_BANNER)
+      ? []
+      : [ENKA_FALLBACK_HERO_BANNER];
+
+  useEffect(() => {
+    setFailedHeroBanners((failed) => failed.filter((url) => configuredBanners.includes(url)));
+  }, [configuredBanners]);
+
+  useEffect(() => {
+    if (slide >= banners.length) setSlide(0);
+  }, [banners.length, slide]);
 
   useEffect(() => {
     if (showHeroVideo || banners.length < 2) return;
@@ -369,8 +384,11 @@ export default function EnkaHome() {
                   key={b}
                   src={b}
                   alt={`${storeName} プランバナー${i + 1}`}
+                  loading={i === 0 ? "eager" : "lazy"}
+                  fetchPriority={i === 0 ? "high" : "auto"}
                   className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000 ease-in-out"
                   style={{ opacity: slide === i ? 1 : 0 }}
+                  onError={() => setFailedHeroBanners((failed) => failed.includes(b) ? failed : [...failed, b])}
                 />
               ))}
             </div>

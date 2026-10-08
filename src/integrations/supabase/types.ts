@@ -2133,6 +2133,7 @@ export type Database = {
           cleared_at: string | null
           created_at: string
           date: string
+          draft_saved_at: string | null
           id: string
           misc_expenses: number
           other_expenses: Json
@@ -2151,6 +2152,7 @@ export type Database = {
           cleared_at?: string | null
           created_at?: string
           date: string
+          draft_saved_at?: string | null
           id?: string
           misc_expenses?: number
           other_expenses?: Json
@@ -2169,6 +2171,7 @@ export type Database = {
           cleared_at?: string | null
           created_at?: string
           date?: string
+          draft_saved_at?: string | null
           id?: string
           misc_expenses?: number
           other_expenses?: Json
@@ -3389,6 +3392,11 @@ export type Database = {
           category: string | null
           content: string | null
           created_at: string
+          estama_attempts: number
+          estama_error: string | null
+          estama_news_url: string | null
+          estama_posted_at: string | null
+          estama_status: string
           id: string
           image_urls: string[]
           is_published: boolean
@@ -3401,6 +3409,11 @@ export type Database = {
           category?: string | null
           content?: string | null
           created_at?: string
+          estama_attempts?: number
+          estama_error?: string | null
+          estama_news_url?: string | null
+          estama_posted_at?: string | null
+          estama_status?: string
           id?: string
           image_urls?: string[]
           is_published?: boolean
@@ -3413,6 +3426,11 @@ export type Database = {
           category?: string | null
           content?: string | null
           created_at?: string
+          estama_attempts?: number
+          estama_error?: string | null
+          estama_news_url?: string | null
+          estama_posted_at?: string | null
+          estama_status?: string
           id?: string
           image_urls?: string[]
           is_published?: boolean
@@ -6738,6 +6756,20 @@ export type Database = {
         Returns: undefined
       }
       norm_phone: { Args: { p: string }; Returns: string }
+      partial_update_daily_clearance: {
+        Args: {
+          p_accommodation_fee: number
+          p_cast_id: string
+          p_date: string
+          p_misc_expenses: number
+          p_other_expenses: Json
+          p_payout_method: string | null
+          p_therapist_back: number
+          p_total_sales: number
+          p_transportation_fee: number
+        }
+        Returns: undefined
+      }
       record_recruit_lp_event: {
         Args: {
           p_event: "exposure" | "cta_click"

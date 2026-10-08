@@ -24,6 +24,7 @@ import {
   Video,
 } from "lucide-react";
 import type { Json } from "@/integrations/supabase/types";
+import { normalizeHeroBanners } from "@/lib/heroBanners";
 
 interface HeroVideoSettings {
   enabled: boolean;
@@ -86,9 +87,7 @@ export default function HpTopBanners() {
     }
 
     const settings = (data.settings ?? {}) as StoreSettings;
-    const configuredBanners = Array.isArray(settings.hero_banners)
-      ? settings.hero_banners.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
-      : [];
+    const configuredBanners = normalizeHeroBanners(settings.hero_banners);
     const configuredVideo = settings.hero_video && typeof settings.hero_video === "object"
       ? settings.hero_video
       : {};
@@ -187,7 +186,7 @@ export default function HpTopBanners() {
 
   const saveSettings = async () => {
     setSaving(true);
-    const normalizedBanners = banners.map((url) => url.trim()).filter(Boolean);
+    const normalizedBanners = normalizeHeroBanners(banners);
     const nextSettings: StoreSettings = {
       ...storeSettings,
       hero_banners: normalizedBanners,
@@ -198,14 +197,16 @@ export default function HpTopBanners() {
       },
     };
 
-    const { error } = await supabase
+    const { data: savedStore, error } = await supabase
       .from("stores")
       .update({ settings: nextSettings })
-      .eq("id", storeId);
+      .eq("id", storeId)
+      .select("id")
+      .maybeSingle();
 
-    if (error) {
+    if (error || !savedStore) {
       console.error("Error saving homepage banner settings:", error);
-      toast.error(error.message || "保存に失敗しました");
+      toast.error(error?.message || "保存対象の店舗を確認できませんでした");
       setSaving(false);
       return;
     }

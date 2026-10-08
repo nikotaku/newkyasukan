@@ -91,7 +91,7 @@
           "value": "enka"
         }
       ],
-      "destination": "/api/spa"
+      "destination": "/api/spa?path=$1"
     },
     {
       "source": "/(.*)",
@@ -101,7 +101,7 @@
           "value": "(www\\.)?enka-salon\\.jp"
         }
       ],
-      "destination": "/api/spa"
+      "destination": "/api/spa?path=$1"
     },
     {
       "source": "/(.*)",

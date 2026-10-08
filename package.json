@@ -25,7 +25,7 @@
     "test:report-email": "node --experimental-strip-types --test tests/reportEmailParse.test.ts",
     "test:media-registration": "node --experimental-strip-types --test tests/mediaRegistration.test.ts",
     "test:room-entry": "node --experimental-strip-types --test tests/roomEntry.test.ts",
-    "test:clearance-defaults": "node --experimental-strip-types --test tests/clearanceDefaults.test.ts tests/settlementApproval.test.ts",
+    "test:clearance-defaults": "node --experimental-strip-types --test tests/clearanceDefaults.test.ts tests/dailyClearanceDraft.test.ts tests/settlementApproval.test.ts",
     "test:subline": "node --experimental-strip-types --test tests/sublinePhone.test.ts",
     "test:therapist-monthly-count": "node --experimental-strip-types --test tests/therapistMonthlyCount.test.ts",
     "test:promotion-quota": "node --experimental-strip-types --test tests/promotionQuota.test.ts",
