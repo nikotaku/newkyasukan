@@ -38,6 +38,8 @@ import {
   sumClearanceExtraItems,
 } from "@/lib/clearanceExtraItems";
 import { DEKASEGI_ACCOMMODATION_PER_DAY, defaultMiscExpenses, isDekasegiTherapist, miscExpensesHint } from "@/lib/clearanceDefaults";
+import { isFinalizedDailyClearance, resolveDraftTherapistBack } from "@/lib/dailyClearanceDraft";
+import type { Json } from "@/integrations/supabase/types";
 
 interface Reservation {
   id: string;
@@ -55,6 +57,8 @@ interface Reservation {
   payment_fee: number | null;
   payment_method: string | null;
   payment_details: { method: string; amount: number }[] | null;
+  created_at: string;
+  updated_at: string;
   casts: { id: string; name: string; tags: string[] | null } | null;
   // 計算済みバック内訳
   courseBack?: number;
@@ -79,6 +83,7 @@ interface CastGroup {
 interface Clearance {
   id: string;
   cast_id: string;
+  total_sales: number;
   therapist_back: number;
   misc_expenses: number;
   accommodation_fee: number;
@@ -88,6 +93,7 @@ interface Clearance {
   status: string;
   cleared_at: string | null;
   created_at?: string | null;
+  draft_saved_at?: string | null;
   other_expenses: unknown;
 }
 
@@ -104,6 +110,9 @@ interface ClearanceInput {
 }
 
 const yen = (v: number) => v === 0 ? "¥0" : `¥${v.toLocaleString()}`;
+
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : "不明なエラー";
 
 const getClearanceAmounts = (input: ClearanceInput) => {
   const otherTotal = sumClearanceExtraItems(input.otherItems);
@@ -165,6 +174,7 @@ export default function SalesDailySales() {
   const [clearances, setClearances] = useState<Record<string, Clearance>>({});
   const [clearanceInputs, setClearanceInputs] = useState<Record<string, ClearanceInput>>({});
   const [draftSavedAt, setDraftSavedAt] = useState<Record<string, string>>({});
+  const [draftRecalculated, setDraftRecalculated] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   // マイページから届いた精算（売上）・承認した精算・不足分
   const [submissions, setSubmissions] = useState<Record<string, { status: string; created_at: string }>>({});
@@ -229,7 +239,7 @@ export default function SalesDailySales() {
       const [resResult, nextResResult, backRatesResult, optionRatesResult, nominationRatesResult, clearResult, tokensResult, outstandingRows] = await Promise.all([
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, payment_method, payment_details, casts(id, name, tags)")
+          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, payment_method, payment_details, created_at, updated_at, casts(id, name, tags)")
           .eq("reservation_date", dateStr)
           .gte("start_time", dayStartTime) // 営業開始時刻以前は前日の深夜またぎ分なので除外
           .in("status", ["confirmed", "completed"])
@@ -237,7 +247,7 @@ export default function SalesDailySales() {
         // 深夜またぎ分：翌日日付で保存されているが営業開始前の予約は当日扱い
         supabase
           .from("reservations")
-          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, payment_method, payment_details, casts(id, name, tags)")
+          .select("id, customer_name, start_time, course_name, price, discount, status, course_type, duration, cast_id, options, nomination_type, payment_fee, payment_method, payment_details, created_at, updated_at, casts(id, name, tags)")
           .eq("reservation_date", nextDateStr)
           .lt("start_time", dayStartTime)
           .in("status", ["confirmed", "completed"])
@@ -246,7 +256,7 @@ export default function SalesDailySales() {
         supabase.from("option_rates").select("option_name, therapist_back"),
         supabase.from("nomination_rates").select("nomination_type, therapist_back"),
         supabase
-          .from("daily_clearances" as any)
+          .from("daily_clearances")
           .select("*")
           .eq("date", dateStr),
         supabase.rpc("get_cast_access_tokens"),
@@ -355,11 +365,19 @@ export default function SalesDailySales() {
       setClearances(clearMap);
 
       const inputs: Record<string, ClearanceInput> = {};
+      const recalculatedDrafts: Record<string, boolean> = {};
       for (const g of groupList) {
         const ex = clearMap[g.castId];
         const { deductions, salaryAdditions } = splitClearanceExtraItems(ex?.other_expenses);
+        const resolvedBack = resolveDraftTherapistBack({
+          clearance: ex,
+          currentTotalSales: g.totalSales,
+          currentAutoBack: g.autoBack,
+          reservationUpdatedAts: g.reservations.flatMap((reservation) => [reservation.created_at, reservation.updated_at]),
+        });
+        if (resolvedBack.recalculated) recalculatedDrafts[g.castId] = true;
         inputs[g.castId] = {
-          therapistBack: ex?.therapist_back ?? g.autoBack,
+          therapistBack: resolvedBack.therapistBack,
           // まだ保存していない日は、雑費（1本¥1,000・1日¥2,000まで）と出稼ぎの宿泊費（1日¥2,000）を自動で入れる
           miscExpenses: ex?.misc_expenses ?? defaultMiscExpenses(g.reservations.length),
           accommodationFee: ex?.accommodation_fee ?? (g.isDekasegi ? DEKASEGI_ACCOMMODATION_PER_DAY : 0),
@@ -377,11 +395,14 @@ export default function SalesDailySales() {
         };
       }
       setClearanceInputs(inputs);
+      setDraftRecalculated(recalculatedDrafts);
       // 途中保存(draft)が残っているキャストは保存済み時刻を表示する
       const draftMap: Record<string, string> = {};
       for (const g of groupList) {
         const ex = clearMap[g.castId];
-        if (ex?.status === "draft" && ex.created_at) draftMap[g.castId] = ex.created_at;
+        if (ex?.status === "draft" && (ex.draft_saved_at || ex.created_at)) {
+          draftMap[g.castId] = ex.draft_saved_at || ex.created_at!;
+        }
       }
       setDraftSavedAt(draftMap);
       await loadSettlementState(dateStr, groupList.map((g) => g.castId), outstandingRows);
@@ -412,7 +433,7 @@ export default function SalesDailySales() {
     if (focus.openReceipt) setReceiptCastId(focus.castId);
   }, [loading, castGroups]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const updateInput = (castId: string, field: keyof ClearanceInput, value: any) => {
+  const updateInput = <K extends keyof ClearanceInput>(castId: string, field: K, value: ClearanceInput[K]) => {
     setClearanceInputs((prev) => ({ ...prev, [castId]: { ...prev[castId], [field]: value } }));
   };
 
@@ -424,7 +445,7 @@ export default function SalesDailySales() {
     updateInput(group.castId, "saving", true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
     try {
-      const { error } = await supabase.rpc("partial_update_daily_clearance" as any, {
+      const { error } = await supabase.rpc("partial_update_daily_clearance", {
         p_cast_id: group.castId,
         p_date: dateStr,
         p_total_sales: group.totalSales,
@@ -432,21 +453,22 @@ export default function SalesDailySales() {
         p_misc_expenses: input.miscExpenses,
         p_accommodation_fee: input.accommodationFee,
         p_transportation_fee: input.transportationFee,
-        p_other_expenses: combineClearanceExtraItems(input.otherItems, input.salaryAdjustmentItems, { keepZeroAmount: true }) as any,
+        p_other_expenses: combineClearanceExtraItems(input.otherItems, input.salaryAdjustmentItems, { keepZeroAmount: true }) as Json,
         p_payout_method: input.payoutMethod || null,
       });
       if (error) throw error;
       toast.success(`${group.castName} の入力内容を保存しました（清算はまだです）`);
-      const { data } = await supabase.from("daily_clearances" as any).select("*").eq("date", dateStr);
+      const { data } = await supabase.from("daily_clearances").select("*").eq("date", dateStr);
       const clearMap: Record<string, Clearance> = {};
       for (const c of (data as unknown as Clearance[]) || []) clearMap[c.cast_id] = c;
       setClearances(clearMap);
       const draftRow = clearMap[group.castId];
       if (draftRow?.status === "draft") {
         setDraftSavedAt((prev) => ({ ...prev, [group.castId]: new Date().toISOString() }));
+        setDraftRecalculated((prev) => ({ ...prev, [group.castId]: false }));
       }
-    } catch (e: any) {
-      toast.error(`途中保存に失敗しました: ${e?.message ?? "不明なエラー"}`);
+    } catch (error: unknown) {
+      toast.error(`途中保存に失敗しました: ${errorMessage(error)}`);
     } finally {
       updateInput(group.castId, "saving", false);
     }
@@ -462,6 +484,16 @@ export default function SalesDailySales() {
   const handleClear = async (group: CastGroup) => {
     const input = clearanceInputs[group.castId];
     if (!input) return;
+    if (input.therapistBack !== group.autoBack) {
+      const confirmed = window.confirm(
+        `給与バックが自動計算と一致しません。\n\n入力額：${yen(input.therapistBack)}\n自動計算：${yen(group.autoBack)}\n\n手動変更した金額で承認しますか？`,
+      );
+      if (!confirmed) {
+        setReceiptCastId(null);
+        toast.info("給与バックを確認してから、もう一度承認してください");
+        return;
+      }
+    }
     updateInput(group.castId, "submitting", true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
     // セラピスト給与 = バック - 雑費 - 宿泊費 + 交通費 - その他控除 + 給与調整
@@ -485,9 +517,9 @@ export default function SalesDailySales() {
       });
       if (error) throw error;
 
-      if (!clearances[group.castId]) {
+      if (!isFinalizedDailyClearance(clearances[group.castId])) {
         // ポイント加算（RPC が無い/失敗してもエラーで止めない）
-        const { error: ptErr } = await supabase.rpc("increment_cast_points" as any, {
+        const { error: ptErr } = await supabase.rpc("increment_cast_points", {
           p_cast_id: group.castId,
           p_points: 0.5,
         });
@@ -496,14 +528,14 @@ export default function SalesDailySales() {
 
       // 交通費を経費管理テーブルに連携（既存レコード削除→再挿入）
       await supabase
-        .from("expenses" as any)
+        .from("expenses")
         .delete()
         .eq("cast_id", group.castId)
         .eq("expense_date", dateStr)
         .eq("expense_type", "交通費")
         .ilike("description", "日別清算より%");
       if (input.transportationFee > 0) {
-        await supabase.from("expenses" as any).insert({
+        await supabase.from("expenses").insert({
           expense_date: dateStr,
           expense_type: "交通費",
           amount: input.transportationFee,
@@ -543,13 +575,14 @@ export default function SalesDailySales() {
             }
           : current
       )));
-      const { data } = await supabase.from("daily_clearances" as any).select("*").eq("date", dateStr);
+      const { data } = await supabase.from("daily_clearances").select("*").eq("date", dateStr);
       const clearMap: Record<string, Clearance> = {};
       for (const c of (data as Clearance[]) || []) clearMap[c.cast_id] = c;
       setClearances(clearMap);
+      setDraftRecalculated((prev) => ({ ...prev, [group.castId]: false }));
       reloadSettlement();
-    } catch (e: any) {
-      toast.error(`清算に失敗しました: ${e?.message ?? "不明なエラー"}`);
+    } catch (error: unknown) {
+      toast.error(`清算に失敗しました: ${errorMessage(error)}`);
     } finally {
       updateInput(group.castId, "submitting", false);
     }
@@ -566,7 +599,8 @@ export default function SalesDailySales() {
   );
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
-  const allCleared = castGroups.length > 0 && castGroups.every((g) => clearances[g.castId]);
+  const allCleared = castGroups.length > 0
+    && castGroups.every((g) => isFinalizedDailyClearance(clearances[g.castId]));
 
   // 当日合計
   const dayTotalReservations = castGroups.reduce((s, g) => s + g.reservations.length, 0);
@@ -689,7 +723,7 @@ export default function SalesDailySales() {
                       <tbody className="divide-y">
                         {castGroups.map((g) => {
                           const input = clearanceInputs[g.castId] ?? { therapistBack: 0, miscExpenses: 0, accommodationFee: 0, transportationFee: 0, otherItems: [], salaryAdjustmentItems: [], payoutMethod: "", submitting: false, saving: false };
-                          const cleared = clearances[g.castId];
+                          const cleared = isFinalizedDailyClearance(clearances[g.castId]);
                           const { salary } = getClearanceAmounts(input);
                           const storeShare = g.totalSales - salary;
                           return (
@@ -702,7 +736,9 @@ export default function SalesDailySales() {
                               <td className="px-3 py-2.5 text-right">
                                 {cleared
                                   ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">済</span>
-                                  : <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">未</span>}
+                                  : draftSavedAt[g.castId]
+                                    ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-700">途中</span>
+                                    : <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">未</span>}
                               </td>
                             </tr>
                           );
@@ -742,7 +778,8 @@ export default function SalesDailySales() {
               {/* ── 個別清算フォーム ── */}
               {castGroups.map((g) => {
                 const input = clearanceInputs[g.castId] ?? { therapistBack: 0, miscExpenses: 0, accommodationFee: 0, transportationFee: 0, otherItems: [], salaryAdjustmentItems: [], payoutMethod: "", submitting: false, saving: false };
-                const cleared = clearances[g.castId];
+                const clearance = clearances[g.castId];
+                const cleared = isFinalizedDailyClearance(clearance);
                 const { otherTotal, salaryAdjustmentTotal, salary } = getClearanceAmounts(input);
                 // 店落ち（店舗取り分）= 売上 - セラピスト給与
                 const payout = g.totalSales - salary;
@@ -774,6 +811,8 @@ export default function SalesDailySales() {
                             <Badge className="bg-green-100 text-green-700 text-xs border-0">
                               <CheckCircle size={10} className="mr-1" />清算済み
                             </Badge>
+                          ) : draftSavedAt[g.castId] ? (
+                            <Badge variant="outline" className="text-sky-700 border-sky-300 text-xs">途中保存</Badge>
                           ) : (
                             <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs">未清算</Badge>
                           )}
@@ -873,6 +912,11 @@ export default function SalesDailySales() {
                           />
                           {g.autoBack > 0 && input.therapistBack === g.autoBack && (
                             <p className="text-[10px] text-muted-foreground mt-0.5">バック表より自動入力</p>
+                          )}
+                          {draftRecalculated[g.castId] && (
+                            <p className="text-[10px] font-medium text-amber-700 mt-0.5">
+                              途中保存後に予約が変わったため、最新のバックへ再計算しました
+                            </p>
                           )}
                         </div>
                         <div>
@@ -1049,7 +1093,7 @@ export default function SalesDailySales() {
                               size="sm"
                               className="h-7 px-2 text-xs border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50"
                               onClick={() => handleSaveDraft(g)}
-                              disabled={input.saving || input.submitting}
+                              disabled={input.saving || input.submitting || cleared}
                             >
                               {input.saving
                                 ? <Loader2 size={12} className="mr-1 animate-spin" />
@@ -1148,9 +1192,9 @@ export default function SalesDailySales() {
                         </Button>
                       </div>
 
-                      {cleared && !approval && cleared.cleared_at && (
+                      {cleared && !approval && clearance?.cleared_at && (
                         <p className="text-xs text-center text-muted-foreground">
-                          {format(new Date(cleared.cleared_at), "M/d HH:mm")} に清算済み · 投函金額 {yen(cleared.payout_amount)}
+                          {format(new Date(clearance.cleared_at), "M/d HH:mm")} に清算済み · 投函金額 {yen(clearance.payout_amount)}
                         </p>
                       )}
                       {approval && (

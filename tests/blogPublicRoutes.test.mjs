@@ -87,6 +87,22 @@ test("missing blog article receives noindex metadata", async () => {
   }
 });
 
+test("rewritten root path keeps homepage metadata", async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async (url) => {
+    if (String(url).endsWith("/index.html")) return new Response(baseHtml, { status: 200 });
+    throw new Error(`Unexpected fetch: ${String(url)}`);
+  };
+  try {
+    const res = makeResponse();
+    await spaHandler({ headers: { host: "enka-salon.jp" }, url: "/api/spa?path=", query: { path: "" } }, res);
+    assert.match(res.result.body, /<title>仙台・北四番丁のメンズエステ 艶華｜本日の出勤・Web予約<\/title>/);
+    assert.match(res.result.body, /<link rel="canonical" href="https:\/\/enka-salon\.jp\/">/);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("sitemap includes published blog URLs", async () => {
   const originalFetch = global.fetch;
   global.fetch = async (url) => {

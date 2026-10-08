@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Plus, Trash2, Edit2, Sparkles, Loader2, Globe, EyeOff, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
+import { useAdminStore } from "@/hooks/useAdminStore";
 
 interface Article {
   id: string;
@@ -30,6 +31,9 @@ interface Article {
   created_at: string;
   is_published: boolean;
   image_urls: string[] | null;
+  estama_status: string;
+  estama_error: string | null;
+  estama_news_url: string | null;
 }
 
 export default function ArticleCreation() {
@@ -55,8 +59,10 @@ export default function ArticleCreation() {
   const [aiLoading, setAiLoading] = useState(false);
   const [autoNewsTopic, setAutoNewsTopic] = useState("");
   const [autoNewsLoading, setAutoNewsLoading] = useState(false);
+  const [estamaSyncingId, setEstamaSyncingId] = useState<string | null>(null);
 
   const { user, loading: authLoading } = useAuth();
+  const { storeId, loading: storeLoading } = useAdminStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -65,18 +71,13 @@ export default function ArticleCreation() {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    if (user) {
-      fetchArticles();
-    }
-  }, [user]);
-
-  const fetchArticles = async () => {
+  const fetchArticles = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from("hp_articles")
         .select("*")
+        .eq("store_id", storeId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -87,9 +88,42 @@ export default function ArticleCreation() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [storeId]);
+
+  useEffect(() => {
+    if (user && !storeLoading) {
+      void fetchArticles();
+    }
+  }, [user, storeLoading, fetchArticles]);
 
   const AI_CATEGORIES = ["coupon", "schedule", "newstaff"];
+
+  const publishToEstama = async (articleId: string) => {
+    setEstamaSyncingId(articleId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("ログインが期限切れです");
+      const response = await fetch("/api/automations/estama", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "store-news", storeId, articleId }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "エステ魂への投稿に失敗しました");
+      toast.success(result.skipped ? "エステ魂には投稿済みです" : "エステ魂のニュースにも投稿しました");
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "エステ魂への投稿に失敗しました";
+      toast.warning(`HPへの公開は完了しました。${message}`);
+      return false;
+    } finally {
+      setEstamaSyncingId(null);
+    }
+  };
 
   const handleAiGenerate = async () => {
     const category = formData.category;
@@ -109,7 +143,7 @@ export default function ArticleCreation() {
     setAiLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-cast-content", {
-        body: { type: category, ...aiInputs },
+        body: { type: category, storeId, ...aiInputs },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -138,7 +172,7 @@ export default function ArticleCreation() {
     try {
       const topic = autoNewsTopic.trim();
       const { data, error } = await supabase.functions.invoke("generate-cast-content", {
-        body: { type: "news", newsTitle: topic || undefined },
+        body: { type: "news", newsTitle: topic || undefined, storeId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -147,8 +181,9 @@ export default function ArticleCreation() {
       const title = topic || `新着ニュース ${format(new Date(), "M月d日", { locale: ja })}`;
       const slug = `news-${Date.now()}`;
 
-      const { error: insertError } = await supabase.from("hp_articles").insert([
+      const { data: insertedArticle, error: insertError } = await supabase.from("hp_articles").insert([
         {
+          store_id: storeId,
           title,
           slug,
           content: data.content,
@@ -156,11 +191,12 @@ export default function ArticleCreation() {
           is_published: true,
           image_urls: Array.isArray(data.images) ? data.images : [],
         },
-      ]);
+      ]).select("id").single();
       if (insertError) throw insertError;
 
-      toast.success("ニュースを自動生成して公開しました");
+      toast.success("ニュースを自動生成してHPへ公開しました");
       setAutoNewsTopic("");
+      await publishToEstama(insertedArticle.id);
       fetchArticles();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "自動投稿に失敗しました");
@@ -222,8 +258,9 @@ export default function ArticleCreation() {
     const slug = formData.slug || formData.title.toLowerCase().replace(/\s+/g, "-");
 
     try {
-      const { error } = await supabase.from("hp_articles").insert([
+      const { data: insertedArticle, error } = await supabase.from("hp_articles").insert([
         {
+          store_id: storeId,
           title: formData.title,
           slug,
           content: formData.content,
@@ -231,10 +268,11 @@ export default function ArticleCreation() {
           is_published: formData.is_published,
           image_urls: formData.image_urls,
         },
-      ]);
+      ]).select("id").single();
 
       if (error) throw error;
       toast.success("記事を作成しました");
+      if (formData.is_published) await publishToEstama(insertedArticle.id);
       resetForm();
       setIsAdding(false);
       fetchArticles();
@@ -251,7 +289,8 @@ export default function ArticleCreation() {
       const { error } = await supabase
         .from("hp_articles")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .eq("store_id", storeId);
 
       if (error) throw error;
       toast.success("削除しました");
@@ -267,9 +306,11 @@ export default function ArticleCreation() {
       const { error } = await supabase
         .from("hp_articles")
         .update({ is_published: !article.is_published })
-        .eq("id", article.id);
+        .eq("id", article.id)
+        .eq("store_id", storeId);
       if (error) throw error;
       toast.success(article.is_published ? "非公開にしました" : "公開しました");
+      if (!article.is_published) await publishToEstama(article.id);
       fetchArticles();
     } catch (error) {
       console.error("Error toggling publish:", error);
@@ -305,7 +346,7 @@ export default function ArticleCreation() {
                 ニュース自動投稿
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                ボタン一発でAIがニュース記事を生成し、そのままHPに公開します。テーマは任意です。
+                AIで記事を生成し、HPとエステ魂のニュースへ同時投稿します。テーマは任意です。
               </p>
             </CardHeader>
             <CardContent>
@@ -614,8 +655,26 @@ export default function ArticleCreation() {
                           })}{" "}
                           {article.is_published ? "（公開中）" : "（下書き）"}
                         </p>
+                        {article.is_published && (
+                          <p className={`mt-1 text-xs ${article.estama_status === "posted" ? "text-green-600" : article.estama_status === "failed" ? "text-destructive" : "text-amber-600"}`}>
+                            エステ魂：{article.estama_status === "posted" ? "投稿済み" : article.estama_status === "posting" ? "投稿中" : article.estama_error?.startsWith("【要確認・再送停止】") ? "掲載結果の確認が必要" : article.estama_status === "failed" ? "投稿失敗" : "未投稿"}
+                            {article.estama_error ? `（${article.estama_error}）` : ""}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
+                        {article.is_published
+                          && article.estama_status !== "posted"
+                          && !article.estama_error?.startsWith("【要確認・再送停止】") && (
+                          <button
+                            onClick={async () => { await publishToEstama(article.id); fetchArticles(); }}
+                            disabled={estamaSyncingId === article.id || article.estama_status === "posting"}
+                            title="エステ魂へ再投稿"
+                            className="text-pink-600 hover:text-pink-700 transition-colors disabled:opacity-50"
+                          >
+                            {estamaSyncingId === article.id ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                          </button>
+                        )}
                         <button
                           onClick={() => handleTogglePublish(article)}
                           title={article.is_published ? "非公開にする" : "公開する"}

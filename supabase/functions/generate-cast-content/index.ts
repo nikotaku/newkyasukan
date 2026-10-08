@@ -7,20 +7,20 @@ const corsHeaders = {
 };
 
 // ニュース生成用に実データ（割引・料金・出勤）を取得してプロンプト用テキストと画像候補を作る
-async function buildNewsGrounding(): Promise<{ facts: string; images: string[] }> {
+async function buildNewsGrounding(storeId: string): Promise<{ facts: string; images: string[] }> {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!SUPABASE_URL || !SERVICE_KEY) return { facts: "", images: [] };
+  if (!SUPABASE_URL || !SERVICE_KEY || !/^[0-9a-f-]{36}$/i.test(storeId)) return { facts: "", images: [] };
 
   try {
     const sb = createClient(SUPABASE_URL, SERVICE_KEY);
     const todayYmd = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     const [discountsRes, shiftsRes, castsRes, bannersRes] = await Promise.all([
-      sb.from("discounts").select("name, discount_type, discount_value").eq("is_active", true),
-      sb.from("shifts").select("cast_id, shift_date, start_time, end_time").eq("shift_date", todayYmd).order("start_time").limit(20),
-      sb.from("casts").select("id, name, photo").eq("is_active", true).eq("is_visible", true),
-      sb.from("banners").select("image_url").eq("is_active", true).order("display_order").limit(1),
+      sb.from("discounts").select("name, discount_type, discount_value").eq("store_id", storeId).eq("is_active", true),
+      sb.from("shifts").select("cast_id, shift_date, start_time, end_time").eq("store_id", storeId).eq("shift_date", todayYmd).order("start_time").limit(20),
+      sb.from("casts").select("id, name, photo").eq("store_id", storeId).eq("is_active", true).eq("is_visible", true),
+      sb.from("banners").select("image_url").eq("store_id", storeId).eq("is_active", true).order("display_order").limit(1),
     ]);
 
     const lines: string[] = [];
@@ -78,6 +78,28 @@ async function isSignedIn(req: Request) {
   return Boolean(user?.id);
 }
 
+async function canManageStore(req: Request, storeId: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(storeId)) return false;
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const authorization = req.headers.get("Authorization") || "";
+  const jwt = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!SUPABASE_URL || !SERVICE_KEY || !jwt) return false;
+  const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${jwt}` },
+  });
+  if (!userResponse.ok) return false;
+  const user = await userResponse.json().catch(() => null);
+  if (!user?.id) return false;
+
+  const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+  const [{ data: membership }, { data: adminRole }] = await Promise.all([
+    sb.from("user_stores").select("role").eq("user_id", user.id).eq("store_id", storeId).maybeSingle(),
+    sb.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle(),
+  ]);
+  return Boolean(adminRole || ["owner", "manager"].includes(membership?.role || ""));
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -85,7 +107,7 @@ serve(async (req) => {
 
   try {
     const {
-      type, castName, castType, existingProfile, newsTitle, features,
+      type, castName, castType, existingProfile, newsTitle, features, storeId,
       // coupon
       couponName, couponDiscount, couponExpiry, couponConditions,
       // schedule
@@ -124,7 +146,14 @@ serve(async (req) => {
         break;
       
       case "news": {
-        const { facts, images } = await buildNewsGrounding();
+        const newsStoreId = typeof storeId === "string" ? storeId : "";
+        if (!(await canManageStore(req, newsStoreId))) {
+          return new Response(JSON.stringify({ error: "この店舗のニュースを作成する権限がありません" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const { facts, images } = await buildNewsGrounding(newsStoreId);
         autoImages = images;
         systemPrompt = "あなたはメンズエステ公式サイトの予約獲得を担当する編集者です。スマートフォンで一読できる短いニュースを日本語で作成してください。料金・割引・出勤などの具体的な情報は、必ず提供された参照データにある事実だけを使用し、創作してはいけません。季節や天気の挨拶、一般論、オプション説明は不要です。参照データに割引があれば割引名と金額を前半で伝え、本日の出勤があれば名前と時間を簡潔に案内してください。最後はWeb予約またはLINE予約を促す一文にしてください。Markdown、絵文字、ハッシュタグ、URLは使わず、通常の文章と改行だけで書いてください。";
         const factsBlock = facts
