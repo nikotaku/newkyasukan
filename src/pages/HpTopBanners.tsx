@@ -142,11 +142,11 @@ export default function HpTopBanners() {
       const extension = file.name.split(".").pop()?.toLowerCase() || "png";
       const path = `hero-banners/${storeId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
       const { error: uploadError } = await supabase.storage
-        .from("banners")
+        .from("banner-images")
         .upload(path, file, { cacheControl: "31536000", upsert: false });
       if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage.from("banners").getPublicUrl(path);
+      const { data } = supabase.storage.from("banner-images").getPublicUrl(path);
       setBanners((current) => [...current, data.publicUrl]);
       toast.success("バナーを追加しました。保存するとトップページへ反映されます");
     } catch (error) {
