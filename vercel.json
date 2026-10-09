@@ -83,48 +83,6 @@
       "destination": "/api/robots"
     },
     {
-      "source": "/",
-      "has": [
-        {
-          "type": "header",
-          "key": "x-site-brand",
-          "value": "enka"
-        }
-      ],
-      "destination": "/index.html"
-    },
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "header",
-          "key": "x-site-brand",
-          "value": "enka"
-        }
-      ],
-      "destination": "/api/spa?path=:path*"
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "(www\\.)?enka-salon\\.jp"
-        }
-      ],
-      "destination": "/index.html"
-    },
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "(www\\.)?enka-salon\\.jp"
-        }
-      ],
-      "destination": "/api/spa?path=:path*"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
