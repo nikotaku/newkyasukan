@@ -95,7 +95,7 @@ test("rewritten root path keeps homepage metadata", async () => {
   };
   try {
     const res = makeResponse();
-    await spaHandler({ headers: { host: "enka-salon.jp" }, url: "/api/spa?path=", query: { path: "" } }, res);
+    await spaHandler({ headers: { host: "enka-salon.jp" }, url: "/api/spa?path=__root__", query: { path: "__root__" } }, res);
     assert.match(res.result.body, /<title>仙台・北四番丁のメンズエステ 艶華｜本日の出勤・Web予約<\/title>/);
     assert.match(res.result.body, /<link rel="canonical" href="https:\/\/enka-salon\.jp\/">/);
   } finally {
