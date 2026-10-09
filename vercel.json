@@ -55,68 +55,6 @@
           "value": "noindex, nofollow, noarchive"
         }
       ]
-    },
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "header",
-          "key": "x-site-brand",
-          "value": "enka"
-        }
-      ],
-      "headers": [
-        {
-          "key": "x-enka-original-path",
-          "value": ":path*"
-        }
-      ]
-    },
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "(www\\.)?enka-salon\\.jp"
-        }
-      ],
-      "headers": [
-        {
-          "key": "x-enka-original-path",
-          "value": ":path*"
-        }
-      ]
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "header",
-          "key": "x-site-brand",
-          "value": "enka"
-        }
-      ],
-      "headers": [
-        {
-          "key": "x-enka-original-path",
-          "value": "__root__"
-        }
-      ]
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "(www\\.)?enka-salon\\.jp"
-        }
-      ],
-      "headers": [
-        {
-          "key": "x-enka-original-path",
-          "value": "__root__"
-        }
-      ]
     }
   ],
   "rewrites": [
@@ -153,7 +91,7 @@
           "value": "enka"
         }
       ],
-      "destination": "/api/spa?path=__root__"
+      "destination": "/index.html"
     },
     {
       "source": "/:path*",
@@ -174,7 +112,7 @@
           "value": "(www\\.)?enka-salon\\.jp"
         }
       ],
-      "destination": "/api/spa?path=__root__"
+      "destination": "/index.html"
     },
     {
       "source": "/:path*",
