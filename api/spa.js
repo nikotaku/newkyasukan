@@ -194,7 +194,9 @@ export default async function handler(req, res) {
   const host = String(req.headers["x-forwarded-host"] || req.headers.host || "enka-salon.jp");
   const rawRewrittenPath = Array.isArray(req.query?.path) ? req.query.path[0] : req.query?.path;
   const requestedPath = typeof rawRewrittenPath === "string"
-    ? `/${rawRewrittenPath.replace(/^\/+/, "")}`
+    ? rawRewrittenPath === "__root__"
+      ? "/"
+      : `/${rawRewrittenPath.replace(/^\/+/, "")}`
     : new URL(req.url || "/", `https://${host}`).pathname;
   const pathname = requestedPath.replace(/\/$/, "") || "/";
   const meta = await getMeta(pathname, host);

@@ -83,7 +83,7 @@
       "destination": "/api/robots"
     },
     {
-      "source": "/(.*)",
+      "source": "/",
       "has": [
         {
           "type": "header",
@@ -91,17 +91,38 @@
           "value": "enka"
         }
       ],
-      "destination": "/api/spa?path=$1"
+      "destination": "/api/spa?path=__root__"
     },
     {
-      "source": "/(.*)",
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "header",
+          "key": "x-site-brand",
+          "value": "enka"
+        }
+      ],
+      "destination": "/api/spa?path=:path*"
+    },
+    {
+      "source": "/",
       "has": [
         {
           "type": "host",
           "value": "(www\\.)?enka-salon\\.jp"
         }
       ],
-      "destination": "/api/spa?path=$1"
+      "destination": "/api/spa?path=__root__"
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "(www\\.)?enka-salon\\.jp"
+        }
+      ],
+      "destination": "/api/spa?path=:path*"
     },
     {
       "source": "/(.*)",
