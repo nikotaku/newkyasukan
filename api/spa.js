@@ -197,7 +197,12 @@ export default async function handler(req, res) {
     ? !rawRewrittenPath || rawRewrittenPath === "__root__"
       ? "/"
       : `/${rawRewrittenPath.replace(/^\/+/, "")}`
-    : new URL(req.url || "/", `https://${host}`).pathname;
+    : (() => {
+        const internalPath = new URL(req.url || "/", `https://${host}`).pathname;
+        return /(^|\.)enka-salon\.jp$/i.test(host.split(":")[0]) && internalPath === "/api/spa"
+          ? "/"
+          : internalPath;
+      })();
   const pathname = requestedPath.replace(/\/$/, "") || "/";
   const meta = await getMeta(pathname, host);
   const canonical = `https://enka-salon.jp${pathname === "/" ? "/" : pathname}`;
