@@ -192,15 +192,11 @@ async function getMeta(pathname, host) {
 
 export default async function handler(req, res) {
   const host = String(req.headers["x-forwarded-host"] || req.headers.host || "enka-salon.jp");
-  const rawHeaderPath = Array.isArray(req.headers["x-enka-original-path"])
-    ? req.headers["x-enka-original-path"][0]
-    : req.headers["x-enka-original-path"];
   const rawRewrittenPath = Array.isArray(req.query?.path) ? req.query.path[0] : req.query?.path;
-  const routedPath = typeof rawHeaderPath === "string" ? rawHeaderPath : rawRewrittenPath;
-  const requestedPath = typeof routedPath === "string"
-    ? !routedPath || routedPath === "__root__"
+  const requestedPath = typeof rawRewrittenPath === "string"
+    ? !rawRewrittenPath || rawRewrittenPath === "__root__"
       ? "/"
-      : `/${routedPath.replace(/^\/+/, "")}`
+      : `/${rawRewrittenPath.replace(/^\/+/, "")}`
     : new URL(req.url || "/", `https://${host}`).pathname;
   const pathname = requestedPath.replace(/\/$/, "") || "/";
   const meta = await getMeta(pathname, host);
