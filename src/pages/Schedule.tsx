@@ -39,6 +39,7 @@ import { PaymentReminderPopup } from "@/components/PaymentReminderPopup";
 import { loadReceptionEndGuide, shareReceptionEndContent } from "@/lib/receptionEndShare";
 import { ENKA_STORE_ID } from "@/lib/storeSwitch";
 import { phoneFromCallParam } from "@/lib/incomingCall";
+import { missingRoomFills, roomFromShifts } from "@/lib/reservationRoom";
 import {
   DEFAULT_RESERVATION_INTERVAL_MINUTES,
   findNextAvailableStart,
@@ -633,14 +634,28 @@ export default function Schedule() {
       return;
     }
 
-    setShifts((shiftsResult.data as any) || []);
+    const loadedShifts = (shiftsResult.data as any) || [];
+    setShifts(loadedShifts);
     const submittedCastIds = getSubmittedCastIds(salesSubmissionResult.data || []);
+    const loadedReservations = [...(reservationsResult.data || []), ...(nextResResult.data || [])];
+    // WEB予約などルームが空の予約は、そのセラピストのその日の出勤のルームを入れて保存する
+    const roomFills = missingRoomFills(loadedReservations, loadedShifts);
+    const filledRoom = new Map(roomFills.map((fill) => [fill.id, fill.room]));
     setReservations(
-      [...(reservationsResult.data || []), ...(nextResResult.data || [])].map((reservation) => ({
+      loadedReservations.map((reservation) => ({
         ...reservation,
+        room: filledRoom.get(reservation.id) ?? reservation.room,
         settlement_submitted: submittedCastIds.has(reservation.cast_id),
       })),
     );
+    if (roomFills.length) {
+      void Promise.all(roomFills.map((fill) =>
+        supabase.from("reservations").update({ room: fill.room }).eq("id", fill.id).or("room.is.null,room.eq."),
+      )).then((results) => {
+        const failed = results.find((result) => result.error);
+        if (failed?.error) console.error("予約のルームを出勤のルームで埋められませんでした:", failed.error);
+      });
+    }
 
     // 「営業日×セラピスト」で精算を優先し、未精算分だけ完了予約で補完する。
     // 店舗IDでは分けないため、リニューアル前後のデータも重複なく合算できる。
@@ -728,6 +743,16 @@ export default function Schedule() {
     casts.forEach((c) => m.set(c.id, c.name));
     return m;
   }, [casts]);
+
+  // 新規予約・予約の編集でセラピストを選んだら、ルームが空ならその日の出勤のルームを入れる
+  useEffect(() => {
+    const room = roomFromShifts(shifts, formData.cast_id);
+    if (room && !formData.room) setFormData((prev) => (prev.room ? prev : { ...prev, room }));
+  }, [formData.cast_id, formData.room, shifts]);
+  useEffect(() => {
+    const room = roomFromShifts(shifts, editFormData.cast_id);
+    if (room && !editFormData.room) setEditFormData((prev) => (prev.room ? prev : { ...prev, room }));
+  }, [editFormData.cast_id, editFormData.room, shifts]);
 
   const castRoomMap = useMemo(() => {
     const map = new Map<string, string[]>();
