@@ -31,7 +31,7 @@ type ResponseLike = {
 
 const stringValue = (value: unknown) => typeof value === "string" ? value : "";
 
-async function publishStoreNews(
+export async function publishStoreNews(
   admin: Awaited<ReturnType<typeof authenticateUser>>["admin"],
   storeId: string,
   articleId: string,
