@@ -16,6 +16,7 @@ import {
   Images,
   Megaphone,
   Calculator,
+  WalletCards,
   CheckSquare,
   BookUser,
 } from "lucide-react";
@@ -97,6 +98,11 @@ const menuItems: MenuItem[] = [
     href: "/sales/daily-sales",
     label: "日別精算",
     icon: Calculator,
+  },
+  {
+    href: "/payments",
+    label: "支払い管理",
+    icon: WalletCards,
   },
   {
     href: "/sales",
