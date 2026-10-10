@@ -14,6 +14,7 @@ import { waitUntil } from "@vercel/functions";
 import { describeError } from "../../server/estama-error.js";
 import { processO2StoreAvailabilityPost } from "../../server/o2-store-availability.js";
 import { postEstamaStoreNews } from "../../server/estama-store-news.js";
+import { runCrossPostWorker } from "../../server/cross-post-worker.js";
 
 export const config = { maxDuration: 300 };
 
@@ -169,6 +170,12 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
     res.status(405).json({ error: "Method not allowed" });
     return;
   }
+  const source = req.method === "GET" ? req.query || {} : req.body || {};
+  if (req.method === "POST" && stringValue(source.action) === "cross-post-worker") {
+    const result = await runCrossPostWorker(stringValue(source.token).trim(), publishStoreNews);
+    res.status(result.statusCode).json(result.body);
+    return;
+  }
   const isO2StoreAvailabilityRequest = req.query?.action === "o2-store-availability";
   if (isO2StoreAvailabilityRequest && req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -178,7 +185,6 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
 
   try {
     const { admin, user } = await authenticateUser(req);
-    const source = req.method === "GET" ? req.query || {} : req.body || {};
     const storeId = stringValue(source.storeId);
     if (!storeId) throw new Error("storeId が必要です");
     await assertStoreManager(admin, user.id, storeId);
