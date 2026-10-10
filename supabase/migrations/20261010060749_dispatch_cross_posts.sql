@@ -224,9 +224,9 @@ begin
   );
 
   select net.http_post(
-    url := 'https://newkyasukan.vercel.app/api/automations/cross-post-worker',
+    url := 'https://newkyasukan.vercel.app/api/automations/estama',
     headers := jsonb_build_object('Content-Type', 'application/json'),
-    body := jsonb_build_object('token', v_raw_token),
+    body := jsonb_build_object('action', 'cross-post-worker', 'token', v_raw_token),
     timeout_milliseconds := 300000
   ) into v_request_id;
 
