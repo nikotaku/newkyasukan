@@ -133,14 +133,10 @@
 - Twilioの認証情報は Vault から読む（下記）。コードに書かないこと
 - 管理権限は `user_stores.role`（owner / manager）で判定する。このプロジェクトに `user_roles` テーブルはないので、Edge Function から参照しないこと（参照すると404で500エラーになる）
 
-## サロン経費管理（apps/salon-keihi）
+## サロン経費管理（別リポジトリ nikotaku/salon-keihi）
 
-- 美容サロン4店舗（ネイル・国分町サロン・アイラッシュ・アイブロー。アイラッシュとアイブローは別店舗）の経費を一元管理する**独立サイト**。キャスカンの売上ダッシュボードが元。コードは `apps/salon-keihi/`（独自の package.json。Vercel は別プロジェクトでルートディレクトリ `apps/salon-keihi`）
-- DBはキャスカンと同じ本番プロジェクトの `salon_*` テーブル。`store_id` / `store_isolation` の対象外で、`salon_members`（owner / staff、staff は `shop_ids` で店舗を絞れる）に登録された人だけがRLSで読み書きできる。ログインはキャスカンと同じアカウント
-- 全店共通（本部）の経費は `shop_id = null`。固定費は `salon_expense_templates` を RPC `salon_post_fixed_expenses(月)` で計上（`template_id, template_month` で二重計上しない）。領収書は非公開バケット `salon-receipts`
-- 売上は日付ごとに入れる（`salon_sales_entries`：日付・店舗・金額・客数・メモ・入力日時、画面は `apps/salon-keihi/src/pages/Sales.tsx`）。月合計 `salon_monthly_sales` はトリガー `salon_sales_entries_sync` が自動で足し上げ、ダッシュボード・利益は月合計を見る。日付ごとの入力が無い月は、以前に直接入れた月合計のまま
-- 経費の一覧には、経費の日付（`expense_date`）に加えて入力日時（`created_at`）も出す
-- ビルド・テストは `apps/salon-keihi` で `npm run build` / `npm test`
+- 美容サロンの経費管理サイトは**別リポジトリ `nikotaku/salon-keihi`・別のSupabase（`rvkqbxahwlzcyburvjvw`）**に独立した。Vercel は `salon-keihi-j6uh`。修正はそちらで行う
+- このリポジトリの `apps/salon-keihi/` と、キャスカンのDBの `salon_*` テーブルは独立前の古いコピー（本番では使っていない）。ここを直しても経費管理サイトには反映されない
 
 ## SMS（Twilio）の残高
 
