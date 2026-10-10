@@ -179,6 +179,7 @@
 
 - 店舗トップ（EnkaHome）に、メンエスなう（men-esthe.co.jp）のタイムラインを表示する。設定は `stores.settings.menesthe_now_widget`（`{ store: PUID, type: "timeline", theme: "dark" }`、`enabled: false` で非表示）
 - 公式の `<script src=".../widget-embed.js">` はページに直接置かない。管理画面と同じドメインで他社のJSが動き、ログイン情報（localStorage）に届いてしまうため、公式の iframe 版（`/widget/embed/shop/{PUID}/`）で埋め込む（`src/lib/menestheNowWidget.ts`）
+- 店舗管理画面（`/manage/store/6490/`）への同時投稿は準備中。サイトは日本以外のIPから開けない（404・Cloudflare）ので、Browserbase の日本のプロキシ（`createBrowserSession` の `proxyCountry: "JP"`）で開く。まず SNS連携管理 →「店舗の投稿先 › その他の媒体」にメンエスなう（ログイン画面のURLが men-esthe.co.jp）を登録し、「管理画面を調べる（日本経由）」で画面の構成（メニュー・フォームの項目・スクリーンショット）を読む（`/api/automations/estama` の `action: "menesnow-inspect"`、本体 `server/menesnow-inspect.ts`、読むだけ）。テスト `npm run test:menesnow`
 
 ## スマホ通知（管理画面をホーム画面に追加・Web Push）
 

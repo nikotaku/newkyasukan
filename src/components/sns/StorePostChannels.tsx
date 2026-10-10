@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { supabase } from "@/integrations/supabase/client";
 import { isAutoPostKind } from "@/lib/xAutoPost";
+import { MenesnowInspectButton } from "@/components/sns/MenesnowInspectDialog";
 import { businessDate, classifyPost, slotKeyOf } from "@/lib/xDailyPosts";
 import { DEFAULT_X_OPERATIONS_PLAN, normalizeXOperationsPlan, X_OPS_CONTENT_KEY, type XAccountPlan, type XOperationsPlan } from "@/lib/xOperationsPlan";
 
@@ -365,6 +366,9 @@ export function StorePostChannels() {
                     </button>
                   )}
                 </p>
+                {/men-esthe\.co\.jp/i.test(`${channel.login_url ?? ""} ${channel.handle ?? ""}`) && channel.password_configured && (
+                  <div className="pt-1"><MenesnowInspectButton storeId={storeId} /></div>
+                )}
               </div>
             ))}
           </div>
