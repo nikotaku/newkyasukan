@@ -111,6 +111,7 @@
 - 予約ごとの案内ページ `/g/:token`（`/r/` はセラピスト別の予約リンクなので使わない）（`src/pages/public/ReservationGuide.tsx`）。予約内容・ルームの住所と地図・道順（写真のステップを自動再生）・来店時のお願い・連絡先を出す。SMSには `{guide_url}` でリンクだけ載せて通数を減らす
 - トークンは `reservations.guide_token`（推測できない12文字、自動で付く）。ページのデータは RPC `get_reservation_guide(p_token)`（anon可）で、キャンセル済み・予約日の翌日を過ぎたものは返さない
 - 道順は `rooms.customer_guide_steps`（[{ image_url, text }]）。ルーム管理（`/facilities/rooms`）で編集する。`entry_flow` / `entry_photos` / `key_*` はセラピスト向けの入室情報なのでお客様に出さないこと
+- 予約のルーム（`reservations.room`）が空なら、そのセラピストのその日の出勤（`shifts.room`、1つに決まるときだけ）を入れる。WEB予約・専用フォームはルームを選ばずに入るため。予約表（`/admin-schedule`）を開いたときに埋めて保存し、新規予約・編集でセラピストを選んだときも入れる（`src/lib/reservationRoom.ts`、テスト `npm run test:reservation-room`）。DBトリガー `trg_reservations_default_room`（`20261010150000_reservation_default_room.sql`）でも予約が入った瞬間に入れる
 - 来店時のお願いは `rooms.caution_text`
 - **お支払いのご案内**：カード・PayPayの予約（`reservations.payment_method`、分割払いなら `payment_details` のカード・PayPay分）だけ、手数料込みの金額・手順・決済リンクのボタンを出す。RPC の `payments`（[{ method, amount, fee, link, guide }]、画面用の整形は `src/lib/reservationGuidePayment.ts`）。リンクと手順は `payment_settings.payment_link` / `customer_guide`（1行に1つ）で、システム →「決済方法」で編集する。カードの手順はたたき台なので、決済ページの実際の表示に合わせて直す
 - 予約確認SMSの `{payment_guide}` は、カード・PayPayの予約だけ「リンクを開くと決済方法の案内が出ます」になる（それ以外は行ごと消える。`send-sms/template.ts` の `paymentGuideNote`）
