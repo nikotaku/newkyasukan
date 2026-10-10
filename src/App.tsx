@@ -145,6 +145,7 @@ import BusinessVendors from "./pages/BusinessVendors";
 import BusinessLogins from "./pages/BusinessLogins";
 import BusinessFixedCosts from "./pages/BusinessFixedCosts";
 import BusinessBankAccounts from "./pages/BusinessBankAccounts";
+import PaymentManagement from "./pages/PaymentManagement";
 import BusinessContracts from "./pages/BusinessContracts";
 import Education from "./pages/Education";
 import ProductLP from "./pages/public/ProductLP";
@@ -320,6 +321,7 @@ const App = () => {
           <Route path="/business-continuity/logins" element={<BusinessLogins />} />
           <Route path="/business-continuity/fixed-costs" element={<BusinessFixedCosts />} />
           <Route path="/business-continuity/bank-accounts" element={<BusinessBankAccounts />} />
+          <Route path="/payments" element={<PaymentManagement />} />
           <Route path="/business-continuity/contracts" element={<BusinessContracts />} />
           <Route path="/purchase-orders" element={<PurchaseOrders />} />
 

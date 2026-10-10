@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Building2, KeyRound, Receipt, Landmark, FileText, AlertTriangle, DoorOpen, Package, BookOpen, Lock, FileSignature } from "lucide-react";
+import { Building2, KeyRound, Receipt, Landmark, FileText, AlertTriangle, DoorOpen, Package, BookOpen, Lock, FileSignature, WalletCards } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,6 +92,7 @@ export default function BusinessContinuity() {
     {
       title: "事業引き継ぎ",
       modules: [
+        { href: "/payments", label: "支払い管理", icon: WalletCards, description: "振込申請・支払予定・支払状況" },
         { href: "/business-continuity/vendors", label: "業者管理", icon: Building2, description: "取引業者・連絡先の管理" },
         { href: "/business-continuity/logins", label: "ログイン管理", icon: KeyRound, description: "各サービスのID/パスワード" },
         { href: "/business-continuity/fixed-costs", label: "固定費管理", icon: Receipt, description: "月次固定費の一覧" },
