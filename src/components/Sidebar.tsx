@@ -86,10 +86,11 @@ const menuItems: MenuItem[] = [
   },
   {
     // SMSの機能はここにまとめる（受信箱・自動送信テンプレート（予約確定・サンクス・クーポン）・送信履歴）
-    label: "SMS",
+    label: "SMS・LINE",
     icon: MessageSquare,
     children: [
       { href: "/sms", label: "受信箱・送信" },
+      { href: "/line-inbox", label: "LINE対応（公式LINE）" },
       { href: "/system/sms-auto", label: "自動送信・サンクス・クーポン" },
       { href: "/system/sms", label: "送信履歴" },
     ],
@@ -320,7 +321,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                     >
                       <Icon size={16} />
                       {item.label}
-                      {item.label === "SMS" && smsUnread > 0 && (
+                      {item.label === "SMS・LINE" && smsUnread > 0 && (
                         <span className="min-w-5 h-5 px-1.5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
                           {smsUnread > 99 ? "99+" : smsUnread}
                         </span>

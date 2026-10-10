@@ -35,7 +35,8 @@
     "test:sms-billing": "node --experimental-strip-types --test tests/smsBilling.test.ts tests/smsSegments.test.ts tests/sendSmsTemplate.test.ts",
     "test:referral-rewards": "node --experimental-strip-types --test tests/referralRewards.test.ts",
     "preview": "vite preview",
-    "test:menesnow": "node --experimental-strip-types --test tests/menesnowInspect.test.ts"
+    "test:menesnow": "node --experimental-strip-types --test tests/menesnowInspect.test.ts",
+    "test:line-customer": "node --experimental-strip-types --test tests/lineCustomerReply.test.ts tests/lineInbox.test.ts"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.16.0",

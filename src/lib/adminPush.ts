@@ -10,6 +10,7 @@ const WORKER_URL = "/sw-push.js";
 export const PUSH_TOPICS = [
   { key: "web_booking", label: "WEB予約が入ったとき", hint: "公開サイト・セラピストの予約フォームからの予約" },
   { key: "sms_reply", label: "お客様からSMSの返信が来たとき", hint: "こちらから送ったことのある番号の返信だけ" },
+  { key: "line_inbox", label: "お客様から公式LINEが来たとき", hint: "LINE対応で見張っている公式LINEへのメッセージ・自動応答を送れなかったとき" },
   { key: "sms_balance", label: "SMSの残高が少ないとき", hint: "実質残高が1,000円を切ったら（1日1回まで）" },
   { key: "daily_sales", label: "セラピストが精算を入力したとき", hint: "マイページから今日の売上（精算）を送った・送り直したとき" },
   { key: "estama_scout", label: "エステ魂スカウトの確認", hint: "毎日の候補がそろったとき（OKで送信）・送り終わったとき" },

@@ -193,3 +193,21 @@ export function estamaLoginMessage(alert: { kind: string; message: string | null
     tag: "estama-login",
   };
 }
+
+export function lineInboxMessage(input: { threadId: string; displayName: string | null; text: string; autoMinutes: number | null }): PushMessage {
+  return {
+    title: `💬 LINE：${input.displayName ? `${input.displayName}様` : "お客様"}`,
+    body: clip(`${input.text || "（メッセージ）"}${input.autoMinutes ? `　※${input.autoMinutes}分返事が無ければ自動で一次対応します` : ""}`, 120),
+    url: `/line-inbox?thread=${input.threadId}`,
+    tag: `line-${input.threadId}`,
+  };
+}
+
+export function lineInboxFailedMessage(thread: { id: string; display_name: string | null; error: string | null }): PushMessage {
+  return {
+    title: `⚠️ LINEの自動応答を送れませんでした`,
+    body: clip(`${thread.display_name ? `${thread.display_name}様` : "お客様"}へ返事をしてください。${thread.error ?? ""}`, 120),
+    url: `/line-inbox?thread=${thread.id}`,
+    tag: `line-${thread.id}`,
+  };
+}

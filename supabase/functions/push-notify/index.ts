@@ -1,5 +1,5 @@
 // 管理画面を「ホーム画面に追加」したアプリへのプッシュ通知（LINE通知と並行して送る試験運用）。
-//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout" | "estama_login" | "daily_sales" | "settlement_transfer", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
+//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout" | "estama_login" | "daily_sales" | "settlement_transfer" | "line_inbox" | "line_inbox_failed", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
 //  - { action: "test" } … ログイン中のスタッフが自分の端末にテスト通知を送る（JWT）
 // 購読（push_subscriptions）の topics に含まれる通知だけを、その店舗の端末へ送る。SMS残高は全店舗の購読へ。
 // 送れなくなった購読（アプリ削除・通知オフ）は消す。VAPIDの鍵は Vault（RPC get_web_push_vapid）。
@@ -9,6 +9,8 @@ import {
   dailySalesMessage,
   estamaLoginMessage,
   estamaScoutMessage,
+  lineInboxFailedMessage,
+  lineInboxMessage,
   settlementTransferMessage,
   smsBalanceMessage,
   smsReplyMessage,
@@ -118,6 +120,19 @@ async function buildEvent(event: string, id: string, resubmitted = false): Promi
     )) ?? [];
     const names = candidates.map((candidate: { display_name: string | null }) => candidate.display_name ?? "");
     return { message: estamaScoutMessage(batch, names), storeId: batch.store_id };
+  }
+  if (event === "line_inbox") {
+    const [message] = await sb(`line_customer_messages?id=eq.${id}&select=id,store_id,thread_id,text,direction`);
+    if (!message || message.direction !== "in") return null;
+    const [thread] = await sb(`line_customer_threads?id=eq.${message.thread_id}&select=id,display_name`);
+    const [settings] = await sb(`line_customer_settings?store_id=eq.${message.store_id}&select=auto_reply,wait_minutes,enabled`);
+    const autoMinutes = settings?.enabled && settings?.auto_reply ? settings.wait_minutes : null;
+    return { message: lineInboxMessage({ threadId: message.thread_id, displayName: thread?.display_name ?? null, text: message.text ?? "", autoMinutes }), storeId: message.store_id };
+  }
+  if (event === "line_inbox_failed") {
+    const [thread] = await sb(`line_customer_threads?id=eq.${id}&select=id,store_id,display_name,error,status`);
+    if (!thread || thread.status !== "failed") return null;
+    return { message: lineInboxFailedMessage(thread), storeId: thread.store_id, topic: "line_inbox" };
   }
   if (event === "estama_login") {
     const [alert] = await sb(`estama_login_alerts?id=eq.${id}&select=id,store_id,kind,message`);

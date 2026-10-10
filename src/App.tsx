@@ -119,6 +119,7 @@ import PromotionSchedule from "./pages/PromotionSchedule";
 import InquiryStats from "./pages/InquiryStats";
 import Tasks from "./pages/Tasks";
 import SmsInbox from "./pages/SmsInbox";
+import LineInbox from "./pages/LineInbox";
 import NotificationSettings from "./pages/NotificationSettings";
 import PhoneSettings from "./pages/PhoneSettings";
 import Bios from "./pages/Bios";
@@ -301,6 +302,7 @@ const App = () => {
           <Route path="/post-management" element={<CastPostManagement />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/sms" element={<SmsInbox />} />
+          <Route path="/line-inbox" element={<LineInbox />} />
           <Route path="/settings/notifications" element={<NotificationSettings />} />
           <Route path="/settings/phone" element={<PhoneSettings />} />
           <Route path="/bios" element={<Bios />} />
