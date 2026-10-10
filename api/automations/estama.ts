@@ -15,6 +15,7 @@ import { describeError } from "../../server/estama-error.js";
 import { processO2StoreAvailabilityPost } from "../../server/o2-store-availability.js";
 import { postEstamaStoreNews } from "../../server/estama-store-news.js";
 import { runCrossPostWorker } from "../../server/cross-post-worker.js";
+import { inspectMenesnow } from "../../server/menesnow-inspect.js";
 
 export const config = { maxDuration: 300 };
 
@@ -205,6 +206,19 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       }
       const result = await publishStoreNews(admin, storeId, stringValue(source.articleId).trim());
       res.status(result.statusCode).json(result.body);
+      return;
+    }
+
+    if (action === "menesnow-inspect") {
+      // メンエスなうの管理画面を日本のプロキシ経由で開いて、メニュー・フォームの構成を読む（読むだけ）
+      if (req.method !== "POST") {
+        res.setHeader("Allow", "POST");
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+      }
+      const paths = Array.isArray(source.paths) ? source.paths.filter((p): p is string => typeof p === "string") : [];
+      const result = await inspectMenesnow(admin, storeId, paths);
+      res.status(result.ok ? 200 : 502).json(result);
       return;
     }
 

@@ -34,7 +34,8 @@
     "test:x-daily-posts": "node --experimental-strip-types --test tests/xDailyPosts.test.ts",
     "test:sms-billing": "node --experimental-strip-types --test tests/smsBilling.test.ts tests/smsSegments.test.ts tests/sendSmsTemplate.test.ts",
     "test:referral-rewards": "node --experimental-strip-types --test tests/referralRewards.test.ts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:menesnow": "node --experimental-strip-types --test tests/menesnowInspect.test.ts"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.16.0",

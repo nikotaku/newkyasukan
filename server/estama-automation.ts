@@ -287,7 +287,7 @@ export async function createBrowserSession(
   contextId: string | null,
   keepAlive = false,
   metadata: Json = {},
-  options: { solveCaptchas?: boolean } = {},
+  options: { solveCaptchas?: boolean; allowedDomains?: string[]; proxyCountry?: string; integration?: string } = {},
 ) {
   const bb = getBrowserbase();
   const session = await bb.sessions.create({
@@ -295,13 +295,15 @@ export async function createBrowserSession(
     keepAlive,
     timeout: keepAlive ? 21_600 : 300,
     region: "ap-southeast-1",
+    // 日本のIPからしか開けないサイト（メンエスなう等）は、Browserbase の日本のプロキシを通す
+    ...(options.proxyCountry ? { proxies: [{ type: "browserbase" as const, geolocation: { country: options.proxyCountry } }] } : {}),
     browserSettings: {
       ...(contextId ? { context: { id: contextId, persist: true } } : {}),
-      allowedDomains: ["estama.jp"],
+      allowedDomains: options.allowedDomains ?? ["estama.jp"],
       viewport: { width: 1440, height: 1000 },
       solveCaptchas: options.solveCaptchas ?? true,
     },
-    userMetadata: { integration: "newkyasukan-estama", ...metadata },
+    userMetadata: { integration: options.integration ?? "newkyasukan-estama", ...metadata },
   });
   return { bb, session };
 }
