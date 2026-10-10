@@ -181,3 +181,15 @@ export function settlementTransferMessage(approval: {
     tag: `settlement-transfer-${approval.clearance_id}`,
   };
 }
+
+export function estamaLoginMessage(alert: { kind: string; message: string | null }): PushMessage {
+  const noCredentials = alert.kind === "no_credentials";
+  return {
+    title: noCredentials ? "⚠️ エステ魂のログインが切れています" : "⚠️ エステ魂に自動でログインし直せません",
+    body: noCredentials
+      ? "空き枠の更新・今すぐご案内・同期が止まっています。自動再ログイン用のメールアドレス・パスワードを登録してください"
+      : clip(`3回続けて失敗しました。${alert.message ?? ""} パスワードを確かめて登録し直してください`, 120),
+    url: "/staff?estama=login",
+    tag: "estama-login",
+  };
+}

@@ -7,6 +7,7 @@ import { useStore } from "@/hooks/useStore";
 import { supabase } from "@/integrations/supabase/client";
 import { runQueuedEstamaAutomation } from "@/lib/estamaAutomation";
 import { useToast } from "@/hooks/use-toast";
+import { EstamaAutoReloginSettings } from "@/components/EstamaAutoReloginSettings";
 
 type Props = { open: boolean; onOpenChange: (open: boolean) => void };
 type Connection = {
@@ -129,8 +130,10 @@ export function EstamaAutomationModal({ open, onOpenChange }: Props) {
                 <Badge variant={ready ? "default" : "secondary"}>{STATUS_LABEL[connection?.status || "setup_required"]}</Badge>
               </div>
               {connection?.last_error && <p className="mt-2 text-xs text-destructive">{connection.last_error}</p>}
-              <p className="mt-2 text-xs text-muted-foreground">ログイン情報そのものはキャスカンに保存せず、Browserbaseの暗号化されたブラウザ状態だけを利用します。</p>
+              <p className="mt-2 text-xs text-muted-foreground">Browserbaseに保存したブラウザのログイン状態を使います。ログインが切れたら、下の「自動で再ログイン」に登録した情報で自動でログインし直します。</p>
             </div>
+
+            <EstamaAutoReloginSettings storeId={storeId} onSaved={() => window.setTimeout(() => void load(), 1500)} />
 
             {!ready && (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

@@ -10,6 +10,7 @@ import {
   type EstamaAppealShift,
 } from "../../server/estama-appeal.js";
 import { handleEstamaScoutRequest } from "../../server/estama-scout.js";
+import { handleEstamaReloginRequest } from "../../server/estama-relogin.js";
 
 export const config = { maxDuration: 300 };
 
@@ -201,9 +202,14 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
     res.status(405).json({ error: "Method not allowed" });
     return;
   }
-  // Vercel Hobbyの関数数上限のため、エステ魂スカウトはこの関数に同居させる
+  // Vercel Hobbyの関数数上限のため、エステ魂スカウト・自動再ログインはこの関数に同居させる
   if (req.query?.action === "estama-scout") {
     await handleEstamaScoutRequest(req, res);
+    return;
+  }
+  // エステ魂の自動再ログイン（ログインが切れたときに pg_cron から）
+  if (req.query?.action === "estama-relogin") {
+    await handleEstamaReloginRequest(req, res);
     return;
   }
 
