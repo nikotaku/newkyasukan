@@ -13,6 +13,7 @@ export const PUSH_TOPICS = [
   { key: "sms_balance", label: "SMSの残高が少ないとき", hint: "実質残高が1,000円を切ったら（1日1回まで）" },
   { key: "daily_sales", label: "セラピストが精算を入力したとき", hint: "マイページから今日の売上（精算）を送った・送り直したとき" },
   { key: "estama_scout", label: "エステ魂スカウトの確認", hint: "毎日の候補がそろったとき（OKで送信）・送り終わったとき" },
+  { key: "estama_login", label: "エステ魂のログインが切れたとき", hint: "自動で再ログインできない・ログイン情報が未登録のとき（空き枠の更新などが止まります）" },
   { key: "therapist_notify", label: "セラピストに予約通知が届かないとき", hint: "マイページの通知が未設定・送信に失敗したとき（直接連絡が必要）" },
 ] as const;
 export type PushTopic = (typeof PUSH_TOPICS)[number]["key"];

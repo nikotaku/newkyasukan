@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminStore } from "@/hooks/useAdminStore";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getEstamaJobStatus, runEstamaCastAutomation, startEstamaCastAutomation, startEstamaProfileSync, type EstamaJobStatus } from "@/lib/estamaAutomation";
 import { getCastBookingUrl, getCustomDomainBaseUrl } from "@/lib/bookingUrl";
@@ -311,6 +311,15 @@ export default function Staff() {
   const [estamaCopied, setEstamaCopied] = useState(false);
   const [estamaShowConsole, setEstamaShowConsole] = useState(false);
   const [estamaAutomationOpen, setEstamaAutomationOpen] = useState(false);
+  // スマホ通知「エステ魂のログインが切れています」から開いたときは、エスたま自動化の画面を開く
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("estama") !== "login") return;
+    setEstamaAutomationOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("estama");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [estamaRegisteringCastId, setEstamaRegisteringCastId] = useState<string | null>(null);
   const [addingCast, setAddingCast] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState("");

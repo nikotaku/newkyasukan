@@ -240,6 +240,14 @@
 - `payload.fields = "sns"` のジョブはブログ・SNS欄だけを直す（写真・紹介文はエステ魂のまま）
 - プロフィールの「ブログ・SNS」欄：**X(旧Twitter)＝SNS運用管理のXのプロフィールURL**（`casts.x_account` を `https://x.com/ID` に直して送る）、**外部ブログ＝O2のプロフィールURL**（`casts.o2_url`、O2が無い人だけ `blog_url`）。変換は `server/estama-sns-links.ts`。`o2_url` の変更でも同期が積まれる（トリガー `trg_enqueue_estama_cast_update`）
 
+## エステ魂の自動再ログイン
+
+- エステ魂の管理画面のログイン（Browserbase に保存したブラウザ状態）は2か月ほどで切れる（2026年10月：8/8にログイン → 10/8に切れて、空き枠の更新・今すぐご案内・同期が2日止まった）
+- 切れると `automation_connections.status = 'expired'`。pg_cron `estama-relogin-every-5-minutes` → `private.dispatch_estama_relogin()` → Vercel `/api/cron/estama-appeal?action=estama-relogin`（関数数上限のため同居。本体は `server/estama-relogin.ts`）が、登録されたメールアドレス・パスワードで店舗ログイン画面（`/login/`、`#form-login_shop`）からログインし直し、`ready` に戻して「ログイン待ち」の作業を再開する。失敗が続いたら間をあける（1・2回目は10分、3回目以降は6時間）
+- ログイン情報は Vault の `estama_admin_login:<store_id>`（{mail, password}）だけ。登録は エスたま自動化の画面（スタッフ画面 → エスたま自動化、`EstamaAutoReloginSettings`）から RPC `save_estama_admin_login`（店長・オーナー）、画面には「登録済み」とメールの一部だけ（`get_estama_admin_login_status`）。ワーカーは一回限りのトークン（`estama_sync_tokens.purpose = 'estama-relogin:<store_id>'`）を `claim_estama_relogin_run` で換えて受け取り、`finish_estama_relogin_run` で結果を返す。パスワードをログ・結果・リポジトリ・チャットに出さないこと
+- 3回続けて失敗・ログイン情報が未登録 → `estama_login_alerts` → スマホ通知（topic `estama_login`、タップで `/staff?estama=login`）。状態は `private.estama_relogin_state`
+- テスト: `npm run test:estama`（`tests/estamaRelogin.test.ts`）
+
 ## 日別精算の雑費・宿泊費の自動入力（/sales/daily-sales）
 
 - その日の精算をまだ保存していないセラピストは、雑費を「1本¥1,000・1日¥2,000まで」（給与画面の雑費と同じ決まり）、出稼ぎ（`casts.tags` に「出稼ぎ」）の人は宿泊費を「1日¥2,000」で自動で入れる。保存済み・手で直した金額はそのまま。計算は `src/lib/clearanceDefaults.ts`（テスト `npm run test:clearance-defaults`）
