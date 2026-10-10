@@ -8,6 +8,15 @@
 --                  → claim_estama_relogin_run（ログイン情報と実行トークン）→ ログイン → finish_estama_relogin_run
 --   通知         : 3回続けて失敗・ログイン情報が無い → estama_login_alerts → スマホ通知（topic estama_login）
 
+-- 一回限りのトークンの用途に estama-relogin:<store_id> を足す
+alter table public.estama_sync_tokens
+  drop constraint estama_sync_tokens_purpose_check,
+  add constraint estama_sync_tokens_purpose_check check (
+    purpose = any (array['dispatcher', 'worker', 'profile-worker', 'availability-refresh', 'therapist-appeal'])
+    or purpose like 'report:%' or purpose like 'notify:%' or purpose like 'continue:%'
+    or purpose like 'estama-scout:%' or purpose like 'estama-relogin:%'
+  );
+
 create table if not exists private.estama_relogin_state (
   store_id uuid primary key references public.stores(id) on delete cascade,
   credentials_set_at timestamptz,
@@ -293,6 +302,7 @@ as $$
 declare
   r record;
   v_raw_token text;
+  v_wait interval;
   v_calls integer := 0;
 begin
   for r in
@@ -315,8 +325,8 @@ begin
       end if;
       continue;
     end if;
-    if r.last_attempt_at is not null
-       and r.last_attempt_at > now() - case when r.failures >= 3 then interval '6 hours' else interval '10 minutes' end then
+    v_wait := case when r.failures >= 3 then interval '6 hours' else interval '10 minutes' end;
+    if r.last_attempt_at is not null and r.last_attempt_at > now() - v_wait then
       continue;
     end if;
 
