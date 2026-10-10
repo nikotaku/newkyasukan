@@ -190,6 +190,17 @@
 - 送信は DBトリガー `trg_push_notify()` → Edge Function `push-notify`（`x-push-notify-secret` は Vault の `push_notify_internal_secret`）。購読がない店舗では呼ばない。暗号化とVAPID署名は `_shared/webPush.ts`（外部ライブラリなし）。VAPIDの鍵は Vault の `web_push_vapid_public_key` / `web_push_vapid_private_jwk`（公開鍵は `src/lib/adminPush.ts` にも載せている）
 - テスト: `npm run test:push-notify`
 
+## 公式LINEの見張り・自動応答（LINE対応 /line-inbox）
+
+- お客様用の公式LINE（艶華は @423clcez、`store_info.line_url`）に届いたメッセージを記録して管理画面アプリへスマホ通知（topic `line_inbox`）し、決めた時間（既定5分）のうちにスタッフが返信・「対応済み」にしなければ、AI（Claude、`claude-sonnet-5-5`）が一次対応の返事を送る。返事の最後に「（自動応答）スタッフが確認でき次第…」を付ける。予約の確定・空きの約束・住所の詳細はAIに言わせない（プロンプトは `supabase/functions/_shared/lineCustomerReply.ts`）
+- **LINE公式アカウントのアプリ（チャット）で手で返信したことはAPIで分からない**。アプリで返したら「LINE対応」で「対応済み」を押す。管理画面から返信すると自動で対応済みになる（AIの下書きボタンあり）
+- つなぎ方：「LINE対応」の「設定」（店長・オーナー）でチャネルID・チャネルシークレット（Vault `line_customer_channel:<store_id>`）を保存 → 出てくる Webhook URL（`line-customer-webhook?k=<line_customer_settings.webhook_key>`）を LINE Developers に貼り Webhook オン → Official Account Manager の応答設定で チャット・Webhook ともオン。トークンは Channel ID / secret から15分のステートレストークンを都度発行（長期トークンは発行し直さない）
+- 表：`line_customer_settings` / `line_customer_threads`（status: waiting → replying → auto_replied / handled / failed）/ `line_customer_messages`（direction: in / staff / ai）。RPC `record_line_customer_message` / `claim_line_auto_reply`（二重送信防止）/ `finish_line_customer_reply` / `mark_line_thread_handled`
+- 流れ：Webhook → `line-customer-webhook` が記録（返事はしない）→ DBトリガー `trg_push_notify` → push-notify。pg_cron `line-customer-auto-reply-every-minute` → `private.dispatch_line_auto_replies()`（時間を過ぎた返事待ちがあるときだけ。12時間より古いものは対象外）→ Edge Function `line-customer-reply`（`x-line-customer-secret` は Vault の `line_customer_internal_secret`）。送れなかったら failed にしてスマホ通知
+- AIに渡す事実：店舗情報・コース料金（`get_public_back_rates`）・指名料・オプション・今日と明日の出勤。設定の「AIへの追加の指示」で足せる。Anthropic の鍵は既存の Edge Function Secret `ANTHROPIC_API_KEY`
+- 自動応答はプッシュメッセージなので、LINE公式アカウントの月の送信数（無料枠）を使う
+- テスト: `npm run test:line-customer`
+
 ## セラピストへの予約通知（マイページのスマホ通知に一本化）
 
 - 予約の **確定・変更・キャンセル・担当変更** は、DBトリガー `reservations_therapist_notification` が `therapist_notifications`（通知待ち・送った記録）に積む。同じ予約の続けての変更は送る前に1件にまとめる（新規→取り消しは送らない、変更→変更は最初の変更前の値を残す）。過去の営業日の予約の手直しでは送らない
