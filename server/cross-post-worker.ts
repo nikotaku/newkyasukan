@@ -1,15 +1,12 @@
-import { getAdminClient } from "../../server/estama-automation.js";
-import { publishStoreNews } from "./estama.js";
-import { isRetryableCrossPost } from "../../server/cross-post-reconcile-utils.js";
+import { getAdminClient } from "./estama-automation.js";
+import { isRetryableCrossPost } from "./cross-post-reconcile-utils.js";
 
-export const config = { maxDuration: 300 };
-
-type RequestLike = { method?: string; body?: Record<string, unknown> };
-type ResponseLike = {
-  status(code: number): ResponseLike;
-  json(body: unknown): void;
-  setHeader(name: string, value: string): void;
-};
+type AdminClient = ReturnType<typeof getAdminClient>;
+type PublishStoreNews = (
+  admin: AdminClient,
+  storeId: string,
+  articleId: string,
+) => Promise<{ statusCode: number; body: unknown }>;
 
 type CastPost = {
   id: string;
@@ -28,7 +25,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL
   || process.env.VITE_SUPABASE_URL
   || "https://imrxzkivwrkqbhqfbbes.supabase.co";
 
-async function claimToken(admin: ReturnType<typeof getAdminClient>, token: string) {
+async function claimToken(admin: AdminClient, token: string) {
   if (token.length < 48) return false;
   const { data, error } = await admin.rpc("claim_cross_post_worker_token", { p_token: token });
   if (error) throw new Error(`同時投稿トークンを確認できませんでした: ${error.message}`);
@@ -58,15 +55,15 @@ async function invokeCastPost(postId: string, accessToken: string, target: "o2" 
   };
 }
 
-async function processOldestCastPost(admin: ReturnType<typeof getAdminClient>) {
+async function processOldestCastPost(admin: AdminClient) {
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString();
   const [{ data, error }, { data: readyConnections, error: connectionError }] = await Promise.all([
     admin.from("cast_posts")
-    .select("id,cast_id,store_id,o2_status,o2_error,o2_attempts,esutama_status,esutama_error,esutama_attempts")
-    .gte("created_at", cutoff)
-    .or("o2_status.in.(pending,failed),esutama_status.in.(pending,failed,skipped)")
-    .order("created_at", { ascending: true })
-    .limit(50),
+      .select("id,cast_id,store_id,o2_status,o2_error,o2_attempts,esutama_status,esutama_error,esutama_attempts")
+      .gte("created_at", cutoff)
+      .or("o2_status.in.(pending,failed),esutama_status.in.(pending,failed,skipped)")
+      .order("created_at", { ascending: true })
+      .limit(50),
     admin.from("automation_connections")
       .select("store_id")
       .eq("provider", "estama")
@@ -119,7 +116,7 @@ async function processOldestCastPost(admin: ReturnType<typeof getAdminClient>) {
   return { kind: "cast-post", id: post.id, results };
 }
 
-async function processOldestStoreNews(admin: ReturnType<typeof getAdminClient>) {
+async function processOldestStoreNews(admin: AdminClient, publishStoreNews: PublishStoreNews) {
   const { data, error } = await admin.from("hp_articles")
     .select("id,store_id,estama_status,estama_error,estama_attempts")
     .eq("is_published", true)
@@ -137,33 +134,24 @@ async function processOldestStoreNews(admin: ReturnType<typeof getAdminClient>) 
   return { kind: "store-news", id: article.id, statusCode: result.statusCode, result: result.body };
 }
 
-export default async function handler(req: RequestLike, res: ResponseLike) {
-  res.setHeader("Cache-Control", "private, no-store");
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    res.status(405).json({ error: "Method not allowed" });
-    return;
-  }
-
-  const token = stringValue(req.body?.token);
-  let admin: ReturnType<typeof getAdminClient> | null = null;
+export async function runCrossPostWorker(token: string, publishStoreNews: PublishStoreNews) {
+  let admin: AdminClient | null = null;
   let claimed = false;
   try {
     admin = getAdminClient();
     claimed = await claimToken(admin, token);
     if (!claimed) {
-      res.status(401).json({ error: "同時投稿トークンが無効または使用済みです" });
-      return;
+      return { statusCode: 401, body: { error: "同時投稿トークンが無効または使用済みです" } };
     }
 
     // 魂セラピストと店舗ニュースは同じエステ魂ブラウザを使うため、1回につき片方だけ処理する。
     const castPost = await processOldestCastPost(admin);
-    const storeNews = castPost ? null : await processOldestStoreNews(admin);
-    res.status(200).json({ ok: true, processed: castPost || storeNews });
+    const storeNews = castPost ? null : await processOldestStoreNews(admin, publishStoreNews);
+    return { statusCode: 200, body: { ok: true, processed: castPost || storeNews } };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(JSON.stringify({ event: "cross_post_worker_failed", error: message }));
-    res.status(500).json({ error: message });
+    return { statusCode: 500, body: { error: message } };
   } finally {
     if (admin && claimed && token) {
       const { error } = await admin.rpc("release_cross_post_worker_lease", { p_token: token });
@@ -171,4 +159,3 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
     }
   }
 }
-
