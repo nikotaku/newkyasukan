@@ -211,3 +211,35 @@ export function lineInboxFailedMessage(thread: { id: string; display_name: strin
     tag: `line-${thread.id}`,
   };
 }
+
+const ESTAMA_CHECK_TITLE: Record<string, string> = {
+  dummy: "⚠️ ダミー宛て",
+  unknown_cast: "⚠️ HPにいない名前",
+  no_shift: "⚠️ HPに出勤なし",
+  outside_shift: "⚠️ 出勤の時間外",
+  overlap: "⚠️ 予約が重なる",
+};
+
+// エステ魂の仮予約が入ったとき（管理画面「お店への予約」を5分ごとに読み取り）
+export function estamaReserveMessage(request: {
+  id: string;
+  hope_date: string | null;
+  hope_time: string | null;
+  nomination_label: string | null;
+  is_free: boolean;
+  course_minutes: number | null;
+  customer_name: string | null;
+  check_status: string;
+  check_note: string | null;
+}): PushMessage {
+  const when = [dateLabel(request.hope_date), request.hope_time ? `${request.hope_time.slice(0, 5)}〜` : ""].filter(Boolean).join(" ");
+  const what = [request.is_free ? "フリー" : request.nomination_label, request.course_minutes ? `${request.course_minutes}分` : ""].filter(Boolean).join(" ");
+  const warn = ESTAMA_CHECK_TITLE[request.check_status];
+  return {
+    title: `📩 エステ魂の仮予約${warn ? `（${warn}）` : ""}`,
+    body: [[when, what].filter(Boolean).join(" "), request.customer_name ? `${request.customer_name}様` : "", request.check_note ? clip(request.check_note, 80) : ""]
+      .filter(Boolean).join("\n"),
+    url: "/schedule/web-bookings",
+    tag: `estama-reserve-${request.id}`,
+  };
+}

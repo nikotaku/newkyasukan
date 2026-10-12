@@ -39,6 +39,7 @@ import { PaymentReminderPopup } from "@/components/PaymentReminderPopup";
 import { loadReceptionEndGuide, shareReceptionEndContent } from "@/lib/receptionEndShare";
 import { ENKA_STORE_ID } from "@/lib/storeSwitch";
 import { phoneFromCallParam } from "@/lib/incomingCall";
+import { prefillFromRequest, requestIdFromSearch, type EstamaReservationRequest, ESTAMA_REQUEST_COLUMNS } from "@/lib/estamaReservationRequests";
 import { missingRoomFills, roomFromShifts } from "@/lib/reservationRoom";
 import {
   DEFAULT_RESERVATION_INTERVAL_MINUTES,
@@ -866,6 +867,40 @@ export default function Schedule() {
     navigate("/admin-schedule", { replace: true });
   }, [location.search, isAdmin, navigate]);
 
+  // WEB予約受付の「エステ魂の仮予約」→「予約表に登録」：仮予約の内容を入れて新規予約を開く。保存したら仮予約と結びつける
+  const [estamaRequestId, setEstamaRequestId] = useState<string | null>(null);
+  useEffect(() => {
+    const requestId = requestIdFromSearch(location.search);
+    if (!requestId || !isAdmin) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    void (supabase as any).from("estama_reservation_requests").select(ESTAMA_REQUEST_COLUMNS).eq("id", requestId).maybeSingle()
+      .then(({ data }: { data: EstamaReservationRequest | null }) => {
+        navigate("/admin-schedule", { replace: true });
+        if (!data) return;
+        const prefill = prefillFromRequest(data);
+        setFormData((prev) => ({
+          ...prev,
+          cast_id: prefill.cast_id,
+          customer_name: prefill.customer_name,
+          customer_phone: prefill.customer_phone,
+          customer_email: prefill.customer_email,
+          reservation_date: prefill.reservation_date,
+          start_time: prefill.start_time,
+          duration: prefill.duration ?? prev.duration,
+          nomination_type: prefill.nomination_type ?? prev.nomination_type,
+          notes: prefill.notes,
+        }));
+        setSelectedDate(prefill.reservation_date);
+        setEstamaRequestId(data.id);
+        setIsAddOpen(true);
+      });
+  }, [location.search, isAdmin, navigate]);
+
+  // 保存せずに閉じたら、仮予約との結びつけはやめる
+  useEffect(() => {
+    if (!isAddOpen) setEstamaRequestId(null);
+  }, [isAddOpen]);
+
   const handleTimelineClick = (castId: string, clickY: number) => {
     if (!isAdmin) return;
     const totalMin = TIME_START * 60 + (clickY / HOUR_HEIGHT) * 60;
@@ -882,7 +917,7 @@ export default function Schedule() {
     try {
       const storedStart = toStoredTime(submittedFormData.start_time);
       const storedDate = addDays(submittedFormData.reservation_date, storedStart.dayOffset);
-      const { error } = await supabase.from("reservations").insert([{
+      const { data: inserted, error } = await supabase.from("reservations").insert([{
         cast_id: submittedFormData.cast_id,
         customer_name: submittedFormData.customer_name,
         customer_phone: submittedFormData.customer_phone,
@@ -906,8 +941,14 @@ export default function Schedule() {
         store_id: ENKA_STORE_ID,
         booking_origin: "staff",
         created_by: user.id,
-      }]);
+      }]).select("id").single();
       if (error) throw error;
+      if (estamaRequestId && inserted?.id) {
+        await (supabase.rpc as unknown as (n: string, a: Record<string, unknown>) => Promise<unknown>)(
+          "set_estama_reservation_request", { p_id: estamaRequestId, p_status: "registered", p_reservation_id: inserted.id },
+        );
+        setEstamaRequestId(null);
+      }
       toast({ title: "予約追加", description: "新しい予約が追加されました" });
       setIsAddOpen(false);
       fetchData();
