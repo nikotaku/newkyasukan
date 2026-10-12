@@ -9,8 +9,26 @@ import simultaneousPostSystemImage from "@/assets/recruit/enka-simultaneous-post
 import {
   ArrowLeft, MapPin, Clock, Train, ShieldCheck,
   Home, IdCard, Camera, AlertTriangle, Sparkles, Check, ChevronDown,
-  Footprints, Tablet, Share2, Loader2, type LucideIcon,
+  Footprints, Tablet, Share2, Loader2, MessageCircle, type LucideIcon,
 } from "lucide-react";
+
+// 面談の最後に、求人用の公式LINEを追加してもらう（求人ページ RecruitTalk と同じURL。店舗の settings.recruit_line_url があればそちら）
+const ENKA_RECRUIT_LINE_URL = "https://lin.ee/UCwlbv5";
+
+async function buildQrPath(text: string) {
+  const { default: qrcode } = await import("qrcode-generator");
+  const qr = qrcode(0, "M");
+  qr.addData(text, "Byte");
+  qr.make();
+  const count = qr.getModuleCount();
+  let path = "";
+  for (let row = 0; row < count; row += 1) {
+    for (let col = 0; col < count; col += 1) {
+      if (qr.isDark(row, col)) path += `M${col + 4},${row + 4}h1v1h-1z`;
+    }
+  }
+  return { size: count + 8, path };
+}
 
 /**
  * 面談用（画面共有）ページ。ビデオ通話で候補者に画面共有しながら、
@@ -27,7 +45,15 @@ export default function InterviewGuide() {
 
   // バック表（マイページの「バック表」と同じもの）。ログイン中は自分の店舗、そうでなければ開いているサイトの店舗
   const { user, loading: authLoading } = useAuth();
-  const { storeId: siteStoreId, loading: siteStoreLoading } = useStore();
+  const { store: siteStore, storeId: siteStoreId, loading: siteStoreLoading } = useStore();
+  const configuredLine = siteStore?.settings?.recruit_line_url;
+  const recruitLineUrl = typeof configuredLine === "string" && configuredLine ? configuredLine : ENKA_RECRUIT_LINE_URL;
+  const [lineQr, setLineQr] = useState<{ size: number; path: string } | null>(null);
+  useEffect(() => {
+    let active = true;
+    void buildQrPath(recruitLineUrl).then((qr) => { if (active) setLineQr(qr); });
+    return () => { active = false; };
+  }, [recruitLineUrl]);
   const { storeId: adminStoreId, loading: adminStoreLoading } = useAdminStore();
   const backRateStoreId = authLoading
     ? null
@@ -341,6 +367,31 @@ export default function InterviewGuide() {
             <p>クレーム / 遅刻・早退 / 清掃不十分</p>
           </div>
         </div>
+      </Section>
+
+      {/* 求人LINEの追加（画面共有中はQRをスマホで読み取ってもらう） */}
+      <Section icon={MessageCircle} title="LINEを追加してください" sub="今後のご連絡・体験入店の日程調整はLINEで行います" tone="rose">
+        <Card className="py-6">
+          <div className="flex flex-col items-center gap-4 text-center">
+            {lineQr && (
+              <div className="w-48 h-48 rounded-xl bg-white p-2 shadow-inner border border-gray-100">
+                <svg viewBox={`0 0 ${lineQr.size} ${lineQr.size}`} className="block h-full w-full" shapeRendering="crispEdges" role="img" aria-label="LINE追加のQRコード">
+                  <path d={lineQr.path} fill="#111827" />
+                </svg>
+              </div>
+            )}
+            <p className="text-sm text-gray-600">スマホのカメラでQRコードを読み取るか、下のボタンから追加できます</p>
+            <a
+              href={recruitLineUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-full bg-[#06c755] px-8 py-3 text-base font-bold text-white shadow"
+            >
+              <MessageCircle size={18} />LINEで友だち追加
+            </a>
+            <p className="text-xs text-gray-400 break-all">{recruitLineUrl}</p>
+          </div>
+        </Card>
       </Section>
 
       <footer className="py-10 text-center text-xs text-gray-400">
