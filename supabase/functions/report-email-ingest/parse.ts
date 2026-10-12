@@ -1,9 +1,10 @@
 // Gmailに届くレポートメールの読み取り。
 // - IVRyの着信通知「【着信内容の報告通知】090-xxxx-xxxxからのお電話【IVRy】」→ 問い合わせ（電話）1件
 // - 「【エステ魂】デイリーレポート(9月8日集計分)」→ その日のエステ魂のアクセス数・問い合わせ数
+// - エステ魂の仮予約のメール（件名に「エステ魂」と「予約」）→ すぐにエステ魂の「お店への予約」を読みに行く合図
 // 本文の書式は各サービス次第なので、読み取れないときは推測で埋めずに unparsed として残す。
 
-export type ReportEmailKind = "ivry_call" | "estama_daily_report" | "unknown";
+export type ReportEmailKind = "ivry_call" | "estama_daily_report" | "estama_reservation" | "unknown";
 
 export interface ReportEmail {
   id: string;
@@ -32,6 +33,7 @@ const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 export function classifyReportEmail(subject: string): ReportEmailKind {
   if (/着信内容の報告通知/.test(subject) && /IVRy/i.test(subject)) return "ivry_call";
   if (/エステ魂/.test(subject) && /デイリーレポート/.test(subject)) return "estama_daily_report";
+  if (/エステ魂|エスたま|estama/i.test(subject) && /予約/.test(subject)) return "estama_reservation";
   return "unknown";
 }
 
@@ -130,4 +132,9 @@ export function parseEstamaDailyReport(email: ReportEmail): EstamaDailyReport | 
 
   const externalStoreId = body.match(/estama\.jp\/(?:admin\/)?shop\/(\d+)/)?.[1] || null;
   return { reportDate, pageViews, inquiryCount, externalStoreId };
+}
+
+/** エステ魂の仮予約の自動音声（IVRyに 0120-286-634 からかかってくる電話）か */
+export function isEstamaReservationCall(call: IvryCall) {
+  return (call.callerNumber ?? "").replace(/\D/g, "") === "0120286634";
 }
