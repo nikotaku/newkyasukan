@@ -1,6 +1,8 @@
 // Gmailに届くレポートメールの取り込み口。
-// 店舗のGmailで動く Google Apps Script（scripts/gmail-report-sync.gs）が15分ごとに
-// IVRyの着信通知とエステ魂のデイリーレポートを送ってくる。Codexなどの手作業なしで問い合わせ集計を埋める。
+// 店舗のGmailで動く Google Apps Script（scripts/gmail-report-sync.gs）が1分ごとに
+// IVRyの着信通知・エステ魂のデイリーレポート・エステ魂の仮予約のメールを送ってくる。Codexなどの手作業なしで問い合わせ集計を埋める。
+// エステ魂の仮予約のメール（またはIVRyに来た 0120-286-634 の自動音声の着信通知）が届いたら、
+// すぐにエステ魂の「お店への予約」を読みに行く（RPC request_estama_reserve_sync → WEB予約受付の右側に出る）。
 //
 // 認証: ヘッダー x-ingest-token。report_ingest_tokens にSHA-256で保存したトークンから店舗を決める。
 // 同じメールは何度届いても1回だけ取り込む（Gmailのメッセージ ID で判定）。
@@ -8,6 +10,7 @@
 
 import {
   classifyReportEmail,
+  isEstamaReservationCall,
   parseEstamaDailyReport,
   parseIvryCall,
   type ReportEmail,
@@ -99,6 +102,9 @@ Deno.serve(async (req: Request) => {
 
     const records: Array<Record<string, unknown>> = [];
     let imported = 0;
+    // 30分以内に届いた仮予約の合図があれば、最後にエステ魂を読みに行く（昔のメールの送り直しでは動かさない）
+    let reserveSignal = false;
+    const fresh = (email: ReportEmail) => Date.now() - new Date(email.date).getTime() < 30 * 60_000;
     for (const email of pending) {
       const kind = classifyReportEmail(email.subject);
       const base = {
@@ -112,8 +118,14 @@ Deno.serve(async (req: Request) => {
         updated_at: new Date().toISOString(),
       };
       try {
+        if (kind === "estama_reservation") {
+          if (fresh(email)) reserveSignal = true;
+          records.push({ ...base, parsed: null, status: "imported", error: null });
+          continue;
+        }
         if (kind === "ivry_call") {
           const call = parseIvryCall(email);
+          if (isEstamaReservationCall(call) && fresh(email)) reserveSignal = true;
           if (importedCallIds.has(email.id)) {
             records.push({ ...base, parsed: call, status: "duplicate", error: null });
             continue;
@@ -178,13 +190,17 @@ Deno.serve(async (req: Request) => {
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify(records),
     });
+    if (reserveSignal) {
+      await sb("rpc/request_estama_reserve_sync", { method: "POST", body: JSON.stringify({ p_store_id: storeId }) })
+        .catch((error) => console.error("request_estama_reserve_sync failed:", error));
+    }
     const summary = records.reduce<Record<string, number>>((acc, row) => {
       const key = String(row.status);
       acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {});
     console.log(JSON.stringify({ event: "report_email_ingest", storeId, received: emails.length, imported, summary }));
-    return json(200, { received: emails.length, imported, summary });
+    return json(200, { received: emails.length, imported, summary, estamaReserveSync: reserveSignal });
   } catch (error) {
     console.error("report-email-ingest error:", error);
     return json(500, { error: "取り込みに失敗しました" });

@@ -11,7 +11,9 @@ import {
 test("件名でIVRyの着信通知とエステ魂のデイリーレポートを見分ける", () => {
   assert.equal(classifyReportEmail("【着信内容の報告通知】070-4201-3979からのお電話【IVRy】"), "ivry_call");
   assert.equal(classifyReportEmail("【エステ魂】デイリーレポート(9月8日集計分)"), "estama_daily_report");
-  assert.equal(classifyReportEmail("【エステ魂】仮予約のお知らせ"), "unknown");
+  assert.equal(classifyReportEmail("【エステ魂】仮予約のお知らせ"), "estama_reservation");
+  assert.equal(classifyReportEmail("【エステ魂】ご予約が入りました"), "estama_reservation");
+  assert.equal(classifyReportEmail("お知らせ"), "unknown");
 });
 
 test("IVRyの着信は件名の番号と本文の着信日時・転送結果を使う", () => {
@@ -85,4 +87,10 @@ test("読み取れない書式は推測で埋めずにエラーにする", () =>
     body: "本日もご利用ありがとうございます。",
   });
   assert.deepEqual(result, { error: "本文からアクセス数を読み取れません" });
+});
+
+test("エステ魂の仮予約の自動音声（0120-286-634）を見分ける", async () => {
+  const { isEstamaReservationCall } = await import("../supabase/functions/report-email-ingest/parse.ts");
+  assert.equal(isEstamaReservationCall({ callerNumber: "0120-286-634", inquiredAt: "", callStatus: null, memo: null }), true);
+  assert.equal(isEstamaReservationCall({ callerNumber: "09000000000", inquiredAt: "", callStatus: null, memo: null }), false);
 });

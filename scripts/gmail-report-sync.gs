@@ -1,8 +1,10 @@
 /**
- * Gmail に届く IVRy の着信通知と「【エステ魂】デイリーレポート」を、管理システムの問い合わせ集計へ送る。
+ * Gmail に届く IVRy の着信通知・「【エステ魂】デイリーレポート」・エステ魂の仮予約のメールを、管理システムへ送る。
  * レポートを受け取っている Gmail アカウントの Google Apps Script で動かす（手順: docs/gmail-report-sync.md）。
  *
- * - setup() を1回実行すると、15分ごとに syncReports() が動くようになる
+ * - setup() を1回実行すると、1分ごとに syncReports() が動くようになる
+ *   （エステ魂の仮予約はメールが届いたらすぐ、管理システムがエステ魂の「お店への予約」を読みに行く）
+ * - 一度送ったメールは6時間は送り直さない（毎分の確認を軽くするため）
  * - 初回は BACKFILL_SINCE 以降の分をまとめて送り、以降は直近2日分だけを送る
  * - 同じメールを何度送っても、取り込みは1回だけ（管理システム側で判定）
  */
@@ -12,7 +14,7 @@ const TOKEN = 'PASTE_TOKEN_HERE';
 const BACKFILL_SINCE = '2026/09/01';
 
 const SEARCH_QUERY = '(IVRy OR エステ魂)';
-const SUBJECT_PATTERN = /着信内容の報告通知[\s\S]*IVRy|エステ魂[\s\S]*デイリーレポート/i;
+const SUBJECT_PATTERN = /着信内容の報告通知[\s\S]*IVRy|エステ魂[\s\S]*(デイリーレポート|予約)/i;
 const BATCH_SIZE = 40;
 const MAX_BODY_LENGTH = 20000;
 
@@ -20,7 +22,7 @@ function setup() {
   ScriptApp.getProjectTriggers()
     .filter(function (trigger) { return trigger.getHandlerFunction() === 'syncReports'; })
     .forEach(function (trigger) { ScriptApp.deleteTrigger(trigger); });
-  ScriptApp.newTrigger('syncReports').timeBased().everyMinutes(15).create();
+  ScriptApp.newTrigger('syncReports').timeBased().everyMinutes(1).create();
   syncReports();
 }
 
@@ -33,7 +35,8 @@ function resendAll() {
 function syncReports() {
   const props = PropertiesService.getScriptProperties();
   const backfilled = props.getProperty('backfilled') === 'yes';
-  const range = backfilled ? 'newer_than:2d' : 'after:' + BACKFILL_SINCE;
+  const range = backfilled ? 'newer_than:1d' : 'after:' + BACKFILL_SINCE;
+  const cache = CacheService.getScriptCache();
 
   const messages = [];
   for (let start = 0; start < 2000; start += 100) {
@@ -42,6 +45,7 @@ function syncReports() {
       thread.getMessages().forEach(function (message) {
         const subject = message.getSubject() || '';
         if (!SUBJECT_PATTERN.test(subject)) return;
+        if (backfilled && cache.get('sent:' + message.getId())) return;
         messages.push({
           id: message.getId(),
           subject: subject,
@@ -67,6 +71,7 @@ function syncReports() {
       throw new Error('送信に失敗しました（' + response.getResponseCode() + '）: ' + response.getContentText().slice(0, 300));
     }
     imported += JSON.parse(response.getContentText()).imported || 0;
+    messages.slice(i, i + BATCH_SIZE).forEach(function (message) { cache.put('sent:' + message.id, '1', 21600); });
   }
   if (!backfilled) props.setProperty('backfilled', 'yes');
   console.log(messages.length + '通を確認し、' + imported + '件を新しく取り込みました');
