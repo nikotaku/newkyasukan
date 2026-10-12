@@ -1,5 +1,5 @@
 // 管理画面を「ホーム画面に追加」したアプリへのプッシュ通知（LINE通知と並行して送る試験運用）。
-//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout" | "estama_login" | "daily_sales" | "settlement_transfer" | "line_inbox" | "line_inbox_failed", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
+//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout" | "estama_login" | "daily_sales" | "settlement_transfer" | "line_inbox" | "line_inbox_failed" | "estama_reserve", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
 //  - { action: "test" } … ログイン中のスタッフが自分の端末にテスト通知を送る（JWT）
 // 購読（push_subscriptions）の topics に含まれる通知だけを、その店舗の端末へ送る。SMS残高は全店舗の購読へ。
 // 送れなくなった購読（アプリ削除・通知オフ）は消す。VAPIDの鍵は Vault（RPC get_web_push_vapid）。
@@ -8,6 +8,7 @@ import { sendWebPush, type VapidKeys } from "../_shared/webPush.ts";
 import {
   dailySalesMessage,
   estamaLoginMessage,
+  estamaReserveMessage,
   estamaScoutMessage,
   lineInboxFailedMessage,
   lineInboxMessage,
@@ -133,6 +134,14 @@ async function buildEvent(event: string, id: string, resubmitted = false): Promi
     const [thread] = await sb(`line_customer_threads?id=eq.${id}&select=id,store_id,display_name,error,status`);
     if (!thread || thread.status !== "failed") return null;
     return { message: lineInboxFailedMessage(thread), storeId: thread.store_id, topic: "line_inbox" };
+  }
+  if (event === "estama_reserve") {
+    const [request] = await sb(
+      `estama_reservation_requests?id=eq.${id}&select=id,store_id,hope_date,hope_time,nomination_label,is_free,course_minutes,customer_name,check_status,check_note,status`,
+    );
+    if (!request || request.status !== "new") return null;
+    // WEB予約と同じ通知の種類（web_booking）を受け取っている端末へ
+    return { message: estamaReserveMessage(request), storeId: request.store_id, topic: "web_booking" };
   }
   if (event === "estama_login") {
     const [alert] = await sb(`estama_login_alerts?id=eq.${id}&select=id,store_id,kind,message`);

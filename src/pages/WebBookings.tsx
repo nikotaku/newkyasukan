@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { DashboardHeader } from "@/components/DashboardHeader";
+import { EstamaReservationRequests } from "@/components/EstamaReservationRequests";
 import { Sidebar } from "@/components/Sidebar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -699,6 +700,7 @@ export default function WebBookings() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="pt-[68px] md:ml-[240px] md:pt-[76px]">
         <div className="mx-auto max-w-[1500px] px-4 pb-8 sm:px-6">
+          <EstamaReservationRequests />
           {pageContent}
         </div>
       </main>

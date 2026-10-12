@@ -10,6 +10,7 @@ import {
   releaseSession,
   type Connection,
 } from "./estama-automation.js";
+import { syncEstamaReservations } from "./estama-reserve-sync.js";
 import {
   parseAgeGender,
   selectScoutCandidates,
@@ -22,6 +23,7 @@ import {
  *  - send:    OKが出た人だけ、履歴書の小窓を開いてスカウトテンプレートで送信する
  *  - inspect / inspect-detail: 画面が変わった時に作りを確かめる読み取り専用の調査
  *  - inspect-urls: 指定した管理画面のページ（/admin/…）の作りを読む（読むだけ）
+ *  - reserve-sync: 「お店への予約」の仮予約を読んでHPのシステムに入れる（server/estama-reserve-sync.ts、読むだけ）
  *
  * 画面の作り（2026-09 時点）：候補は a.send-get_modal[data-row="resume,<ID>"]。押すと POST /admin_post/modal/ で
  * 小窓（form#form-scout：select#mail_template・textarea[name=message]・input[name=user_id]）が開き、
@@ -912,6 +914,11 @@ export async function handleEstamaScoutRequest(req: RequestLike, res: ResponseLi
         return;
       }
       const result = await sendApprovedScouts(client, runToken, batchId, claimed.connection);
+      res.status(200).json({ ok: true, storeId: claimed.storeId, result });
+      return;
+    }
+    if (mode === "reserve-sync") {
+      const result = await syncEstamaReservations(client, runToken, claimed.connection);
       res.status(200).json({ ok: true, storeId: claimed.storeId, result });
       return;
     }
