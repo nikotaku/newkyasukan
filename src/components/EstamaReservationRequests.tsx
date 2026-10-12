@@ -77,15 +77,14 @@ export function EstamaReservationRequests() {
   const done = sorted.filter((row) => row.status !== "new");
   const visible = showDone ? sorted : open;
 
-  if (loading && !rows.length) return null;
 
   return (
-    <Card className="mb-5 border-primary/30">
+    <Card className="border-primary/30">
       <CardContent className="space-y-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <h2 className="flex items-center gap-2 font-bold">
-              エステ魂の仮予約
+            <h2 className="flex items-center gap-2 text-lg font-bold">
+              エステ魂からの仮予約
               {open.length > 0 && <span className="rounded-full bg-rose-500 px-2 text-xs text-white">{open.length}</span>}
             </h2>
             <p className="text-xs text-muted-foreground">
@@ -99,10 +98,12 @@ export function EstamaReservationRequests() {
           )}
         </div>
 
-        {visible.length === 0 ? (
+        {loading && !rows.length ? (
+          <div className="py-6 text-center"><Loader2 size={18} className="mx-auto animate-spin text-primary" /></div>
+        ) : visible.length === 0 ? (
           <p className="text-sm text-muted-foreground">未対応の仮予約はありません</p>
         ) : (
-          <div className="grid gap-2 lg:grid-cols-2">
+          <div className="grid gap-2">
             {visible.map((row) => {
               const check = CHECK_LABEL[row.check_status] ?? CHECK_LABEL.ok;
               const finished = row.status !== "new";

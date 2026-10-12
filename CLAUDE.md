@@ -257,7 +257,7 @@
 - エステ魂の仮予約は、管理画面「お店への予約」（`/admin/reserve/`）にお客様名・電話・希望日時・指名・コース・クーポン・ご要望がそろって出る（IVRyの自動音声の電話をコピペする必要はない）。pg_cron `estama-reserve-sync`（2,7,12,17,22,47,52,57分。朝4〜9時は休み。毎時27〜42分の空き枠更新とは重ならない）→ `private.dispatch_estama_reserve_sync()` → `private.estama_scout_call(store, 'reserve-sync')` → Vercel `/api/cron/estama-appeal?action=estama-scout`（mode `reserve-sync`、本体 `server/estama-reserve-sync.ts`）が1ページ目（受付の新しい順20件）を**読むだけ**
 - 文字の読み取りは `server/estama-reserve-parse.ts`（テスト `npm run test:estama-reserve`。テストに実在のお客様の情報を書かない）。保存と判定は RPC `save_estama_reservation_requests(p_run_token, p_items)`（スカウトと同じ一回限りの実行トークン）→ `estama_reservation_requests`（anon は読めない）
 - **HPの出勤が正しい前提で判定**（`private.check_estama_request`）：`dummy`（`casts.is_estama_dummy` のダミー宛て）/ `unknown_cast`（HPにいない名前）/ `no_shift`（その営業日にHPの出勤なし）/ `outside_shift`（出勤の時間外）/ `overlap`（同じ子の別の予約と重なる）/ `free`（指名なし。その時間の出勤人数）/ `ok`。名前は年齢・絵文字・空白を除いて照合（`private.norm_cast_name`）。営業日は朝6時切り替え
-- 予約表に同じ電話番号・前後60分の予約があれば自動で「登録済み」（手で入れた分と二重にならない）。**自動では予約を作らない**（確定SMS・セラピスト通知が仮予約のまま飛ばないように）。WEB予約受付の上の「エステ魂の仮予約」→「予約表に登録」で `/admin-schedule?estama=<id>` が開き、内容（深夜は前日の25時台）・メモ（コース・クーポン・ご要望）が入った新規予約を確認して保存 → `set_estama_reservation_request` で結びつく。ダミー・いない名前はセラピストを空にして開く
+- 予約表に同じ電話番号・前後60分の予約があれば自動で「登録済み」（手で入れた分と二重にならない）。**自動では予約を作らない**（確定SMS・セラピスト通知が仮予約のまま飛ばないように）。WEB予約受付（左：ホームページからのWEB予約／右：エステ魂からの仮予約。スマホでは縦に並ぶ）の「予約表に登録」で `/admin-schedule?estama=<id>` が開き、内容（深夜は前日の25時台）・メモ（コース・クーポン・ご要望）が入った新規予約を確認して保存 → `set_estama_reservation_request` で結びつく。ダミー・いない名前はセラピストを空にして開く
 - 新しい仮予約（受付から1時間以内）はスマホ通知（topic `web_booking`、push-notify の `estama_reserve`）。店舗の `stores.settings.estama_reserve_sync = false` で止められる
 - 画面の作りを確かめるときは mode `inspect-urls`（`paths: ["/admin/reserve/"]`、読むだけ）
 
