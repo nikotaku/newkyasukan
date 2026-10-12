@@ -12,8 +12,8 @@ import {
   Footprints, Tablet, Share2, Loader2, MessageCircle, type LucideIcon,
 } from "lucide-react";
 
-// 面談の最後に、求人用の公式LINEを追加してもらう（求人ページ RecruitTalk と同じURL。店舗の settings.recruit_line_url があればそちら）
-const ENKA_RECRUIT_LINE_URL = "https://lin.ee/UCwlbv5";
+// 面談の最後に追加してもらうLINE（面談用。店舗の settings.interview_line_url があればそちら）
+const INTERVIEW_LINE_URL = "https://line.me/ti/p/XgF2NXcP0T";
 
 async function buildQrPath(text: string) {
   const { default: qrcode } = await import("qrcode-generator");
@@ -46,8 +46,8 @@ export default function InterviewGuide() {
   // バック表（マイページの「バック表」と同じもの）。ログイン中は自分の店舗、そうでなければ開いているサイトの店舗
   const { user, loading: authLoading } = useAuth();
   const { store: siteStore, storeId: siteStoreId, loading: siteStoreLoading } = useStore();
-  const configuredLine = siteStore?.settings?.recruit_line_url;
-  const recruitLineUrl = typeof configuredLine === "string" && configuredLine ? configuredLine : ENKA_RECRUIT_LINE_URL;
+  const configuredLine = siteStore?.settings?.interview_line_url;
+  const recruitLineUrl = typeof configuredLine === "string" && configuredLine ? configuredLine : INTERVIEW_LINE_URL;
   const [lineQr, setLineQr] = useState<{ size: number; path: string } | null>(null);
   useEffect(() => {
     let active = true;
