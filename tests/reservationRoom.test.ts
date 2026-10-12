@@ -35,3 +35,21 @@ test("ルームが空の予約だけ出勤のルームで埋める（入って�
     { id: "6", room: "華月" },
   ]);
 });
+
+test("予約詳細のルームの注意", async () => {
+  const { roomIssue } = await import("../src/lib/reservationRoom.ts");
+  const rooms = ["艶月", "華月"];
+  assert.deepEqual(roomIssue("", "艶月", rooms), { kind: "missing", expected: "艶月" });
+  assert.deepEqual(roomIssue(null, null, rooms), { kind: "missing", expected: null });
+  assert.deepEqual(roomIssue("つや月", "艶月", rooms), { kind: "unknown", room: "つや月" });
+  assert.deepEqual(roomIssue("華月", "艶月", rooms), { kind: "mismatch", room: "華月", expected: "艶月" });
+  assert.equal(roomIssue("艶月", "艶月", rooms), null);
+  assert.equal(roomIssue("艶月", null, rooms), null);
+});
+
+test("お客様の確認", async () => {
+  const { guideConfirmation } = await import("../src/lib/reservationRoom.ts");
+  assert.equal(guideConfirmation(null, null, "艶月"), "none");
+  assert.equal(guideConfirmation("2026-10-12T10:00:00Z", "艶月", "艶月"), "confirmed");
+  assert.equal(guideConfirmation("2026-10-12T10:00:00Z", "華月", "艶月"), "stale");
+});
