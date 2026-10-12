@@ -33,3 +33,28 @@ export function missingRoomFills(reservations: ReservationRoom[], shifts: ShiftR
   }
   return fills;
 }
+
+export type RoomIssue =
+  | { kind: "missing"; expected: string | null }
+  | { kind: "unknown"; room: string }
+  | { kind: "mismatch"; room: string; expected: string };
+
+/**
+ * 予約詳細に出すルームの注意。
+ *  - missing：ルームが空（お客様の案内ページに住所が出ない）
+ *  - unknown：ルーム管理に無い名前（案内ページに住所が出ない）
+ *  - mismatch：そのセラピストのその日の出勤のルームと違う
+ */
+export function roomIssue(room: string | null | undefined, shiftRoom: string | null, knownRooms: string[]): RoomIssue | null {
+  const current = (room ?? "").trim();
+  if (!current) return { kind: "missing", expected: shiftRoom };
+  if (knownRooms.length && !knownRooms.includes(current)) return { kind: "unknown", room: current };
+  if (shiftRoom && shiftRoom !== current) return { kind: "mismatch", room: current, expected: shiftRoom };
+  return null;
+}
+
+/** お客様が案内ページで「予約内容を確認しました」を押したか。押した後にルームが変わったら stale */
+export function guideConfirmation(confirmedAt: string | null | undefined, confirmedRoom: string | null | undefined, room: string | null | undefined) {
+  if (!confirmedAt) return "none" as const;
+  return (confirmedRoom ?? null) === (room ?? null) ? "confirmed" as const : "stale" as const;
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { CalendarClock, Copy, CreditCard, ExternalLink, Loader2, MapPin, MessageCircle, Phone, TriangleAlert } from "lucide-react";
+import { CalendarClock, CheckCircle2, Copy, CreditCard, ExternalLink, Loader2, MapPin, MessageCircle, Phone, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPhone } from "@/hooks/useStoreContact";
@@ -17,6 +17,8 @@ interface ReservationGuideData {
   options: string[];
   cast_name: string | null;
   price: number | null;
+  // お客様が「予約内容を確認しました」を押した日時（押した後にルームが変わったら空に戻る）
+  confirmed_at?: string | null;
   store: { name: string | null; phone: string | null; line_url: string | null };
   room: {
     name: string;
@@ -167,6 +169,19 @@ export default function ReservationGuide() {
   };
   const copyAddress = (address: string) => copyText(address, "住所をコピーしました");
 
+  const [confirming, setConfirming] = useState(false);
+  const confirm = async () => {
+    setConfirming(true);
+    const { data, error } = await supabase.rpc("confirm_reservation_guide" as never, { p_token: token } as never);
+    setConfirming(false);
+    if (error || !data) {
+      toast.error("確認を送れませんでした。お手数ですがお電話でお知らせください");
+      return;
+    }
+    setGuide((prev) => (prev ? { ...prev, confirmed_at: String(data) } : prev));
+    toast.success("ありがとうございます。ご来店をお待ちしております");
+  };
+
   const page = (children: React.ReactNode) => (
     <div className="min-h-screen px-4 py-6" style={{ backgroundColor: "var(--pub-bg,#150a11)", color: "var(--pub-text,#f7e9f0)" }}>
       <div className="mx-auto max-w-md space-y-4">{children}</div>
@@ -274,6 +289,33 @@ export default function ReservationGuide() {
           <p className="text-sm leading-7 whitespace-pre-wrap">{guide.room.caution_text.trim()}</p>
         </Section>
       )}
+
+      {/* ルームの住所・道順を見たことを、お店に知らせてもらう（ルームの登録間違いに早く気付くため） */}
+      <section className="rounded-2xl p-4 space-y-3" style={{ ...cardStyle, border: "1px solid var(--pub-accent,#d4547a)" }}>
+        {guide.confirmed_at ? (
+          <p className="flex items-center justify-center gap-2 text-sm font-bold">
+            <CheckCircle2 size={18} style={{ color: "#22c55e" }} />予約内容とルームの確認ありがとうございます
+          </p>
+        ) : guide.room ? (
+          <>
+            <p className="text-sm leading-6">
+              ご予約の日時と<strong>ルーム（{guide.room.name}）の住所</strong>をご確認のうえ、下のボタンを押してください。
+              内容に心当たりがない・違う場合は、お手数ですがお店までご連絡ください。
+            </p>
+            <button
+              type="button"
+              onClick={() => void confirm()}
+              disabled={confirming}
+              className="flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-bold text-white disabled:opacity-60"
+              style={{ backgroundColor: "var(--pub-accent,#d4547a)" }}
+            >
+              {confirming ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}予約内容を確認しました
+            </button>
+          </>
+        ) : (
+          <p className="text-sm leading-6">ルームのご案内は、決まり次第お店からご連絡いたします。</p>
+        )}
+      </section>
 
       <Section title="ご予約の変更・キャンセル" icon={<Phone size={16} />}>
         <p className="text-sm mb-3" style={{ color: "var(--pub-text-mid,#dfc0cf)" }}>必ずお電話でご連絡ください。</p>

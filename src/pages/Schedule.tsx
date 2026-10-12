@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { format, addDays, subDays, addMonths, subMonths, parse, addMinutes, startOfMonth, endOfMonth, startOfWeek, eachDayOfInterval } from "date-fns";
 import { toExtTime, toStoredTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Heart, Zap, Trash2, Share2, Loader2, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Heart, Zap, Trash2, Share2, Loader2, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
 import paypayGuideUrl from "@/assets/paypay-guide.jpeg";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
@@ -40,7 +40,7 @@ import { loadReceptionEndGuide, shareReceptionEndContent } from "@/lib/reception
 import { ENKA_STORE_ID } from "@/lib/storeSwitch";
 import { phoneFromCallParam } from "@/lib/incomingCall";
 import { prefillFromRequest, requestIdFromSearch, type EstamaReservationRequest, ESTAMA_REQUEST_COLUMNS } from "@/lib/estamaReservationRequests";
-import { missingRoomFills, roomFromShifts } from "@/lib/reservationRoom";
+import { guideConfirmation, missingRoomFills, roomFromShifts, roomIssue } from "@/lib/reservationRoom";
 import {
   DEFAULT_RESERVATION_INTERVAL_MINUTES,
   findNextAvailableStart,
@@ -94,6 +94,9 @@ interface Reservation {
   store_id: string;
   // 予約ごとの案内ページ（/g/:token）のトークン
   guide_token?: string | null;
+  // お客様が案内ページで「予約内容を確認しました」を押した日時と、その時のルーム
+  guide_confirmed_at?: string | null;
+  guide_confirmed_room?: string | null;
   created_by: string | null;
   booking_origin: string;
   referral_source: string | null;
@@ -1703,6 +1706,51 @@ export default function Schedule() {
                         {STATUS_LABELS[detailRes.status] ?? detailRes.status}
                       </span>
                     </div>
+                    {/* ルームの注意（未登録・ルーム管理に無い名前・出勤のルームと違う）と、お客様が案内ページで確認したか */}
+                    {detailRes.status !== "cancelled" && (() => {
+                      // 予約表に読み込んでいるのは表示中の営業日の出勤（予約詳細はその日の予約から開く）
+                      const shiftRoom = roomFromShifts(shifts, detailRes.cast_id);
+                      const issue = roomIssue(detailRes.room, shiftRoom, forStore(rooms, detailRes.store_id).map((room) => room.name));
+                      const confirmation = guideConfirmation(detailRes.guide_confirmed_at, detailRes.guide_confirmed_room, detailRes.room);
+                      const guideUrl = detailRes.guide_token ? `${window.location.origin}/g/${detailRes.guide_token}` : null;
+                      return (
+                        <div className="space-y-2">
+                          {issue && (
+                            <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                              <p className="flex items-center gap-1.5 font-semibold"><AlertTriangle size={15} />
+                                {issue.kind === "missing" ? "ルームが登録されていません" : issue.kind === "unknown" ? `ルーム「${issue.room}」がルーム管理にありません` : "ルームが出勤と違います"}
+                              </p>
+                              <p className="mt-1 text-xs">
+                                {issue.kind === "missing" && `お客様の案内ページに住所が出ません。${issue.expected ? `出勤のルームは「${issue.expected}」です。` : ""}編集でルームを選んでください`}
+                                {issue.kind === "unknown" && "お客様の案内ページに住所が出ません。編集でルームを選び直してください"}
+                                {issue.kind === "mismatch" && `予約は「${issue.room}」ですが、${castNameMap.get(detailRes.cast_id) ?? "セラピスト"}さんのこの日の出勤は「${issue.expected}」です。間違っていたら編集で直してください`}
+                              </p>
+                            </div>
+                          )}
+                          <div className={cn("rounded-lg border p-3 text-xs",
+                            confirmation === "confirmed" ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200"
+                              : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200")}>
+                            <p className="flex items-center gap-1.5 font-semibold">
+                              {confirmation === "confirmed" ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                              {confirmation === "confirmed"
+                                ? `お客様が予約内容を確認済み（${format(new Date(detailRes.guide_confirmed_at!), "M/d HH:mm")}）`
+                                : confirmation === "stale"
+                                  ? "お客様が確認した後にルームが変わりました。もう一度確認してもらってください"
+                                  : "お客様はまだ予約内容（ルーム）を確認していません"}
+                            </p>
+                            {confirmation !== "confirmed" && guideUrl && (
+                              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                <span>SMSの案内ページのリンクから「予約内容を確認しました」を押してもらいます。</span>
+                                <button type="button" className="underline" onClick={() => { void navigator.clipboard.writeText(guideUrl); toast({ title: "案内ページのリンクをコピーしました" }); }}>
+                                  リンクをコピー
+                                </button>
+                                <a className="underline" href={guideUrl} target="_blank" rel="noreferrer">開く</a>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <div className="grid grid-cols-2 gap-y-2 text-sm">
                       <span className="text-muted-foreground">日時</span>
                       <span className="font-medium">
