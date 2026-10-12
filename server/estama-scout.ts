@@ -21,6 +21,7 @@ import {
  *  - collect: スカウト求人・スカウト検索の一覧から候補を読み、DBに保存して OK待ち にする（読むだけ）
  *  - send:    OKが出た人だけ、履歴書の小窓を開いてスカウトテンプレートで送信する
  *  - inspect / inspect-detail: 画面が変わった時に作りを確かめる読み取り専用の調査
+ *  - inspect-urls: 指定した管理画面のページ（/admin/…）の作りを読む（読むだけ）
  *
  * 画面の作り（2026-09 時点）：候補は a.send-get_modal[data-row="resume,<ID>"]。押すと POST /admin_post/modal/ で
  * 小窓（form#form-scout：select#mail_template・textarea[name=message]・input[name=user_id]）が開き、
@@ -237,6 +238,68 @@ export async function inspectEstamaScoutPages(connection: Connection) {
         pages.push({ target, subLinks, ...outline });
       }
       return { menu, scoutLinks, pages };
+    } finally {
+      await disconnect(browser);
+    }
+  } finally {
+    await releaseSession(bb, session.id);
+  }
+}
+
+/** 指定した管理画面のページ（/admin/… だけ・最大4つ）の作りを読む。読むだけで、ボタンは押さない（仮予約の取り込みなどの下調べ用） */
+export async function inspectEstamaAdminUrls(connection: Connection, paths: string[]) {
+  if (!connection.browserbase_context_id) {
+    throw new LoginRequiredError("Browserbaseの保存済みログイン情報がありません");
+  }
+  const targets = paths.filter((path) => /^\/admin\/[a-z0-9_\-/]*$/i.test(path)).slice(0, 4);
+  const { bb, session } = await createBrowserSession(
+    connection.browserbase_context_id,
+    false,
+    { action: "admin-inspect", storeId: connection.store_id },
+    { solveCaptchas: false },
+  );
+  try {
+    const { browser, page } = await connectSession(session.connectUrl);
+    try {
+      page.setDefaultTimeout(10_000);
+      const pages = [];
+      for (const path of targets) {
+        await page.goto(`https://estama.jp${path}`, { waitUntil: "domcontentloaded" });
+        await ensureAdminLogin(page);
+        await page.waitForTimeout(1_000);
+        const outline = await outlinePage(page);
+        const tables = await page.evaluate(() => {
+          const clean = (value: string | null | undefined, max = 300) =>
+            (value || "").normalize("NFKC").replace(/\s+/g, " ").trim().slice(0, max);
+          const shape = (element: Element, depth = 0): string => {
+            if (depth > 6) return "";
+            const tag = element.tagName.toLowerCase();
+            const attrs = Array.from(element.attributes)
+              .filter((attribute) => /^(?:id|class|href|data-.+)$/.test(attribute.name))
+              .map((attribute) => `${attribute.name}="${attribute.value.slice(0, 120)}"`).join(" ");
+            const own = Array.from(element.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE)
+              .map((node) => clean(node.textContent, 40)).filter(Boolean).join("|");
+            const children = Array.from(element.children).slice(0, 20).map((child) => shape(child, depth + 1)).join("");
+            return `<${tag}${attrs ? ` ${attrs}` : ""}>${own ? `«${own}»` : ""}${children}</${tag}>`;
+          };
+          const tables = Array.from(document.querySelectorAll("table")).slice(0, 4).map((table) => ({
+            rowCount: table.querySelectorAll("tr").length,
+            rows: Array.from(table.querySelectorAll("tr")).slice(0, 4).map((row) => clean((row as HTMLElement).innerText, 400)),
+            skeleton: shape(table).slice(0, 5_000),
+          }));
+          // 表を使っていない一覧（カード型）も見られるよう、繰り返している要素の最初の2つを読む
+          const repeated = Array.from(document.querySelectorAll("main li, main article, .list > *, [class*='list'] > *, [class*='item']"))
+            .slice(0, 2).map((element) => ({ text: clean((element as HTMLElement).innerText, 600), skeleton: shape(element).slice(0, 4_000) }));
+          return { tables, repeated };
+        });
+        const subLinks = (await readLinks(page))
+          .filter((link) => link.href.includes(path) || /詳細|一覧|次|前|page|ページ/.test(link.text))
+          .map((link) => `${link.text} → ${link.href.replace("https://estama.jp", "")}`)
+          .filter((value, index, list) => list.indexOf(value) === index)
+          .slice(0, 40);
+        pages.push({ path, subLinks, ...outline, ...tables });
+      }
+      return { pages };
     } finally {
       await disconnect(browser);
     }
@@ -849,6 +912,12 @@ export async function handleEstamaScoutRequest(req: RequestLike, res: ResponseLi
         return;
       }
       const result = await sendApprovedScouts(client, runToken, batchId, claimed.connection);
+      res.status(200).json({ ok: true, storeId: claimed.storeId, result });
+      return;
+    }
+    if (mode === "inspect-urls") {
+      const paths = Array.isArray(body.paths) ? body.paths.filter((path): path is string => typeof path === "string") : [];
+      const result = await inspectEstamaAdminUrls(claimed.connection, paths);
       res.status(200).json({ ok: true, storeId: claimed.storeId, result });
       return;
     }
