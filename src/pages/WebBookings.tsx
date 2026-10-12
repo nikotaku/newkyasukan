@@ -408,7 +408,7 @@ export default function WebBookings() {
           <div>
             <div className="flex items-center gap-2">
               <Inbox className="h-6 w-6 text-primary" />
-              <h1 className="text-2xl font-bold tracking-tight">WEB予約受付</h1>
+              <h1 className="text-2xl font-bold tracking-tight">ホームページからのWEB予約</h1>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               予約の確定・キャンセルとは別に、フォームへの対応状況を管理します。
@@ -520,99 +520,7 @@ export default function WebBookings() {
           </Card>
         ) : (
           <>
-            <Card className="hidden overflow-hidden lg:block">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1380px] text-sm">
-                  <caption className="sr-only">WEB予約フォームから受け付けた予約一覧</caption>
-                  <thead>
-                    <tr className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
-                      <th className="whitespace-nowrap px-4 py-3 font-medium">受付日時</th>
-                      <th className="whitespace-nowrap px-4 py-3 font-medium">予約日時</th>
-                      <th className="whitespace-nowrap px-4 py-3 font-medium">お客様</th>
-                      <th className="whitespace-nowrap px-4 py-3 font-medium">電話番号</th>
-                      <th className="whitespace-nowrap px-4 py-3 font-medium">セラピスト</th>
-                      <th className="px-4 py-3 font-medium">コース</th>
-                      <th className="whitespace-nowrap px-4 py-3 text-right font-medium">料金</th>
-                      <th className="whitespace-nowrap px-4 py-3 font-medium">予約状況</th>
-                      <th className="whitespace-nowrap px-4 py-3 font-medium">受付元</th>
-                      <th className="whitespace-nowrap px-4 py-3 font-medium">通知</th>
-                      <th className="whitespace-nowrap px-4 py-3 font-medium">対応状況</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {filteredBookings.map((booking) => (
-                      <tr key={booking.id} className="align-middle transition-colors hover:bg-muted/30">
-                        <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
-                          {formatReceivedAt(booking.created_at)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <p className="font-medium">
-                            {formatBookingDate(booking.reservation_date, booking.start_time)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {toExtTime(booking.start_time)}（{booking.duration}分）
-                          </p>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 font-semibold">
-                          {booking.customer_name} 様
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <PhoneCallLink
-                            phone={booking.customer_phone}
-                            name={`${booking.customer_name} 様`}
-                            className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline"
-                          >
-                            <Phone className="h-3.5 w-3.5" />
-                            {booking.customer_phone}
-                          </PhoneCallLink>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3">{castName(booking)}</td>
-                        <td className="max-w-56 px-4 py-3">{booking.course_name}</td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums">
-                          ¥{Number(booking.price || 0).toLocaleString("ja-JP")}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <ReservationStatusBadge status={booking.status} />
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
-                          {ORIGIN_LABELS[booking.booking_origin] ?? booking.booking_origin}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className={notificationLabel(booking).className}>
-                              {notificationLabel(booking).label}
-                            </Badge>
-                            {booking.line_notification_status !== "sent" && booking.email_notification_status !== "sent" ? (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                disabled={retryingNotificationIds.includes(booking.id)}
-                                onClick={() => void handleRetryNotification(booking)}
-                              >
-                                {retryingNotificationIds.includes(booking.id)
-                                  ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                                  : <RefreshCw className="mr-1 h-3.5 w-3.5" />}
-                                再送
-                              </Button>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <OperationalStatusSelect
-                            booking={booking}
-                            disabled={updatingIds.includes(booking.id)}
-                            onChange={handleOperationalStatusChange}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-
-            <div className="space-y-3 lg:hidden">
+            <div className="space-y-3">
               {filteredBookings.map((booking) => (
                 <Card key={booking.id} className="overflow-hidden">
                   <CardContent className="space-y-4 p-4">
@@ -699,9 +607,12 @@ export default function WebBookings() {
       <DashboardHeader onToggleSidebar={() => setSidebarOpen((open) => !open)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="pt-[68px] md:ml-[240px] md:pt-[76px]">
-        <div className="mx-auto max-w-[1500px] px-4 pb-8 sm:px-6">
-          <EstamaReservationRequests />
-          {pageContent}
+        {/* 左：ホームページからのWEB予約 ／ 右：エステ魂からの仮予約（スマホでは縦に並ぶ） */}
+        <div className="mx-auto grid max-w-[1800px] gap-5 px-4 pb-8 sm:px-6 xl:grid-cols-2 xl:items-start">
+          <div className="min-w-0">{pageContent}</div>
+          <div className="min-w-0 xl:sticky xl:top-[84px] xl:max-h-[calc(100vh-100px)] xl:overflow-y-auto">
+            <EstamaReservationRequests />
+          </div>
         </div>
       </main>
     </div>
