@@ -100,7 +100,9 @@ async function buildEvent(event: string, id: string, resubmitted = false): Promi
     );
     if (!reservation) return null;
     const [cast] = reservation.cast_id ? await sb(`casts?id=eq.${reservation.cast_id}&select=name`) : [null];
-    return { message: webBookingMessage(reservation, cast?.name ?? null), storeId: reservation.store_id };
+    // 新規のお客様のコースの上限を超えていれば、タイトルで知らせる（読めなくても通知は送る）
+    const [courseLimit] = await rpc("get_course_limit_alerts", { p_reservation_ids: [reservation.id] }).catch(() => []) ?? [];
+    return { message: webBookingMessage(reservation, cast?.name ?? null, courseLimit ?? null), storeId: reservation.store_id };
   }
   if (event === "sms_reply") {
     const [log] = await sb(`sms_logs?id=eq.${id}&select=id,store_id,from_number,body,customer_id,direction`);

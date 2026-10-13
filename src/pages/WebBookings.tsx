@@ -3,6 +3,7 @@ import { format, subDays } from "date-fns";
 import { ja } from "date-fns/locale";
 import {
   AlertCircle,
+  AlertTriangle,
   Inbox,
   Loader2,
   Phone,
@@ -34,6 +35,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toExtTime } from "@/lib/timeFormat";
 import { cn } from "@/lib/utils";
+import { courseLimitMessage, fetchCourseLimitAlerts, type CourseLimitAlert } from "@/lib/courseLimit";
 
 type WebBookingStatus = "unhandled" | "in_progress" | "handled";
 type StatusFilter = WebBookingStatus | "all";
@@ -212,6 +214,8 @@ function OperationalStatusSelect({
 export default function WebBookings() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bookings, setBookings] = useState<WebBooking[]>([]);
+  // 新規のお客様のコース上限を超えた予約（例：望月せなさんは新規80分まで）
+  const [courseLimits, setCourseLimits] = useState<Map<string, CourseLimitAlert>>(new Map());
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("unhandled");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -246,7 +250,9 @@ export default function WebBookings() {
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        setBookings((data ?? []) as WebBooking[]);
+        const rows = (data ?? []) as WebBooking[];
+        setBookings(rows);
+        void fetchCourseLimitAlerts(rows.map((row) => row.id)).then(setCourseLimits);
       } catch (error) {
         console.error("Failed to fetch web bookings", error);
         setFetchError("WEB予約を読み込めませんでした。時間をおいて再度お試しください。");
@@ -537,6 +543,13 @@ export default function WebBookings() {
                         onChange={handleOperationalStatusChange}
                       />
                     </div>
+
+                    {courseLimits.get(booking.id) && (
+                      <div className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span><span className="font-semibold">新規のお客様のコース上限を超えています。</span>{courseLimitMessage(courseLimits.get(booking.id)!)}。お客様に連絡してコースを確かめてください</span>
+                      </div>
+                    )}
 
                     <PhoneCallLink
                       phone={booking.customer_phone}

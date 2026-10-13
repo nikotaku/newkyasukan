@@ -121,6 +121,12 @@
 - DB：エステ魂の仮予約の判定（休憩にかかる希望は `outside_shift`）、セラピストアピール（`public.shift_on_break()` で休憩中の人を選ばない）。エステ魂のシフト同期は開始・終了だけ（休憩は送らない）
 - Edge Function `x-auto-post` は再デプロイするときに `src/lib/shiftBreak.ts` も一緒に送る（2026年10月時点で自動投稿はオフのため、休憩対応前の版のまま）
 
+## 新規のお客様のコース上限（セラピストごと）
+
+- `casts.new_customer_max_minutes`（例：望月せなさんは80分）。スタッフ画面のセラピスト編集「新規のお客様のコース上限（分）」で設定。空なら制限なし
+- **予約は止めない**（取りこぼさないため）。新規のお客様が上限より長いコースで予約したら知らせる：WEB予約のスマホ通知のタイトル（「⚠️ 新規80分超え：…」）、WEB予約受付のカード・予約表の予約詳細の赤い注意（RPC `get_course_limit_alerts(p_reservation_ids)`、画面は `src/lib/courseLimit.ts`）、エステ魂の仮予約の判定 `course_limit`
+- 新規 = その電話番号で施術済み（completed）の予約がまだ無い人（`public.has_completed_visit`、店舗をまたいで見る）。エステ魂の「リピート予約」は新規にしない
+
 ## 予約案内ページ（SMSのリンク先）
 
 - 予約ごとの案内ページ `/g/:token`（`/r/` はセラピスト別の予約リンクなので使わない）（`src/pages/public/ReservationGuide.tsx`）。予約内容・ルームの住所と地図・道順（写真のステップを自動再生）・来店時のお願い・連絡先を出す。SMSには `{guide_url}` でリンクだけ載せて通数を減らす

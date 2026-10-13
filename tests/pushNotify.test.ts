@@ -25,6 +25,13 @@ test("WEB予約の通知：日時・コース・セラピスト・お客様・�
   assert.equal(webBookingMessage({ ...reservation, booking_origin: "cast_form", nomination_type: "フリー" }, null).body.split("\n")[1], "指名なし / 山田様");
 });
 
+test("WEB予約の通知：新規のお客様のコース上限を超えたらタイトルと1行目で知らせる", () => {
+  const message = webBookingMessage({ ...reservation, duration: 100 }, "せな", { max_minutes: 80 });
+  assert.equal(message.title, "⚠️ 新規80分超え：WEB予約が入りました");
+  assert.equal(message.body.split("\n")[0], "⚠️ せなさんは新規のお客様は80分まで。コースの確認が必要です");
+  assert.equal(webBookingMessage(reservation, "あさみ", null).title, "🔔 WEB予約が入りました");
+});
+
 test("SMS返信の通知：本文は120文字まで、タップで受信箱のそのお客様を開く", () => {
   const message = smsReplyMessage({ fromNumber: "+819012345678", body: "あ".repeat(200), customerName: "山田" });
   assert.equal(message.title, "💬 SMSの返信（山田様）");
