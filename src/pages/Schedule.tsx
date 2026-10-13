@@ -50,6 +50,7 @@ import {
   getSubmittedCastIds,
   getTimelineSettlementIndicator,
 } from "@/lib/settlementStatus";
+import { formatShiftBreak, overlapsBreaks, shiftBreaks } from "@/lib/shiftBreak";
 
 interface Cast {
   id: string;
@@ -816,7 +817,7 @@ export default function Schedule() {
           const st = timeToMinutes(sh.start_time);
           let en = timeToMinutes(sh.end_time);
           if (en <= st) en += 1440;
-          return { st, en };
+          return { st, en, breaks: shiftBreaks(sh, st) };
         })
         .sort((a, b) => a.st - b.st);
       const resv = reservations
@@ -836,6 +837,7 @@ export default function Schedule() {
           shiftEnd: sh.en,
           currentTime: todaySel ? nowExt : sh.st,
           reservations: resv,
+          breaks: sh.breaks,
           intervalMinutes: INTERVAL,
           minimumDuration: DUR,
         });
@@ -1331,6 +1333,9 @@ export default function Schedule() {
                                   ? `${toExtTime(shift.start_time)}〜${toExtTime(shift.end_time)}`
                                   : "シフト未登録（予約あり）"}
                               </p>
+                              {shift && formatShiftBreak(shift) && (
+                                <p className="text-[11px] text-amber-700">☕ {formatShiftBreak(shift)}</p>
+                              )}
                               {!hasPortal && (
                                 <p className="text-[11px] text-amber-700 mt-0.5">
                                   マイページ未発行
@@ -1460,6 +1465,9 @@ export default function Schedule() {
                                 ? `${shift.start_time.slice(0, 5)}~${shift.end_time.slice(0, 5)}`
                                 : "予約のみ"}
                             </div>
+                            {shift && formatShiftBreak(shift) && (
+                              <div className="text-[9px] text-amber-700 leading-tight">☕{formatShiftBreak(shift).replace("休憩 ", "")}</div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1521,6 +1529,21 @@ export default function Schedule() {
                                   style={{ top: shiftTop, height: shiftH }}
                                 />
                               )}
+
+                              {/* 中休み（休憩）：斜線で予約を入れない時間を示す */}
+                              {shift && shiftBreaks(shift, shiftStartMin).map((block) => (
+                                <div
+                                  key={`break-${block.start}`}
+                                  className="absolute left-1 right-1 rounded border border-dashed border-amber-400 bg-amber-100/60 dark:bg-amber-500/10 flex items-start justify-center pointer-events-none"
+                                  style={{
+                                    top: minutesToPx(block.start),
+                                    height: ((block.end - block.start) / 60) * HOUR_HEIGHT,
+                                    backgroundImage: "repeating-linear-gradient(135deg, transparent 0 6px, rgba(217,119,6,0.12) 6px 12px)",
+                                  }}
+                                >
+                                  <span className="text-[10px] text-amber-800 dark:text-amber-300 mt-0.5">☕ 休憩</span>
+                                </div>
+                              ))}
 
                               {/* Reservation blocks */}
                               {castRes.map((res) => {
@@ -1713,8 +1736,20 @@ export default function Schedule() {
                       const issue = roomIssue(detailRes.room, shiftRoom, forStore(rooms, detailRes.store_id).map((room) => room.name));
                       const confirmation = guideConfirmation(detailRes.guide_confirmed_at, detailRes.guide_confirmed_room, detailRes.room);
                       const guideUrl = detailRes.guide_token ? `${window.location.origin}/g/${detailRes.guide_token}` : null;
+                      // 中休みにかかる予約
+                      const castShift = shifts.find((sh) => sh.cast_id === detailRes.cast_id);
+                      const resStart = timeToMinutes(detailRes.start_time);
+                      const onBreak = castShift
+                        ? overlapsBreaks(resStart, resStart + (detailRes.duration ?? 0), shiftBreaks(castShift, timeToMinutes(castShift.start_time)))
+                        : false;
                       return (
                         <div className="space-y-2">
+                          {onBreak && castShift && (
+                            <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                              <p className="flex items-center gap-1.5 font-semibold"><AlertTriangle size={15} />予約がセラピストの休憩にかかっています</p>
+                              <p className="mt-1 text-xs">{castNameMap.get(detailRes.cast_id) ?? "セラピスト"}さんのこの日の{formatShiftBreak(castShift)}です。時間かシフトを確かめてください</p>
+                            </div>
+                          )}
                           {issue && (
                             <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
                               <p className="flex items-center gap-1.5 font-semibold"><AlertTriangle size={15} />

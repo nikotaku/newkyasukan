@@ -16,6 +16,8 @@ type ShiftRow = {
   cast_id: string;
   start_time: string;
   end_time: string;
+  break_start?: string | null;
+  break_end?: string | null;
   approval_status: string | null;
   casts: { id: string; name: string; photo: string | null; shop_comment: string | null; profile: string | null; is_active: boolean; is_visible: boolean } | null;
 };
@@ -46,7 +48,7 @@ export async function loadXPostContext(client: XContextClient, input: XContextIn
   const [shiftsRes, reservationsRes, settingsRes, discountsRes, reviewsRes, infoRes] = await Promise.all([
     client
       .from("shifts")
-      .select("shift_date,cast_id,start_time,end_time,approval_status,casts(id,name,photo,shop_comment,profile,is_active,is_visible)")
+      .select("shift_date,cast_id,start_time,end_time,break_start,break_end,approval_status,casts(id,name,photo,shop_comment,profile,is_active,is_visible)")
       .eq("store_id", storeId)
       .in("shift_date", [date, tomorrow])
       .order("start_time"),
@@ -91,7 +93,7 @@ export async function loadXPostContext(client: XContextClient, input: XContextIn
         end: s.end_time.slice(0, 5),
         nextAvailable: withAvailability
           ? nextAvailableFor(
-              { start: s.start_time.slice(0, 5), end: s.end_time.slice(0, 5) },
+              { start: s.start_time.slice(0, 5), end: s.end_time.slice(0, 5), breakStart: s.break_start, breakEnd: s.break_end },
               reservations.filter((r) => r.cast_id === s.cast_id),
               interval,
               isToday ? clock.minutes : null,

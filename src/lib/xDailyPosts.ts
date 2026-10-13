@@ -3,6 +3,7 @@
  * 流し込んで、そのまま貼れる投稿文を作る。データで作れない投稿（求人・店長など）は AI で作る（needsAi）。
  */
 import { findNextAvailableStart, formatAvailabilityTime } from "./availability.ts";
+import { shiftBreaks } from "./shiftBreak.ts";
 import type { XAccountPlan, XDailyRow } from "./xOperationsPlan.ts";
 
 export interface XCast {
@@ -80,7 +81,7 @@ const toMinutesOfDay = (time: string) => {
  * nowMinutes が null のとき（今日以外の日）は出勤開始から数える。日をまたぐ出勤は24時以降として扱う。
  */
 export function nextAvailableFor(
-  shift: { start: string; end: string },
+  shift: { start: string; end: string; breakStart?: string | null; breakEnd?: string | null },
   reservations: Array<{ start_time: string; duration: number }>,
   intervalMinutes: number,
   nowMinutes: number | null,
@@ -98,6 +99,7 @@ export function nextAvailableFor(
       const raw = toMinutesOfDay(reservation.start_time);
       return { start: raw < start ? raw + 24 * 60 : raw, duration: reservation.duration };
     }),
+    breaks: shiftBreaks({ start_time: shift.start, end_time: shift.end, break_start: shift.breakStart, break_end: shift.breakEnd }, start),
     intervalMinutes,
   });
   return found === null ? null : formatAvailabilityTime(found);

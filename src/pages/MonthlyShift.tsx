@@ -20,6 +20,8 @@ import { useStore } from "@/hooks/useStore";
 import { runQueuedEstamaAutomation } from "@/lib/estamaAutomation";
 import { calculateMonthlyRoomOccupancy } from "@/lib/roomOccupancy";
 import { ENKA_ROOMS, ROOM_ADDRESS_HINT, canonicalRoomName } from "@/lib/storeRooms";
+import { breakValue, formatShiftBreak, validateShiftBreak } from "@/lib/shiftBreak";
+import { ShiftBreakFields } from "@/components/shift/ShiftBreakFields";
 
 interface Shift {
   id: string;
@@ -36,6 +38,8 @@ interface Shift {
   estama_confirmed_at: string | null;
   estama_confirmed_by: string | null;
   esran_registered: boolean;
+  break_start?: string | null;
+  break_end?: string | null;
   casts: { name: string };
 }
 
@@ -117,6 +121,8 @@ export default function MonthlyShift() {
     start_time: "12:00",
     end_time: "21:00",
     room: "",
+    break_start: "",
+    break_end: "",
     estama_registered: false,
     estama_human_confirmed: false,
     esran_registered: false,
@@ -139,6 +145,8 @@ export default function MonthlyShift() {
       start_time: "12:00",
       end_time: "21:00",
       room: "",
+      break_start: "",
+      break_end: "",
       estama_registered: false,
       estama_human_confirmed: false,
       esran_registered: false,
@@ -157,6 +165,8 @@ export default function MonthlyShift() {
       start_time: shift.start_time.slice(0, 5),
       end_time: shift.end_time.slice(0, 5),
       room: canonicalRoomName(shift.room) || "",
+      break_start: (shift.break_start ?? "").slice(0, 5),
+      break_end: (shift.break_end ?? "").slice(0, 5),
       estama_registered: shift.estama_registered ?? false,
       estama_human_confirmed: shift.estama_human_confirmed ?? false,
       esran_registered: shift.esran_registered ?? false,
@@ -175,6 +185,8 @@ export default function MonthlyShift() {
       start_time: shift.start_time.slice(0, 5),
       end_time: shift.end_time.slice(0, 5),
       room: "",
+      break_start: "",
+      break_end: "",
       estama_registered: shift.estama_registered,
       estama_human_confirmed: false,
       esran_registered: false,
@@ -295,6 +307,8 @@ export default function MonthlyShift() {
 
   const handleSave = async () => {
     if (!form.cast_id) { toast.error("セラピストを選択してください"); return; }
+    const breakError = formKind === "dummy" ? null : validateShiftBreak(form);
+    if (breakError) { toast.error(breakError); return; }
     setSaving(true);
 
     if (formKind === "dummy") {
@@ -332,6 +346,8 @@ export default function MonthlyShift() {
         start_time: form.start_time,
         end_time: form.end_time,
         room: form.room || null,
+        break_start: breakValue(form.break_start),
+        break_end: breakValue(form.break_end),
         estama_registered: false,
         estama_human_confirmed: false,
         esran_registered: form.esran_registered,
@@ -361,6 +377,8 @@ export default function MonthlyShift() {
       start_time: form.start_time,
       end_time: form.end_time,
       room: form.room || null,
+      break_start: breakValue(form.break_start),
+      break_end: breakValue(form.break_end),
       estama_registered: syncFieldsChanged ? false : currentShift?.estama_registered ?? false,
       estama_human_confirmed: syncFieldsChanged ? false : form.estama_human_confirmed,
       esran_registered: form.esran_registered,
@@ -709,8 +727,9 @@ export default function MonthlyShift() {
                           )}>
                             {s.casts.name}
                           </span>
-                          <span className="text-muted-foreground hidden md:inline shrink-0">
+                          <span className="text-muted-foreground hidden md:inline shrink-0" title={formatShiftBreak(s) || undefined}>
                             {s.start_time.slice(0,5)}〜{s.end_time.slice(0,5)}
+                            {formatShiftBreak(s) && <span className="ml-0.5" aria-label={formatShiftBreak(s)}>☕</span>}
                           </span>
                         </div>
                       ))}
@@ -934,6 +953,13 @@ export default function MonthlyShift() {
                 <Input type="time" value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })} />
               </div>
             </div>
+            {formKind !== "dummy" && (
+              <ShiftBreakFields
+                value={{ break_start: form.break_start, break_end: form.break_end }}
+                shift={{ start_time: form.start_time, end_time: form.end_time }}
+                onChange={(next) => setForm({ ...form, ...next })}
+              />
+            )}
             {formKind === "dummy" ? (
               <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground">
                 この予定はエスたまだけに同期され、通常の出勤カレンダーや店舗HPには表示されません。

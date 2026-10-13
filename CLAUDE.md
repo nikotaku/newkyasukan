@@ -113,6 +113,14 @@
 - ルーム管理の昔の行（ラズルーム・インルーム）は「過去データ」店舗のもの。艶華（tsuyaka）のルームは華月・艶月の2行だけ
 - まとめて付け替えたときは、セラピストへの予約変更通知（`reservations_therapist_notification`）とエステ魂のシフト同期（`trg_enqueue_estama_shift`）を止めて行った。呼び名を直すだけの一括更新では同じようにする
 
+## シフトの中休み（休憩）
+
+- 出勤ごとに休憩を1つ：`shifts.break_start` / `break_end`（両方入っているときだけ有効。CHECK `shifts_break_pair`）。入力は月間シフト（`/schedule/monthly-shift`）の編集ダイアログの「中休み」欄（`src/components/shift/ShiftBreakFields.tsx`、30分・1時間のボタン）
+- 休憩の時間は予約を入れない時間として扱い、準備のインターバルは足さない。計算は `src/lib/shiftBreak.ts`（`shiftBreaks` を `findNextAvailableStart` / `isAvailabilitySlotOpen` の `breaks` に渡す。朝6時前を+24時間で数える画面は出勤開始の分を第2引数に渡してそろえる）。テスト `npm run test:shift-break`
+- 反映先：HPの出勤・トップの「最短◯時〜」、WEB予約の時間の選択肢と「今すぐ」、空き枠一覧、予約表（タイムラインに「☕ 休憩」、休憩にかかる予約は予約詳細に赤い注意）、O2の空き状況、X運用表の文、セラピストのマイページ（RPC `get_therapist_shift_breaks`。`get_therapist_shifts` は戻りの形を変えていない）
+- DB：エステ魂の仮予約の判定（休憩にかかる希望は `outside_shift`）、セラピストアピール（`public.shift_on_break()` で休憩中の人を選ばない）。エステ魂のシフト同期は開始・終了だけ（休憩は送らない）
+- Edge Function `x-auto-post` は再デプロイするときに `src/lib/shiftBreak.ts` も一緒に送る（2026年10月時点で自動投稿はオフのため、休憩対応前の版のまま）
+
 ## 予約案内ページ（SMSのリンク先）
 
 - 予約ごとの案内ページ `/g/:token`（`/r/` はセラピスト別の予約リンクなので使わない）（`src/pages/public/ReservationGuide.tsx`）。予約内容・ルームの住所と地図・道順（写真のステップを自動再生）・来店時のお願い・連絡先を出す。SMSには `{guide_url}` でリンクだけ載せて通数を減らす
@@ -245,7 +253,7 @@
 - 自動投稿：pg_cron `x-auto-post-every-5-minutes` → `private.dispatch_x_auto_post()`（自動投稿オンの X アカウントがあるときだけ）→ Edge Function `x-auto-post`（`x-auto-post-secret` は Vault の `x_auto_post_internal_secret`）。運用表の「決まった形の投稿」（出勤・空き枠・紹介・イベント・直前枠・口コミ）だけを時間から30分以内に出す。AIの下書きは出さない（人が確認して手動）
 - 判定は `src/lib/xAutoPost.ts`、材料集めは `src/lib/xPostContext.ts`（画面と共通）、X API（OAuth 1.0a 署名）は `supabase/functions/_shared/xApi.ts`。結果は `x_daily_posts.publish_status`（posting / posted / failed / skipped）と `post_url`・`error_message`。二重投稿は RPC `claim_x_auto_post` で防ぐ
 - キー無効・権限不足・上限（401/402/403/429）や3回続けての失敗で、そのアカウントの自動投稿を止める（`paused_at`）。画面の「再開」で戻す
-- Edge Function は `src/lib/` のファイルを相対パスで読むので、デプロイするときは `src/lib/xPostContext.ts`・`xAutoPost.ts`・`xDailyPosts.ts`・`availability.ts`・`bookingUrl.ts`・`xOperationsPlan.ts` も一緒に送る（entrypoint は `supabase/functions/x-auto-post/index.ts`）
+- Edge Function は `src/lib/` のファイルを相対パスで読むので、デプロイするときは `src/lib/xPostContext.ts`・`xAutoPost.ts`・`xDailyPosts.ts`・`availability.ts`・`bookingUrl.ts`・`xOperationsPlan.ts`・`shiftBreak.ts` も一緒に送る（entrypoint は `supabase/functions/x-auto-post/index.ts`）
 - テスト: `npm run test:x-auto-post`
 
 ## エスたまへの反映（バックグラウンド）
