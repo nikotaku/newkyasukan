@@ -1,7 +1,7 @@
 // エステ魂の仮予約（estama_reservation_requests）の画面用：判定の表示・予約入力への引き継ぎ。
 // テスト: npm run test:estama-reserve（tests/estamaReservationRequests.test.ts）
 
-export type EstamaCheckStatus = "ok" | "dummy" | "unknown_cast" | "no_shift" | "outside_shift" | "overlap" | "free";
+export type EstamaCheckStatus = "ok" | "dummy" | "unknown_cast" | "no_shift" | "outside_shift" | "overlap" | "free" | "course_limit";
 
 export interface EstamaReservationRequest {
   id: string;
@@ -37,6 +37,7 @@ export const CHECK_LABEL: Record<EstamaCheckStatus, { label: string; tone: "ok" 
   ok: { label: "出勤OK", tone: "ok" },
   free: { label: "フリー", tone: "info" },
   overlap: { label: "予約が重なる", tone: "warn" },
+  course_limit: { label: "新規のコース上限超え", tone: "danger" },
   outside_shift: { label: "出勤の時間外", tone: "warn" },
   no_shift: { label: "HPに出勤なし", tone: "danger" },
   dummy: { label: "ダミー宛て", tone: "danger" },

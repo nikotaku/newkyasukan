@@ -51,6 +51,7 @@ import {
   getTimelineSettlementIndicator,
 } from "@/lib/settlementStatus";
 import { formatShiftBreak, overlapsBreaks, shiftBreaks } from "@/lib/shiftBreak";
+import { courseLimitMessage, fetchCourseLimitAlerts, type CourseLimitAlert } from "@/lib/courseLimit";
 
 interface Cast {
   id: string;
@@ -393,6 +394,8 @@ export default function Schedule() {
 
   // Detail/Edit sheet
   const [detailRes, setDetailRes] = useState<Reservation | null>(null);
+  // 新規のお客様のコース上限を超えた予約（例：望月せなさんは新規80分まで）
+  const [courseLimits, setCourseLimits] = useState<Map<string, CourseLimitAlert>>(new Map());
   const [editMode, setEditMode] = useState(false);
   const [editStatus, setEditStatus] = useState<string>("confirmed");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -653,6 +656,7 @@ export default function Schedule() {
         settlement_submitted: submittedCastIds.has(reservation.cast_id),
       })),
     );
+    void fetchCourseLimitAlerts(loadedReservations.map((reservation) => reservation.id)).then(setCourseLimits);
     if (roomFills.length) {
       void Promise.all(roomFills.map((fill) =>
         supabase.from("reservations").update({ room: fill.room }).eq("id", fill.id).or("room.is.null,room.eq."),
@@ -1742,8 +1746,15 @@ export default function Schedule() {
                       const onBreak = castShift
                         ? overlapsBreaks(resStart, resStart + (detailRes.duration ?? 0), shiftBreaks(castShift, timeToMinutes(castShift.start_time)))
                         : false;
+                      const courseLimit = courseLimits.get(detailRes.id);
                       return (
                         <div className="space-y-2">
+                          {courseLimit && (
+                            <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                              <p className="flex items-center gap-1.5 font-semibold"><AlertTriangle size={15} />新規のお客様のコース上限を超えています</p>
+                              <p className="mt-1 text-xs">{courseLimitMessage(courseLimit)}。お客様に連絡してコースを確かめてください</p>
+                            </div>
+                          )}
                           {onBreak && castShift && (
                             <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
                               <p className="flex items-center gap-1.5 font-semibold"><AlertTriangle size={15} />予約がセラピストの休憩にかかっています</p>

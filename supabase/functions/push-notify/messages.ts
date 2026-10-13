@@ -30,7 +30,7 @@ export function webBookingMessage(reservation: {
   customer_name: string | null;
   price: number | null;
   nomination_type: string | null;
-}, castName: string | null): PushMessage {
+}, castName: string | null, courseLimit: { max_minutes: number } | null = null): PushMessage {
   const when = [dateLabel(reservation.reservation_date), reservation.start_time ? `${reservation.start_time.slice(0, 5)}〜` : ""]
     .filter(Boolean)
     .join(" ");
@@ -41,8 +41,11 @@ export function webBookingMessage(reservation: {
   ].filter(Boolean).join(" / ");
   const lines = [[when, course].filter(Boolean).join(" "), who];
   if (reservation.price) lines.push(`¥${Number(reservation.price).toLocaleString("ja-JP")}`);
+  // 新規のお客様のコースの上限（casts.new_customer_max_minutes）を超えた予約。予約は受けたまま知らせる
+  if (courseLimit) lines.unshift(`⚠️ ${castName ?? "このセラピスト"}さんは新規のお客様は${courseLimit.max_minutes}分まで。コースの確認が必要です`);
+  const baseTitle = reservation.booking_origin === "cast_form" ? "🔔 セラピストの予約フォームから予約" : "🔔 WEB予約が入りました";
   return {
-    title: reservation.booking_origin === "cast_form" ? "🔔 セラピストの予約フォームから予約" : "🔔 WEB予約が入りました",
+    title: courseLimit ? `⚠️ 新規${courseLimit.max_minutes}分超え：${baseTitle.replace("🔔 ", "")}` : baseTitle,
     body: lines.filter(Boolean).join("\n"),
     url: "/schedule/web-bookings",
     tag: `booking-${reservation.id}`,
@@ -218,6 +221,7 @@ const ESTAMA_CHECK_TITLE: Record<string, string> = {
   no_shift: "⚠️ HPに出勤なし",
   outside_shift: "⚠️ 出勤の時間外",
   overlap: "⚠️ 予約が重なる",
+  course_limit: "⚠️ 新規のコース上限超え",
 };
 
 // エステ魂の仮予約が入ったとき（管理画面「お店への予約」を5分ごとに読み取り）
