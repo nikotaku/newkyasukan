@@ -7,10 +7,17 @@ export interface AvailabilityReservation {
   duration: number;
 }
 
+/** シフトの中休みなど、予約を入れない時間（分）。準備のインターバルは足さない */
+export interface AvailabilityBlock {
+  start: number;
+  end: number;
+}
+
 interface FindNextAvailableStartInput {
   shiftStart: number;
   shiftEnd: number;
   reservations: AvailabilityReservation[];
+  breaks?: AvailabilityBlock[];
   intervalMinutes?: number;
   currentTime?: number;
   minimumDuration?: number;
@@ -23,6 +30,7 @@ interface IsAvailabilitySlotOpenInput {
   shiftStart: number;
   shiftEnd: number;
   reservations: AvailabilityReservation[];
+  breaks?: AvailabilityBlock[];
   intervalMinutes?: number;
 }
 
@@ -35,9 +43,11 @@ export function isAvailabilitySlotOpen({
   shiftStart,
   shiftEnd,
   reservations,
+  breaks = [],
   intervalMinutes = DEFAULT_RESERVATION_INTERVAL_MINUTES,
 }: IsAvailabilitySlotOpenInput): boolean {
   if (slotStart < shiftStart || slotStart + duration > shiftEnd) return false;
+  if (breaks.some((block) => slotStart < block.end && slotStart + duration > block.start)) return false;
 
   return !reservations.some((reservation) => {
     const reservedEnd = reservation.start + reservation.duration + intervalMinutes;
@@ -47,13 +57,14 @@ export function isAvailabilitySlotOpen({
 
 /**
  * Returns the first start time that fits inside a shift after reservations and
- * the configured preparation interval. Times may exceed 24:00 for overnight
+ * the configured preparation interval, skipping shift breaks. Times may exceed 24:00 for overnight
  * shifts (for example, 00:40 is represented as 1480).
  */
 export function findNextAvailableStart({
   shiftStart,
   shiftEnd,
   reservations,
+  breaks = [],
   intervalMinutes = DEFAULT_RESERVATION_INTERVAL_MINUTES,
   currentTime = shiftStart,
   minimumDuration = MINIMUM_BOOKABLE_DURATION_MINUTES,
@@ -65,6 +76,7 @@ export function findNextAvailableStart({
       start: reservation.start,
       end: reservation.start + reservation.duration + intervalMinutes,
     }))
+    .concat(breaks.map((block) => ({ start: block.start, end: block.end })))
     .sort((a, b) => a.start - b.start);
 
   while (cursor + minimumDuration <= shiftEnd) {

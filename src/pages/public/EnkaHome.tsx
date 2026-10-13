@@ -19,6 +19,7 @@ import { ESTAMA_CAST_PHOTO_STYLE } from "@/lib/publicCastPhoto";
 import { trackPublicEvent } from "@/lib/publicAnalytics";
 import { menestheNowEmbedUrl, parseMenestheNowWidget } from "@/lib/menestheNowWidget";
 import { ENKA_FALLBACK_HERO_BANNER, normalizeHeroBanners } from "@/lib/heroBanners";
+import { shiftBreaks } from "@/lib/shiftBreak";
 
 /**
  * 艶華専用トップページ（デフォルト店舗以外で "/" に表示）。
@@ -38,6 +39,8 @@ interface ShiftRow {
   cast_id: string;
   start_time: string;
   end_time: string;
+  break_start?: string | null;
+  break_end?: string | null;
   casts: { id: string; name: string; photo: string | null; age: number | null; is_active: boolean; is_visible: boolean } | null;
 }
 
@@ -190,7 +193,7 @@ export default function EnkaHome() {
     Promise.all([
       supabase
         .from("shifts")
-        .select("id, cast_id, start_time, end_time, casts (id, name, photo, age, is_active, is_visible)")
+        .select("id, cast_id, start_time, end_time, break_start, break_end, casts (id, name, photo, age, is_active, is_visible)")
         .eq("shift_date", today)
         .eq("store_id", storeId)
         .order("start_time"),
@@ -280,6 +283,7 @@ export default function EnkaHome() {
       shiftEnd: end,
       currentTime: current,
       reservations: reservedBlocks,
+      breaks: shiftBreaks(shift),
       intervalMinutes,
     });
     return availableStart === null ? null : formatAvailabilityTime(availableStart);

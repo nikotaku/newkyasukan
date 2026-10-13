@@ -18,6 +18,7 @@ import { ja } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { isAvailabilitySlotOpen } from "@/lib/availability";
+import { shiftBreaks } from "@/lib/shiftBreak";
 
 interface Shift {
   id: string;
@@ -25,6 +26,8 @@ interface Shift {
   shift_date: string;
   start_time: string;
   end_time: string;
+  break_start?: string | null;
+  break_end?: string | null;
   casts: { name: string };
 }
 
@@ -152,6 +155,7 @@ export default function AvailableSlots() {
       shiftStart,
       shiftEnd,
       reservations: castReservations,
+      breaks: shiftBreaks(shift, shiftStart),
       intervalMinutes,
     });
   };

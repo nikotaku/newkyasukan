@@ -21,6 +21,7 @@ import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { useStore } from "@/hooks/useStore";
 import { useStoreContact } from "@/hooks/useStoreContact";
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from "@/lib/availability";
+import { isOnBreak, overlapsBreaks, shiftBreaks } from "@/lib/shiftBreak";
 import {
   getTokyoMinutesOfDay,
   isPastBookingSlot,
@@ -46,6 +47,8 @@ interface Shift {
   shift_date: string;
   start_time: string;
   end_time: string;
+  break_start?: string | null;
+  break_end?: string | null;
   room: string | null;
   status: string;
 }
@@ -264,7 +267,8 @@ const BookingReservation = () => {
         let shiftEnd = eh * 60 + em;
         if (shiftEnd <= shiftStart) shiftEnd += 24 * 60; // 深夜またぎ
         const adjusted = currentMinutes < shiftStart ? currentMinutes + 24 * 60 : currentMinutes;
-        return adjusted >= shiftStart && adjusted <= shiftEnd;
+        // 中休みの間は「今すぐ」に出さない
+        return adjusted >= shiftStart && adjusted <= shiftEnd && !isOnBreak(adjusted, shiftBreaks(shift, shiftStart));
       })
     );
   }, [casts, allShifts, currentTime]);
@@ -512,6 +516,7 @@ const BookingReservation = () => {
     if (shiftEnd <= shiftStart) shiftEnd += 24 * 60;
     // intervalMinutes は店舗設定から取得済み
     const checkDuration = 60; // Use 60min as default check duration for overview
+    const breaks = shiftBreaks(shift, shiftStart);
 
     const slots: { time: string; available: boolean }[] = [];
     const businessDateKey = format(selectedDate, "yyyy-MM-dd");
@@ -531,7 +536,7 @@ const BookingReservation = () => {
         return (time < resEnd && newEnd > resStart);
       });
 
-      slots.push({ time: timeStr, available: !isBooked });
+      slots.push({ time: timeStr, available: !isBooked && !overlapsBreaks(time, time + checkDuration, breaks) });
     }
     return slots;
   };
@@ -656,6 +661,9 @@ const BookingReservation = () => {
     // インターバル時間（分）- 予約と予約の間に必要な準備時間
     // intervalMinutes は店舗設定から取得済み
 
+    // 中休み（休憩）にかかる時間は出さない
+    const breaks = shiftBreaks(shift, shiftStart);
+
     // 10分刻みで可能な時間を生成
     const slots: string[] = [];
     for (let time = shiftStart; time + duration <= shiftEnd; time += 10) {
@@ -679,7 +687,7 @@ const BookingReservation = () => {
         return (time < resEnd && newEnd > resStart);
       });
 
-      if (!isBooked) {
+      if (!isBooked && !overlapsBreaks(time, time + duration, breaks)) {
         slots.push(timeStr);
       }
     }

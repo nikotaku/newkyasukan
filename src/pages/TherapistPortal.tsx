@@ -25,6 +25,7 @@ import { normalizeKeyType, normalizeRouteSteps, normalizeWifiSecurity, type Entr
 import { EntryRouteSteps } from "@/components/entry/EntryRouteSteps";
 import { RoomKeySection } from "@/components/entry/RoomKeySection";
 import { WifiConnectCard } from "@/components/entry/WifiConnectCard";
+import { formatShiftBreak } from "@/lib/shiftBreak";
 
 
 interface Cast {
@@ -62,6 +63,20 @@ interface ShiftRow {
   notes: string | null;
   approval_status: string;
   approval_comment: string | null;
+  break_start?: string | null;
+  break_end?: string | null;
+}
+
+// 出勤に中休み（休憩）を足す。get_therapist_shifts は戻りの形を変えられないので別のRPCで読む
+async function withShiftBreaks(token: string | undefined, year: number, month: number, rows: ShiftRow[]) {
+  if (!token || rows.length === 0) return rows;
+  const { data } = await (supabase.rpc as unknown as (
+    name: string, args: Record<string, unknown>,
+  ) => Promise<{ data: Array<{ id: string; break_start: string; break_end: string }> | null }>)(
+    "get_therapist_shift_breaks", { p_token: token, p_year: year, p_month: month },
+  );
+  const breaks = new Map((data ?? []).map((row) => [row.id, row]));
+  return rows.map((row) => ({ ...row, break_start: breaks.get(row.id)?.break_start ?? null, break_end: breaks.get(row.id)?.break_end ?? null }));
 }
 
 interface Room {
@@ -401,8 +416,8 @@ export default function TherapistPortal() {
         p_token: token,
         p_year: now.getFullYear(),
         p_month: now.getMonth() + 1,
-      }).then(({ data }) => {
-        setMenuShiftRows((data || []) as ShiftRow[]);
+      }).then(async ({ data }) => {
+        setMenuShiftRows(await withShiftBreaks(token, now.getFullYear(), now.getMonth() + 1, (data || []) as ShiftRow[]));
         setMenuShiftLoading(false);
       });
     });
@@ -457,7 +472,7 @@ export default function TherapistPortal() {
       p_token: token, p_year: year, p_month: month,
     });
     if (error) toast.error("シフトの取得に失敗しました");
-    else setShiftRows((data || []) as ShiftRow[]);
+    else setShiftRows(await withShiftBreaks(token, year, month, (data || []) as ShiftRow[]));
     setShiftsLoading(false);
   };
 
@@ -769,6 +784,7 @@ export default function TherapistPortal() {
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {toExtTime(todayShift.start_time)}〜{toExtTime(todayShift.end_time)}
+                    {formatShiftBreak(todayShift) && <span className="ml-1.5 text-amber-700">☕ {formatShiftBreak(todayShift)}</span>}
                   </p>
                   <button
                     onClick={() => setView("entry")}
@@ -907,6 +923,7 @@ export default function TherapistPortal() {
                         <div className="flex-1 min-w-0">
                           <p className={`text-sm ${s.approval_status === "rejected" ? "line-through text-muted-foreground" : "font-medium"}`}>
                             {s.start_time.slice(0, 5)}〜 {s.end_time.slice(0, 5)}
+                            {formatShiftBreak(s) && <span className="ml-1.5 text-xs text-amber-700">☕ {formatShiftBreak(s)}</span>}
                           </p>
                           <p className="text-xs">
                             {s.room && s.approval_status === "approved" && <span className="text-primary">{s.room}</span>}
@@ -1238,6 +1255,7 @@ export default function TherapistPortal() {
                       <div className="flex items-center gap-2">
                         <p className={`text-sm font-medium ${s.approval_status === "rejected" ? "line-through text-muted-foreground" : ""}`}>
                           {s.start_time.slice(0, 5)} - {s.end_time.slice(0, 5)}
+                          {formatShiftBreak(s) && <span className="ml-1.5 text-xs text-amber-700">☕ {formatShiftBreak(s)}</span>}
                         </p>
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${shiftStatusBadge[s.approval_status] ?? "bg-muted text-muted-foreground"}`}>
                           {shiftStatusLabel[s.approval_status] ?? s.approval_status}

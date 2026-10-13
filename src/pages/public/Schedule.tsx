@@ -15,12 +15,15 @@ import {
   findNextAvailableStart,
   formatAvailabilityTime,
 } from "@/lib/availability";
+import { shiftBreaks } from "@/lib/shiftBreak";
 
 interface Shift {
   id: string;
   shift_date: string;
   start_time: string;
   end_time: string;
+  break_start?: string | null;
+  break_end?: string | null;
   status: string;
   cast_id: string;
   room: string | null;
@@ -168,6 +171,7 @@ const Schedule = () => {
       shiftEnd: end,
       currentTime,
       reservations: reserved,
+      breaks: shiftBreaks(shift),
       intervalMinutes,
     });
     return availableStart === null ? null : formatAvailabilityTime(availableStart);

@@ -4,6 +4,7 @@ import {
   findNextAvailableStart,
   formatAvailabilityTime,
 } from "../src/lib/availability.js";
+import { shiftBreaks } from "../src/lib/shiftBreak.js";
 
 const O2_BASE = "https://m-sns.net";
 export const O2_STORE_LOGIN_URL = `${O2_BASE}/shop/login/`;
@@ -26,6 +27,8 @@ type ShiftRow = {
   cast_id: string;
   start_time: string;
   end_time: string;
+  break_start?: string | null;
+  break_end?: string | null;
   casts: {
     id: string;
     name: string;
@@ -171,6 +174,7 @@ export function buildO2StoreAvailability(
       shiftEnd: end,
       currentTime: currentMinutes < rawEnd && rawEnd <= start ? currentMinutes + 24 * 60 : currentMinutes,
       reservations: castReservations,
+      breaks: shiftBreaks(shift, start),
       intervalMinutes,
     });
     const item: O2StoreAvailability = {
@@ -507,7 +511,7 @@ const loadAvailability = async (admin: SupabaseClient, storeId: string, now: Dat
     admin.from("stores").select("name").eq("id", storeId).maybeSingle(),
     admin
       .from("shifts")
-      .select("id,cast_id,start_time,end_time,casts(id,name,photo,is_active,is_visible)")
+      .select("id,cast_id,start_time,end_time,break_start,break_end,casts(id,name,photo,is_active,is_visible)")
       .eq("store_id", storeId)
       .eq("shift_date", businessDate)
       .order("start_time", { ascending: true }),
