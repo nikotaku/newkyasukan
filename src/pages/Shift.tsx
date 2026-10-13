@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { isValidEmail } from "@/lib/email";
 import { useStore } from "@/hooks/useStore";
 import { runQueuedEstamaAutomation } from "@/lib/estamaAutomation";
+import { ENKA_ROOMS, ROOM_ADDRESS_HINT } from "@/lib/storeRooms";
 
 interface Cast {
   id: string;
@@ -100,7 +101,7 @@ const Shift = () => {
     shift_date: new Date(),
     start_time: "13:00",
     end_time: "22:00",
-    room: "インルーム",
+    room: ENKA_ROOMS[0] as string,
     notes: "",
   });
 
@@ -272,7 +273,7 @@ const Shift = () => {
         shift_date: new Date(),
         start_time: "13:00",
         end_time: "22:00",
-        room: "インルーム",
+        room: ENKA_ROOMS[0] as string,
         notes: "",
       });
       void runQueuedEstamaAutomation(storeId).catch((automationError) => console.warn("Estama shift sync queued", automationError));
@@ -710,8 +711,7 @@ const Shift = () => {
                                 <SelectValue placeholder="ルームを選択" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="インルーム">インルーム</SelectItem>
-                                <SelectItem value="ラスルーム">ラスルーム</SelectItem>
+                                {ENKA_ROOMS.map((room) => <SelectItem key={room} value={room}>{room}（{ROOM_ADDRESS_HINT[room]}）</SelectItem>)}
                               </SelectContent>
                             </Select>
                           </div>

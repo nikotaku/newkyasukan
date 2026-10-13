@@ -253,7 +253,7 @@ export default function Staff() {
     real_name: "",
     name_en: "",
     type: "インルーム",
-    room: "インルーム",
+    room: "艶月",
     status: "offline",
     profile: "",
     photo: "",

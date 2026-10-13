@@ -106,6 +106,12 @@
 - AIで作った文・手直しした文・「投稿した」チェックは `x_daily_posts`（store_id, post_date, account_key, slot_key）。slot_key は「時間|投稿タイプ」
 - アイキャッチ画像はブラウザのcanvasで作る（`src/lib/xEyecatch.ts`、1200×675）。写真はCORSのある保存先（Supabase Storage）だけ描き、それ以外は頭文字で代わりにする
 
+## ルームの名前（艶月・華月）
+
+- 艶華のルームは2つだけ：**艶月 ＝ 二日町11-15 In-Towner**（旧：インルーム・インroom・■二日町インroom■）、**華月 ＝ 春日町11-12 ラジュール仙台**（旧：ラスルーム・ラズルーム・ラスroom）
+- 昔の呼び名は同じ部屋の別名。画面は `src/lib/storeRooms.ts` の `canonicalRoomName` / `sameRoom` で比べ、DBは `public.canonical_room_name()` とトリガー（shifts / reservations / casts の room を保存時に 艶月・華月 へ）でそろえる（`20261013090000_canonical_room_names.sql`）。ルームの選択肢は `ENKA_ROOMS`
+- ルーム管理の昔の行（ラズルーム・インルーム）は、中身を華月・艶月の空いている項目に移して使わない（is_active = false）にした
+
 ## 予約案内ページ（SMSのリンク先）
 
 - 予約ごとの案内ページ `/g/:token`（`/r/` はセラピスト別の予約リンクなので使わない）（`src/pages/public/ReservationGuide.tsx`）。予約内容・ルームの住所と地図・道順（写真のステップを自動再生）・来店時のお願い・連絡先を出す。SMSには `{guide_url}` でリンクだけ載せて通数を減らす

@@ -1,3 +1,5 @@
+import { canonicalRoomName } from "./storeRooms.ts";
+
 const MINUTES_PER_DAY = 24 * 60;
 const EARLY_MORNING_CUTOFF_HOUR = 6;
 
@@ -67,7 +69,7 @@ export const calculateMonthlyRoomOccupancy = (
   const monthIndex = month.getMonth();
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const monthPrefix = `${year}-${String(monthIndex + 1).padStart(2, "0")}-`;
-  const roomSet = new Set(rooms);
+  const roomSet = new Set(rooms.map((room) => canonicalRoomName(room)));
   const intervalsByRoomAndDate = new Map<string, Interval[]>();
 
   for (const shift of shifts) {
@@ -75,8 +77,8 @@ export const calculateMonthlyRoomOccupancy = (
       !shift.shift_date.startsWith(monthPrefix)
       || shift.approval_status !== "approved"
       || shift.status === "cancelled"
-      || !shift.room
-      || !roomSet.has(shift.room)
+      || !canonicalRoomName(shift.room)
+      || !roomSet.has(canonicalRoomName(shift.room))
     ) {
       continue;
     }
@@ -90,7 +92,7 @@ export const calculateMonthlyRoomOccupancy = (
     const clippedEnd = Math.min(end, ROOM_OPERATING_END_MINUTE);
     if (clippedEnd <= clippedStart) continue;
 
-    const key = `${shift.shift_date}:${shift.room}`;
+    const key = `${shift.shift_date}:${canonicalRoomName(shift.room)}`;
     const intervals = intervalsByRoomAndDate.get(key) ?? [];
     intervals.push([clippedStart, clippedEnd]);
     intervalsByRoomAndDate.set(key, intervals);

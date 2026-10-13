@@ -185,8 +185,8 @@ const menuItems: MenuItem[] = [
         groupLabel: "ルーム・設備",
         items: [
           { href: "/facilities/rooms", label: "ルーム管理" },
-          { href: "/facilities/rooms?tab=inroom", label: "インルーム" },
-          { href: "/facilities/rooms?tab=lazy", label: "ラズルーム" },
+          { href: "/facilities/rooms?tab=inroom", label: "艶月（二日町）" },
+          { href: "/facilities/rooms?tab=lazy", label: "華月（春日町）" },
           { href: "/facilities/rooms?tab=supplies", label: "備品登録" },
           { href: "/facilities/equipment", label: "消耗品" },
           { href: "/facilities/equipment?type=costumes", label: "衣装" },

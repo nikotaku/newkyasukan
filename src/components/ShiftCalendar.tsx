@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/hooks/useStore";
 import { runQueuedEstamaAutomation } from "@/lib/estamaAutomation";
+import { ENKA_ROOMS, ROOM_ADDRESS_HINT, canonicalRoomName } from "@/lib/storeRooms";
 
 interface Cast {
   id: string;
@@ -47,7 +48,7 @@ export const ShiftCalendar = ({ dates, casts, shifts, onShiftUpdate }: ShiftCale
   const [formData, setFormData] = useState({
     startTime: "09:00",
     endTime: "18:00",
-    room: "インルーム",
+    room: ENKA_ROOMS[0] as string,
     notes: "",
   });
   
@@ -71,14 +72,14 @@ export const ShiftCalendar = ({ dates, casts, shifts, onShiftUpdate }: ShiftCale
       setFormData({
         startTime: existingShift.startTime,
         endTime: existingShift.endTime,
-        room: existingShift.room || "インルーム",
+        room: canonicalRoomName(existingShift.room) || ENKA_ROOMS[0],
         notes: existingShift.notes || "",
       });
     } else {
       setFormData({
         startTime: "09:00",
         endTime: "18:00",
-        room: "インルーム",
+        room: ENKA_ROOMS[0] as string,
         notes: "",
       });
     }
@@ -292,8 +293,7 @@ export const ShiftCalendar = ({ dates, casts, shifts, onShiftUpdate }: ShiftCale
                   <SelectValue placeholder="ルームを選択" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="インルーム">インルーム</SelectItem>
-                  <SelectItem value="ラスルーム">ラスルーム</SelectItem>
+                  {ENKA_ROOMS.map((room) => <SelectItem key={room} value={room}>{room}（{ROOM_ADDRESS_HINT[room]}）</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
