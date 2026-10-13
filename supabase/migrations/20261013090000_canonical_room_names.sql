@@ -69,9 +69,16 @@ where guide_confirmed_room is not null and guide_confirmed_room is distinct from
 
 alter table public.reservations enable trigger reservations_therapist_notification;
 
+-- シフトも名前を直すだけなので、エステ魂へのシフト同期は積まない
+alter table public.shifts disable trigger trg_enqueue_estama_shift;
+alter table public.shifts disable trigger trg_set_estama_human_confirmation_metadata;
+
 update public.shifts
 set room = public.canonical_room_name(room)
 where room is not null and room is distinct from public.canonical_room_name(room);
+
+alter table public.shifts enable trigger trg_enqueue_estama_shift;
+alter table public.shifts enable trigger trg_set_estama_human_confirmation_metadata;
 
 update public.casts
 set room = public.canonical_room_name(room)
@@ -114,8 +121,8 @@ begin
     limit 1;
 
     if v_target is null then
-      -- 華月・艶月の行が無い店舗なら、昔の行の名前を付け替える
-      update public.rooms set name = v_old.canonical where id = v_old.id;
+      -- 華月・艶月の行が無い店舗（過去データの店舗など）はそのまま。名前の比べ方で同じ部屋として扱われる
+      continue;
     else
       execute format('update public.rooms t set %s from public.rooms o where t.id = $1 and o.id = $2', v_sets)
         using v_target, v_old.id;
