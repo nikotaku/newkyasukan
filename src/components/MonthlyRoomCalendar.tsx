@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { canonicalRoomName, sameRoom } from "@/lib/storeRooms";
 
 interface Shift {
   id: string;
@@ -38,12 +39,12 @@ interface MonthlyRoomCalendarProps {
   casts: Cast[];
 }
 
-// ルーム別の色分け（インルーム=緑 / ラズ(ラス)ルーム=紫）
+// ルーム別の色分け（艶月＝二日町・旧インルーム=緑 / 華月＝春日町・旧ラスルーム=紫）
 const getRoomStyle = (room: string | null) => {
-  if (room?.includes("イン")) {
+  if (canonicalRoomName(room) === "艶月") {
     return { block: "bg-green-100 border-l-2 border-green-500", dot: "bg-green-500", text: "text-green-900" };
   }
-  if (room?.includes("ラ")) {
+  if (canonicalRoomName(room) === "華月") {
     return { block: "bg-purple-100 border-l-2 border-purple-500", dot: "bg-purple-500", text: "text-purple-900" };
   }
   return { block: "bg-primary/10 border-l-2 border-primary", dot: "bg-primary", text: "text-foreground" };
@@ -72,7 +73,7 @@ export const MonthlyRoomCalendar = ({ shifts, reservations, casts }: MonthlyRoom
 
   const getRoomAvailability = (date: Date, room: string) => {
     const dateStr = format(date, "yyyy-MM-dd");
-    const dayShifts = shifts.filter(s => s.shift_date === dateStr && s.room === room);
+    const dayShifts = shifts.filter(s => s.shift_date === dateStr && sameRoom(s.room, room));
     const dayReservations = reservations.filter(r => r.reservation_date === dateStr);
 
     if (dayShifts.length === 0) return { available: false, booked: 0, total: 0 };
@@ -102,7 +103,7 @@ export const MonthlyRoomCalendar = ({ shifts, reservations, casts }: MonthlyRoom
   const getDayShifts = (date: Date, room?: string) => {
     const dateStr = format(date, "yyyy-MM-dd");
     if (room && room !== "all") {
-      return shifts.filter(s => s.shift_date === dateStr && s.room === room);
+      return shifts.filter(s => s.shift_date === dateStr && sameRoom(s.room, room));
     }
     return shifts.filter(s => s.shift_date === dateStr);
   };
@@ -225,8 +226,8 @@ export const MonthlyRoomCalendar = ({ shifts, reservations, casts }: MonthlyRoom
       <Tabs value={selectedRoom} onValueChange={setSelectedRoom} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-3">
           <TabsTrigger value="all">全て</TabsTrigger>
-          <TabsTrigger value="インルーム">インルーム</TabsTrigger>
-          <TabsTrigger value="ラスルーム">ラスルーム</TabsTrigger>
+          <TabsTrigger value="艶月">艶月</TabsTrigger>
+          <TabsTrigger value="華月">華月</TabsTrigger>
         </TabsList>
 
         <TabsContent value={selectedRoom} className="mt-4">
@@ -236,11 +237,11 @@ export const MonthlyRoomCalendar = ({ shifts, reservations, casts }: MonthlyRoom
               <div className="flex items-center gap-4 mb-3 text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-sm bg-green-100 border-l-2 border-green-500" />
-                  <span>インルーム</span>
+                  <span>艶月（二日町）</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-sm bg-purple-100 border-l-2 border-purple-500" />
-                  <span>ラズルーム</span>
+                  <span>華月（春日町）</span>
                 </div>
               </div>
               <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
@@ -275,7 +276,7 @@ export const MonthlyRoomCalendar = ({ shifts, reservations, casts }: MonthlyRoom
                                 </div>
                                 {selectedRoom === "all" && shift.room && (
                                   <div className={`text-[7px] sm:text-[10px] leading-tight font-medium ${roomStyle.text}`}>
-                                    {shift.room}
+                                    {canonicalRoomName(shift.room)}
                                   </div>
                                 )}
                               </div>

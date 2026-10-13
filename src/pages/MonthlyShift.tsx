@@ -19,6 +19,7 @@ import { ESTHE_RANKING_ACTIVE } from "@/lib/mediaRegistration";
 import { useStore } from "@/hooks/useStore";
 import { runQueuedEstamaAutomation } from "@/lib/estamaAutomation";
 import { calculateMonthlyRoomOccupancy } from "@/lib/roomOccupancy";
+import { ENKA_ROOMS, ROOM_ADDRESS_HINT, canonicalRoomName } from "@/lib/storeRooms";
 
 interface Shift {
   id: string;
@@ -56,7 +57,7 @@ interface DummyShift {
 
 type DummyShiftPattern = Record<number, [string, string]>;
 
-const ROOMS = ["インルーム", "ラスルーム"];
+const ROOMS: string[] = [...ENKA_ROOMS];
 const DUMMY_SHIFT_PATTERNS_BY_NAME: Record<string, DummyShiftPattern> = {
   蒼井かずは: { 1: ["12:00", "20:00"], 3: ["14:00", "22:00"], 6: ["12:00", "23:00"] },
   華咲れみ: { 0: ["12:00", "20:00"], 2: ["13:00", "21:00"], 4: ["15:00", "23:00"] },
@@ -86,7 +87,7 @@ const numberFormatter = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 
 
 const roomColor = (room: string | null) => {
   if (!room) return null;
-  const idx = ROOMS.indexOf(room);
+  const idx = ROOMS.indexOf(canonicalRoomName(room) ?? room);
   if (idx >= 0) return ROOM_PALETTE[idx % ROOM_PALETTE.length];
   let h = 0;
   for (const ch of room) h = (h * 31 + ch.charCodeAt(0)) % 997;
@@ -155,7 +156,7 @@ export default function MonthlyShift() {
       shift_date: shift.shift_date,
       start_time: shift.start_time.slice(0, 5),
       end_time: shift.end_time.slice(0, 5),
-      room: shift.room || "",
+      room: canonicalRoomName(shift.room) || "",
       estama_registered: shift.estama_registered ?? false,
       estama_human_confirmed: shift.estama_human_confirmed ?? false,
       esran_registered: shift.esran_registered ?? false,
@@ -483,7 +484,7 @@ export default function MonthlyShift() {
   const calendarDays = Array.from({ length: 42 }, (_, i) => addDays(calendarStart, i));
 
   // 凡例用: この月で使われているルーム
-  const usedRooms = [...new Set(shifts.filter(s => s.room).map(s => s.room!))].sort(
+  const usedRooms = [...new Set(shifts.map(s => canonicalRoomName(s.room)).filter((r): r is string => Boolean(r)))].sort(
     (a, b) => (ROOMS.indexOf(a) === -1 ? 99 : ROOMS.indexOf(a)) - (ROOMS.indexOf(b) === -1 ? 99 : ROOMS.indexOf(b)),
   );
 
@@ -599,15 +600,15 @@ export default function MonthlyShift() {
                   <span className="text-muted-foreground">
                     {s.start_time.slice(0, 5)}〜{s.end_time.slice(0, 5)}
                   </span>
-                  <Select value={s.room ?? ""} onValueChange={v => assignRoom(s.id, v)}>
+                  <Select value={canonicalRoomName(s.room) ?? ""} onValueChange={v => assignRoom(s.id, v)}>
                     <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="ルーム選択" /></SelectTrigger>
                     <SelectContent>
-                      {ROOMS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                      {ROOMS.map(r => <SelectItem key={r} value={r}>{r}（{ROOM_ADDRESS_HINT[r]}）</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <div className="ml-auto flex gap-1.5">
                     <Button size="sm" className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
-                      onClick={() => { setPendingAction({id: s.id, status: "approved", room: s.room ?? ROOMS[0]}); setActionComment(""); }}>
+                      onClick={() => { setPendingAction({id: s.id, status: "approved", room: canonicalRoomName(s.room) ?? ROOMS[0]}); setActionComment(""); }}>
                       承認
                     </Button>
                     <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-rose-600 border-rose-300 hover:bg-rose-50"
@@ -944,7 +945,7 @@ export default function MonthlyShift() {
                   <Select value={form.room} onValueChange={v => setForm({ ...form, room: v })}>
                     <SelectTrigger><SelectValue placeholder="ルームを選択" /></SelectTrigger>
                     <SelectContent>
-                      {ROOMS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                      {ROOMS.map(r => <SelectItem key={r} value={r}>{r}（{ROOM_ADDRESS_HINT[r]}）</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

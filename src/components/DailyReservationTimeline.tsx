@@ -5,6 +5,7 @@ import { useShopSettings } from "@/hooks/useShopSettings";
 import { ja } from "date-fns/locale";
 import { Card } from "@/components/ui/card";
 import { toExtTime } from "@/lib/timeFormat";
+import { ENKA_ROOMS, canonicalRoomName, sameRoom } from "@/lib/storeRooms";
 
 interface Cast {
   id: string;
@@ -39,7 +40,7 @@ interface DayData {
   reservations: Reservation[];
 }
 
-const ROOMS = ["インroom", "ラスroom"];
+const ROOMS: string[] = [...ENKA_ROOMS];
 const TIME_START = 13;
 const TIME_END = 25;
 
@@ -127,7 +128,7 @@ export const DailyReservationTimeline = () => {
         <div className="flex gap-2">
           {ROOMS.map((room) => {
             const roomShifts = dayData.shifts.filter(
-              (s) => (s.room || s.cast.room) === room
+              (s) => sameRoom(s.room || s.cast.room, room)
             );
 
             return (
@@ -185,7 +186,7 @@ export const DailyReservationTimeline = () => {
                             <div className="flex items-center gap-1 mb-0.5">
                               <div className="font-semibold">{shift.cast.name}</div>
                               <span className="px-1.5 py-0.5 bg-primary/20 text-primary rounded text-[10px] font-medium">
-                                {shift.room || shift.cast.room}
+                                {canonicalRoomName(shift.room || shift.cast.room)}
                               </span>
                             </div>
                             <div className="text-muted-foreground">

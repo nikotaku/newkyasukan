@@ -53,3 +53,30 @@ test("お客様の確認", async () => {
   assert.equal(guideConfirmation("2026-10-12T10:00:00Z", "艶月", "艶月"), "confirmed");
   assert.equal(guideConfirmation("2026-10-12T10:00:00Z", "華月", "艶月"), "stale");
 });
+
+test("ルームの呼び名：艶月＝二日町（旧インルーム）、華月＝春日町（旧ラスルーム）", async () => {
+  const { canonicalRoomName, sameRoom } = await import("../src/lib/storeRooms.ts");
+  for (const name of ["艶月", "インルーム", "インroom", "■二日町インroom■", " イン ルーム ", "仙台市青葉区二日町11-15 In-Towner 201号室"]) {
+    assert.equal(canonicalRoomName(name), "艶月", name);
+  }
+  for (const name of ["華月", "ラスルーム", "ラズルーム", "ラスroom", "仙台市青葉区春日町11-12 ラジュール仙台1107"]) {
+    assert.equal(canonicalRoomName(name), "華月", name);
+  }
+  assert.equal(canonicalRoomName(""), null);
+  assert.equal(canonicalRoomName(null), null);
+  assert.equal(canonicalRoomName("つや月"), "つや月");
+  assert.ok(sameRoom("ラスルーム", "華月"));
+  assert.ok(!sameRoom("インルーム", "華月"));
+});
+
+test("昔の呼び名の予約・出勤でも同じルームとして扱う", async () => {
+  const { roomIssue, guideConfirmation } = await import("../src/lib/reservationRoom.ts");
+  const rooms = ["艶月", "華月"];
+  // 画面の例：予約が「ラスルーム」→ 華月（春日町）として、ルーム管理にあるとみなす
+  assert.equal(roomIssue("ラスルーム", "華月", rooms), null);
+  assert.equal(roomIssue("ラスルーム", null, rooms), null);
+  assert.deepEqual(roomIssue("ラスルーム", "インルーム", rooms), { kind: "mismatch", room: "華月", expected: "艶月" });
+  assert.deepEqual(roomIssue("", "インルーム", rooms), { kind: "missing", expected: "艶月" });
+  assert.equal(roomFromShifts([{ cast_id: "a", room: "インルーム" }, { cast_id: "a", room: "艶月" }], "a"), "艶月");
+  assert.equal(guideConfirmation("2026-10-12T10:00:00Z", "ラスルーム", "華月"), "confirmed");
+});
