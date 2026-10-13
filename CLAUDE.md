@@ -110,7 +110,8 @@
 
 - 艶華のルームは2つだけ：**艶月 ＝ 二日町11-15 In-Towner**（旧：インルーム・インroom・■二日町インroom■）、**華月 ＝ 春日町11-12 ラジュール仙台**（旧：ラスルーム・ラズルーム・ラスroom）
 - 昔の呼び名は同じ部屋の別名。画面は `src/lib/storeRooms.ts` の `canonicalRoomName` / `sameRoom` で比べ、DBは `public.canonical_room_name()` とトリガー（shifts / reservations / casts の room を保存時に 艶月・華月 へ）でそろえる（`20261013090000_canonical_room_names.sql`）。ルームの選択肢は `ENKA_ROOMS`
-- ルーム管理の昔の行（ラズルーム・インルーム）は、中身を華月・艶月の空いている項目に移して使わない（is_active = false）にした
+- ルーム管理の昔の行（ラズルーム・インルーム）は「過去データ」店舗のもの。艶華（tsuyaka）のルームは華月・艶月の2行だけ
+- まとめて付け替えたときは、セラピストへの予約変更通知（`reservations_therapist_notification`）とエステ魂のシフト同期（`trg_enqueue_estama_shift`）を止めて行った。呼び名を直すだけの一括更新では同じようにする
 
 ## 予約案内ページ（SMSのリンク先）
 
