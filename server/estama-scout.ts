@@ -249,7 +249,14 @@ export async function inspectEstamaScoutPages(connection: Connection) {
 }
 
 /** 指定した管理画面のページ（/admin/… だけ・最大4つ）の作りを読む。読むだけで、ボタンは押さない（仮予約の取り込みなどの下調べ用） */
-export async function inspectEstamaAdminUrls(connection: Connection, paths: string[]) {
+export type InspectFocus = {
+  /** この要素の HTML（そのまま）を読む。CSSセレクタ。最大5つ、それぞれ最初の3件 */
+  selectors?: string[];
+  /** この言葉を含む <script> の中身を読む（画面の動き方を調べる用）。最大5語 */
+  scriptKeywords?: string[];
+};
+
+export async function inspectEstamaAdminUrls(connection: Connection, paths: string[], focus: InspectFocus = {}) {
   if (!connection.browserbase_context_id) {
     throw new LoginRequiredError("Browserbaseの保存済みログイン情報がありません");
   }
@@ -299,7 +306,25 @@ export async function inspectEstamaAdminUrls(connection: Connection, paths: stri
           .map((link) => `${link.text} → ${link.href.replace("https://estama.jp", "")}`)
           .filter((value, index, list) => list.indexOf(value) === index)
           .slice(0, 40);
-        pages.push({ path, subLinks, ...outline, ...tables });
+        const focused = (focus.selectors?.length || focus.scriptKeywords?.length)
+          ? await page.evaluate(({ selectors, keywords }) => {
+            const elements = selectors.map((selector) => {
+              let found: Element[] = [];
+              try { found = Array.from(document.querySelectorAll(selector)).slice(0, 3); } catch { found = []; }
+              return { selector, count: found.length, html: found.map((element) => element.outerHTML.replace(/\s+/g, " ").slice(0, 6_000)) };
+            });
+            const scripts = Array.from(document.querySelectorAll("script"));
+            const scriptSrcs = scripts.map((script) => script.getAttribute("src")).filter((src): src is string => Boolean(src)).slice(0, 40);
+            const inline = keywords.length
+              ? scripts.map((script) => script.textContent || "")
+                .filter((text) => keywords.some((keyword) => text.includes(keyword)))
+                .slice(0, 6)
+                .map((text) => text.replace(/\s+/g, " ").slice(0, 8_000))
+              : [];
+            return { elements, scriptSrcs, inline };
+          }, { selectors: (focus.selectors ?? []).slice(0, 5), keywords: (focus.scriptKeywords ?? []).slice(0, 5) })
+          : undefined;
+        pages.push({ path, subLinks, ...outline, ...tables, focused });
       }
       return { pages };
     } finally {
@@ -924,7 +949,11 @@ export async function handleEstamaScoutRequest(req: RequestLike, res: ResponseLi
     }
     if (mode === "inspect-urls") {
       const paths = Array.isArray(body.paths) ? body.paths.filter((path): path is string => typeof path === "string") : [];
-      const result = await inspectEstamaAdminUrls(claimed.connection, paths);
+      const strings = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.length <= 200) : [];
+      const result = await inspectEstamaAdminUrls(claimed.connection, paths, {
+        selectors: strings(body.selectors),
+        scriptKeywords: strings(body.scriptKeywords),
+      });
       res.status(200).json({ ok: true, storeId: claimed.storeId, result });
       return;
     }
