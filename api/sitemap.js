@@ -12,7 +12,8 @@ const ROUTES = [
 
 const SUPABASE_URL = "https://imrxzkivwrkqbhqfbbes.supabase.co";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const DEFAULT_STORE_ID = "00000000-0000-0000-0000-000000000001";
+// enka-salon.jp は艶華（tsuyaka）店舗。店長ブログの記事はこの店舗に入っている（既定店舗 0001 は過去データ）
+const DEFAULT_STORE_ID = "404499ab-5350-490f-9608-5814faffda6f";
 
 const escapeXml = (value) => String(value).replace(/[<>&'"]/g, (character) => ({
   "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;",
