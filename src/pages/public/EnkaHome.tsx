@@ -19,6 +19,8 @@ import { ESTAMA_CAST_PHOTO_STYLE } from "@/lib/publicCastPhoto";
 import { trackPublicEvent } from "@/lib/publicAnalytics";
 import { menestheNowEmbedUrl, parseMenestheNowWidget } from "@/lib/menestheNowWidget";
 import { ENKA_FALLBACK_HERO_BANNER, normalizeHeroBanners } from "@/lib/heroBanners";
+import { selectCastHeroBanners, type CastHeroBanner } from "@/lib/castHeroBanners";
+import { CastHeroBannerSlide } from "@/components/public/CastHeroBannerSlide";
 import { shiftBreaks } from "@/lib/shiftBreak";
 
 /**
@@ -41,7 +43,10 @@ interface ShiftRow {
   end_time: string;
   break_start?: string | null;
   break_end?: string | null;
-  casts: { id: string; name: string; photo: string | null; age: number | null; is_active: boolean; is_visible: boolean } | null;
+  casts: {
+    id: string; name: string; photo: string | null; age: number | null; is_active: boolean; is_visible: boolean;
+    join_date?: string | null; banner_images?: string[] | null; banner_copy?: string | null; banner_enabled?: boolean | null;
+  } | null;
 }
 
 interface ReservationRow {
@@ -170,19 +175,32 @@ export default function EnkaHome() {
       ? []
       : [ENKA_FALLBACK_HERO_BANNER];
 
+  // その日出勤するセラピストのバナー（素材から自動で作る。stores.settings.cast_hero_banners = false で止める）
+  const castHeroBanners = useMemo(() => {
+    if (storeSettings.cast_hero_banners === false) return [];
+    const casts = todayShifts.flatMap((shift) => (shift.casts ? [shift.casts] : []));
+    return selectCastHeroBanners(casts, todayShifts, format(new Date(), "yyyy-MM-dd"));
+  }, [todayShifts, storeSettings.cast_hero_banners]);
+  type HeroSlide = { kind: "cast"; key: string; banner: CastHeroBanner } | { kind: "image"; key: string; url: string };
+  const heroSlides: HeroSlide[] = [
+    ...castHeroBanners.map((banner) => ({ kind: "cast" as const, key: `cast-${banner.castId}`, banner })),
+    ...banners.map((url) => ({ kind: "image" as const, key: url, url })),
+  ];
+  const slideCount = heroSlides.length;
+
   useEffect(() => {
     setFailedHeroBanners((failed) => failed.filter((url) => configuredBanners.includes(url)));
   }, [configuredBanners]);
 
   useEffect(() => {
-    if (slide >= banners.length) setSlide(0);
-  }, [banners.length, slide]);
+    if (slide >= slideCount) setSlide(0);
+  }, [slideCount, slide]);
 
   useEffect(() => {
-    if (showHeroVideo || banners.length < 2) return;
-    const t = setInterval(() => setSlide((p) => (p + 1) % banners.length), 4500);
+    if (showHeroVideo || slideCount < 2) return;
+    const t = setInterval(() => setSlide((p) => (p + 1) % slideCount), 5000);
     return () => clearInterval(t);
-  }, [banners.length, showHeroVideo]);
+  }, [slideCount, showHeroVideo]);
 
   useEffect(() => {
     if (!storeId) return;
@@ -193,7 +211,7 @@ export default function EnkaHome() {
     Promise.all([
       supabase
         .from("shifts")
-        .select("id, cast_id, start_time, end_time, break_start, break_end, casts (id, name, photo, age, is_active, is_visible)")
+        .select("id, cast_id, start_time, end_time, break_start, break_end, casts (id, name, photo, age, is_active, is_visible, join_date, banner_images, banner_copy, banner_enabled)")
         .eq("shift_date", today)
         .eq("store_id", storeId)
         .order("start_time"),
@@ -374,49 +392,74 @@ export default function EnkaHome() {
             お使いのブラウザは動画再生に対応していません。
           </video>
         </div>
-      ) : banners.length > 0 ? (
+      ) : slideCount > 0 ? (
         <div className="relative" style={{ backgroundColor: "var(--pub-bg,#150a11)" }}>
-          <Link
-            to="/schedule"
-            aria-label="本日の出勤・空き状況を見る"
-            onClick={() => trackPublicEvent("availability_cta_click", { placement: "home_hero", date: format(new Date(), "yyyy-MM-dd") })}
-          >
-            <div className="relative w-full" style={{ aspectRatio: "2 / 1" }}>
-              {/* クロスフェード切替（全バナーを重ねて不透明度で遷移） */}
-              {banners.map((b, i) => (
-                <img
-                  key={b}
-                  src={b}
-                  alt={`${storeName} プランバナー${i + 1}`}
-                  loading={i === 0 ? "eager" : "lazy"}
-                  fetchPriority={i === 0 ? "high" : "auto"}
-                  className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000 ease-in-out"
-                  style={{ opacity: slide === i ? 1 : 0 }}
-                  onError={() => setFailedHeroBanners((failed) => failed.includes(b) ? failed : [...failed, b])}
-                />
-              ))}
-            </div>
-          </Link>
-          {banners.length > 1 && (
+          <div className="relative w-full" style={{ aspectRatio: "2 / 1" }}>
+            {/* クロスフェード切替（全スライドを重ねて不透明度で遷移。見えている1枚だけ押せる） */}
+            {heroSlides.map((item, i) => {
+              const active = slide === i;
+              const common = "absolute inset-0 block transition-opacity duration-1000 ease-in-out";
+              if (item.kind === "cast") {
+                const today = format(new Date(), "yyyy-MM-dd");
+                const shift = todayShifts.find((row) => row.cast_id === item.banner.castId);
+                return (
+                  <Link
+                    key={item.key}
+                    to={`/booking?castId=${item.banner.castId}&date=${today}`}
+                    aria-label={`${item.banner.name}さんを予約する`}
+                    aria-hidden={!active}
+                    tabIndex={active ? 0 : -1}
+                    className={common}
+                    style={{ opacity: active ? 1 : 0, pointerEvents: active ? "auto" : "none" }}
+                    onClick={() => trackPublicEvent("cast_card_click", { placement: "home_hero_banner", cast_id: item.banner.castId, availability: Boolean(shift && nextAvailable(shift)) })}
+                  >
+                    <CastHeroBannerSlide banner={item.banner} nextAvailable={shift ? nextAvailable(shift) : undefined} storeName={storeName} eager={i === 0} />
+                  </Link>
+                );
+              }
+              return (
+                <Link
+                  key={item.key}
+                  to="/schedule"
+                  aria-label="本日の出勤・空き状況を見る"
+                  aria-hidden={!active}
+                  tabIndex={active ? 0 : -1}
+                  className={common}
+                  style={{ opacity: active ? 1 : 0, pointerEvents: active ? "auto" : "none" }}
+                  onClick={() => trackPublicEvent("availability_cta_click", { placement: "home_hero", date: format(new Date(), "yyyy-MM-dd") })}
+                >
+                  <img
+                    src={item.url}
+                    alt={`${storeName} プランバナー`}
+                    loading={i === 0 ? "eager" : "lazy"}
+                    fetchPriority={i === 0 ? "high" : "auto"}
+                    className="h-full w-full object-contain"
+                    onError={() => setFailedHeroBanners((failed) => failed.includes(item.url) ? failed : [...failed, item.url])}
+                  />
+                </Link>
+              );
+            })}
+          </div>
+          {slideCount > 1 && (
             <>
               <button
-                onClick={() => setSlide((p) => (p - 1 + banners.length) % banners.length)}
+                onClick={() => setSlide((p) => (p - 1 + slideCount) % slideCount)}
                 className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-2 rounded-full text-white"
                 aria-label="前のバナー"
               >
                 <ChevronLeft size={18} />
               </button>
               <button
-                onClick={() => setSlide((p) => (p + 1) % banners.length)}
+                onClick={() => setSlide((p) => (p + 1) % slideCount)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 p-2 rounded-full text-white"
                 aria-label="次のバナー"
               >
                 <ChevronRight size={18} />
               </button>
               <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1.5">
-                {banners.map((_, i) => (
+                {heroSlides.map((item, i) => (
                   <button
-                    key={i}
+                    key={item.key}
                     onClick={() => setSlide(i)}
                     className="w-2 h-2 rounded-full transition-all"
                     style={{ backgroundColor: slide === i ? "var(--pub-accent,#d4547a)" : "rgba(255,255,255,.35)" }}
