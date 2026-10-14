@@ -11,7 +11,9 @@ const ROUTES = [
 ];
 
 const SUPABASE_URL = "https://imrxzkivwrkqbhqfbbes.supabase.co";
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// 公開してよいキー（HPの画面にも入っている）。Vercel に環境変数が無くても読めるよう予備を置く
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  || "sb_publishable_T0a9mtOIbupU5n_VAe9caw_xlnbbWfB";
 // enka-salon.jp は艶華（tsuyaka）店舗。店長ブログの記事はこの店舗に入っている（既定店舗 0001 は過去データ）
 const DEFAULT_STORE_ID = "404499ab-5350-490f-9608-5814faffda6f";
 
