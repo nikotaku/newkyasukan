@@ -87,3 +87,24 @@ export function selectCastHeroBanners(casts: BannerCast[], shifts: BannerShift[]
   };
   return [...rotate(newcomers), ...rotate(regulars)].slice(0, max);
 }
+
+export type BannerShiftRow = BannerShift & {
+  casts: (BannerCast & { is_active?: boolean | null; is_visible?: boolean | null }) | null;
+};
+
+/**
+ * その日の出勤（shifts と casts を一緒に読んだ行）から、HPのトップと同じ決め方でバナーを並べる。
+ * 出勤中で表示しているセラピストだけ・1人1つの出勤（早い方）。HPのトップ・/banner-render・エステ魂のカバー画像で共通。
+ */
+export function castHeroBannersForDay(rows: BannerShiftRow[], date: string, max = MAX_CAST_BANNERS) {
+  const seen = new Set<string>();
+  const usable = [...rows]
+    .sort((a, b) => a.start_time.localeCompare(b.start_time))
+    .filter((row) => {
+      if (!row.casts?.is_active || !row.casts?.is_visible || seen.has(row.cast_id)) return false;
+      seen.add(row.cast_id);
+      return true;
+    });
+  const casts = usable.flatMap((row) => (row.casts ? [row.casts] : []));
+  return selectCastHeroBanners(casts, usable, date, max);
+}

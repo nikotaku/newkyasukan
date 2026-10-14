@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { Json } from "@/integrations/supabase/types";
 import { normalizeHeroBanners } from "@/lib/heroBanners";
+import { EstamaCoverBannersCard, parseEstamaCoverSettings } from "@/components/EstamaCoverBannersCard";
 
 interface HeroVideoSettings {
   enabled: boolean;
@@ -55,6 +56,7 @@ export default function HpTopBanners() {
   const [newBannerUrl, setNewBannerUrl] = useState("");
   const [heroVideo, setHeroVideo] = useState<HeroVideoSettings>(DEFAULT_HERO_VIDEO);
   const [storeSettings, setStoreSettings] = useState<StoreSettings>({});
+  const [savedCoverEnabled, setSavedCoverEnabled] = useState(false);
   const [storeName, setStoreName] = useState("店舗");
   const [customDomain, setCustomDomain] = useState<string | null>(null);
   const dragIndex = useRef<number | null>(null);
@@ -94,6 +96,7 @@ export default function HpTopBanners() {
       : {};
 
     setStoreSettings(settings);
+    setSavedCoverEnabled(parseEstamaCoverSettings(settings.estama_cover_banners).enabled);
     setStoreName(data.name);
     setCustomDomain(data.custom_domain);
     setBanners(configuredBanners);
@@ -214,6 +217,7 @@ export default function HpTopBanners() {
     }
 
     setStoreSettings(nextSettings);
+    setSavedCoverEnabled(parseEstamaCoverSettings(nextSettings.estama_cover_banners).enabled);
     toast.success("トップページのバナー設定を保存しました");
     setSaving(false);
   };
@@ -261,6 +265,15 @@ export default function HpTopBanners() {
               </CardDescription>
             </CardHeader>
           </Card>
+
+          {storeId && (
+            <EstamaCoverBannersCard
+              storeId={storeId}
+              value={parseEstamaCoverSettings(storeSettings.estama_cover_banners)}
+              savedEnabled={savedCoverEnabled}
+              onChange={(next) => setStoreSettings((current) => ({ ...current, estama_cover_banners: { enabled: next.enabled, slots: next.slots } }))}
+            />
+          )}
 
           <Card>
             <CardHeader>
