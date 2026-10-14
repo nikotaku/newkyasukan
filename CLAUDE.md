@@ -98,6 +98,9 @@
 - 名前は絵文字・空白を無視して探す。2文字の名前は「さん・ちゃん」付きか前後が文字でないときだけ、ペア（りりか&ももか）は両方の名前でも数える
 - 「今日までに足りていない露出」は月の日割り（`expectedByNow`）より少ないもの。媒体登録状況（`/education?tab=media`）にも「今月の露出」列（同じ数え方）
 - 企画スケジュールは同じ画面の「企画スケジュール」タブ（`?tab=plans`）
+- **企画のタスクの自動チェック**：投稿の記録から、終わった投稿タスクに自動で✓を付ける（pg_cron `promotion-task-autocheck` 15分ごと → `private.auto_check_promotion_tasks()`、画面の「投稿を確認」は RPC `run_promotion_task_autocheck`）。見る記録は、本人のO2＝マイページの同時投稿（`cast_posts`）、店舗のO2＝`manager_posts`・`o2_store_availability_posts`、店舗のX＝`x_daily_posts`、HPニュース・エスたまニュース＝`hp_articles`（その投稿日の営業日・企画のセラピストの名前入り）。根拠は `auto_source` / `auto_url`。本人のX・O2ストーリー・バナー・LINE公式は手でチェック。手で外したタスクは `auto_skip` で付け直さない。投稿日から3日過ぎて終わっていないものは `expired_at`（期限切れ。残りの数に入れない）
+- タスクの種類はラベルの「：」より前で見分ける（`private.promotion_task_kind` と `src/lib/promotionTaskDraft.ts` の `promotionTaskKind`、テスト `npm run test:promotion-task`）
+- **投稿文を作る**：各投稿タスクの「投稿文を作る」で、AI（`generate-cast-content` の `x_post`）がその日の出勤（休憩）・セラピストの紹介・予約URLを入れて下書きを作る。手直しして `promotion_plan_tasks.draft_text` に保存・コピー（`PromotionTaskDraftDialog`）
 
 ## X運用表「今日の投稿」（/hp/x-operations）
 
