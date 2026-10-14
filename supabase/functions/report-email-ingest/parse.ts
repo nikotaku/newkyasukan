@@ -4,7 +4,9 @@
 // - エステ魂の仮予約のメール（件名に「エステ魂」と「予約」）→ すぐにエステ魂の「お店への予約」を読みに行く合図
 // 本文の書式は各サービス次第なので、読み取れないときは推測で埋めずに unparsed として残す。
 
-export type ReportEmailKind = "ivry_call" | "estama_daily_report" | "estama_reservation" | "unknown";
+// billing_failed / billing_paid … サブスクの請求まわりのメール（支払い失敗・停止の知らせ／領収書・請求）。
+// 見分けは src/lib/subscriptionWatch.ts の classifyBillingMail（サブスクの見張りが使う）
+export type ReportEmailKind = "ivry_call" | "estama_daily_report" | "estama_reservation" | "billing_failed" | "billing_paid" | "unknown";
 
 export interface ReportEmail {
   id: string;

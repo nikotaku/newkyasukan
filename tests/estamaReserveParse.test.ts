@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { castNameFromLabel, normalizeCastName, parseEstamaReservations } from "../server/estama-reserve-parse.ts";
+import { castNameFromLabel, normalizeCastName, parseEstamaContractUntil, parseEstamaReservations } from "../server/estama-reserve-parse.ts";
 
 // 画面の文字の形だけを再現した架空のデータ（実在のお客様の情報は書かない）
 const page = `お店への予約 予約を検索 1 〜 20 件を表示 全141件
@@ -50,4 +50,10 @@ test("仮予約を1件ずつ取り出す", () => {
 test("名前の照合", () => {
   assert.equal(castNameFromLabel("伊藤れな🔰(26)"), "伊藤れな");
   assert.equal(normalizeCastName("伊藤 れな🔰"), normalizeCastName("伊藤れな(26)"));
+});
+
+test("管理画面の契約期間を読む（サブスクの見張り）", () => {
+  assert.equal(parseEstamaContractUntil("艶華 (店舗番号:00000) (ご契約期間:2026年10月24日 15:32 まで) プラチナプラン"), "2026-10-24T06:32:00.000Z");
+  assert.equal(parseEstamaContractUntil("ご契約期間：2027年1月5日まで"), "2027-01-05T14:59:00.000Z");
+  assert.equal(parseEstamaContractUntil("契約の表示なし"), null);
 });
