@@ -1588,6 +1588,31 @@ export default function Schedule() {
                                       settlementIndicator === "submitted" ? "pr-20" : "pr-9",
                                     )}>
                                       {toExtTime(res.start_time)}~{endTime}
+                                      {/* お客様が案内ページで予約内容を確認したか（確認後にルームが変わったら要再確認） */}
+                                      {(() => {
+                                        const confirmation = guideConfirmation(res.guide_confirmed_at, res.guide_confirmed_room, res.room);
+                                        if (confirmation === "confirmed") {
+                                          return (
+                                            <span
+                                              className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-emerald-600 px-1 align-middle text-[9px] font-bold text-white"
+                                              title="お客様が予約内容を確認済み"
+                                            >
+                                              <CheckCircle2 className="h-2.5 w-2.5" />確認
+                                            </span>
+                                          );
+                                        }
+                                        if (confirmation === "stale") {
+                                          return (
+                                            <span
+                                              className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-amber-500 px-1 align-middle text-[9px] font-bold text-white"
+                                              title="確認の後にルームが変わりました。もう一度確認してもらってください"
+                                            >
+                                              <AlertTriangle className="h-2.5 w-2.5" />再確認
+                                            </span>
+                                          );
+                                        }
+                                        return null;
+                                      })()}
                                     </div>
                                     <div className={cn(
                                       "text-xs font-semibold truncate leading-tight",
