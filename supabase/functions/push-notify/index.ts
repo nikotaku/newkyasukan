@@ -1,5 +1,5 @@
 // 管理画面を「ホーム画面に追加」したアプリへのプッシュ通知（LINE通知と並行して送る試験運用）。
-//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout" | "estama_login" | "daily_sales" | "settlement_transfer" | "line_inbox" | "line_inbox_failed" | "estama_reserve", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
+//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout" | "estama_login" | "daily_sales" | "settlement_transfer" | "line_inbox" | "line_inbox_failed" | "estama_reserve" | "subscription", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
 //  - { action: "test" } … ログイン中のスタッフが自分の端末にテスト通知を送る（JWT）
 // 購読（push_subscriptions）の topics に含まれる通知だけを、その店舗の端末へ送る。SMS残高は全店舗の購読へ。
 // 送れなくなった購読（アプリ削除・通知オフ）は消す。VAPIDの鍵は Vault（RPC get_web_push_vapid）。
@@ -15,6 +15,7 @@ import {
   settlementTransferMessage,
   smsBalanceMessage,
   smsReplyMessage,
+  subscriptionAlertMessage,
   testMessage,
   webBookingMessage,
   type PushMessage,
@@ -171,6 +172,12 @@ async function buildEvent(event: string, id: string, resubmitted = false): Promi
     if (!account) return null;
     // 精算の通知（daily_sales）を受け取っている端末へ
     return { message: settlementTransferMessage(approval, cast?.name ?? null, account), storeId: approval.store_id, topic: "daily_sales" };
+  }
+  if (event === "subscription") {
+    const [alert] = await sb(`subscription_alerts?id=eq.${id}&select=id,store_id,watch_id,level,message`);
+    if (!alert) return null;
+    const [watch] = await sb(`subscription_watches?id=eq.${alert.watch_id}&select=name`);
+    return { message: subscriptionAlertMessage(alert, watch?.name ?? "サブスク"), storeId: alert.store_id };
   }
   if (event === "sms_balance") {
     const [alert] = await sb(`sms_balance_alerts?id=eq.${id}&select=effective_balance`);

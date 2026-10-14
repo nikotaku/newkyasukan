@@ -40,6 +40,7 @@
     "test:estama-reserve": "node --experimental-strip-types --test tests/estamaReserveParse.test.ts tests/estamaReservationRequests.test.ts",
     "test:shift-break": "node --experimental-strip-types --test tests/shiftBreak.test.ts",
     "test:promotion-task": "node --experimental-strip-types --test tests/promotionTaskDraft.test.ts",
+    "test:subscription-watch": "node --experimental-strip-types --test tests/subscriptionWatch.test.ts",
     "test:cast-hero-banners": "node --experimental-strip-types --test tests/castHeroBanners.test.ts"
   },
   "dependencies": {

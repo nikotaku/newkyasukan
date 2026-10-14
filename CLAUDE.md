@@ -189,6 +189,16 @@
 - pg_cron `sms-balance-check`（毎時23分）が実質残高を確認し、1,000円を切ったらLINEで知らせる（1日1回まで。メインの `operations` → 予約通知専用の `web_booking` の順）。履歴は `sms_balance_alerts`
 - 日本語のSMSは70文字（長文は67文字）ごとに1通分・約14円。テンプレート画面に通数の目安を出している（`src/lib/smsSegments.ts`）
 
+## サブスクの見張り（支払い管理 /payments）
+
+- 支払い管理の「サブスクの見張り」（`src/components/payments/SubscriptionWatchPanel.tsx`）で、Supabase・IVRy・SUBLINE・Twilio・エステ魂・Vercel などの課金が止まっていないかを1時間ごとに判定し、悪くなったらスマホ通知（topic `subscription`、`subscription_alerts` → `trg_push_notify`）
+- 表 `subscription_watches`（サービス・金額・請求の間隔・次の請求日・支払い方法・カードの有効期限 YYYY-MM・確認URL・請求メールの見分け・通知が何日届かなければ要確認か）。判定は `src/lib/subscriptionWatch.ts` の `evaluateWatch`（テスト `npm run test:subscription-watch`）。「支払いを確認」は RPC `mark_subscription_paid`（次の請求日を1周期すすめる）
+- pg_cron `subscription-check-hourly`（毎時13分）→ `private.dispatch_subscription_check()` → Edge Function `subscription-check`（`x-subscription-check-secret` は Vault の `subscription_check_internal_secret`。画面の「今すぐ確認」はスタッフのJWT）。デプロイ時は `src/lib/subscriptionWatch.ts` と `_shared/twilio.ts` も一緒に送る
+- サービスへの問い合わせ：Twilio＝アカウントの状態（suspended / closed で停止）、SUBLINE＝API（トークン登録時）、エステ魂＝管理画面の「ご契約期間」（仮予約の取り込みのたびに読んで `automation_connections.contract_until`、RPC `save_estama_contract_info`。3日前から要確認）、Supabase＝この確認が動いていること（止まると画面ごと開けない）、それ以外は確認URLが開けるか（402は停止）
+- メール：Gmail の取り込み（`scripts/gmail-report-sync.gs`）で請求まわりのメールも送り、`report-email-ingest` が `classifyBillingMail` で `billing_failed`（支払い失敗・停止・カードの期限切れ）／`billing_paid`（領収書・請求書）に分ける。送り元のドメイン（`SERVICE_PRESETS.senders`）か登録したキーワードでサブスクと結びつける。IVRy は着信通知が `silence_days` 日届かなければ要確認
+- **Gmail の取り込みは2026年10月時点で未設定**（`report_email_messages` が0件）。設定するまでメールでの判定と IVRy の形跡の判定は動かない（画面に注意を出している）。スクリプトを貼り直すと請求メールも送るようになる
+- カード番号・パスワードは入れない（支払い方法は「Visa 下4桁」まで）
+
 ## DBバックアップ
 
 - Supabaseは無料プランで運用する想定（自動バックアップなし）。代わりに `.github/workflows/db-backup.yml` が毎日4:05（JST）に本番DBをダンプし、AES256で暗号化してActionsのArtifactsに30日保存する

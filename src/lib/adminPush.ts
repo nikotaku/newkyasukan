@@ -15,6 +15,7 @@ export const PUSH_TOPICS = [
   { key: "daily_sales", label: "セラピストが精算を入力したとき", hint: "マイページから今日の売上（精算）を送った・送り直したとき" },
   { key: "estama_scout", label: "エステ魂スカウトの確認", hint: "毎日の候補がそろったとき（OKで送信）・送り終わったとき" },
   { key: "estama_login", label: "エステ魂のログインが切れたとき", hint: "自動で再ログインできない・ログイン情報が未登録のとき（空き枠の更新などが止まります）" },
+  { key: "subscription", label: "サブスクの課金が止まりそうなとき", hint: "支払い管理の「サブスクの見張り」で、支払い失敗・停止・カードの期限切れなどを見つけたとき" },
   { key: "therapist_notify", label: "セラピストに予約通知が届かないとき", hint: "マイページの通知が未設定・送信に失敗したとき（直接連絡が必要）" },
 ] as const;
 export type PushTopic = (typeof PUSH_TOPICS)[number]["key"];

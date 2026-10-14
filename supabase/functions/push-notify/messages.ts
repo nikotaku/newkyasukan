@@ -247,3 +247,13 @@ export function estamaReserveMessage(request: {
     tag: `estama-reserve-${request.id}`,
   };
 }
+
+export function subscriptionAlertMessage(alert: { id: string; level: string; message: string }, watchName: string): PushMessage {
+  const stopped = alert.level === "stopped";
+  return {
+    title: stopped ? `🛑 ${watchName}の課金が止まっている可能性` : `⚠️ ${watchName}の支払いを確認してください`,
+    body: clip(alert.message, 120),
+    url: "/payments?tab=subscriptions",
+    tag: `subscription-${alert.id}`,
+  };
+}

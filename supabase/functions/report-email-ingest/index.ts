@@ -15,6 +15,7 @@ import {
   parseIvryCall,
   type ReportEmail,
 } from "./parse.ts";
+import { classifyBillingMail } from "../../../src/lib/subscriptionWatch.ts";
 
 const SB_URL = Deno.env.get("SUPABASE_URL")!;
 const SB_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -106,7 +107,9 @@ Deno.serve(async (req: Request) => {
     let reserveSignal = false;
     const fresh = (email: ReportEmail) => Date.now() - new Date(email.date).getTime() < 30 * 60_000;
     for (const email of pending) {
-      const kind = classifyReportEmail(email.subject);
+      // 着信通知・レポート以外は、サブスクの請求まわりのメール（支払い失敗・停止／領収書）か見る（サブスクの見張りが使う）
+      const reportKind = classifyReportEmail(email.subject);
+      const kind = reportKind === "unknown" ? (classifyBillingMail(email.subject, email.body) ?? "unknown") : reportKind;
       const base = {
         store_id: storeId,
         message_id: email.id,
@@ -118,6 +121,10 @@ Deno.serve(async (req: Request) => {
         updated_at: new Date().toISOString(),
       };
       try {
+        if (kind === "billing_failed" || kind === "billing_paid") {
+          records.push({ ...base, parsed: null, status: "imported", error: null });
+          continue;
+        }
         if (kind === "estama_reservation") {
           if (fresh(email)) reserveSignal = true;
           records.push({ ...base, parsed: null, status: "imported", error: null });

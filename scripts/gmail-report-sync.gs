@@ -1,5 +1,5 @@
 /**
- * Gmail に届く IVRy の着信通知・「【エステ魂】デイリーレポート」・エステ魂の仮予約のメールを、管理システムへ送る。
+ * Gmail に届く IVRy の着信通知・「【エステ魂】デイリーレポート」・エステ魂の仮予約のメール・サブスクの請求まわりのメールを、管理システムへ送る。
  * レポートを受け取っている Gmail アカウントの Google Apps Script で動かす（手順: docs/gmail-report-sync.md）。
  *
  * - setup() を1回実行すると、1分ごとに syncReports() が動くようになる
@@ -13,8 +13,10 @@ const ENDPOINT = 'https://imrxzkivwrkqbhqfbbes.supabase.co/functions/v1/report-e
 const TOKEN = 'PASTE_TOKEN_HERE';
 const BACKFILL_SINCE = '2026/09/01';
 
-const SEARCH_QUERY = '(IVRy OR エステ魂)';
-const SUBJECT_PATTERN = /着信内容の報告通知[\s\S]*IVRy|エステ魂[\s\S]*(デイリーレポート|予約)/i;
+// サブスクの請求まわり（支払い失敗・利用停止・領収書・請求書）のメールも送る（支払い管理の「サブスクの見張り」が使う）
+const BILLING_SENDERS = 'supabase.com OR supabase.io OR twilio.com OR vercel.com OR browserbase.com OR anthropic.com OR subline.jp OR interpark.co.jp OR ivry.jp OR linecorp.com OR lycorp.co.jp OR estama.jp';
+const SEARCH_QUERY = '(IVRy OR エステ魂 OR from:(' + BILLING_SENDERS + ') OR subject:(請求 OR 領収 OR 支払 OR 決済 OR 停止 OR invoice OR receipt OR payment OR billing OR suspended OR paused))';
+const SUBJECT_PATTERN = /着信内容の報告通知[\s\S]*IVRy|エステ魂[\s\S]*(デイリーレポート|予約)|請求|領収|支払|決済|未払|未納|停止|カード|invoice|receipt|payment|billing|suspend|paused|past due|overdue|card/i;
 const BATCH_SIZE = 40;
 const MAX_BODY_LENGTH = 20000;
 

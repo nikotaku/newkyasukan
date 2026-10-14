@@ -21,6 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminStore } from "@/hooks/useAdminStore";
+import { SubscriptionWatchPanel } from "@/components/payments/SubscriptionWatchPanel";
 import { supabase } from "@/integrations/supabase/client";
 import {
   accountNumberTail,
@@ -115,6 +117,7 @@ export default function PaymentManagement() {
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const { user, loading: authLoading } = useAuth();
+  const { storeId } = useAdminStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -267,6 +270,8 @@ export default function PaymentManagement() {
             <SummaryCard icon={Clock3} label="固定費予定" value={`${fixedCosts.length}件`} tone="sky" />
             <SummaryCard icon={CheckCircle2} label="今月支払済み" value={yen(paidTotal)} tone="emerald" />
           </div>
+
+          <SubscriptionWatchPanel storeId={storeId} />
 
           <Card>
             <CardHeader className="pb-3">

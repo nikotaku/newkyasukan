@@ -116,3 +116,15 @@ export function parseEstamaReservations(pageText: string): EstamaReservation[] {
   });
   return results;
 }
+
+/**
+ * 管理画面の上に出る「(ご契約期間:2026年10月24日 15:32 まで)」を読む（サブスクの見張りでプランが切れていないか見る）。
+ * 日本時間として ISO で返す。読めなければ null
+ */
+export function parseEstamaContractUntil(text: string): string | null {
+  const match = text.normalize("NFKC").match(/ご契約期間\s*[:：]?\s*(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日(?:\s*(\d{1,2}):(\d{2}))?\s*まで/);
+  if (!match) return null;
+  const [, year, month, day, hour = "23", minute = "59"] = match;
+  const utc = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)) - 9 * 3_600_000;
+  return Number.isNaN(utc) ? null : new Date(utc).toISOString();
+}

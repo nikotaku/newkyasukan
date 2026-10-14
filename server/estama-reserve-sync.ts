@@ -11,7 +11,7 @@ import {
   releaseSession,
   type Connection,
 } from "./estama-automation.js";
-import { parseEstamaReservations, type EstamaReservation } from "./estama-reserve-parse.js";
+import { parseEstamaContractUntil, parseEstamaReservations, type EstamaReservation } from "./estama-reserve-parse.js";
 
 const RESERVE_URL = "https://estama.jp/admin/reserve/";
 
@@ -24,6 +24,7 @@ export async function syncEstamaReservations(client: SupabaseClient, runToken: s
     { solveCaptchas: false },
   );
   let items: EstamaReservation[] = [];
+  let contractUntil: string | null = null;
   try {
     const { browser, page } = await connectSession(session.connectUrl);
     try {
@@ -33,11 +34,17 @@ export async function syncEstamaReservations(client: SupabaseClient, runToken: s
       await ensureAdminLogin(page);
       const text = await page.locator("main, #main, .l-main, body").first().innerText();
       items = parseEstamaReservations(text).filter((item) => item.customerPhone || item.customerEmail);
+      // 画面の上の「ご契約期間：…まで」（サブスクの見張りで、掲載プランが切れていないか見る）
+      contractUntil = parseEstamaContractUntil(await page.locator("body").innerText().catch(() => ""));
     } finally {
       await disconnect(browser);
     }
   } finally {
     await releaseSession(bb, session.id);
+  }
+  if (contractUntil) {
+    await client.rpc("save_estama_contract_info", { p_run_token: runToken, p_until: contractUntil })
+      .then(({ error }) => { if (error) console.error("save_estama_contract_info failed", error.message); });
   }
   const { data, error } = await client.rpc("save_estama_reservation_requests", { p_run_token: runToken, p_items: items });
   if (error) throw new Error(`仮予約を保存できませんでした：${error.message}`);
