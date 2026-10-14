@@ -9,7 +9,9 @@ const ENKA = {
     "https://imrxzkivwrkqbhqfbbes.supabase.co/storage/v1/object/public/cast-photos/image-stock/1784811500002_enka-hero-open.jpg",
 };
 const SUPABASE_URL = "https://imrxzkivwrkqbhqfbbes.supabase.co";
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// 公開してよいキー（HPの画面にも入っている）。Vercel に環境変数が無くても読めるよう予備を置く
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  || "sb_publishable_T0a9mtOIbupU5n_VAe9caw_xlnbbWfB";
 // enka-salon.jp は艶華（tsuyaka）店舗。記事などはこの店舗に入っている（既定店舗 0001 は過去データ）
 const DEFAULT_STORE_ID = "404499ab-5350-490f-9608-5814faffda6f";
 
@@ -204,14 +206,13 @@ export default async function handler(req, res) {
           ? "/"
           : internalPath;
       })();
-  // 一時的な調査：enka-salon.jp の中継（Cloudflare）が元のパスをどのヘッダーで渡しているか（値は短く切ってログに出す）
-  if (!rawRewrittenPath) {
-    const headers = Object.fromEntries(Object.entries(req.headers || {})
-      .filter(([key]) => !/cookie|authorization|token|secret|key/i.test(key))
-      .map(([key, value]) => [key, String(value).slice(0, 200)]));
-    console.log(JSON.stringify({ spaProbe: true, url: req.url, headers }));
-  }
   const pathname = requestedPath.replace(/\/$/, "") || "/";
+  // enka-salon.jp の中継（Cloudflare）は、どのページでもパスを /api/spa に置き換えて呼ぶ（?以降は残る）。
+  // 元のパスが分からないときは、全ページをトップ扱いにしないよう canonical・og:url を出さず、画面側（PublicSeo）に任せる。
+  // 中継が ?path=<元のパス> を付けて呼ぶようになれば、ページごとのタイトル・説明・記事の構造化データが出る。
+  const pathUnknown = typeof rawRewrittenPath !== "string"
+    && /(^|\.)enka-salon\.jp$/i.test(host.split(":")[0])
+    && new URL(req.url || "/", `https://${host}`).pathname === "/api/spa";
   const meta = await getMeta(pathname, host);
   const canonical = `https://enka-salon.jp${pathname === "/" ? "/" : pathname}`;
 
@@ -240,6 +241,12 @@ export default async function handler(req, res) {
       .replace(/(<meta name="twitter:image" content=")[^"]*(")/, `$1${meta.image || ENKA.image}$2`)
       .replace(/<meta name="twitter:site" content="[^"]*"\s*\/?>/, "")
       .replace(/(<link rel="icon"[^>]*href=")[^"]*(")/, "$1/favicon-tsuyaka.png$2");
+
+    if (pathUnknown) {
+      html = html
+        .replace(/<link rel="canonical"[^>]*>\s*/, "")
+        .replace(/<meta property="og:url"[^>]*>\s*/, "");
+    }
 
     if (meta.structuredData) {
       html = html.replace("</head>", `<script type="application/ld+json">${safeJson({
