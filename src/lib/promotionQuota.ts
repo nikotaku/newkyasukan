@@ -19,7 +19,7 @@ export interface QuotaChannel {
 }
 
 export const QUOTA_CHANNELS: QuotaChannel[] = [
-  { key: "hp_top_banner", label: "HPトップバナー", short: "HPバナー", newcomerOnly: true, auto: null },
+  { key: "hp_top_banner", label: "HPトップバナー", short: "HPバナー", newcomerOnly: true, auto: "トップのセラピストのバナーに出た日（毎朝自動で記録）" },
   { key: "hp_news", label: "HPニュース", short: "HPニュース", newcomerOnly: false, auto: "HPのニュースに名前が出た記事" },
   { key: "x_post", label: "X投稿", short: "X", newcomerOnly: false, auto: "X運用表で投稿した紹介・口コミなど（出勤・空き枠のまとめは除く）" },
   { key: "o2_post", label: "O2投稿", short: "O2", newcomerOnly: false, auto: null },

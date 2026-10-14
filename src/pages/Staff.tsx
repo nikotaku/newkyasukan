@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getEstamaJobStatus, runEstamaCastAutomation, startEstamaCastAutomation, startEstamaProfileSync, type EstamaJobStatus } from "@/lib/estamaAutomation";
 import { getCastBookingUrl, getCustomDomainBaseUrl } from "@/lib/bookingUrl";
 import { ESTHE_RANKING_ACTIVE } from "@/lib/mediaRegistration";
+import { CastBannerAssetsEditor } from "@/components/CastBannerAssetsEditor";
 
 const THERAPIST_FEATURES = [
   "新人", "経験豊富", "業界未経験", "施術上手", "上品", "甘えん坊", "おとなしい", "おっとり",
@@ -170,6 +171,9 @@ interface Cast {
   height: number | null;
   weight: number | null;
   new_customer_max_minutes?: number | null;
+  banner_images?: string[] | null;
+  banner_copy?: string | null;
+  banner_enabled?: boolean | null;
   bust_size: string | null;
   shop_comment: string | null;
   therapist_comment: string | null;
@@ -2112,6 +2116,16 @@ export default function Staff() {
                           </div>
                         </div>
                       </div>
+
+                      {/* トップバナーの素材（出勤日にHPのトップバナーへ自動で出す） */}
+                      {editingCast.id && (
+                        <CastBannerAssetsEditor
+                          castId={editingCast.id}
+                          castName={editingCast.name}
+                          age={editingCast.age}
+                          initial={editingCast}
+                        />
+                      )}
 
                       {/* 画像ストック（非公開・枚数無制限） */}
                       <div className="border rounded-lg p-4 space-y-2">

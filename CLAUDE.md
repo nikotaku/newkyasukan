@@ -130,6 +130,14 @@
 - **予約は止めない**（取りこぼさないため）。新規のお客様が上限より長いコースで予約したら知らせる：WEB予約のスマホ通知のタイトル（「⚠️ 新規80分超え：…」）、WEB予約受付のカード・予約表の予約詳細の赤い注意（RPC `get_course_limit_alerts(p_reservation_ids)`、画面は `src/lib/courseLimit.ts`）、エステ魂の仮予約の判定 `course_limit`
 - 新規 = その電話番号で施術済み（completed）の予約がまだ無い人（`public.has_completed_visit`、店舗をまたいで見る）。エステ魂の「リピート予約」は新規にしない
 
+## トップバナーのセラピスト自動ローテーション
+
+- セラピストごとの素材：`casts.banner_images`（写真・何枚でも）・`banner_copy`（キャッチコピー40文字まで）・`banner_enabled`。スタッフ画面のセラピスト編集「トップバナーの素材」（`src/components/CastBannerAssetsEditor.tsx`、この欄だけで保存）。写真は `cast-photos` の `banner-assets/<cast_id>/`
+- 公開HPのトップ（EnkaHome）で、その日に出勤する素材のある人のバナーをその場で組み立て（写真・名前・キャッチコピー・本日の出勤・最短の空き。`src/components/public/CastHeroBannerSlide.tsx`）、`stores.settings.hero_banners` の画像バナーより先に5秒ごとにローテーション。押すとそのセラピストのWEB予約
+- 並び順・写真の選び方は `src/lib/castHeroBanners.ts`（新人＝入店30日を先頭、あとは日付で先頭が入れ替わる。写真も日ごとに順番。最大8枚）。テスト `npm run test:cast-hero-banners`
+- 止めるときは HPトップバナー管理の「セラピストのバナー（自動）」をオフ（`stores.settings.cast_hero_banners = false`）
+- バナーに出た日は露出ノルマの HPトップバナー（`promotion_exposures`）に自動で記録（pg_cron `cast-hero-banner-exposures` 毎朝6:20 → `private.record_cast_hero_banner_exposures()`）
+
 ## 予約案内ページ（SMSのリンク先）
 
 - 予約ごとの案内ページ `/g/:token`（`/r/` はセラピスト別の予約リンクなので使わない）（`src/pages/public/ReservationGuide.tsx`）。予約内容・ルームの住所と地図・道順（写真のステップを自動再生）・来店時のお願い・連絡先を出す。SMSには `{guide_url}` でリンクだけ載せて通数を減らす

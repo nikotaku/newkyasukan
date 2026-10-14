@@ -35,6 +35,7 @@ interface HeroVideoSettings {
 interface StoreSettings extends Record<string, Json | undefined> {
   hero_banners?: string[];
   hero_video?: Partial<HeroVideoSettings>;
+  cast_hero_banners?: boolean;
 }
 
 const DEFAULT_HERO_VIDEO: HeroVideoSettings = {
@@ -190,6 +191,7 @@ export default function HpTopBanners() {
     const nextSettings: StoreSettings = {
       ...storeSettings,
       hero_banners: normalizedBanners,
+      cast_hero_banners: storeSettings.cast_hero_banners !== false,
       hero_video: {
         enabled: heroVideo.enabled,
         url: heroVideo.url.trim(),
@@ -242,6 +244,23 @@ export default function HpTopBanners() {
               </Button>
             </div>
           </header>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between gap-3 text-lg">
+                <span className="flex items-center gap-2"><ImagePlus size={20} /> セラピストのバナー（自動）</span>
+                <Switch
+                  checked={storeSettings.cast_hero_banners !== false}
+                  onCheckedChange={(value) => setStoreSettings((current) => ({ ...current, cast_hero_banners: value }))}
+                  aria-label="セラピストのバナーを出す"
+                />
+              </CardTitle>
+              <CardDescription>
+                その日に出勤するセラピストのうち、スタッフ画面の「トップバナーの素材」（写真・キャッチコピー）がある人のバナーを自動で作り、下の画像バナーより先にローテーションします。
+                新人（入店30日）を先頭に、あとは毎日順番と写真が入れ替わります。バナーに出た日は露出ノルマの「HPトップバナー」に自動で記録されます。切り替えたら右上の「保存」で反映されます。
+              </CardDescription>
+            </CardHeader>
+          </Card>
 
           <Card>
             <CardHeader>
