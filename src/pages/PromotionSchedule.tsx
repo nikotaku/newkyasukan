@@ -42,9 +42,19 @@ import {
   buildPromotionCastOptions,
   type PromotionCastOption,
 } from "@/lib/promotionScheduleCasts";
+import { PromotionTaskDraftDialog } from "@/components/promotion/PromotionTaskDraftDialog";
+import { getCustomDomainBaseUrl } from "@/lib/bookingUrl";
+import { AUTO_CHECKABLE, promotionTaskKind } from "@/lib/promotionTaskDraft";
 
 type PromotionPlan = Database["public"]["Tables"]["promotion_plans"]["Row"];
-type PromotionTask = Database["public"]["Tables"]["promotion_plan_tasks"]["Row"];
+type PromotionTask = Database["public"]["Tables"]["promotion_plan_tasks"]["Row"] & {
+  // 自動チェック（投稿の記録から完了にした根拠）・期限切れ・投稿文の下書き（20261014090000_promotion_task_autocheck.sql）
+  auto_source?: string | null;
+  auto_url?: string | null;
+  auto_skip?: boolean | null;
+  expired_at?: string | null;
+  draft_text?: string | null;
+};
 type PromotionChannel = Database["public"]["Tables"]["promotion_plan_channels"]["Row"];
 type PromotionChannelKey =
   | "hp_top_banner"
@@ -173,6 +183,8 @@ export default function PromotionSchedule() {
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [draftTask, setDraftTask] = useState<PromotionTask | null>(null);
+  const [checking, setChecking] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const { store, storeId, loading: storeLoading } = useAdminStore();
   const navigate = useNavigate();
@@ -247,6 +259,7 @@ export default function PromotionSchedule() {
     return {
       plans: plans.length,
       completed,
+      expired: tasks.filter((task) => !task.is_completed && task.expired_at).length,
       total: tasks.length,
       postingCompleted: postingTasks.filter((task) => task.is_completed).length,
       postingTotal: postingTasks.length,
@@ -471,6 +484,23 @@ export default function PromotionSchedule() {
     toast.success("宣伝先・掲載量・サイズを保存しました");
   };
 
+  // 投稿の記録（マイページの同時投稿・X運用表・HPニュースなど）から、終わったタスクにチェックを付ける。15分ごとにも自動で動く
+  const runAutoCheck = async () => {
+    setChecking(true);
+    const { data, error } = await (supabase.rpc as unknown as (
+      name: string, args: Record<string, unknown>,
+    ) => Promise<{ data: { completed: number; expired: number } | null; error: { message: string } | null }>)(
+      "run_promotion_task_autocheck", { p_store_id: storeId },
+    );
+    setChecking(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(data?.completed ? `${data.completed}件の投稿を確認して完了にしました` : "新しく確認できた投稿はありませんでした");
+    await load();
+  };
+
   const toggleTask = async (task: PromotionTask, nextValue: boolean) => {
     if (savingTaskIds.has(task.id)) return;
     const changedAt = new Date().toISOString();
@@ -480,6 +510,11 @@ export default function PromotionSchedule() {
       completed_at: nextValue ? changedAt : null,
       completed_by: nextValue ? user?.id || null : null,
       updated_at: changedAt,
+      // 手で外したら自動チェックの根拠は消え、自動で付け直さない（DBのトリガーと同じ）
+      auto_source: nextValue ? task.auto_source : null,
+      auto_url: nextValue ? task.auto_url : null,
+      auto_skip: nextValue ? task.auto_skip : task.is_completed ? true : task.auto_skip,
+      expired_at: nextValue ? null : task.expired_at,
     };
 
     setTasks((previous) => previous.map((item) => item.id === task.id ? optimisticTask : item));
@@ -534,6 +569,12 @@ export default function PromotionSchedule() {
                 新たな宣伝スケジュールを作成
               </Button>
               {tab === "plans" && (
+                <Button variant="outline" size="sm" onClick={() => void runAutoCheck()} disabled={checking || loading}>
+                  {checking ? <Loader2 size={15} className="mr-1.5 animate-spin" /> : <CheckCircle2 size={15} className="mr-1.5" />}
+                  投稿を確認
+                </Button>
+              )}
+              {tab === "plans" && (
                 <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
                   <RefreshCw size={15} className={loading ? "mr-1.5 animate-spin" : "mr-1.5"} />
                   再読み込み
@@ -566,7 +607,8 @@ export default function PromotionSchedule() {
                 </div>
                 <div className="rounded-xl border bg-card p-4">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock3 size={15} />残り</div>
-                  <p className="mt-1 text-2xl font-bold text-amber-600">{Math.max(summary.total - summary.completed, 0)}</p>
+                  <p className="mt-1 text-2xl font-bold text-amber-600">{Math.max(summary.total - summary.completed - summary.expired, 0)}</p>
+                  {summary.expired > 0 && <p className="text-[11px] text-muted-foreground">ほかに期限切れ {summary.expired}</p>}
                 </div>
               </div>
 
@@ -679,7 +721,7 @@ export default function PromotionSchedule() {
                               </div>
                               <div className="grid gap-2 sm:grid-cols-2">
                                 {preparationTasks.map((task) => (
-                                  <TaskCheckbox key={task.id} task={task} saving={savingTaskIds.has(task.id)} onChange={toggleTask} />
+                                  <TaskCheckbox key={task.id} task={task} saving={savingTaskIds.has(task.id)} onChange={toggleTask} onDraft={setDraftTask} />
                                 ))}
                               </div>
                             </div>
@@ -706,7 +748,7 @@ export default function PromotionSchedule() {
                                       </div>
                                       <div className="grid gap-2 p-3 sm:grid-cols-2">
                                         {group.tasks.map((task) => (
-                                          <TaskCheckbox key={task.id} task={task} saving={savingTaskIds.has(task.id)} onChange={toggleTask} />
+                                          <TaskCheckbox key={task.id} task={task} saving={savingTaskIds.has(task.id)} onChange={toggleTask} onDraft={setDraftTask} />
                                         ))}
                                       </div>
                                     </div>
@@ -725,6 +767,20 @@ export default function PromotionSchedule() {
           </Tabs>
         </div>
       </main>
+
+      <PromotionTaskDraftDialog
+        task={draftTask}
+        storeId={storeId}
+        storeName={store?.name || "艶華"}
+        bookingBaseUrl={getCustomDomainBaseUrl((store as { custom_domain?: string | null } | null)?.custom_domain) ?? window.location.origin}
+        plan={draftTask ? plans.find((plan) => plan.id === draftTask.plan_id) ?? null : null}
+        casts={castOptions}
+        onClose={() => setDraftTask(null)}
+        onSaved={(taskId, text) => {
+          setTasks((previous) => previous.map((item) => item.id === taskId ? { ...item, draft_text: text || null } : item));
+          setDraftTask((current) => current && current.id === taskId ? { ...current, draft_text: text || null } : current);
+        }}
+      />
 
       <Dialog open={createOpen} onOpenChange={(open) => !generating && setCreateOpen(open)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
@@ -922,31 +978,57 @@ function TaskCheckbox({
   task,
   saving,
   onChange,
+  onDraft,
 }: {
   task: PromotionTask;
   saving: boolean;
   onChange: (task: PromotionTask, nextValue: boolean) => void;
+  onDraft?: (task: PromotionTask) => void;
 }) {
   const checkboxId = `promotion-task-${task.id}`;
+  const expired = !task.is_completed && Boolean(task.expired_at);
+  const kind = task.task_type === "posting" ? promotionTaskKind(task.label, task.channel_key) : null;
   return (
-    <label
-      htmlFor={checkboxId}
-      className={`flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+    <div
+      className={`rounded-lg border px-3 py-2.5 text-sm transition-colors ${
         task.is_completed
           ? "border-emerald-200 bg-emerald-50/80 text-emerald-900"
-          : "cursor-pointer border-border bg-card hover:border-primary/40 hover:bg-primary/5"
+          : expired
+            ? "border-dashed bg-muted/30 text-muted-foreground"
+            : "border-border bg-card hover:border-primary/40 hover:bg-primary/5"
       } ${saving ? "cursor-wait opacity-60" : ""}`}
     >
-      <Checkbox
-        id={checkboxId}
-        checked={task.is_completed}
-        disabled={saving}
-        onCheckedChange={(checked) => onChange(task, checked === true)}
-        aria-label={`${task.label}の完了状態`}
-      />
-      <span className={task.is_completed ? "font-medium line-through decoration-emerald-400" : "font-medium"}>{task.label}</span>
-      {saving && <Loader2 className="ml-auto animate-spin text-muted-foreground" size={14} />}
-      {!saving && task.is_completed && <CheckCircle2 className="ml-auto flex-shrink-0 text-emerald-600" size={16} />}
-    </label>
+      <label htmlFor={checkboxId} className="flex min-h-7 cursor-pointer items-center gap-3">
+        <Checkbox
+          id={checkboxId}
+          checked={task.is_completed}
+          disabled={saving}
+          onCheckedChange={(checked) => onChange(task, checked === true)}
+          aria-label={`${task.label}の完了状態`}
+        />
+        <span className={task.is_completed ? "font-medium line-through decoration-emerald-400" : "font-medium"}>{task.label}</span>
+        {saving && <Loader2 className="ml-auto animate-spin text-muted-foreground" size={14} />}
+        {!saving && task.is_completed && <CheckCircle2 className="ml-auto flex-shrink-0 text-emerald-600" size={16} />}
+        {!saving && expired && <Badge variant="outline" className="ml-auto flex-shrink-0 text-[10px]">期限切れ</Badge>}
+      </label>
+      {(task.auto_source || (task.task_type === "posting" && !task.is_completed)) && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 pl-7 text-xs">
+          {task.auto_source && (
+            <span className="text-emerald-700">
+              自動で確認：{task.auto_source}
+              {task.auto_url && <a href={task.auto_url} target="_blank" rel="noreferrer" className="ml-1 underline">開く</a>}
+            </span>
+          )}
+          {!task.is_completed && kind && AUTO_CHECKABLE.includes(kind) && !task.auto_skip && (
+            <span className="text-muted-foreground">投稿すると自動でチェックが付きます</span>
+          )}
+          {!task.is_completed && onDraft && (
+            <button type="button" className="inline-flex items-center gap-1 font-medium text-primary underline-offset-2 hover:underline" onClick={() => onDraft(task)}>
+              <Sparkles size={12} />{task.draft_text ? "投稿文を見る" : "投稿文を作る"}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

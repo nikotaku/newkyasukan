@@ -38,7 +38,8 @@
     "test:menesnow": "node --experimental-strip-types --test tests/menesnowInspect.test.ts",
     "test:line-customer": "node --experimental-strip-types --test tests/lineCustomerReply.test.ts tests/lineInbox.test.ts",
     "test:estama-reserve": "node --experimental-strip-types --test tests/estamaReserveParse.test.ts tests/estamaReservationRequests.test.ts",
-    "test:shift-break": "node --experimental-strip-types --test tests/shiftBreak.test.ts"
+    "test:shift-break": "node --experimental-strip-types --test tests/shiftBreak.test.ts",
+    "test:promotion-task": "node --experimental-strip-types --test tests/promotionTaskDraft.test.ts"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.16.0",
