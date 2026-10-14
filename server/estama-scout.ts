@@ -10,6 +10,7 @@ import {
   releaseSession,
   type Connection,
 } from "./estama-automation.js";
+import { rotateEstamaCoverBanners } from "./estama-cover-banners.js";
 import { syncEstamaReservations } from "./estama-reserve-sync.js";
 import {
   parseAgeGender,
@@ -944,6 +945,11 @@ export async function handleEstamaScoutRequest(req: RequestLike, res: ResponseLi
     }
     if (mode === "reserve-sync") {
       const result = await syncEstamaReservations(client, runToken, claimed.connection);
+      res.status(200).json({ ok: true, storeId: claimed.storeId, result });
+      return;
+    }
+    if (mode === "cover-banners") {
+      const result = await rotateEstamaCoverBanners(client, runToken, claimed.connection);
       res.status(200).json({ ok: true, storeId: claimed.storeId, result });
       return;
     }

@@ -51,6 +51,7 @@ import PublicPricing from "./pages/public/Pricing";
 import PublicSystem from "./pages/public/System";
 import PublicAccess from "./pages/public/Access";
 import ReservationGuide from "./pages/public/ReservationGuide";
+import CastBannerRender from "./pages/public/CastBannerRender";
 import BlogIndex from "./pages/public/BlogIndex";
 import BlogArticle from "./pages/public/BlogArticle";
 import NotionPageView from "./pages/NotionPageView";
@@ -192,6 +193,7 @@ const App = () => {
           <Route path="/system" element={<PublicSystem />} />
           <Route path="/access" element={<PublicAccess />} />
           <Route path="/g/:token" element={<ReservationGuide />} />
+          <Route path="/banner-render" element={<CastBannerRender />} />
           <Route path="/blog" element={<BlogIndex />} />
           <Route path="/blog/:slug" element={<BlogArticle />} />
           <Route path="/booking" element={<BookingReservation />} />

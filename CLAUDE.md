@@ -137,6 +137,16 @@
 - 並び順・写真の選び方は `src/lib/castHeroBanners.ts`（新人＝入店30日を先頭、あとは日付で先頭が入れ替わる。写真も日ごとに順番。最大8枚）。テスト `npm run test:cast-hero-banners`
 - 止めるときは HPトップバナー管理の「セラピストのバナー（自動）」をオフ（`stores.settings.cast_hero_banners = false`）
 - バナーに出た日は露出ノルマの HPトップバナー（`promotion_exposures`）に自動で記録（pg_cron `cast-hero-banner-exposures` 毎朝6:20 → `private.record_cast_hero_banner_exposures()`）
+- 並べ方は `castHeroBannersForDay`（出勤中・表示中・1人1つの出勤）。HPのトップ・`/banner-render`・エステ魂のカバー画像で同じ結果になる
+
+### エステ魂のカバー画像も同じバナーで入れ替える
+
+- エステ魂の店舗ページ上部のスライド＝店舗基本情報 → 店舗プロフィール（`/admin/shop/profile/edit/`）の「集客用 カバー画像」3枠（推奨1000×500、1枠目はSNSで共有したときの画像にもなる）。枠は `.upload_area` の `input#cover_N`（`admin_upload_cover_image`）にファイルを入れると幅1000pxにして仮アップロード → 「保存する」（`a.btn-default_submit`）で確定。「保存と同時に上位表示する」（`#set_up_limit`、回数制限あり）は必ず外す
+- 設定はトップバナー管理（`HpTopBanners`）の「エステ魂のカバー画像（自動）」（`src/components/EstamaCoverBannersCard.tsx`）→ `stores.settings.estama_cover_banners = { enabled, slots }`（既定の枠は2・3。1枠目はお店の固定のカバー）
+- 流れ：pg_cron `estama-cover-banners`（5分ごと）→ `private.dispatch_estama_cover_banners()`（朝10時以降に1日1回、毎時25〜44分は動かさない、失敗は30分あけて3回まで、「今日の分を今すぐ反映」は RPC `request_estama_cover_rotation`）→ `private.estama_scout_call(store, 'cover-banners')` → Vercel `estama-scout`（mode `cover-banners`、本体 `server/estama-cover-banners.ts`）
+- 画像はHPの `/banner-render?store=&date=&cast=`（`src/pages/public/CastBannerRender.tsx`、1000×500、「最短◯時〜」なし）を Browserbase で撮る。このセッションだけ HP・Supabase・Google Fonts のドメインも許可している
+- 結果は `estama_cover_rotations`（1日1行、RPC `start_estama_cover_rotation` / `finish_estama_cover_rotation`）。出た人は露出ノルマの「エスたまトップバナー」（`promotion_exposures`）に自動で記録。バナーが枠より少ない日は余った枠をそのままにする（`server/estama-cover-slots.ts`、テスト `npm run test:estama`）
+- エステ魂の管理画面の作りを確かめるときは `inspect-urls` に `selectors`（要素のHTML）・`scriptKeywords`（スクリプト）を付けられる（読むだけ）
 
 ## 予約案内ページ（SMSのリンク先）
 
