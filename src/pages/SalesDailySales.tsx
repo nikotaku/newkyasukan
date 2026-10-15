@@ -556,7 +556,10 @@ export default function SalesDailySales() {
           salary,
           cashSales: group.cashSales,
           receipt: toReceiptSnapshot(buildReceiptData(selectedDate, group, input)),
-          offsetClearanceIds: offsetClearanceIds(input.salaryAdjustmentItems),
+          offsetClearanceIds: offsetClearanceIds(
+            input.salaryAdjustmentItems,
+            outstanding.filter((row) => row.cast_id === group.castId && row.date < dateStr),
+          ),
         });
         toast.success(
           `${group.castName} さんの金額を承認しました${completedLabel}。明細をマイページに届けます`

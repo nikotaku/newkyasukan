@@ -343,6 +343,8 @@
 - 「次回出勤日に相殺」は、次の精算に「前回の不足分（M/D）」として給与調整に自動で入り（`source_clearance_id` 付き）、その精算を承認すると相殺済みになる
 - マイページの通知は届かなくても管理画面には知らせない（マイページを開けば `TherapistSettlementNotice` に出る）。画面・計算は `src/lib/settlementApproval.ts`（テスト `npm run test:clearance-defaults`）・`settlementAdmin.ts`・`therapistSettlement.ts`
 - **追加支給と給与不足分の相殺は分ける**（`daily_clearances.other_expenses` の `kind`）：`salary_addition` = 追加支給（講習手当・本指名バックなど。給与として経費に入る）、`shortage_offset` = 前回までの給与不足分を今回の現金で払った分（不足が出た日の給与に入っているので、月別清算の給与合計・純利益には入れない。今回の受け取り・投函額にだけ効く）。日別精算の「追加支給」「不足分の相殺」ボタンで入れ、行の左のラベルで切り替え。自動で入る「前回の不足分（M/D）」は相殺。分け方は `src/lib/clearanceExtraItems.ts` の `splitSalaryAdjustments`
+- **支払い管理（/payments）の「セラピストの給与不足分」**：まだ払っていない不足分（`settlement_approvals.shortage_amount > 0` で `shortage_settled_at` が空）を月に関係なく全部ためて出す。状態は 未振込（振込を選んだ）／相殺待ち（次の出勤日の精算で自動）／受け取り方 未選択。払ったものはその月の分だけ。上の「給与不足分 未払い」の件数とアラートの帯
+- 手で入れた「不足分の相殺」の行（元の清算を指していない）は、承認のときにそのセラピストのまだ払っていない不足分に古い順に当てて相殺済みにする（`offsetClearanceIds` の第2引数）
 - 月別清算では、日別精算から経費に入る交通費（`expenses` の「日別清算より…」）を経費から外す（給与の交通費として数えているため）
 - `daily_clearances` は昔から anon に全部開いているので、明細（お客様名）・不足分・口座は anon が読めない `settlement_approvals` / `cast_bank_accounts` に分けている。新しい列を `daily_clearances` に足さないこと
 

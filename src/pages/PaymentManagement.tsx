@@ -181,10 +181,11 @@ export default function PaymentManagement() {
     expenses.find((expense) => expense.expense_type.trim() === itemName.trim()) ?? null,
   [expenses]);
 
+  // 給与の不足分：まだ払っていないものは月に関係なく全部ためておく（振込・相殺・受け取り方の選択待ち）。払ったものはその月の分だけ
   const transferRequests = useMemo(() => requests.filter((request) =>
-    request.shortage_method === "transfer"
-    && (!request.shortage_settled_at || isSameMonth(new Date(`${request.date}T12:00:00`), selectedMonth)),
-  ), [requests, selectedMonth]);
+    !request.shortage_settled_at || isSameMonth(new Date(`${request.date}T12:00:00`), selectedMonth),
+  ).sort((a, b) => Number(Boolean(a.shortage_settled_at)) - Number(Boolean(b.shortage_settled_at)) || a.date.localeCompare(b.date)),
+  [requests, selectedMonth]);
   const openTransfers = transferRequests.filter((request) => !request.shortage_settled_at);
   const paidTransfers = transferRequests.filter((request) => request.shortage_settled_at);
   const nonFixedExpenses = expenses.filter((expense) => !fixedCosts.some((cost) => cost.item_name.trim() === expense.expense_type.trim()));
@@ -266,7 +267,7 @@ export default function PaymentManagement() {
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <SummaryCard icon={AlertTriangle} label="未払い・支払予定" value={yen(unpaidTotal)} tone="amber" />
-            <SummaryCard icon={WalletCards} label="振込申請" value={`${openTransfers.length}件`} tone="rose" />
+            <SummaryCard icon={WalletCards} label="給与不足分 未払い" value={`${openTransfers.length}件`} tone="rose" />
             <SummaryCard icon={Clock3} label="固定費予定" value={`${fixedCosts.length}件`} tone="sky" />
             <SummaryCard icon={CheckCircle2} label="今月支払済み" value={yen(paidTotal)} tone="emerald" />
           </div>
@@ -275,27 +276,47 @@ export default function PaymentManagement() {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base"><WalletCards size={18} />セラピストの振込申請</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base"><WalletCards size={18} />セラピストの給与不足分（未振込・相殺待ち）</CardTitle>
+              {openTransfers.length > 0 && (
+                <p className="flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+                  <AlertTriangle size={14} />まだ払っていない給与の不足分が {openTransfers.length}件・{yen(openTransfers.reduce((sum, request) => sum + request.shortage_amount, 0))} あります
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">精算で現金が給与に足りなかった分は、ここに自動でたまります。振込なら「振込済みにする」、相殺なら次の出勤日の精算を承認すると自動で消えます</p>
             </CardHeader>
             <CardContent className="p-0">
-              {transferRequests.length === 0 ? <Empty text="振込申請はありません" /> : (
+              {transferRequests.length === 0 ? <Empty text="給与の不足分はありません" /> : (
                 <div className="divide-y">
                   {transferRequests.map((request) => {
                     const account = castAccounts[request.cast_id];
                     const paid = Boolean(request.shortage_settled_at);
+                    const method = request.shortage_method;
+                    const status = paid
+                      ? { label: request.shortage_settled_note || "支払済み", className: stateView.paid.className }
+                      : method === "transfer"
+                        ? { label: "未振込", className: stateView.overdue.className }
+                        : method === "offset"
+                          ? { label: "相殺待ち", className: stateView.upcoming.className }
+                          : { label: "受け取り方 未選択", className: stateView.unpaid.className };
+                    const canMarkPaid = paid || (method === "transfer" ? Boolean(account) : method !== "offset");
                     return (
                       <div key={request.clearance_id} className="grid gap-3 p-4 lg:grid-cols-[140px_120px_1fr_auto] lg:items-center">
                         <div><p className="font-semibold">{request.casts?.name || "セラピスト"}</p><p className="text-xs text-muted-foreground">{format(new Date(`${request.date}T12:00:00`), "M/d(E)", { locale: ja })}の精算</p></div>
                         <p className="font-bold tabular-nums text-amber-700">{yen(request.shortage_amount)}</p>
                         <div className="min-w-0 text-xs">
-                          {account ? <p className="break-words font-mono">振込先：{bankAccountLine(account)}</p> : <p className="text-rose-600">振込先口座が未入力です</p>}
+                          {method === "offset" && !paid ? <p className="text-sky-700">次の出勤日の精算に「前回の不足分」として自動で入ります</p>
+                            : method == null && !paid ? <p className="text-amber-700">マイページで振込か相殺を選んでもらう待ちです（現金で直接払ったら「支払済みにする」）</p>
+                            : account ? <p className="break-words font-mono">振込先：{bankAccountLine(account)}</p>
+                            : method === "transfer" ? <p className="text-rose-600">振込先口座が未入力です</p> : null}
                           {request.shortage_method_at && <p className="mt-1 text-muted-foreground">申請 {format(new Date(request.shortage_method_at), "M/d HH:mm")}</p>}
                         </div>
                         <div className="flex items-center justify-between gap-2 lg:justify-end">
-                          <Badge variant="outline" className={paid ? stateView.paid.className : stateView.unpaid.className}>{paid ? "振込済み" : "未払い"}</Badge>
-                          <Button size="sm" variant={paid ? "ghost" : "default"} disabled={savingKey === `transfer:${request.clearance_id}` || (!paid && !account)} onClick={() => void toggleTransferPaid(request)}>
-                            {savingKey === `transfer:${request.clearance_id}` ? <Loader2 size={14} className="animate-spin" /> : paid ? <><Undo2 size={14} className="mr-1" />取り消す</> : <><CheckCircle2 size={14} className="mr-1" />振込済みにする</>}
-                          </Button>
+                          <Badge variant="outline" className={status.className}>{status.label}</Badge>
+                          {canMarkPaid && (paid ? request.shortage_settled_note === "振込済み" : true) && (
+                            <Button size="sm" variant={paid ? "ghost" : "default"} disabled={savingKey === `transfer:${request.clearance_id}`} onClick={() => void toggleTransferPaid(request)}>
+                              {savingKey === `transfer:${request.clearance_id}` ? <Loader2 size={14} className="animate-spin" /> : paid ? <><Undo2 size={14} className="mr-1" />取り消す</> : <><CheckCircle2 size={14} className="mr-1" />{method === "transfer" ? "振込済みにする" : "支払済みにする"}</>}
+                            </Button>
+                          )}
                         </div>
                       </div>
                     );

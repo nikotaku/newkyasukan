@@ -94,3 +94,16 @@ test("追加支給は経費、不足分の相殺は利益に入れない（保�
   assert.equal(split.additionTotal, 10_000);
   assert.equal(split.offsetTotal, 7_000);
 });
+
+test("手で入れた不足分の相殺の行は、まだ払っていない不足分に古い順に当てる", () => {
+  const outstanding = [
+    { clearance_id: "x", date: "2026-10-09", shortage_amount: 5_000 },
+    { clearance_id: "w", date: "2026-10-08", shortage_amount: 3_000 },
+  ];
+  const manual = [{ label: "給与不足分", amount: 8_000, kind: "shortage_offset" as const }];
+  assert.deepEqual(offsetClearanceIds(manual, outstanding).sort(), ["w", "x"]);
+  // 足りないときは払いきれる分だけ
+  assert.deepEqual(offsetClearanceIds([{ ...manual[0], amount: 4_000 }], outstanding), ["w"]);
+  // 追加支給は当てない
+  assert.deepEqual(offsetClearanceIds([{ label: "講習手当", amount: 8_000, kind: "salary_addition" }], outstanding), []);
+});
