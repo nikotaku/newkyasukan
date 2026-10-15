@@ -64,13 +64,28 @@ export function offsetItemsFor(outstanding: OutstandingShortage[]): ClearanceExt
     }));
 }
 
-/** 承認するときに「相殺済み」にする元の清算（金額が残っている相殺の行だけ） */
-export function offsetClearanceIds(items: ClearanceExtraItem[]) {
-  return [...new Set(
+/**
+ * 承認するときに「相殺済み」にする元の清算（金額が残っている相殺の行だけ）。
+ * 手で入れた「不足分の相殺」の行（元の清算を指していない）は、そのセラピストのまだ払っていない不足分に
+ * 古い順に当てる（行の金額で払いきれる分だけ）。outstanding はこの日より前の、このセラピストの分を渡す
+ */
+export function offsetClearanceIds(items: ClearanceExtraItem[], outstanding: OutstandingShortage[] = []) {
+  const ids = new Set(
     items
       .filter((item) => item.kind !== "deduction" && item.source_clearance_id && toInt(item.amount) > 0)
       .map((item) => item.source_clearance_id as string),
-  )];
+  );
+  let manual = items
+    .filter((item) => item.kind === "shortage_offset" && !item.source_clearance_id)
+    .reduce((sum, item) => sum + toInt(item.amount), 0);
+  for (const row of [...outstanding].sort((a, b) => a.date.localeCompare(b.date))) {
+    const amount = toInt(row.shortage_amount);
+    if (ids.has(row.clearance_id) || amount <= 0) continue;
+    if (amount > manual) break;
+    ids.add(row.clearance_id);
+    manual -= amount;
+  }
+  return [...ids];
 }
 
 export interface BankAccountInput {
