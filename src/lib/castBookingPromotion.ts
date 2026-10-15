@@ -2,7 +2,7 @@ export const KAYAMA_NOA_BOOKING_PROMOTION = {
   title: "【香山のあ限定】",
   benefits: [
     "事前予約で20分サービス",
-    "さらに次回の予約を取ると5,000円分相当のオプション無料券が付いてくる！",
+    "次回の予約を取ると5,000円分相当のオプション無料券が付いてくる！",
   ],
 } as const;
 

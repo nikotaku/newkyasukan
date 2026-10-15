@@ -141,6 +141,7 @@ async function buildVars(r: Record<string, any>) {
     room_map: room?.map_url || "",
     guide_url: guideUrl,
     payment_guide: paymentGuideNote(r, guideUrl),
+    free_service: Number(r.free_service_minutes) > 0 ? `🎁${r.free_service_minutes}分無料サービス付き` : "",
   } as Record<string, string>;
 }
 

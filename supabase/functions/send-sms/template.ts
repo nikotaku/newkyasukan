@@ -1,6 +1,7 @@
 // SMS本文のテンプレート処理（send-sms）。
 // テンプレ変数: {name} {date} {date_long} {time} {course} {duration} {cast} {nomination} {price}
 //              {room} {room_address} {room_landmark} {room_map} {guide_url} {payment_guide}
+//              {free_service}（無料サービスの付いた予約だけ「🎁20分無料サービス付き」）
 // 値が空の変数を含む行は自動で削除される。
 
 export function fillTemplate(template: string, values: Record<string, string>) {

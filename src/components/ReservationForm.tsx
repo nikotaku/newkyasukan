@@ -81,6 +81,8 @@ export interface ReservationFormData {
   payment_details: PaymentDetail[] | null;
   reservation_method: string;
   notes: string;
+  /** 無料サービスの時間（分）。料金は変えず施術を延ばす（事前予約の20分サービスなど） */
+  free_service_minutes?: number | null;
 }
 
 interface ReservationFormProps {
@@ -1016,6 +1018,36 @@ export function ReservationForm({
             );
           })}
         </div>
+      </div>
+
+      {/* 無料サービス（料金はそのまま・施術を延ばす）。お客様の案内ページ・予約確認SMS・セラピストの予約通知に出る */}
+      <div>
+        <div className="flex items-center gap-2">
+          <Label>無料サービス</Label>
+          <span className="text-[10px] text-muted-foreground">料金はそのまま・施術を延ばす</span>
+        </div>
+        <div className="mt-1.5 grid grid-cols-4 gap-2">
+          {[null, 10, 20, 30].map((minutes) => {
+            const on = (formData.free_service_minutes ?? null) === minutes;
+            return (
+              <button
+                key={minutes ?? "none"}
+                type="button"
+                onClick={() => setFormData({ ...formData, free_service_minutes: minutes })}
+                className={`rounded-lg border-2 px-2 py-2 text-sm font-medium transition-colors ${
+                  on ? "border-rose-400 bg-rose-50 text-rose-700" : "border-border bg-background hover:bg-muted"
+                }`}
+              >
+                {minutes ? `🎁 ${minutes}分` : "なし"}
+              </button>
+            );
+          })}
+        </div>
+        {(formData.free_service_minutes ?? 0) > 0 && (
+          <p className="mt-1 text-[11px] text-rose-600">
+            お客様の予約案内ページ・予約確認SMSに「🎁 {formData.free_service_minutes}分無料サービス付き」と出ます。セラピストの予約通知にも付き、予約表の枠も{formData.free_service_minutes}分長くなります。
+          </p>
+        )}
       </div>
 
       {/* 14. 割引 - チェックボックス複数選択 */}
