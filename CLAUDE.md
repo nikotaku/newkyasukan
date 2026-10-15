@@ -49,6 +49,8 @@
 - **フロント**: `src/hooks/useStore.tsx` の `StoreProvider` がサブドメインから店舗を解決（localhost / *.vercel.app / apex / www はデフォルト店舗）。公開ページは `useStore()` の `storeId` でクエリをフィルタする
 - **複合PK**: `site_content` (store_id, key) / `monthly_reports` (store_id, month_date)
 
+- **casts は列ごとの権限**（authenticated / anon とも列単位で grant）。casts に列を足したら、スタッフ画面で読み書きする列は `grant select (...), update (...) on public.casts to authenticated` も付けること（付け忘れるとセラピスト編集の保存が `permission denied for table casts` になる）
+
 ### 店舗追加の手順
 
 1. `insert into stores (slug, name) values ('tenant-b', '○○店');`
