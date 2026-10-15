@@ -14,7 +14,7 @@ import { ja } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, ChevronDown, Loader2, CheckCircle, AlertCircle, AlertTriangle, Users, Receipt, Wallet, TrendingUp, Plus, Trash2, Lock, Download, PieChart, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { downloadMonthlyReport } from "@/lib/monthlyClosingReport";
-import { splitClearanceExtraItems, sumClearanceExtraItems } from "@/lib/clearanceExtraItems";
+import { splitClearanceExtraItems, splitSalaryAdjustments, sumClearanceExtraItems } from "@/lib/clearanceExtraItems";
 import { ZENRYOKU_STORE_ID } from "@/lib/storeSwitch";
 
 /**
@@ -76,7 +76,10 @@ interface ClearanceRec {
   accommodation_fee: number;
   transportation_fee: number;
   other_expenses: number;
+  /** 追加支給（講習手当など）。給与として経費に入る */
   salary_adjustments: number;
+  /** 前回までの給与不足分の相殺。前回の給与に入っているので利益の計算には入れない */
+  shortage_offsets: number;
 }
 
 interface ReservationRec {
@@ -229,7 +232,7 @@ export default function SalesMonthlyClosing() {
     const [expRes, clrRes, rewardsRes, resvRes, closeRes, fixedCostsRes] = await Promise.all([
       supabase
         .from("expenses")
-        .select("id, expense_date, expense_type, amount, is_paid")
+        .select("id, expense_date, expense_type, amount, is_paid, description")
         .gte("expense_date", monthStart)
         .lte("expense_date", monthEnd),
       supabase
@@ -305,7 +308,10 @@ export default function SalesMonthlyClosing() {
     payAgg.cashOnHand = (clrRes.data ?? []).reduce((s, r) => s + (r.payout_amount ?? 0), 0);
     setPay(payAgg);
     setFixedCostDestinations((fixedCostsRes.data ?? []) as FixedCostDestination[]);
-    setRecords((expRes.data ?? []).map((r) => ({
+    // 日別精算の交通費は、給与（交通費の追加支給）として数えているので経費からは外す（二重に引かない）
+    const isClearanceTransport = (r: { expense_type: string; description: string | null }) =>
+      r.expense_type === "交通費" && (r.description ?? "").startsWith("日別清算より");
+    setRecords((expRes.data ?? []).filter((r) => !isClearanceTransport(r)).map((r) => ({
       id: r.id,
       date: r.expense_date,
       category: r.expense_type,
@@ -314,6 +320,7 @@ export default function SalesMonthlyClosing() {
     })));
     setClearances((clrRes.data ?? []).map((r) => {
       const { deductions, salaryAdditions } = splitClearanceExtraItems(r.other_expenses);
+      const { additionTotal, offsetTotal } = splitSalaryAdjustments(salaryAdditions);
       return {
         cast_id: r.cast_id,
         cast_name: r.casts?.name ?? "不明",
@@ -323,7 +330,8 @@ export default function SalesMonthlyClosing() {
         accommodation_fee: r.accommodation_fee ?? 0,
         transportation_fee: r.transportation_fee ?? 0,
         other_expenses: sumClearanceExtraItems(deductions),
-        salary_adjustments: sumClearanceExtraItems(salaryAdditions),
+        salary_adjustments: additionTotal,
+        shortage_offsets: offsetTotal,
       };
     }));
     setReferralSuggested(reservationRows.reduce((sum, r) => sum + (r.referral_reward_amount ?? 0), 0));
@@ -401,9 +409,11 @@ export default function SalesMonthlyClosing() {
   const totalTransport = clearances.reduce((s, c) => s + c.transportation_fee, 0);
   const totalOther = clearances.reduce((s, c) => s + c.other_expenses, 0);
   const totalSalaryAdjustments = clearances.reduce((s, c) => s + c.salary_adjustments, 0);
+  const totalShortageOffsets = clearances.reduce((s, c) => s + c.shortage_offsets, 0);
   // 回収＝セラピストのバックから差し引いた諸費（店側のプラス）
   const totalRecovered = totalMisc + totalAccom + totalOther;
-  // 実支払給与 = バック − 雑費 − 宿泊費 − その他 ＋ 交通費 ＋ 給与調整（日別精算の給与式と同一）
+  // 給与（経費）= バック − 雑費 − 宿泊費 − その他 ＋ 交通費 ＋ 追加支給。
+  // 給与不足分の相殺は、不足が出た日の給与にすでに入っている（その日の店落ちが給与の分だけ減っている）ので足さない
   const totalSalaryPaid = totalBack - totalRecovered + totalTransport + totalSalaryAdjustments;
 
   // ── 経費（固定費チェックリスト） ──
@@ -863,13 +873,18 @@ export default function SalesMonthlyClosing() {
                           <span className="tabular-nums">＋{yen(totalTransport)}</span>
                         </div>
                         <div className="px-4 py-2 flex items-center justify-between text-sm text-emerald-700">
-                          <span>給与調整（不足分・追加支給）</span>
+                          <span>追加支給（講習手当など）</span>
                           <span className="tabular-nums">＋{yen(totalSalaryAdjustments)}</span>
                         </div>
                         <div className="px-4 py-3 flex items-center justify-between bg-primary/5 font-bold">
-                          <span className="text-sm">実際に支払った給与合計</span>
+                          <span className="text-sm">給与合計（経費）</span>
                           <span className="tabular-nums text-primary">{yen(totalSalaryPaid)}</span>
                         </div>
+                        {totalShortageOffsets > 0 && (
+                          <div className="px-4 py-2 flex items-center justify-between text-xs text-sky-700">
+                            <span>参考：給与不足分の相殺 {yen(totalShortageOffsets)}（前回の給与を現金で払った分。給与合計・利益には入れない）</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -882,7 +897,7 @@ export default function SalesMonthlyClosing() {
                   id="allowance"
                   icon={<Wallet size={16} />}
                   title="給与の控除・追加支給"
-                  sub={`回収 ${yen(totalRecovered)} ／ 追加支給 ${yen(totalTransport + totalSalaryAdjustments)}`}
+                  sub={`回収 ${yen(totalRecovered)} ／ 追加支給 ${yen(totalTransport + totalSalaryAdjustments)}${totalShortageOffsets > 0 ? ` ／ 不足分の相殺 ${yen(totalShortageOffsets)}` : ""}`}
                   total={totalRecovered}
                 />
                 {openSections.has("allowance") && (
@@ -913,8 +928,15 @@ export default function SalesMonthlyClosing() {
                         <span className="tabular-nums text-rose-600">{yen(totalTransport)}</span>
                       </div>
                       <div className="px-4 py-3 flex items-center justify-between font-bold">
-                        <span className="text-sm">給与調整（不足分など）合計</span>
+                        <span className="text-sm">追加支給 合計</span>
                         <span className="tabular-nums text-emerald-700">{yen(totalSalaryAdjustments)}</span>
+                      </div>
+                      <div className="px-4 py-2 bg-muted/40 text-xs font-bold text-muted-foreground">
+                        売上・経費に入れないもの
+                      </div>
+                      <div className="px-4 py-3 flex items-center justify-between">
+                        <span className="text-sm">給与不足分の相殺（前回の給与の支払い）</span>
+                        <span className="font-semibold tabular-nums text-sky-700">{yen(totalShortageOffsets)}</span>
                       </div>
                     </div>
                   </CardContent>

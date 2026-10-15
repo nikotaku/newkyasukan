@@ -1,4 +1,10 @@
-export type ClearanceExtraItemKind = "deduction" | "salary_addition";
+/**
+ * deduction       … 給与から引く（その他控除）
+ * salary_addition … 追加支給（講習手当・本指名バックなど）。給与として経費に入る
+ * shortage_offset … 前回までの給与の不足分を今回の現金で相殺した分。前回の精算で給与に入っているので、
+ *                   今回の売上・経費（月の利益）には入れない。今回の受け取り（現金の流れ）にだけ入る
+ */
+export type ClearanceExtraItemKind = "deduction" | "salary_addition" | "shortage_offset";
 
 export interface ClearanceExtraItem {
   label: string;
@@ -29,7 +35,8 @@ export function splitClearanceExtraItems(value: unknown): {
   for (const raw of value) {
     if (!raw || typeof raw !== "object") continue;
     const item = raw as Record<string, unknown>;
-    const kind: ClearanceExtraItemKind = item.kind === "salary_addition" ? "salary_addition" : "deduction";
+    const kind: ClearanceExtraItemKind =
+      item.kind === "salary_addition" || item.kind === "shortage_offset" ? item.kind : "deduction";
     const normalized: ClearanceExtraItem = {
       label: typeof item.label === "string" ? item.label : "",
       amount: toAmount(item.amount),
@@ -37,7 +44,8 @@ export function splitClearanceExtraItems(value: unknown): {
       ...(typeof item.source_clearance_id === "string" ? { source_clearance_id: item.source_clearance_id } : {}),
     };
 
-    if (kind === "salary_addition") salaryAdditions.push(normalized);
+    // 給与に上乗せする行（追加支給・不足分の相殺）は同じ欄で入力・表示する
+    if (kind !== "deduction") salaryAdditions.push(normalized);
     else deductions.push(normalized);
   }
 
@@ -57,7 +65,7 @@ export function combineClearanceExtraItems(
     .map((item) => ({
       label: item.label.trim() || fallbackLabel,
       amount: toAmount(item.amount),
-      kind,
+      kind: kind === "salary_addition" && isShortageOffset(item) ? "shortage_offset" as const : kind,
       ...(item.source_clearance_id ? { source_clearance_id: item.source_clearance_id } : {}),
     }))
     // keepZeroAmount=true のときは金額未入力（0円）の入力途中項目も保持する
@@ -65,9 +73,25 @@ export function combineClearanceExtraItems(
 
   return [
     ...normalize(deductions, "deduction", "その他控除"),
-    ...normalize(salaryAdditions, "salary_addition", "給与不足分"),
+    ...normalize(salaryAdditions, "salary_addition", "追加支給"),
   ];
 }
 
 export const sumClearanceExtraItems = (items: ClearanceExtraItem[]): number =>
   items.reduce((sum, item) => sum + toAmount(item.amount), 0);
+
+/** 前回までの給与の不足分を相殺する行か（前回の精算を指している行も相殺として扱う） */
+export const isShortageOffset = (item: Pick<ClearanceExtraItem, "kind" | "source_clearance_id">): boolean =>
+  item.kind === "shortage_offset" || !!item.source_clearance_id;
+
+/** 給与に上乗せする行を、追加支給（経費になる）と不足分の相殺（利益に関係しない）に分ける */
+export function splitSalaryAdjustments(items: ClearanceExtraItem[]) {
+  const additions = items.filter((item) => !isShortageOffset(item));
+  const offsets = items.filter((item) => isShortageOffset(item));
+  return {
+    additions,
+    offsets,
+    additionTotal: sumClearanceExtraItems(additions),
+    offsetTotal: sumClearanceExtraItems(offsets),
+  };
+}
