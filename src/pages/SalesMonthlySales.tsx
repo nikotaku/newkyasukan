@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { splitClearanceExtraItems, sumClearanceExtraItems } from "@/lib/clearanceExtraItems";
+import { splitClearanceExtraItems, splitSalaryAdjustments, sumClearanceExtraItems } from "@/lib/clearanceExtraItems";
 
 interface TherapistRow {
   castName: string;
@@ -118,7 +118,8 @@ export default function SalesMonthlySales() {
           accommodationFee: row.accommodation_fee ?? 0,
           transportationFee: row.transportation_fee ?? 0,
           otherExpenses: sumClearanceExtraItems(deductions),
-          salaryAdjustments: sumClearanceExtraItems(salaryAdditions),
+          // 追加支給だけ（給与不足分の相殺は前回の給与の支払いなので入れない）
+          salaryAdjustments: splitSalaryAdjustments(salaryAdditions).additionTotal,
           payoutAmount: row.payout_amount ?? 0,
         });
       }

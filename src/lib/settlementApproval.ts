@@ -59,7 +59,7 @@ export function offsetItemsFor(outstanding: OutstandingShortage[]): ClearanceExt
     .map((row) => ({
       label: `前回の不足分（${monthDay(row.date)}）`,
       amount: toInt(row.shortage_amount),
-      kind: "salary_addition" as const,
+      kind: "shortage_offset" as const,
       source_clearance_id: row.clearance_id,
     }));
 }
@@ -68,7 +68,7 @@ export function offsetItemsFor(outstanding: OutstandingShortage[]): ClearanceExt
 export function offsetClearanceIds(items: ClearanceExtraItem[]) {
   return [...new Set(
     items
-      .filter((item) => item.kind === "salary_addition" && item.source_clearance_id && toInt(item.amount) > 0)
+      .filter((item) => item.kind !== "deduction" && item.source_clearance_id && toInt(item.amount) > 0)
       .map((item) => item.source_clearance_id as string),
   )];
 }

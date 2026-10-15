@@ -34,7 +34,9 @@ import { OutstandingShortages, ShortageState } from "@/components/sales/Settleme
 import {
   type ClearanceExtraItem,
   combineClearanceExtraItems,
+  isShortageOffset,
   splitClearanceExtraItems,
+  splitSalaryAdjustments,
   sumClearanceExtraItems,
 } from "@/lib/clearanceExtraItems";
 import { DEKASEGI_ACCOMMODATION_PER_DAY, defaultMiscExpenses, isDekasegiTherapist, miscExpensesHint } from "@/lib/clearanceDefaults";
@@ -453,7 +455,7 @@ export default function SalesDailySales() {
         p_misc_expenses: input.miscExpenses,
         p_accommodation_fee: input.accommodationFee,
         p_transportation_fee: input.transportationFee,
-        p_other_expenses: combineClearanceExtraItems(input.otherItems, input.salaryAdjustmentItems, { keepZeroAmount: true }) as Json,
+        p_other_expenses: combineClearanceExtraItems(input.otherItems, input.salaryAdjustmentItems, { keepZeroAmount: true }) as unknown as Json,
         p_payout_method: input.payoutMethod || null,
       });
       if (error) throw error;
@@ -511,7 +513,7 @@ export default function SalesDailySales() {
         p_misc_expenses: input.miscExpenses,
         p_accommodation_fee: input.accommodationFee,
         p_transportation_fee: input.transportationFee,
-        p_other_expenses: combineClearanceExtraItems(input.otherItems, input.salaryAdjustmentItems),
+        p_other_expenses: combineClearanceExtraItems(input.otherItems, input.salaryAdjustmentItems) as unknown as Json,
         p_payout_amount: payout,
         p_payout_method: input.payoutMethod || null,
       });
@@ -1019,29 +1021,63 @@ export default function SalesDailySales() {
                         </div>
                         <div className="col-span-2 rounded-md border border-emerald-200 bg-emerald-50/40 p-3">
                           <div className="flex items-center justify-between mb-1">
-                            <Label className="text-xs text-emerald-900">給与の不足分・追加支給</Label>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50"
-                              onClick={() => updateInput(g.castId, "salaryAdjustmentItems", [
-                                ...input.salaryAdjustmentItems,
-                                { label: "給与不足分", amount: 0, kind: "salary_addition" },
-                              ])}
-                            >
-                              <Plus size={12} className="mr-1" />項目を追加
-                            </Button>
+                            <Label className="text-xs text-emerald-900">追加支給・給与不足分の相殺</Label>
+                            <div className="flex gap-1">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2 text-xs border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50"
+                                onClick={() => updateInput(g.castId, "salaryAdjustmentItems", [
+                                  ...input.salaryAdjustmentItems,
+                                  { label: "", amount: 0, kind: "salary_addition" },
+                                ])}
+                              >
+                                <Plus size={12} className="mr-1" />追加支給
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2 text-xs border-sky-300 bg-white text-sky-800 hover:bg-sky-50"
+                                onClick={() => updateInput(g.castId, "salaryAdjustmentItems", [
+                                  ...input.salaryAdjustmentItems,
+                                  { label: "給与不足分の相殺", amount: 0, kind: "shortage_offset" },
+                                ])}
+                              >
+                                <Plus size={12} className="mr-1" />不足分の相殺
+                              </Button>
+                            </div>
                           </div>
-                          <p className="text-[10px] text-emerald-800/70 mb-2">前回の不足分など、今回の給与に上乗せする金額を入力します</p>
+                          <p className="text-[10px] text-emerald-800/70 mb-2">
+                            <span className="font-semibold">追加支給</span>（講習手当・本指名バックなど）は給与として経費に入ります。
+                            <span className="font-semibold">不足分の相殺</span>（前回までに払えなかった給与を今回の現金で払う分）は、前回の給与に入っているので売上・経費には入れません
+                          </p>
                           {input.salaryAdjustmentItems.length > 0 && (
                             <div className="space-y-1.5">
                               {input.salaryAdjustmentItems.map((item, idx) => (
                                 <div key={idx} className="flex gap-1.5 items-center">
+                                  <button
+                                    type="button"
+                                    className={`h-8 shrink-0 rounded border px-1.5 text-[10px] font-semibold ${
+                                      isShortageOffset(item)
+                                        ? "border-sky-300 bg-sky-50 text-sky-800"
+                                        : "border-emerald-300 bg-emerald-50 text-emerald-800"
+                                    }`}
+                                    title="押すと 追加支給 ⇔ 不足分の相殺 を切り替えます"
+                                    disabled={!!item.source_clearance_id}
+                                    onClick={() => {
+                                      const next = [...input.salaryAdjustmentItems];
+                                      next[idx] = { ...next[idx], kind: isShortageOffset(item) ? "salary_addition" : "shortage_offset" };
+                                      updateInput(g.castId, "salaryAdjustmentItems", next);
+                                    }}
+                                  >
+                                    {isShortageOffset(item) ? "相殺" : "追加支給"}
+                                  </button>
                                   <Input
                                     className="h-8 text-xs flex-1 bg-white"
                                     aria-label={`追加支給項目 ${idx + 1} の項目名`}
-                                    placeholder="例：前回給与の不足分"
+                                    placeholder={isShortageOffset(item) ? "例：10/9の不足分" : "例：講習手当"}
                                     value={item.label}
                                     onChange={(e) => {
                                       const next = [...input.salaryAdjustmentItems];
@@ -1140,12 +1176,25 @@ export default function SalesDailySales() {
                           </span>
                           <span className="tabular-nums text-blue-700">{yen(salary)}</span>
                         </div>
-                        {salaryAdjustmentTotal > 0 && (
-                          <div className="flex justify-between text-emerald-700">
-                            <span>給与調整（不足分・追加支給）</span>
-                            <span className="tabular-nums">＋{yen(salaryAdjustmentTotal)}</span>
-                          </div>
-                        )}
+                        {(() => {
+                          const { additionTotal, offsetTotal } = splitSalaryAdjustments(input.salaryAdjustmentItems);
+                          return (
+                            <>
+                              {additionTotal > 0 && (
+                                <div className="flex justify-between text-emerald-700">
+                                  <span>うち追加支給（経費）</span>
+                                  <span className="tabular-nums">＋{yen(additionTotal)}</span>
+                                </div>
+                              )}
+                              {offsetTotal > 0 && (
+                                <div className="flex justify-between text-sky-700">
+                                  <span>うち給与不足分の相殺（前回の給与の支払い・売上と経費には入れない）</span>
+                                  <span className="tabular-nums">＋{yen(offsetTotal)}</span>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                         <div className="flex justify-between font-semibold border-t pt-1">
                           <span>＝ 店落ち（店舗取り分）</span>
                           <span className="tabular-nums text-primary">{yen(payout)}</span>

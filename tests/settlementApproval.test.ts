@@ -10,6 +10,11 @@ import {
   settlementCashToDeposit,
   settlementShortage,
 } from "../src/lib/settlementApproval.ts";
+import {
+  combineClearanceExtraItems,
+  splitClearanceExtraItems,
+  splitSalaryAdjustments,
+} from "../src/lib/clearanceExtraItems.ts";
 
 test("現金預かりが給与に足りない分が不足分", () => {
   assert.equal(settlementShortage(20_000, 26_000), 6_000);
@@ -30,8 +35,8 @@ test("相殺を選んだ前回の不足分を、今回の給与に上乗せす�
     { clearance_id: "c", date: "2026-10-02", shortage_amount: 0 },
   ]);
   assert.deepEqual(items, [
-    { label: "前回の不足分（10/1）", amount: 3_000, kind: "salary_addition", source_clearance_id: "a" },
-    { label: "前回の不足分（10/5）", amount: 6_000, kind: "salary_addition", source_clearance_id: "b" },
+    { label: "前回の不足分（10/1）", amount: 3_000, kind: "shortage_offset", source_clearance_id: "a" },
+    { label: "前回の不足分（10/5）", amount: 6_000, kind: "shortage_offset", source_clearance_id: "b" },
   ]);
   assert.deepEqual(
     offsetClearanceIds([...items, { label: "追加", amount: 1_000, kind: "salary_addition" }, { ...items[0], amount: 0, source_clearance_id: "z" }]),
@@ -71,3 +76,21 @@ const baseAccount = {
   account_number: "1234567",
   account_holder: "ヤマダ　ハナコ",
 };
+
+test("追加支給は経費、不足分の相殺は利益に入れない（保存しても種類が残る）", () => {
+  const saved = combineClearanceExtraItems(
+    [{ label: "備品", amount: 500, kind: "deduction" }],
+    [
+      { label: "講習手当", amount: 10_000, kind: "salary_addition" },
+      { label: "給与不足分", amount: 4_000, kind: "shortage_offset" },
+      { label: "前回の不足分（10/1）", amount: 3_000, kind: "salary_addition", source_clearance_id: "a" },
+    ],
+  );
+  assert.deepEqual(saved.map((item) => item.kind), ["deduction", "salary_addition", "shortage_offset", "shortage_offset"]);
+
+  const { deductions, salaryAdditions } = splitClearanceExtraItems(saved);
+  assert.equal(deductions.length, 1);
+  const split = splitSalaryAdjustments(salaryAdditions);
+  assert.equal(split.additionTotal, 10_000);
+  assert.equal(split.offsetTotal, 7_000);
+});
