@@ -98,6 +98,7 @@ interface Reservation {
   guide_token?: string | null;
   // お客様が案内ページで「予約内容を確認しました」を押した日時と、その時のルーム
   guide_confirmed_at?: string | null;
+  free_service_minutes?: number | null;
   guide_confirmed_room?: string | null;
   created_by: string | null;
   booking_origin: string;
@@ -429,6 +430,7 @@ export default function Schedule() {
     payment_details: null as { method: string; amount: number }[] | null,
     reservation_method: "",
     notes: "",
+    free_service_minutes: null as number | null,
   });
 
   const [editFormData, setEditFormData] = useState({
@@ -453,6 +455,7 @@ export default function Schedule() {
     payment_details: null as { method: string; amount: number }[] | null,
     reservation_method: "",
     notes: "",
+    free_service_minutes: null as number | null,
   });
 
   const [casts, setCasts] = useState<Cast[]>([]);
@@ -946,6 +949,7 @@ export default function Schedule() {
         payment_details: submittedFormData.payment_details,
         notes: submittedFormData.notes || null,
         room: submittedFormData.room || null,
+        free_service_minutes: submittedFormData.free_service_minutes || null,
         status: "confirmed",
         store_id: ENKA_STORE_ID,
         booking_origin: "staff",
@@ -1065,6 +1069,7 @@ export default function Schedule() {
       course_type: res.course_type ?? "aroma",
       course_name: res.course_name,
       selectedOptions: res.options ?? [],
+      free_service_minutes: res.free_service_minutes ?? null,
       discount_ids: res.discount_ids || [],
       discount: res.discount ?? 0,
       price: res.price,
@@ -1119,6 +1124,7 @@ export default function Schedule() {
         payment_fee: submittedFormData.payment_fee || 0,
         payment_details: submittedFormData.payment_details,
         room: submittedFormData.room || null,
+        free_service_minutes: submittedFormData.free_service_minutes || null,
         status: editStatus,
         notes: submittedFormData.notes || null,
       }).eq("id", detailRes.id);
@@ -1232,7 +1238,7 @@ export default function Schedule() {
                   <div className="mt-6">
                     <ReservationForm
                       formData={formData}
-                      setFormData={setFormData}
+                      setFormData={setFormData as (data: ReservationFormData) => void}
                       casts={enkaCasts}
                       rooms={enkaRooms}
                       backRates={enkaBackRates}
@@ -1555,7 +1561,9 @@ export default function Schedule() {
                                 const resTop = minutesToPx(resStartMin);
                                 // 延長オプション込みの実施術時間
                                 const extMin = getExtMinutes(res.options, optionRates);
-                                const effDuration = res.duration + extMin;
+                                // 無料サービス（事前予約の20分サービスなど）の分も施術が延びる
+                                const freeMin = res.free_service_minutes ?? 0;
+                                const effDuration = res.duration + extMin + freeMin;
                                 const resH = Math.max((effDuration / 60) * HOUR_HEIGHT, 28);
                                 const statusClass = STATUS_COLORS[res.status] || STATUS_COLORS.confirmed;
                                 const endTime = format(
@@ -1565,7 +1573,7 @@ export default function Schedule() {
                                 // 延長系オプションと通常オプションを分離
                                 const extNames = new Set(optionRates.filter((o) => (o.extension_minutes ?? 0) > 0).map((o) => o.option_name));
                                 const otherOpts = (res.options ?? []).filter((n) => !extNames.has(n));
-                                const durLabel = extMin > 0 ? `${res.duration}分＋延長${extMin}分` : `${res.duration}分`;
+                                const durLabel = `${res.duration}分${extMin > 0 ? `＋延長${extMin}分` : ""}${freeMin > 0 ? `＋🎁${freeMin}分` : ""}`;
                                 const settlementIndicator = getTimelineSettlementIndicator(
                                   res.status,
                                   Boolean(res.settlement_submitted),
@@ -1736,7 +1744,7 @@ export default function Schedule() {
                   </div>
                   <ReservationForm
                     formData={editFormData}
-                    setFormData={setEditFormData}
+                    setFormData={setEditFormData as (data: ReservationFormData) => void}
                     casts={forStore(casts.filter((cast) => cast.is_active || cast.id === detailRes.cast_id), detailRes.store_id)}
                     rooms={forStore(rooms, detailRes.store_id)}
                     backRates={forStore(backRates, detailRes.store_id)}
@@ -1833,6 +1841,12 @@ export default function Schedule() {
                       <span className="font-medium">{detailRes.customer_phone}</span>
                       <span className="text-muted-foreground">コース</span>
                       <span className="font-medium">{detailRes.course_name}</span>
+                      {(detailRes.free_service_minutes ?? 0) > 0 && (
+                        <>
+                          <span className="text-muted-foreground">無料サービス</span>
+                          <span className="font-bold text-rose-600">🎁 {detailRes.free_service_minutes}分無料サービス付き</span>
+                        </>
+                      )}
                       {(detailRes.options ?? []).length > 0 && (
                         <>
                           <span className="text-muted-foreground">オプション</span>

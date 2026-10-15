@@ -161,6 +161,14 @@
 - PayPayの個人アカウントへの送金（ID検索）でお店の代金を受け取るのはPayPayの規約で禁止（アカウント停止のおそれ）。受け取るなら PayPay for Business の店舗用QR・決済リンクにする
 - テスト: `npm run test:reservation-guide-payment`
 
+## 無料サービス（10分・20分のサービス）
+
+- 予約ごとに `reservations.free_service_minutes`（5〜60分）。予約表の予約フォームの「無料サービス」で なし / 🎁10分 / 🎁20分 / 🎁30分 を選ぶ。料金は変えず、施術の時間だけ延ばす
+- 予約表のタイムラインは「80分＋🎁20分」でその分だけ枠を長く取り、予約詳細に「🎁 20分無料サービス付き」。HPの空き枠（`get_reservation_slots`）も無料サービスの分を埋まっている時間に入れる
+- お客様：予約案内ページ（`/g/:token`、`get_reservation_guide` の `free_service_minutes`）の予約内容の先頭に目立つ枠、予約確認SMSの `{free_service}`（無料サービスの付いた予約だけ「🎁20分無料サービス付き」の行が出る）
+- セラピスト：予約通知のコース名に「（＋20分無料サービス）」が付き、終わりの時間も延びる（`get_reservation_line_context`）。無料サービスだけ変えても変更として通知する
+- 香山のあさんのWEB予約フォームの特典の文言は `src/lib/castBookingPromotion.ts`
+
 ## 入室方法（セラピストのマイページ）
 
 - マイページの「入室方法」は RPC `get_therapist_entry_rooms(p_token)`（トークンで本人確認・辞めた人には返さない）で読む。`rooms` の暗証番号・入室情報・Wi-Fi は anon から直接読めない（公開しても困らない列だけ anon に grant）。出すルームは `rooms.show_in_therapist_portal`

@@ -13,6 +13,8 @@ interface ReservationGuideData {
   reservation_date: string;
   start_time: string | null;
   duration: number | null;
+  // 無料サービスの時間（分）。料金はそのままで施術が延びる（事前予約の20分サービスなど）
+  free_service_minutes?: number | null;
   course_name: string | null;
   options: string[];
   cast_name: string | null;
@@ -209,6 +211,7 @@ export default function ReservationGuide() {
   const phone = guide.store.phone?.replace(/\D/g, "") || "";
   const steps = (guide.room?.guide_steps || []).filter((step) => step.image_url || step.text?.trim());
   const payments = normalizeGuidePayments(guide.payments);
+  const freeMinutes = guide.free_service_minutes ?? 0;
 
   return page(
     <>
@@ -221,11 +224,23 @@ export default function ReservationGuide() {
       </header>
 
       <Section title="ご予約内容" icon={<CalendarClock size={16} />}>
+        {freeMinutes > 0 && (
+          <div
+            className="mb-3 rounded-2xl border-2 px-4 py-3 text-center"
+            style={{ borderColor: "var(--pub-accent,#d4547a)", backgroundColor: "rgba(212,84,122,0.12)" }}
+          >
+            <p className="text-base font-bold" style={{ color: "var(--pub-accent-light,#f2a0bc)" }}>🎁 {freeMinutes}分 無料サービス付き</p>
+            <p className="mt-1 text-xs" style={{ color: "var(--pub-text-mid,#dfc0cf)" }}>
+              {guide.duration ? `${guide.duration}分のコースを、料金はそのままで${guide.duration + freeMinutes}分ご案内します` : "料金はそのままで、施術のお時間を延ばしてご案内します"}
+            </p>
+          </div>
+        )}
         <Row
           label="日時"
-          value={`${formatDate(guide.reservation_date)} ${guide.start_time?.slice(0, 5) ?? ""}〜${guide.duration ? `（${guide.duration}分）` : ""}`}
+          value={`${formatDate(guide.reservation_date)} ${guide.start_time?.slice(0, 5) ?? ""}〜${guide.duration ? `（${guide.duration}分${freeMinutes > 0 ? `＋無料${freeMinutes}分` : ""}）` : ""}`}
         />
         {guide.course_name && <Row label="コース" value={guide.course_name} />}
+        {freeMinutes > 0 && <Row label="サービス" value={`${freeMinutes}分 無料延長`} />}
         {guide.options.length > 0 && <Row label="オプション" value={guide.options.join("、")} />}
         {guide.cast_name && <Row label="担当" value={guide.cast_name} />}
         {guide.price != null && guide.price > 0 && <Row label="料金" value={`${guide.price.toLocaleString("ja-JP")}円`} />}
