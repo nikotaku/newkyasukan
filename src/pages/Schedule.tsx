@@ -39,7 +39,7 @@ import { PaymentReminderPopup } from "@/components/PaymentReminderPopup";
 import { loadReceptionEndGuide, shareReceptionEndContent } from "@/lib/receptionEndShare";
 import { ENKA_STORE_ID } from "@/lib/storeSwitch";
 import { phoneFromCallParam } from "@/lib/incomingCall";
-import { prefillFromRequest, requestIdFromSearch, type EstamaReservationRequest, ESTAMA_REQUEST_COLUMNS } from "@/lib/estamaReservationRequests";
+import { catalogPrefill, prefillFromRequest, requestIdFromSearch, type EstamaReservationRequest, ESTAMA_REQUEST_COLUMNS } from "@/lib/estamaReservationRequests";
 import { guideConfirmation, missingRoomFills, roomFromShifts, roomIssue } from "@/lib/reservationRoom";
 import {
   DEFAULT_RESERVATION_INTERVAL_MINUTES,
@@ -881,6 +881,7 @@ export default function Schedule() {
 
   // WEB予約受付の「エステ魂の仮予約」→「予約表に登録」：仮予約の内容を入れて新規予約を開く。保存したら仮予約と結びつける
   const [estamaRequestId, setEstamaRequestId] = useState<string | null>(null);
+  const [pendingEstama, setPendingEstama] = useState<EstamaReservationRequest | null>(null);
   useEffect(() => {
     const requestId = requestIdFromSearch(location.search);
     if (!requestId || !isAdmin) return;
@@ -888,25 +889,59 @@ export default function Schedule() {
     void (supabase as any).from("estama_reservation_requests").select(ESTAMA_REQUEST_COLUMNS).eq("id", requestId).maybeSingle()
       .then(({ data }: { data: EstamaReservationRequest | null }) => {
         navigate("/admin-schedule", { replace: true });
-        if (!data) return;
-        const prefill = prefillFromRequest(data);
-        setFormData((prev) => ({
-          ...prev,
-          cast_id: prefill.cast_id,
-          customer_name: prefill.customer_name,
-          customer_phone: prefill.customer_phone,
-          customer_email: prefill.customer_email,
-          reservation_date: prefill.reservation_date,
-          start_time: prefill.start_time,
-          duration: prefill.duration ?? prev.duration,
-          nomination_type: prefill.nomination_type ?? prev.nomination_type,
-          notes: prefill.notes,
-        }));
-        setSelectedDate(prefill.reservation_date);
-        setEstamaRequestId(data.id);
-        setIsAddOpen(true);
+        if (data) setPendingEstama(data);
       });
   }, [location.search, isAdmin, navigate]);
+
+  // 料金表が読めてから、コース・指名・オプション・クーポンまで入れて開く（料金は予約入力が計算する）
+  useEffect(() => {
+    const data = pendingEstama;
+    if (!data || enkaBackRates.length === 0) return;
+    setPendingEstama(null);
+    const prefill = prefillFromRequest(data);
+    const picked = catalogPrefill(data, {
+      backRates: enkaBackRates,
+      nominationRates: enkaNominationRates,
+      optionRates: enkaOptionRates,
+      discounts: enkaDiscounts,
+    });
+    const notes = picked.unmatched.length
+      ? `${prefill.notes}\n※自動で入れられなかった項目：${picked.unmatched.join("・")}`
+      : prefill.notes;
+    const apply = (nominationType: string | undefined) => {
+      setFormData((prev) => ({
+        ...prev,
+        cast_id: prefill.cast_id,
+        customer_name: prefill.customer_name,
+        customer_phone: prefill.customer_phone,
+        customer_email: prefill.customer_email,
+        reservation_date: prefill.reservation_date,
+        start_time: prefill.start_time,
+        course_type: picked.course_type ?? prev.course_type,
+        duration: picked.duration ?? prev.duration,
+        nomination_type: nominationType ?? prev.nomination_type,
+        selectedOptions: picked.selectedOptions,
+        discount_ids: picked.discount_ids,
+        room: "",
+        notes,
+      }));
+      setSelectedDate(prefill.reservation_date);
+      setEstamaRequestId(data.id);
+      setIsAddOpen(true);
+    };
+    // 同じセラピストに来たことのあるお客様は本指名
+    const phone = (prefill.customer_phone || "").replace(/[-\s]/g, "");
+    const hasHonshimei = enkaNominationRates.some((rate) => rate.nomination_type === "本指名");
+    if (!prefill.cast_id || phone.length < 10 || !hasHonshimei || picked.nomination_type === "none") {
+      apply(picked.nomination_type);
+      return;
+    }
+    void supabase.from("reservations").select("id")
+      .eq("cast_id", prefill.cast_id)
+      .in("customer_phone", [phone, phone.replace(/^(\d{3})(\d{4})(\d{4})$/, "$1-$2-$3")])
+      .eq("status", "completed").limit(1)
+      .then(({ data: past }) => apply(past && past.length > 0 ? "本指名" : picked.nomination_type));
+  }, [pendingEstama, enkaBackRates, enkaNominationRates, enkaOptionRates, enkaDiscounts]);
 
   // 保存せずに閉じたら、仮予約との結びつけはやめる
   useEffect(() => {

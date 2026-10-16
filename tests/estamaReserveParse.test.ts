@@ -21,6 +21,7 @@ test("仮予約を1件ずつ取り出す", () => {
   assert.equal(free.courseMinutes, 70);
   assert.equal(free.coursePrice, 20000);
   assert.equal(free.nominationFee, null);
+  assert.equal(free.optionLabel, null);
   assert.equal(free.coupon, "新規割 ご新規様1000円オフ");
   assert.equal(free.requestNote, null);
   assert.equal(free.visitKind, "リピート予約");
@@ -34,6 +35,7 @@ test("仮予約を1件ずつ取り出す", () => {
   assert.equal(named.hopeDate, "2026-10-13");
   assert.equal(named.hopeTime, "01:30");
   assert.equal(named.nominationFee, 1000);
+  assert.equal(named.optionLabel, "アロマ");
   assert.equal(named.totalPrice, 20000);
   assert.equal(named.coupon, null);
   assert.equal(named.requestNote, "ショートメッセージで連絡ください。");

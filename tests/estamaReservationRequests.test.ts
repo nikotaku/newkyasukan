@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { prefillFromRequest, requestIdFromSearch, sortRequests, type EstamaReservationRequest } from "../src/lib/estamaReservationRequests.ts";
+import { catalogPrefill, prefillFromRequest, requestIdFromSearch, sortRequests, type EstamaReservationRequest } from "../src/lib/estamaReservationRequests.ts";
 
 const base: EstamaReservationRequest = {
   id: "00000000-0000-0000-0000-000000000001", received_at: null, hope_date: "2026-10-13", hope_time: "01:30:00",
@@ -38,4 +38,47 @@ test("URLと並び順", () => {
     { id: "early", status: "new" as const, hope_date: "2026-10-12", hope_time: "18:00" },
   ]);
   assert.deepEqual(sorted.map((r) => r.id), ["early", "late", "done"]);
+});
+
+// 料金表（架空の金額）
+const catalog = {
+  backRates: [
+    { course_type: "艶華", duration: 60, customer_price: 15000 },
+    { course_type: "艶華", duration: 80, customer_price: 19000 },
+    { course_type: "エスたま限定", duration: 70, customer_price: 20000 },
+    { course_type: "エスたま限定", duration: 110, customer_price: 32000 },
+  ],
+  nominationRates: [
+    { nomination_type: "ネット指名", customer_price: 1000 },
+    { nomination_type: "本指名", customer_price: 2000 },
+  ],
+  optionRates: [{ option_name: "DR10" }, { option_name: "DR100" }, { option_name: "オプションパック -牡丹-" }],
+  discounts: [
+    { id: "d1", name: "事前予約限定クーポン❷", is_active: true },
+    { id: "d2", name: "クーポン利用", is_active: true },
+  ],
+};
+
+test("コース・指名・オプション・クーポンを料金表に当てはめる", () => {
+  const p = catalogPrefill({ ...base, option_label: "オプションパック-牡丹-", coupon: "【事前予約限定クーポン❷】 【利用条件】 前日まで" }, catalog);
+  assert.equal(p.course_type, "艶華");
+  assert.equal(p.duration, 80);
+  assert.equal(p.nomination_type, "ネット指名");
+  assert.deepEqual(p.selectedOptions, ["オプションパック -牡丹-"]);
+  assert.deepEqual(p.discount_ids, ["d1"]);
+  assert.deepEqual(p.unmatched, []);
+});
+
+test("会員限定のプランはエスたま限定のコース（料金で決める）", () => {
+  const p = catalogPrefill({ ...base, course_label: "【会員限定】110分リラックスプラン", course_minutes: 100, course_price: 32000, is_free: true, coupon: null }, catalog);
+  assert.equal(p.course_type, "エスたま限定");
+  assert.equal(p.duration, 110);
+  assert.equal(p.nomination_type, "none");
+});
+
+test("長い名前のオプションから当てる・分からないものは残す", () => {
+  assert.deepEqual(catalogPrefill({ ...base, option_label: "DR100", coupon: null }, catalog).selectedOptions, ["DR100"]);
+  const unknown = catalogPrefill({ ...base, option_label: "アロマ", coupon: "新規割 ご新規様1000円オフ" }, catalog);
+  assert.deepEqual(unknown.selectedOptions, []);
+  assert.equal(unknown.unmatched.length, 2);
 });

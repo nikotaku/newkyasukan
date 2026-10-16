@@ -123,7 +123,7 @@ export function EstamaReservationRequests() {
                   </div>
                   {row.check_note && <p className={cn("text-xs", check.tone === "danger" ? "text-red-700 dark:text-red-300" : "text-muted-foreground")}>{row.check_note}</p>}
                   <p className="text-xs text-muted-foreground">
-                    {[row.course_label, row.total_price ? `合計 ${row.total_price.toLocaleString("ja-JP")}円（クーポン前）` : "", row.coupon ? `クーポン：${row.coupon.slice(0, 40)}` : "", row.visit_kind]
+                    {[row.course_label, row.option_label ? `オプション：${row.option_label}` : "", row.total_price ? `合計 ${row.total_price.toLocaleString("ja-JP")}円（クーポン前）` : "", row.coupon ? `クーポン：${row.coupon.slice(0, 40)}` : "", row.visit_kind]
                       .filter(Boolean).join(" ／ ")}
                   </p>
                   {row.request_note && <p className="text-xs">ご要望：{row.request_note}</p>}

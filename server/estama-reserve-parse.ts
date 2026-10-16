@@ -12,6 +12,7 @@ export interface EstamaReservation {
   courseLabel: string | null; // 「艶華コース」
   courseMinutes: number | null;
   coursePrice: number | null;
+  optionLabel: string | null; // 「アロマ」など。無ければ null
   nominationFee: number | null;
   totalPrice: number | null;
   coupon: string | null;
@@ -79,6 +80,7 @@ export function parseEstamaReservations(pageText: string): EstamaReservation[] {
     const isFree = /フリー|指名なし/.test(nominationLabel);
     const course = between(block, "コース", ["オプション"]) ?? "";
     const courseMatch = course.match(/^(.*?)\((\d+)分\)\s*([\d,]+)\s*円/);
+    const option = between(block, "オプション", ["指名料", "合計金額"]);
     const fee = between(block, "指名料", ["合計金額"]);
     const total = block.match(/合計金額\s*([\d,]+)\s*円/);
     // 「※合計金額は、クーポン適用前の料金…」にも「クーポン」があるので、合計金額の後ろから探す
@@ -103,6 +105,7 @@ export function parseEstamaReservations(pageText: string): EstamaReservation[] {
       courseLabel: courseMatch ? courseMatch[1].trim() : dash(course),
       courseMinutes: courseMatch ? Number(courseMatch[2]) : null,
       coursePrice: courseMatch ? yen(courseMatch[3]) : null,
+      optionLabel: dash(option)?.slice(0, 300) ?? null,
       nominationFee: fee && /[\d,]+\s*円/.test(fee) ? yen(fee.match(/([\d,]+)\s*円/)![1]) : null,
       totalPrice: total ? yen(total[1]) : null,
       coupon: dash(coupon)?.slice(0, 300) ?? null,

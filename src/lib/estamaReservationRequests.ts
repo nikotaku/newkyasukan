@@ -15,6 +15,7 @@ export interface EstamaReservationRequest {
   course_label: string | null;
   course_minutes: number | null;
   course_price: number | null;
+  option_label?: string | null;
   nomination_fee: number | null;
   total_price: number | null;
   coupon: string | null;
@@ -31,7 +32,7 @@ export interface EstamaReservationRequest {
 }
 
 export const ESTAMA_REQUEST_COLUMNS =
-  "id,received_at,hope_date,hope_time,nomination_label,is_free,cast_name,cast_id,course_label,course_minutes,course_price,nomination_fee,total_price,coupon,request_note,visit_kind,member_label,customer_name,customer_phone,customer_email,check_status,check_note,status,reservation_id";
+  "id,received_at,hope_date,hope_time,nomination_label,is_free,cast_name,cast_id,course_label,course_minutes,course_price,option_label,nomination_fee,total_price,coupon,request_note,visit_kind,member_label,customer_name,customer_phone,customer_email,check_status,check_note,status,reservation_id";
 
 export const CHECK_LABEL: Record<EstamaCheckStatus, { label: string; tone: "ok" | "warn" | "danger" | "info" }> = {
   ok: { label: "出勤OK", tone: "ok" },
@@ -68,6 +69,7 @@ export function prefillFromRequest(request: EstamaReservationRequest) {
     "【エステ魂の仮予約】",
     `指名：${request.nomination_label ?? (request.is_free ? "フリー" : "")}`,
     request.course_label ? `コース：${request.course_label}${request.course_minutes ? `（${request.course_minutes}分）` : ""}${request.course_price ? ` ${request.course_price.toLocaleString("ja-JP")}円` : ""}` : "",
+    request.option_label ? `オプション：${request.option_label}` : "",
     request.nomination_fee ? `指名料：${request.nomination_fee.toLocaleString("ja-JP")}円` : "",
     request.total_price ? `合計（クーポン前）：${request.total_price.toLocaleString("ja-JP")}円` : "",
     request.coupon ? `クーポン：${request.coupon}` : "",
@@ -95,4 +97,74 @@ export function sortRequests<T extends Pick<EstamaReservationRequest, "status" |
     || (rank(a.status) === 0
       ? `${a.hope_date}${a.hope_time}`.localeCompare(`${b.hope_date}${b.hope_time}`)
       : `${b.hope_date}${b.hope_time}`.localeCompare(`${a.hope_date}${a.hope_time}`)));
+}
+
+/** 料金表（予約入力の選択肢）。艶華の back_rates / nomination_rates / option_rates / discounts の必要な列だけ */
+export interface EstamaPrefillCatalog {
+  backRates: { course_type: string; duration: number; customer_price: number }[];
+  nominationRates: { nomination_type: string; customer_price: number }[];
+  optionRates: { option_name: string }[];
+  discounts: { id: string; name: string; is_active?: boolean | null }[];
+}
+
+const normalize = (text: string) => text.normalize("NFKC").replace(/[\s\-‐－ー―【】\[\]()（）「」・:：]/g, "").toLowerCase();
+
+/**
+ * 仮予約のコース・指名・オプション・クーポンを、予約入力の選択肢（料金表）に当てはめる。
+ * 当てはめられたものは料金も予約入力の計算で出る。分からなかったものは unmatched に名前を返す（メモに残す）
+ */
+export function catalogPrefill(request: EstamaReservationRequest, catalog: EstamaPrefillCatalog) {
+  const unmatched: string[] = [];
+  const label = normalize(request.course_label ?? "");
+
+  // コース：エステ魂の料金と同じ料金のコースから、名前が入っているもの → 時間が同じもの → 「会員限定」はエスたま限定
+  const byPrice = request.course_price != null
+    ? catalog.backRates.filter((rate) => rate.customer_price === request.course_price)
+    : [];
+  const pool = byPrice.length ? byPrice : catalog.backRates;
+  const nameHit = (rate: { course_type: string }) => label.includes(normalize(rate.course_type).replace(/コース$/, ""));
+  const course = pool.find((rate) => nameHit(rate) && rate.duration === request.course_minutes)
+    ?? (byPrice.length ? byPrice.find(nameHit) : undefined)
+    ?? (byPrice.length && /会員限定|エスたま|エステ魂/.test(request.course_label ?? "")
+      ? byPrice.find((rate) => /エスたま|エステ魂/.test(rate.course_type)) : undefined)
+    ?? (byPrice.length === 1 ? byPrice[0] : undefined)
+    ?? catalog.backRates.find((rate) => nameHit(rate) && rate.duration === request.course_minutes);
+  if (!course && request.course_label) unmatched.push(`コース「${request.course_label}」`);
+
+  // 指名：フリーは指名なし。指名料が同じ指名（ネット指名を優先）
+  let nominationType: string | undefined;
+  if (request.is_free) nominationType = "none";
+  else {
+    const sameFee = catalog.nominationRates.filter((rate) => rate.customer_price === request.nomination_fee);
+    nominationType = (sameFee.find((rate) => rate.nomination_type === "ネット指名") ?? sameFee[0]
+      ?? catalog.nominationRates.find((rate) => rate.nomination_type === "ネット指名"))?.nomination_type;
+  }
+
+  // オプション：名前が入っているもの（長い名前から。DR10 と DR100 を取り違えない）
+  const options: string[] = [];
+  let rest = normalize(request.option_label ?? "");
+  for (const rate of [...catalog.optionRates].sort((a, b) => b.option_name.length - a.option_name.length)) {
+    const key = normalize(rate.option_name);
+    if (key && rest.includes(key)) {
+      options.push(rate.option_name);
+      rest = rest.replace(key, "");
+    }
+  }
+  if (request.option_label && options.length === 0) unmatched.push(`オプション「${request.option_label}」`);
+
+  // クーポン：割引の名前が書いてあるもの
+  const coupon = normalize(request.coupon ?? "");
+  const discount = coupon
+    ? catalog.discounts.find((item) => item.is_active !== false && normalize(item.name).length >= 4 && coupon.includes(normalize(item.name)))
+    : undefined;
+  if (request.coupon && !discount) unmatched.push("クーポン（割引を選んでください）");
+
+  return {
+    course_type: course?.course_type,
+    duration: course?.duration ?? request.course_minutes ?? undefined,
+    nomination_type: nominationType,
+    selectedOptions: options,
+    discount_ids: discount ? [discount.id] : [],
+    unmatched,
+  };
 }
