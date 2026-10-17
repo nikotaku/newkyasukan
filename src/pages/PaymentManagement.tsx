@@ -234,7 +234,7 @@ export default function PaymentManagement() {
     setSavingKey(`transfer:${request.clearance_id}`);
     try {
       await markShortagePaid(request.clearance_id, !request.shortage_settled_at);
-      toast.success(request.shortage_settled_at ? "振込済みを取り消しました" : "振込済みにしました");
+      toast.success(request.shortage_settled_at ? "振込済みを取り消しました" : "振込済みにしました（セラピストのマイページに通知します）");
       void fetchData();
     } catch (error) {
       toast.error(`更新できませんでした: ${error instanceof Error ? error.message : "不明なエラー"}`);

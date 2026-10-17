@@ -177,3 +177,14 @@ test("精算の承認：不足分があるときは振込・相殺を選んで�
   assert.match(line, /不足分 ¥6,000 は、振込もしくは次回出勤日の相殺になります/);
   assert.match(line, /ホーム画面に追加/);
 });
+
+test("不足分を振り込んだお知らせ", () => {
+  const push = buildSettlementPush({
+    portalUrl: "/therapist/token-abc",
+    snapshot: { event: "shortage_paid", clearance_id: "c-1", date: "2026-10-14", shortage: 12000 },
+  });
+  assert.equal(push.title, "💴 不足分 ¥12,000 を振り込みました");
+  assert.match(push.body, /10月14日\(水\)の精算の不足分 ¥12,000 をお振込みしました/);
+  assert.equal(push.url, "/therapist/token-abc?settlement=c-1");
+  assert.match(buildSettlementLineText({ event: "shortage_paid", date: "2026-10-14", shortage: 12000 }), /不足分 ¥12,000 を振り込みました/);
+});

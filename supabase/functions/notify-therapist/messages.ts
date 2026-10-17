@@ -185,6 +185,8 @@ export interface SettlementSnapshot {
   cash_sales?: number;
   shortage?: number;
   re_approved?: boolean;
+  /** shortage_paid = お店が不足分を振り込んだ（「振込済みにする」） */
+  event?: string;
 }
 
 const yen = (value: number | null | undefined) => `¥${Math.round(Number(value ?? 0)).toLocaleString("ja-JP")}`;
@@ -195,6 +197,15 @@ export function buildSettlementPush(input: { portalUrl: string; snapshot: Settle
   const shortage = Math.max(0, Math.round(Number(snapshot.shortage ?? 0)));
   const date = snapshot.date ? formatBusinessDateLabel(snapshot.date, "12:00") : "";
   const separator = input.portalUrl.includes("?") ? "&" : "?";
+  if (snapshot.event === "shortage_paid") {
+    return {
+      title: `💴 不足分 ${yen(shortage)} を振り込みました`,
+      body: `${date ? `${date}の精算の` : ""}不足分 ${yen(shortage)} をお振込みしました。口座への入金をご確認ください`,
+      url: snapshot.clearance_id ? `${input.portalUrl}${separator}settlement=${snapshot.clearance_id}` : input.portalUrl,
+      tag: `shortage-paid-${snapshot.clearance_id ?? "latest"}`,
+      icon: ICON,
+    };
+  }
   return {
     title: snapshot.re_approved
       ? "✏️ 精算の内容が直りました"
@@ -214,6 +225,13 @@ export function buildSettlementPush(input: { portalUrl: string; snapshot: Settle
 export function buildSettlementLineText(snapshot: SettlementSnapshot) {
   const shortage = Math.max(0, Math.round(Number(snapshot.shortage ?? 0)));
   const date = snapshot.date ? formatBusinessDateLabel(snapshot.date, "12:00") : "";
+  if (snapshot.event === "shortage_paid") {
+    return [
+      `💴 不足分 ${yen(shortage)} を振り込みました`,
+      "",
+      `${date ? `${date}の精算の` : ""}不足分をお振込みしました。口座への入金をご確認ください`,
+    ].join("\n") + "\n\n📲 マイページをホーム画面に追加して通知をオンにすると、お知らせがスマホに直接届きます";
+  }
   return [
     snapshot.re_approved ? "✏️ 精算の内容が直りました" : "✅ 精算が承認されました",
     "",

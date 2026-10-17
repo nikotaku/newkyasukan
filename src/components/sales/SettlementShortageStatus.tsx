@@ -26,7 +26,7 @@ export function ShortageState({ approval, account, onChanged }: {
     setSaving(true);
     try {
       await markShortagePaid(approval.clearance_id, paid);
-      toast.success(paid ? "振込済みにしました" : "振込済みを取り消しました");
+      toast.success(paid ? "振込済みにしました（セラピストのマイページに通知します）" : "振込済みを取り消しました");
       onChanged();
     } catch (error) {
       toast.error(`保存できませんでした：${error instanceof Error ? error.message : "不明なエラー"}`);
