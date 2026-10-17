@@ -4,7 +4,10 @@
 import {
   buildReservationLineMessage,
   formatBusinessDateLabel,
+  formatPaymentMethod,
+  formatPaymentStatus,
   formatReservationTimeRange,
+  reservationDetailLines,
   type ReservationLineContext,
 } from "../notify-line-therapist/reservationLineNotification.ts";
 
@@ -37,6 +40,10 @@ export type ReservationChanges = Partial<{
   room: string | null;
   options: string[] | null;
   customer_name: string | null;
+  discount: number | null;
+  payment_method: string | null;
+  payment_details: { method?: string | null; amount?: number | null }[] | null;
+  payment_status: string | null;
 }>;
 
 const ICON = "/therapist-app/icon-192.png";
@@ -81,6 +88,18 @@ export function describeChanges(changes: ReservationChanges, context: Reservatio
   if ("customer_name" in changes) {
     lines.push(`お名前 ${changes.customer_name || "-"} 様 → ${context.customer_name} 様`);
   }
+  if ("discount" in changes) {
+    const yenLabel = (value: number | null | undefined) => `−${Math.max(0, Math.round(Number(value ?? 0))).toLocaleString("ja-JP")}円`;
+    lines.push(`割引 ${yenLabel(changes.discount)} → ${yenLabel(context.discount)}`);
+  }
+  if ("payment_method" in changes || "payment_details" in changes) {
+    const before = formatPaymentMethod({ payment_method: changes.payment_method ?? null, payment_details: changes.payment_details ?? null });
+    lines.push(`決済方法 ${before} → ${formatPaymentMethod(context)}`);
+  }
+  if ("payment_status" in changes) {
+    const before = formatPaymentStatus({ ...context, payment_status: changes.payment_status ?? null });
+    lines.push(`決済状況 ${before} → ${formatPaymentStatus(context)}`);
+  }
   return lines;
 }
 
@@ -111,27 +130,25 @@ export function buildTherapistPush(input: {
     };
   }
 
+  // 本文はLINEと同じ予約の中身（日時・開始時刻・コース・金額・割引・決済方法・決済状況・指名・ルーム…）
   const context = input.context!;
   const range = formatReservationTimeRange(context.start_time, context.duration, context.extension_minutes);
   const date = formatBusinessDateLabel(context.reservation_date, context.start_time);
-  const detail = [courseLabel(context.course_name, context.duration), `${context.customer_name}様`, context.room?.trim()]
-    .filter(Boolean)
-    .join(" / ");
+  const detail = reservationDetailLines(context).join("\n");
 
   if (input.kind === "changed") {
     const changes = describeChanges(input.changes || {}, context);
     return {
       ...base,
       title: `✏️ 予約が変更されました ${date} ${range}`,
-      body: [changes.join("\n"), detail].filter(Boolean).join("\n"),
+      body: [changes.map((line) => `・${line}`).join("\n"), "【変更後の予約内容】", detail].filter(Boolean).join("\n"),
     };
   }
 
-  const nomination = context.nomination_type?.trim();
   return {
     ...base,
     title: `🔔 新しい予約 ${date} ${range}`,
-    body: [detail, nomination && nomination !== "none" ? nomination : "フリー"].filter(Boolean).join("\n"),
+    body: detail,
   };
 }
 

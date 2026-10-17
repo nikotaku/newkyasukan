@@ -269,6 +269,8 @@
 
 - 予約の **確定・変更・キャンセル・担当変更** は、DBトリガー `reservations_therapist_notification` が `therapist_notifications`（通知待ち・送った記録）に積む。同じ予約の続けての変更は送る前に1件にまとめる（新規→取り消しは送らない、変更→変更は最初の変更前の値を残す）。過去の営業日の予約の手直しでは送らない
 - pg_cron `therapist-notify-every-30-seconds` → `private.dispatch_therapist_notifications()`（送るものがあるときだけ）→ Edge Function `notify-therapist`（`x-therapist-notify-secret` は Vault の `therapist_notify_internal_secret`）。文面は `notify-therapist/messages.ts`（予約内容は `get_reservation_line_context`）
+- **通知の中身は1つにそろえる**：プッシュ通知もLINEも同じ `reservationDetailLines`（`notify-line-therapist/reservationLineNotification.ts`）で、日付・**開始時刻**（「⏰ 開始 20:30（20:30〜21:50）」）・コース・担当・金額・**割引**（「🏷️ 割引：−2,000円（クーポン名）」／なし）・**決済方法**（現金／カード／PayPay、分割は「カード 10,000円＋現金 9,000円」）・**決済状況**（`reservations.payment_status`。決済済み／未決済（当日現金でお受け取り・お店が決済を確認））・来店区分・指名・オプション・ルーム・お客様・備考を必ず載せる。変更の通知は「・変更点」＋「【変更後の予約内容】」＋同じ中身。割引・決済方法・決済状況の変更も「変更」として送る
+- 決済状況は予約表の予約詳細「決済状況」の「決済済みにする／未決済に戻す」で変える（変えるとセラピストに変更として知らせる）
 - 送り先は **セラピストのマイページ**（`/therapist/:token` をホーム画面に追加したアプリ「艶華 マイページ」、manifest は `public/therapist-app/`、start_url なしで本人のURLが開く）へのプッシュ通知。端末は `therapist_push_subscriptions`（マイページの「通知をオンにする」→ RPC `save_therapist_push_subscription`、トークンで本人確認）
 - 端末が無い人だけ、移行中は**本人のLINEグループ**（`casts.line_group_id`）へ。**共通グループには送らない**。どちらも無い・送れない → `unreachable` / `failed` にして、管理画面の左下（`TherapistNotifyAlert`）とスマホ通知（topic `therapist_notify`）で知らせる。直接連絡して「連絡した」で消す
 - 予約表の「再送」（`ReservationResendDialog`）で、お客様への予約確認SMS（`send-sms`）とセラピストへの通知（RPC `resend_therapist_notification`）を送り直せる。端末のSMSアプリを開く旧方式と `notify-line-therapist` の呼び出しはやめた

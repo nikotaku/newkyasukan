@@ -1910,6 +1910,27 @@ export default function Schedule() {
                           <span className="font-medium">{detailRes.payment_method}</span>
                         </>
                       )}
+                      {/* 決済状況（セラピストへの予約通知にも載る。変えるとセラピストに変更として知らせる） */}
+                      <span className="text-muted-foreground">決済状況</span>
+                      <span className="flex items-center gap-2">
+                        <span className={`font-medium ${detailRes.payment_status === "paid" ? "text-emerald-700" : "text-amber-700"}`}>
+                          {detailRes.payment_status === "paid" ? "決済済み" : "未決済"}
+                        </span>
+                        <button
+                          type="button"
+                          className="rounded border px-2 py-0.5 text-[11px] hover:bg-muted"
+                          onClick={async () => {
+                            const next = detailRes.payment_status === "paid" ? "unpaid" : "paid";
+                            const { error } = await supabase.from("reservations").update({ payment_status: next }).eq("id", detailRes.id);
+                            if (error) { toast({ title: "決済状況を変えられませんでした", description: error.message, variant: "destructive" }); return; }
+                            setDetailRes({ ...detailRes, payment_status: next });
+                            setReservations((list) => list.map((r) => (r.id === detailRes.id ? { ...r, payment_status: next } : r)));
+                            toast({ title: next === "paid" ? "決済済みにしました（セラピストにも知らせます）" : "未決済に戻しました" });
+                          }}
+                        >
+                          {detailRes.payment_status === "paid" ? "未決済に戻す" : "決済済みにする"}
+                        </button>
+                      </span>
                       {detailRes.nomination_type && (
                         <>
                           <span className="text-muted-foreground">指名</span>
