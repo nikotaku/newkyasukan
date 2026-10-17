@@ -25,7 +25,10 @@ import { getEstamaJobStatus, runEstamaCastAutomation, startEstamaCastAutomation,
 import { getCastBookingUrl, getCustomDomainBaseUrl } from "@/lib/bookingUrl";
 import { ESTHE_RANKING_ACTIVE } from "@/lib/mediaRegistration";
 import { CastBannerAssetsEditor } from "@/components/CastBannerAssetsEditor";
-import { castAdminLabel, castProfileCompletion, isStageNamePending, PENDING_STAGE_NAME } from "@/lib/castProfileCompletion";
+import { CAST_PROFILE_ITEMS, castAdminLabel, castProfileCompletion, isStageNamePending, PENDING_STAGE_NAME } from "@/lib/castProfileCompletion";
+import { ENKA_ROOMS } from "@/lib/storeRooms";
+import { CastMissingFields } from "@/components/staff/CastMissingFields";
+import { CastProfileSubmissions } from "@/components/staff/CastProfileSubmissions";
 
 const THERAPIST_FEATURES = [
   "新人", "経験豊富", "業界未経験", "施術上手", "上品", "甘えん坊", "おとなしい", "おっとり",
@@ -180,6 +183,10 @@ interface Cast {
   shop_comment: string | null;
   therapist_comment: string | null;
   age: number | null;
+  bust?: number | null;
+  waist?: number | null;
+  hip?: number | null;
+  cup_size?: string | null;
   hometown: string | null;
   birth_date: string | null;
   body_size: string | null;
@@ -246,6 +253,8 @@ export default function Staff() {
   const [archiveView, setArchiveView] = useState<"active" | "archived">("active");
   const [archiveUpdatingId, setArchiveUpdatingId] = useState<string | null>(null);
   const [showProfileDetail, setShowProfileDetail] = useState(true);
+  // 編集画面のタブ（カードの「プロフィール ◯%」から開いたときは「未入力」）
+  const [editTab, setEditTab] = useState("basic");
   const [showProfileDetailAdd, setShowProfileDetailAdd] = useState(true);
   const [loading, setLoading] = useState(true);
   const [generatingContent, setGeneratingContent] = useState(false);
@@ -305,6 +314,7 @@ export default function Staff() {
     memo: "",
     dispatch_status: "none",
     repeat_scheduled: false,
+    join_date: new Date().toLocaleDateString("sv-SE"),
   };
   // フォーム用の状態
   const [formData, setFormData] = useState({ ...emptyForm });
@@ -545,7 +555,8 @@ export default function Staff() {
     toast({ title: nextActive ? "在籍中に戻しました" : "アーカイブしました" });
   };
 
-  const handleAddCast = async () => {
+  // continueEditing: 仮登録のあと、そのまま「未入力」タブで続きを入れる
+  const handleAddCast = async (continueEditing = false) => {
     if (!isAdmin) {
       toast({
         title: "権限エラー",
@@ -580,6 +591,7 @@ export default function Staff() {
         .insert([{
           store_id: storeId,
           name: stageNamePending ? PENDING_STAGE_NAME : stageName,
+          join_date: formData.join_date || undefined,
           ...(stageNamePending ? { is_visible: false } : {}),
           type: formData.type,
           room: formData.room,
@@ -655,6 +667,11 @@ export default function Staff() {
           : "新しいセラピストが登録されました",
       });
       setIsAddDialogOpen(false);
+      if (inserted?.id && continueEditing) {
+        const { data: tokenRows } = await supabase.rpc('get_cast_access_tokens');
+        const accessToken = (tokenRows || []).find((row) => row.cast_id === inserted.id)?.access_token ?? null;
+        void handleEditCast({ id: inserted.id, access_token: accessToken } as Cast, "missing");
+      }
       if (inserted?.id && autoRegisterEstama) {
         try {
           const result = await runEstamaCastAutomation({
@@ -729,9 +746,10 @@ export default function Staff() {
     });
   };
 
-  const handleEditCast = async (cast: Cast) => {
-    console.log('handleEditCast called', { cast, isAdmin });
+  const handleEditCast = async (cast: Cast, tab = "basic") => {
     setDeleteConfirmId(null);
+    setEditTab(tab);
+    setShowProfileDetail(true);
     
     // 最新のデータを取得してから編集ダイアログを開く
     try {
@@ -751,7 +769,6 @@ export default function Staff() {
       setCustomTagInput("");
       setMgmtProps(Object.entries(cf).filter(([k]) => !['blog_icon','skebiy_icon'].includes(k)).map(([key, value]) => ({ key, value: String(value) })));
       setIsEditDialogOpen(true);
-      console.log('Dialog opened with latest data:', data);
     } catch (error) {
       console.error('Error fetching latest cast data:', error);
       const cf = cast.custom_fields || {};
@@ -784,7 +801,8 @@ export default function Staff() {
 
       // Step 1: update base fields (always exist in DB)
       const basePayload: Record<string, any> = {
-        name: editingCast.name?.trim() || "名称未設定",
+        // 源氏名が空なら「源氏名未定」（DBトリガーも同じにそろえる）
+        name: isStageNamePending(editingCast.name) ? PENDING_STAGE_NAME : editingCast.name.trim(),
         type: editingCast.type,
         room: editingCast.room,
         status: editingCast.status,
@@ -839,6 +857,10 @@ export default function Staff() {
         blood_type: editingCast.blood_type || null,
         height: editingCast.height || null,
         weight: editingCast.weight || null,
+        bust: editingCast.bust || null,
+        waist: editingCast.waist || null,
+        hip: editingCast.hip || null,
+        cup_size: editingCast.cup_size || null,
         bust_size: editingCast.bust_size || null,
         shop_comment: editingCast.shop_comment || null,
         therapist_comment: editingCast.therapist_comment || null,
@@ -1685,211 +1707,73 @@ export default function Staff() {
                           新規追加
                         </Button>
                       </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                  <DialogContent className="max-w-md">
                     <DialogHeader>
-                      <DialogTitle>新しいセラピストを追加</DialogTitle>
+                      <DialogTitle>セラピストを仮登録</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-5 pb-4">
-                      {/* 写真 */}
+                    <div className="space-y-3">
+                      <p className="text-xs text-muted-foreground">
+                        本名だけで登録できます。プロフィールや写真はあとから「未入力」タブで入れるか、本人にマイページで入力してもらえます
+                      </p>
                       <div>
-                        <Label className="font-semibold">セラピスト写真</Label>
-                        <div className="mt-2 space-y-2">
-                          <input
-                            ref={addPhotoInputRef}
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            className="hidden"
-                            onChange={(e) => handlePhotoFileUpload(e, false)}
-                          />
-                          <Button type="button" variant="outline" className="w-full" onClick={() => addPhotoInputRef.current?.click()} disabled={uploadingPhoto}>
-                            <Camera className="h-4 w-4 mr-1.5" />
-                            {uploadingPhoto ? "アップロード中..." : "写真をアップロード"}
-                          </Button>
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="またはGoogleドライブURL / ファイルID"
-                              value={newPhotoUrl}
-                              onChange={(e) => setNewPhotoUrl(e.target.value)}
-                              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, false))}
-                            />
-                            <Button type="button" variant="outline" onClick={() => addPhotoUrl(newPhotoUrl, false)} disabled={!newPhotoUrl.trim()}>
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            {Array.from({ length: 6 }).map((_, index) => {
-                              const photo = formData.photos[index];
-                              return (
-                                <div key={index} className="relative aspect-square border-2 border-dashed border-muted rounded-md overflow-hidden flex items-center justify-center bg-muted/30">
-                                  {photo ? (
-                                    <>
-                                      <img src={driveImgUrl(photo)} alt={`写真${index + 1}`} className="w-full h-full object-cover" />
-                                      <Button type="button" variant="destructive" size="sm" className="absolute top-1 right-1 h-6 w-6 p-0" onClick={() => handleRemovePhoto(index, false)}>
-                                        <X className="h-3 w-3" />
-                                      </Button>
-                                      <Badge variant="secondary" className="absolute bottom-1 left-1 text-[10px] px-1">{index + 1}</Badge>
-                                    </>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">写真{index + 1}</span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
+                        <Label htmlFor="add-real-name">本名 {!formData.name.trim() && <span className="text-destructive">*</span>}</Label>
+                        <Input id="add-real-name" autoFocus placeholder="例：佐藤 花子" value={formData.real_name} onChange={(e) => setFormData({ ...formData, real_name: e.target.value })} />
+                        <p className="text-[10px] text-muted-foreground mt-0.5">お店の中だけで使います（HPには出ません）</p>
                       </div>
-
-                      {/* 基本情報 */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">基本情報</Label>
-                        <div className="grid grid-cols-1 gap-3">
-                          <div>
-                            <Label htmlFor="add-name">源氏名</Label>
-                            <Input id="add-name" placeholder="例：さくら（未定なら空のままでOK）" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
-                            <p className="text-[10px] text-muted-foreground mt-0.5">未定なら本名だけで登録できます。決まるまでHPには出ず、エスたまにも登録しません</p>
-                          </div>
-                          <div>
-                            <Label htmlFor="add-name-kana">フリガナ</Label>
-                            <Input id="add-name-kana" placeholder="例：サクラ" value={formData.name_kana} onChange={(e) => setFormData({...formData, name_kana: e.target.value})} />
-                          </div>
-                          <div>
-                            <Label htmlFor="add-real-name">本名 {!formData.name.trim() && <span className="text-destructive">*</span>}</Label>
-                            <Input id="add-real-name" placeholder="例：佐藤 花子" value={formData.real_name} onChange={(e) => setFormData({...formData, real_name: e.target.value})} />
-                            <p className="text-[10px] text-muted-foreground mt-0.5">紹介費明細などの内部書類に使用（公開されません）</p>
-                          </div>
-                        </div>
-                        <div>
-                          <Label htmlFor="add-age">年齢</Label>
-                          <Input id="add-age" type="number" placeholder="25" value={formData.age} onChange={(e) => setFormData({...formData, age: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="add-height">身長 (cm)</Label>
-                          <Input id="add-height" type="number" placeholder="158" value={formData.height} onChange={(e) => setFormData({...formData, height: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="add-body-size">3サイズ (B/W/H)</Label>
-                          <Input id="add-body-size" placeholder="84/58/84" value={formData.body_size} onChange={(e) => setFormData({...formData, body_size: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label>バストのカップ数</Label>
-                          <Select value={formData.bust_size} onValueChange={(v) => setFormData({...formData, bust_size: v})}>
-                            <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
-                            <SelectContent>{BUST_SIZES.map(b => <SelectItem key={b} value={b}>{b}カップ</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      {/* お店からのコメント（ショップコメント） */}
                       <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <Label htmlFor="add-shop-comment" className="font-semibold">お店からのコメント</Label>
-                          <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateShopComment('add')} disabled={generatingShopComment} className="h-7 px-2 text-xs text-pink-600 border-pink-300 hover:bg-pink-50">
-                            {generatingShopComment ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Sparkles size={12} className="mr-1" />}AI生成
-                          </Button>
-                        </div>
-                        <Textarea id="add-shop-comment" rows={3} value={formData.shop_comment} onChange={(e) => setFormData({...formData, shop_comment: e.target.value})} />
-                      </div>
-
-                      {/* セラピストインタビュー（トグル） */}
-                      <div className="border rounded-lg">
-                        <button type="button" className="w-full flex items-center justify-between p-4" onClick={() => setShowProfileDetailAdd(v => !v)}>
-                          <span className="font-semibold">セラピストインタビュー</span>
-                          {showProfileDetailAdd ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </button>
-                        {showProfileDetailAdd && (
-                          <div className="px-4 pb-4 space-y-3">
-                            <div>
-                              <Label htmlFor="add-techniques">得意な施術</Label>
-                              <Textarea id="add-techniques" rows={2} className="mt-1" placeholder="得意な施術..." value={formData.favorite_techniques} onChange={(e) => setFormData({...formData, favorite_techniques: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="add-favfood">好きな食べ物</Label>
-                              <Input id="add-favfood" className="mt-1" value={formData.favorite_food} onChange={(e) => setFormData({...formData, favorite_food: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="add-idealtype">好きな男性のタイプ</Label>
-                              <Input id="add-idealtype" className="mt-1" value={formData.ideal_type} onChange={(e) => setFormData({...formData, ideal_type: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="add-celeb">似ている芸能人</Label>
-                              <Input id="add-celeb" className="mt-1" value={formData.celebrity_lookalike} onChange={(e) => setFormData({...formData, celebrity_lookalike: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="add-dayoff">休みの日は何してる？</Label>
-                              <Textarea id="add-dayoff" rows={2} className="mt-1" value={formData.day_off_activities} onChange={(e) => setFormData({...formData, day_off_activities: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="add-hobbies">趣味・特技</Label>
-                              <Textarea id="add-hobbies" rows={2} className="mt-1" value={formData.hobbies} onChange={(e) => setFormData({...formData, hobbies: e.target.value})} />
-                            </div>
-                          </div>
+                        <Label htmlFor="add-name">源氏名（決まっていれば）</Label>
+                        <Input id="add-name" placeholder="例：さくら" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                        {!formData.name.trim() && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">空なら「源氏名未定」で登録し、決まるまでHPに出さず、エスたまにも登録しません</p>
                         )}
                       </div>
-
-                      {/* セラピストコメント */}
-                      <div>
-                        <Label htmlFor="add-therapist-comment" className="font-semibold">セラピストコメント</Label>
-                        <Textarea id="add-therapist-comment" rows={3} className="mt-1" value={formData.therapist_comment} onChange={(e) => setFormData({...formData, therapist_comment: e.target.value})} />
-                      </div>
-
-                      {/* セラピストの特徴 */}
-                      <div>
-                        <Label className="font-semibold">セラピストの特徴（4つまで）</Label>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {THERAPIST_FEATURES.map((f) => {
-                            const checked = formData.features.includes(f);
-                            return (
-                              <button key={f} type="button"
-                                className={`px-2 py-1 text-xs rounded-full border transition-colors ${checked ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground/30 text-muted-foreground hover:border-primary"}`}
-                                onClick={() => {
-                                  if (checked) { setFormData({...formData, features: formData.features.filter(x => x !== f)}); }
-                                  else if (formData.features.length >= MAX_FEATURES) { toast({ title: "特徴は4つまで選択できます", variant: "destructive" }); }
-                                  else { setFormData({...formData, features: [...formData.features, f]}); }
-                                }}>
-                                {f}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="add-join-date">入店日</Label>
+                          <Input id="add-join-date" type="date" value={formData.join_date} onChange={(e) => setFormData({ ...formData, join_date: e.target.value })} />
+                        </div>
+                        <div>
+                          <Label>ルーム</Label>
+                          <div className="mt-1 flex gap-1.5">
+                            {ENKA_ROOMS.map((room) => (
+                              <button
+                                key={room}
+                                type="button"
+                                onClick={() => setFormData({ ...formData, room })}
+                                className={`h-10 flex-1 rounded-md border text-sm font-semibold ${formData.room === room ? "border-primary bg-primary/10 text-primary" : "bg-background text-muted-foreground"}`}
+                              >
+                                {room}
                               </button>
-                            );
-                          })}
+                            ))}
+                          </div>
                         </div>
                       </div>
-
-                      {/* エステ歴 */}
-                      <div>
-                        <Label className="font-semibold">エステ歴</Label>
-                        <Select value={formData.therapist_experience} onValueChange={(v) => setFormData({...formData, therapist_experience: v})}>
-                          <SelectTrigger className="mt-1"><SelectValue placeholder="選択" /></SelectTrigger>
-                          <SelectContent>{THERAPIST_EXPERIENCE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* ブログ・SNS・エステ魂写メ日記・02アカウント案内は別メニュー(SNS連携管理等)に統合済みのため、新規登録画面には表示しない */}
-
-                      <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 space-y-3">
-                        <label className="flex cursor-pointer items-start gap-3">
-                          <input
-                            type="checkbox"
-                            className="mt-1 h-4 w-4"
-                            checked={formData.estama_auto_register}
-                            onChange={(e) => setFormData({ ...formData, estama_auto_register: e.target.checked })}
-                          />
-                          <span>
-                            <span className="block text-sm font-semibold text-blue-800">追加後、エスたまへ自動登録</span>
-                            <span className="block text-xs text-muted-foreground">写真・プロフィールを転記し、登録処理まで自動で行います。</span>
-                          </span>
-                        </label>
-                        {formData.estama_auto_register && (
-                          <p className="border-t border-blue-100 pt-3 text-[11px] text-muted-foreground">
-                            プロフィール登録のみ自動で行います。魂セラピストの初回設定は手動で行い、投稿用のID・パスワードはO2連携画面で設定してください。
+                      {(() => {
+                        // AIメモ・エスたまからの取り込みで入っている項目（仮登録でも一緒に保存される）
+                        const filled = CAST_PROFILE_ITEMS
+                          .filter((item) => !["name", "real_name"].includes(item.key))
+                          .filter((item) => item.done({
+                            ...formData,
+                            photo: formData.photos[0] || null,
+                            age: Number(formData.age) || null,
+                            height: Number(formData.height) || null,
+                          }))
+                          .map((item) => item.label);
+                        return filled.length > 0 ? (
+                          <p className="rounded-md bg-muted/50 p-2 text-[11px] text-muted-foreground">
+                            ほかに入っている項目（一緒に保存します）：{filled.join("・")}
                           </p>
-                        )}
+                        ) : null;
+                      })()}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <Button variant="outline" onClick={() => void handleAddCast()} disabled={addingCast}>
+                          {addingCast && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          仮登録する
+                        </Button>
+                        <Button onClick={() => void handleAddCast(true)} disabled={addingCast}>
+                          登録して続きを入力
+                        </Button>
                       </div>
-
-
-                      <Button onClick={handleAddCast} className="w-full" disabled={addingCast}>
-                        {addingCast && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {addingCast ? "登録処理中..." : "追加する"}
-                      </Button>
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -2059,13 +1943,257 @@ export default function Staff() {
                     </div>
                   )}
 
-                  <Tabs defaultValue="profile" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-2">
-                      <TabsTrigger value="profile">プロフィール</TabsTrigger>
-                      <TabsTrigger value="mgmt">管理情報</TabsTrigger>
+                  <Tabs value={editTab} onValueChange={setEditTab} className="w-full">
+                    <TabsList className="mb-2 flex h-auto w-full flex-wrap justify-start gap-1">
+                      {(() => {
+                        const missingCount = castProfileCompletion(editingCast).missing.length;
+                        return (
+                          <TabsTrigger value="missing" className="flex-1">
+                            未入力{missingCount > 0 && <span className="ml-1 rounded-full bg-rose-500 px-1.5 text-[10px] text-white">{missingCount}</span>}
+                          </TabsTrigger>
+                        );
+                      })()}
+                      <TabsTrigger value="basic" className="flex-1">基本</TabsTrigger>
+                      <TabsTrigger value="interview" className="flex-1">インタビュー</TabsTrigger>
+                      <TabsTrigger value="photos" className="flex-1">写真</TabsTrigger>
+                      <TabsTrigger value="comments" className="flex-1">コメント</TabsTrigger>
+                      <TabsTrigger value="mgmt" className="flex-1">管理</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="profile" className="space-y-5 pb-4">
+                    <TabsContent value="missing" className="pb-4">
+                      <CastMissingFields
+                        key={editingCast.id}
+                        cast={editingCast}
+                        onChange={(patch) => setEditingCast({ ...editingCast, ...patch } as Cast)}
+                        onGoToTab={setEditTab}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="basic" className="space-y-5 pb-4">
+                      {/* 基本情報 */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">基本情報</Label>
+                        <div>
+                          <Label htmlFor="e-name">源氏名</Label>
+                          <Input
+                            id="e-name"
+                            placeholder="例：さくら"
+                            value={isStageNamePending(editingCast.name) ? "" : editingCast.name}
+                            onChange={(e) => setEditingCast({...editingCast, name: e.target.value})}
+                          />
+                          {isStageNamePending(editingCast.name) && (
+                            <p className="text-[10px] text-amber-700 mt-0.5">源氏名未定です。決まったら入れて保存し、HPの表示・エスたま自動登録をオンにしてください</p>
+                          )}
+                        </div>
+                        <div>
+                          <Label htmlFor="e-name-kana">フリガナ</Label>
+                          <Input id="e-name-kana" value={editingCast.name_kana || ""} onChange={(e) => setEditingCast({...editingCast, name_kana: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-real-name">本名</Label>
+                          <Input id="e-real-name" placeholder="例：佐藤 花子" value={editingCast.real_name || ""} onChange={(e) => setEditingCast({...editingCast, real_name: e.target.value})} />
+                          <p className="text-[10px] text-muted-foreground mt-0.5">紹介費明細などの内部書類に使用（公開されません）</p>
+                        </div>
+                        <div>
+                          <Label htmlFor="e-age">年齢</Label>
+                          <Input id="e-age" type="number" value={editingCast.age || ""} onChange={(e) => setEditingCast({...editingCast, age: parseInt(e.target.value) || null})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-height">身長 (cm)</Label>
+                          <Input id="e-height" type="number" value={editingCast.height || ""} onChange={(e) => setEditingCast({...editingCast, height: parseInt(e.target.value) || null})} />
+                        </div>
+                        <div>
+                          <Label htmlFor="e-new-customer-max">新規のお客様のコース上限（分）</Label>
+                          <Input id="e-new-customer-max" type="number" min={1} step={10} placeholder="制限なし" value={editingCast.new_customer_max_minutes || ""} onChange={(e) => setEditingCast({...editingCast, new_customer_max_minutes: parseInt(e.target.value) || null})} />
+                          <p className="text-[10px] text-muted-foreground mt-0.5">新規のお客様がこれより長いコースで予約したら知らせます（予約は止めません）。公開されません</p>
+                        </div>
+                        <div>
+                          <Label htmlFor="e-body-size">3サイズ (B/W/H)</Label>
+                          <Input id="e-body-size" placeholder="84/58/84" value={editingCast.body_size || ""} onChange={(e) => setEditingCast({...editingCast, body_size: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label>バストのカップ数</Label>
+                          <Select value={editingCast.bust_size || ""} onValueChange={(v) => setEditingCast({...editingCast, bust_size: v})}>
+                            <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
+                            <SelectContent>{BUST_SIZES.map(b => <SelectItem key={b} value={b}>{b}カップ</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* エステ歴 */}
+                      <div>
+                        <Label className="font-semibold">エステ歴</Label>
+                        <Select value={editingCast.therapist_experience || ""} onValueChange={(v) => setEditingCast({...editingCast, therapist_experience: v})}>
+                          <SelectTrigger className="mt-1"><SelectValue placeholder="選択" /></SelectTrigger>
+                          <SelectContent>{THERAPIST_EXPERIENCE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* セラピストレベル */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">セラピストレベル</Label>
+                        <Select
+                          value={getCastLevel(editingCast) ?? "__none__"}
+                          onValueChange={(v) => {
+                            const otherTags = (editingCast.tags || []).filter(t => !LEVEL_TAGS.includes(t as LevelTag));
+                            setEditingCast({...editingCast, tags: v !== "__none__" ? [...otherTags, v] : otherTags});
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="レベル未設定" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">未設定</SelectItem>
+                            {LEVEL_TAGS.map(lv => (
+                              <SelectItem key={lv} value={lv}>{lv}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <p>1.ビギナーズ — 講習中・デビュー前</p>
+                          <p>2.スタンダード — 初出勤済み・SNS教育中</p>
+                          <p>3.ソルジャー — SNS投稿こなし、日7〜8万水準</p>
+                          <p>4.マスター — 本指名率30%以上・皆勤・クレームなし達成</p>
+                        </div>
+                      </div>
+
+                      {/* 称号バッジ（HPの写真右上に表示） */}
+                      <div className="border rounded-lg p-4 space-y-2">
+                        <Label className="font-semibold">称号バッジ</Label>
+                        <p className="text-xs text-muted-foreground">
+                          HPの出勤情報・セラピスト一覧の写真右上に表示されます（電撃入店⚡️など）
+                        </p>
+                        <Select
+                          value={(editingCast as any).title_badge_id ?? "none"}
+                          onValueChange={(v) => setEditingCast({ ...(editingCast as any), title_badge_id: v === "none" ? null : v })}
+                        >
+                          <SelectTrigger><SelectValue placeholder="なし" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">なし</SelectItem>
+                            {titleBadges.map((b) => (
+                              <SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* カスタムタグ */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <Label className="font-semibold">カスタムタグ</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="タグ名を入力してEnter"
+                            value={customTagInput}
+                            onChange={(e) => setCustomTagInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const t = customTagInput.trim();
+                                if (t && !(editingCast.tags || []).includes(t)) {
+                                  setEditingCast({...editingCast, tags: [...(editingCast.tags || []), t]});
+                                  setCustomTagInput("");
+                                }
+                              }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const t = customTagInput.trim();
+                              if (t && !(editingCast.tags || []).includes(t)) {
+                                setEditingCast({...editingCast, tags: [...(editingCast.tags || []), t]});
+                                setCustomTagInput("");
+                              }
+                            }}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                          {(editingCast.tags || []).filter(t => !ALL_SYSTEM_TAGS.includes(t)).map((tag) => (
+                            <span key={tag} className="flex items-center gap-1 bg-[#f5e6e0] text-[#7a706c] text-xs px-2 py-1 rounded-full">
+                              {tag}
+                              <button
+                                type="button"
+                                onClick={() => setEditingCast({...editingCast, tags: (editingCast.tags || []).filter(t => t !== tag)})}
+                                className="text-[#c49480] hover:text-[#a87b65] leading-none"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                          {(editingCast.tags || []).filter(t => !ALL_SYSTEM_TAGS.includes(t)).length === 0 && (
+                            <p className="text-xs text-muted-foreground">タグなし</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* ブログ・SNSは別メニュー(SNS連携管理)に統合済みのため、この画面には表示しない */}
+                    </TabsContent>
+
+                    <TabsContent value="interview" className="space-y-5 pb-4">
+                      {/* セラピストインタビュー（トグル） */}
+                      <div className="border rounded-lg">
+                        <button type="button" className="w-full flex items-center justify-between p-4" onClick={() => setShowProfileDetail(v => !v)}>
+                          <span className="font-semibold">セラピストインタビュー</span>
+                          {showProfileDetail ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                        {showProfileDetail && (
+                          <div className="px-4 pb-4 space-y-3">
+                            <div>
+                              <Label htmlFor="e-techniques">得意な施術</Label>
+                              <Textarea id="e-techniques" rows={2} className="mt-1" value={editingCast.favorite_techniques || ""} onChange={(e) => setEditingCast({...editingCast, favorite_techniques: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-favfood">好きな食べ物</Label>
+                              <Input id="e-favfood" className="mt-1" value={editingCast.favorite_food || ""} onChange={(e) => setEditingCast({...editingCast, favorite_food: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-idealtype">好きな男性のタイプ</Label>
+                              <Input id="e-idealtype" className="mt-1" value={editingCast.ideal_type || ""} onChange={(e) => setEditingCast({...editingCast, ideal_type: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-celeb">似ている芸能人</Label>
+                              <Input id="e-celeb" className="mt-1" value={editingCast.celebrity_lookalike || ""} onChange={(e) => setEditingCast({...editingCast, celebrity_lookalike: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-dayoff">休みの日は何してる？</Label>
+                              <Textarea id="e-dayoff" rows={2} className="mt-1" value={editingCast.day_off_activities || ""} onChange={(e) => setEditingCast({...editingCast, day_off_activities: e.target.value})} />
+                            </div>
+                            <div>
+                              <Label htmlFor="e-hobbies">趣味・特技</Label>
+                              <Textarea id="e-hobbies" rows={2} className="mt-1" value={editingCast.hobbies || ""} onChange={(e) => setEditingCast({...editingCast, hobbies: e.target.value})} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* セラピストの特徴 */}
+                      <div>
+                        <Label className="font-semibold">セラピストの特徴（4つまで）</Label>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {THERAPIST_FEATURES.map((f) => {
+                            const cur = editingCast.features || [];
+                            const checked = cur.includes(f);
+                            return (
+                              <button key={f} type="button"
+                                className={`px-2 py-1 text-xs rounded-full border transition-colors ${checked ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground/30 text-muted-foreground hover:border-primary"}`}
+                                onClick={() => {
+                                  if (checked) { setEditingCast({...editingCast, features: cur.filter(x => x !== f)}); }
+                                  else if (cur.length >= MAX_FEATURES) { toast({ title: "特徴は4つまで選択できます", variant: "destructive" }); }
+                                  else { setEditingCast({...editingCast, features: [...cur, f]}); }
+                                }}>
+                                {f}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="photos" className="space-y-5 pb-4">
                       {/* 写真 */}
                       <div>
                         <Label className="font-semibold">セラピスト写真</Label>
@@ -2137,16 +2265,6 @@ export default function Staff() {
                         </div>
                       </div>
 
-                      {/* トップバナーの素材（出勤日にHPのトップバナーへ自動で出す） */}
-                      {editingCast.id && (
-                        <CastBannerAssetsEditor
-                          castId={editingCast.id}
-                          castName={editingCast.name}
-                          age={editingCast.age}
-                          initial={editingCast}
-                        />
-                      )}
-
                       {/* 画像ストック（非公開・枚数無制限） */}
                       <div className="border rounded-lg p-4 space-y-2">
                         <div className="flex items-center justify-between">
@@ -2189,76 +2307,18 @@ export default function Staff() {
                         )}
                       </div>
 
-                      {/* 称号バッジ（HPの写真右上に表示） */}
-                      <div className="border rounded-lg p-4 space-y-2">
-                        <Label className="font-semibold">称号バッジ</Label>
-                        <p className="text-xs text-muted-foreground">
-                          HPの出勤情報・セラピスト一覧の写真右上に表示されます（電撃入店⚡️など）
-                        </p>
-                        <Select
-                          value={(editingCast as any).title_badge_id ?? "none"}
-                          onValueChange={(v) => setEditingCast({ ...(editingCast as any), title_badge_id: v === "none" ? null : v })}
-                        >
-                          <SelectTrigger><SelectValue placeholder="なし" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">なし</SelectItem>
-                            {titleBadges.map((b) => (
-                              <SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      {/* トップバナーの素材（出勤日にHPのトップバナーへ自動で出す） */}
+                      {editingCast.id && (
+                        <CastBannerAssetsEditor
+                          castId={editingCast.id}
+                          castName={editingCast.name}
+                          age={editingCast.age}
+                          initial={editingCast}
+                        />
+                      )}
+                    </TabsContent>
 
-                      {/* 基本情報 */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">基本情報</Label>
-                        <div>
-                          <Label htmlFor="e-name">源氏名</Label>
-                          <Input
-                            id="e-name"
-                            placeholder="例：さくら"
-                            value={isStageNamePending(editingCast.name) ? "" : editingCast.name}
-                            onChange={(e) => setEditingCast({...editingCast, name: e.target.value})}
-                          />
-                          {isStageNamePending(editingCast.name) && (
-                            <p className="text-[10px] text-amber-700 mt-0.5">源氏名未定です。決まったら入れて保存し、HPの表示・エスたま自動登録をオンにしてください</p>
-                          )}
-                        </div>
-                        <div>
-                          <Label htmlFor="e-name-kana">フリガナ</Label>
-                          <Input id="e-name-kana" value={editingCast.name_kana || ""} onChange={(e) => setEditingCast({...editingCast, name_kana: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="e-real-name">本名</Label>
-                          <Input id="e-real-name" placeholder="例：佐藤 花子" value={editingCast.real_name || ""} onChange={(e) => setEditingCast({...editingCast, real_name: e.target.value})} />
-                          <p className="text-[10px] text-muted-foreground mt-0.5">紹介費明細などの内部書類に使用（公開されません）</p>
-                        </div>
-                        <div>
-                          <Label htmlFor="e-age">年齢</Label>
-                          <Input id="e-age" type="number" value={editingCast.age || ""} onChange={(e) => setEditingCast({...editingCast, age: parseInt(e.target.value) || null})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="e-height">身長 (cm)</Label>
-                          <Input id="e-height" type="number" value={editingCast.height || ""} onChange={(e) => setEditingCast({...editingCast, height: parseInt(e.target.value) || null})} />
-                        </div>
-                        <div>
-                          <Label htmlFor="e-new-customer-max">新規のお客様のコース上限（分）</Label>
-                          <Input id="e-new-customer-max" type="number" min={1} step={10} placeholder="制限なし" value={editingCast.new_customer_max_minutes || ""} onChange={(e) => setEditingCast({...editingCast, new_customer_max_minutes: parseInt(e.target.value) || null})} />
-                          <p className="text-[10px] text-muted-foreground mt-0.5">新規のお客様がこれより長いコースで予約したら知らせます（予約は止めません）。公開されません</p>
-                        </div>
-                        <div>
-                          <Label htmlFor="e-body-size">3サイズ (B/W/H)</Label>
-                          <Input id="e-body-size" placeholder="84/58/84" value={editingCast.body_size || ""} onChange={(e) => setEditingCast({...editingCast, body_size: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label>バストのカップ数</Label>
-                          <Select value={editingCast.bust_size || ""} onValueChange={(v) => setEditingCast({...editingCast, bust_size: v})}>
-                            <SelectTrigger><SelectValue placeholder="選択" /></SelectTrigger>
-                            <SelectContent>{BUST_SIZES.map(b => <SelectItem key={b} value={b}>{b}カップ</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
+                    <TabsContent value="comments" className="space-y-5 pb-4">
                       {/* お店からのコメント（ショップコメント） */}
                       <div>
                         <div className="flex items-center justify-between mb-1">
@@ -2270,42 +2330,6 @@ export default function Staff() {
                         <Textarea id="e-shop-comment" rows={3} value={editingCast.shop_comment || ""} onChange={(e) => setEditingCast({...editingCast, shop_comment: e.target.value})} />
                       </div>
 
-                      {/* セラピストインタビュー（トグル） */}
-                      <div className="border rounded-lg">
-                        <button type="button" className="w-full flex items-center justify-between p-4" onClick={() => setShowProfileDetail(v => !v)}>
-                          <span className="font-semibold">セラピストインタビュー</span>
-                          {showProfileDetail ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </button>
-                        {showProfileDetail && (
-                          <div className="px-4 pb-4 space-y-3">
-                            <div>
-                              <Label htmlFor="e-techniques">得意な施術</Label>
-                              <Textarea id="e-techniques" rows={2} className="mt-1" value={editingCast.favorite_techniques || ""} onChange={(e) => setEditingCast({...editingCast, favorite_techniques: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="e-favfood">好きな食べ物</Label>
-                              <Input id="e-favfood" className="mt-1" value={editingCast.favorite_food || ""} onChange={(e) => setEditingCast({...editingCast, favorite_food: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="e-idealtype">好きな男性のタイプ</Label>
-                              <Input id="e-idealtype" className="mt-1" value={editingCast.ideal_type || ""} onChange={(e) => setEditingCast({...editingCast, ideal_type: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="e-celeb">似ている芸能人</Label>
-                              <Input id="e-celeb" className="mt-1" value={editingCast.celebrity_lookalike || ""} onChange={(e) => setEditingCast({...editingCast, celebrity_lookalike: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="e-dayoff">休みの日は何してる？</Label>
-                              <Textarea id="e-dayoff" rows={2} className="mt-1" value={editingCast.day_off_activities || ""} onChange={(e) => setEditingCast({...editingCast, day_off_activities: e.target.value})} />
-                            </div>
-                            <div>
-                              <Label htmlFor="e-hobbies">趣味・特技</Label>
-                              <Textarea id="e-hobbies" rows={2} className="mt-1" value={editingCast.hobbies || ""} onChange={(e) => setEditingCast({...editingCast, hobbies: e.target.value})} />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
                       {/* セラピストコメント */}
                       <div>
                         <div className="flex items-center justify-between mb-1">
@@ -2315,120 +2339,6 @@ export default function Staff() {
                           </Button>
                         </div>
                         <Textarea id="e-therapist-comment" rows={3} value={editingCast.therapist_comment || editingCast.profile || ""} onChange={(e) => setEditingCast({...editingCast, therapist_comment: e.target.value, profile: e.target.value})} />
-                      </div>
-
-                      {/* セラピストの特徴 */}
-                      <div>
-                        <Label className="font-semibold">セラピストの特徴（4つまで）</Label>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {THERAPIST_FEATURES.map((f) => {
-                            const cur = editingCast.features || [];
-                            const checked = cur.includes(f);
-                            return (
-                              <button key={f} type="button"
-                                className={`px-2 py-1 text-xs rounded-full border transition-colors ${checked ? "bg-primary text-primary-foreground border-primary" : "border-muted-foreground/30 text-muted-foreground hover:border-primary"}`}
-                                onClick={() => {
-                                  if (checked) { setEditingCast({...editingCast, features: cur.filter(x => x !== f)}); }
-                                  else if (cur.length >= MAX_FEATURES) { toast({ title: "特徴は4つまで選択できます", variant: "destructive" }); }
-                                  else { setEditingCast({...editingCast, features: [...cur, f]}); }
-                                }}>
-                                {f}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* エステ歴 */}
-                      <div>
-                        <Label className="font-semibold">エステ歴</Label>
-                        <Select value={editingCast.therapist_experience || ""} onValueChange={(v) => setEditingCast({...editingCast, therapist_experience: v})}>
-                          <SelectTrigger className="mt-1"><SelectValue placeholder="選択" /></SelectTrigger>
-                          <SelectContent>{THERAPIST_EXPERIENCE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* ブログ・SNSは別メニュー(SNS連携管理)に統合済みのため、この画面には表示しない */}
-
-                      {/* セラピストレベル */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">セラピストレベル</Label>
-                        <Select
-                          value={getCastLevel(editingCast) ?? "__none__"}
-                          onValueChange={(v) => {
-                            const otherTags = (editingCast.tags || []).filter(t => !LEVEL_TAGS.includes(t as LevelTag));
-                            setEditingCast({...editingCast, tags: v !== "__none__" ? [...otherTags, v] : otherTags});
-                          }}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue placeholder="レベル未設定" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">未設定</SelectItem>
-                            {LEVEL_TAGS.map(lv => (
-                              <SelectItem key={lv} value={lv}>{lv}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <div className="space-y-1 text-xs text-muted-foreground">
-                          <p>1.ビギナーズ — 講習中・デビュー前</p>
-                          <p>2.スタンダード — 初出勤済み・SNS教育中</p>
-                          <p>3.ソルジャー — SNS投稿こなし、日7〜8万水準</p>
-                          <p>4.マスター — 本指名率30%以上・皆勤・クレームなし達成</p>
-                        </div>
-                      </div>
-
-                      {/* カスタムタグ */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">カスタムタグ</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="タグ名を入力してEnter"
-                            value={customTagInput}
-                            onChange={(e) => setCustomTagInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                const t = customTagInput.trim();
-                                if (t && !(editingCast.tags || []).includes(t)) {
-                                  setEditingCast({...editingCast, tags: [...(editingCast.tags || []), t]});
-                                  setCustomTagInput("");
-                                }
-                              }
-                            }}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const t = customTagInput.trim();
-                              if (t && !(editingCast.tags || []).includes(t)) {
-                                setEditingCast({...editingCast, tags: [...(editingCast.tags || []), t]});
-                                setCustomTagInput("");
-                              }
-                            }}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                          {(editingCast.tags || []).filter(t => !ALL_SYSTEM_TAGS.includes(t)).map((tag) => (
-                            <span key={tag} className="flex items-center gap-1 bg-[#f5e6e0] text-[#7a706c] text-xs px-2 py-1 rounded-full">
-                              {tag}
-                              <button
-                                type="button"
-                                onClick={() => setEditingCast({...editingCast, tags: (editingCast.tags || []).filter(t => t !== tag)})}
-                                className="text-[#c49480] hover:text-[#a87b65] leading-none"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </span>
-                          ))}
-                          {(editingCast.tags || []).filter(t => !ALL_SYSTEM_TAGS.includes(t)).length === 0 && (
-                            <p className="text-xs text-muted-foreground">タグなし</p>
-                          )}
-                        </div>
                       </div>
                     </TabsContent>
 
@@ -2533,9 +2443,12 @@ export default function Staff() {
                     </TabsContent>
                   </Tabs>
 
-                  <Button onClick={handleUpdateCast} className="w-full mt-4">
-                    更新する
-                  </Button>
+                  {/* 保存はどのタブからでも押せるよう下に固定 */}
+                  <div className="sticky bottom-0 -mx-6 -mb-6 mt-4 border-t bg-background/95 px-6 py-3 backdrop-blur">
+                    <Button onClick={handleUpdateCast} className="w-full">
+                      保存する
+                    </Button>
+                  </div>
                 </DialogContent>
               </Dialog>
             )}

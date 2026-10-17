@@ -18,6 +18,7 @@ import { useTherapistAppManifest } from "@/hooks/useTherapistAppManifest";
 import { TherapistPushCard } from "@/components/therapist/TherapistPushCard";
 import { TherapistSettlementNotice } from "@/components/therapist/TherapistSettlementNotice";
 import { TherapistMonthlyCount } from "@/components/therapist/TherapistMonthlyCount";
+import { TherapistProfileForm } from "@/components/therapist/TherapistProfileForm";
 import { BackRateTable, type BackRateRow } from "@/components/therapist/BackRateTable";
 import { TherapistSnsAccount } from "@/components/therapist/TherapistSnsAccount";
 import { hasUnseenSnsNotice, useTherapistSnsAccount } from "@/lib/therapistSns";
@@ -102,7 +103,7 @@ interface EntryPhotoViewer {
   total: number;
 }
 
-type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers" | "upcoming" | "promotion" | "sns";
+type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers" | "upcoming" | "promotion" | "sns" | "profile";
 
 interface PromotionScheduleTask {
   id: string;
@@ -215,7 +216,11 @@ export default function TherapistPortal() {
   const [cast, setCast] = useState<Cast | null>(null);
   const [castStoreId, setCastStoreId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<View>(() => (searchParams.get("view") === "sns" ? "sns" : "menu"));
+  // ?view=sns（SNSアカウントの準備ができた通知）・?view=profile（お店から送るプロフィール入力のURL）で直接開く
+  const [view, setView] = useState<View>(() => {
+    const requested = searchParams.get("view");
+    return requested === "sns" || requested === "profile" ? requested : "menu";
+  });
   // お店が用意した X・O2 のアカウント（スマホ通知の「SNSアカウントの準備ができました」から ?view=sns で開く）
   const snsAccount = useTherapistSnsAccount(token);
   const { reload: reloadSnsAccount } = snsAccount;
@@ -224,7 +229,7 @@ export default function TherapistPortal() {
   }, [reloadSnsAccount]);
   useEffect(() => {
     if (view === "sns") void reloadSnsAccount();
-    if (view !== "sns" && searchParams.get("view")) setSearchParams({}, { replace: true });
+    if (view !== "sns" && view !== "profile" && searchParams.get("view")) setSearchParams({}, { replace: true });
   }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showBackRates, setShowBackRates] = useState(false);
   const [therapistBackRates, setTherapistBackRates] = useState<BackRateRow[]>([]);
@@ -698,6 +703,7 @@ export default function TherapistPortal() {
     { title: "交通費申請", description: "交通費の申請・申請履歴を確認", icon: Plane, action: () => setView("transport") },
     { title: "退勤フォーム", description: "売上入力・清掃チェック・フィードバック", icon: LogOut, action: () => navigate(`/therapist/${token}/checkout`) },
     { title: "顧客カルテ", description: "担当したお客様の好み・来店履歴を確認", icon: Users, action: () => setView("customers") },
+    { title: "プロフィール入力", description: "HPに載るプロフィールを入力してお店に送る", icon: PencilLine, action: () => setView("profile") },
     { title: "SNSアカウント", description: "X・O2のログイン情報と設定マニュアル", icon: AtSign, action: () => setView("sns") },
     { title: "入室方法", description: "各ルームへの入室手順・鍵の場所を確認", icon: DoorOpen, action: () => setView("entry") },
     { title: "振り込み申請", description: "報酬の振り込み申請フォーム", icon: ExternalLink, action: () => window.open("https://yoom.fun/5eee42a7-b4ff-49a8-8373-606c66495142/forms/shared/Cu2K735X9qaSAdMs45x6Bw", "_blank") },
@@ -732,7 +738,7 @@ export default function TherapistPortal() {
           <div className="min-w-0">
             <p className="font-bold text-base leading-tight truncate">{cast.name}様</p>
             <p className="text-xs text-muted-foreground">
-              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : view === "upcoming" ? "事前予約" : view === "promotion" ? "投稿宣伝スケジュール" : view === "sns" ? "SNSアカウント" : "交通費申請"}
+              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : view === "upcoming" ? "事前予約" : view === "promotion" ? "投稿宣伝スケジュール" : view === "sns" ? "SNSアカウント" : view === "profile" ? "プロフィール入力" : "交通費申請"}
             </p>
           </div>
         </div>
@@ -1519,6 +1525,9 @@ export default function TherapistPortal() {
             onSeen={markSnsSeen}
           />
         )}
+
+        {/* ── PROFILE（本人がプロフィールを入力してお店に送る） ── */}
+        {view === "profile" && token && <TherapistProfileForm token={token} />}
 
         {view === "customers" && (
           <div className="space-y-3">
