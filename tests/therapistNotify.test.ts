@@ -50,7 +50,16 @@ test("日時の表示：深夜は前日の営業日・24時以降で出す", () 
 test("新しい予約のプッシュ通知", () => {
   const message = buildTherapistPush({ ...base, kind: "new", context });
   assert.equal(message.title, "🔔 新しい予約 10月5日(月) 20:30〜21:50");
-  assert.equal(message.body, "艶華コース 80分 / 山田様 / インルーム\n本指名");
+  // LINEと同じ中身（開始時刻・割引・決済方法・決済状況を漏れなく）
+  assert.match(message.body, /⏰ 開始 20:30（20:30〜21:50）/);
+  assert.match(message.body, /💆 艶華コース 80分/);
+  assert.match(message.body, /🏷️ 割引：なし/);
+  assert.match(message.body, /💳 決済方法：現金/);
+  assert.match(message.body, /🧾 決済状況：未決済（当日現金でお受け取り）/);
+  assert.match(message.body, /⭐ 指名区分：本指名/);
+  assert.match(message.body, /🏠 ルーム：インルーム/);
+  assert.match(message.body, /お客様：山田 様/);
+  assert.equal(message.body, buildTherapistLineText({ kind: "new", context }).split("\n").slice(2).join("\n").replace(/\n\n📲.*$/s, ""));
   assert.equal(message.url, "/therapist/token-abc");
   assert.equal(message.tag, `reservation-${context.reservation_id}`);
 });
@@ -65,6 +74,30 @@ test("変更のプッシュ通知に変更前→変更後が入る", () => {
   assert.equal(message.title, "✏️ 予約が変更されました 10月5日(月) 20:30〜21:50");
   assert.match(message.body, /日時 10月5日\(月\) 20:00 → 10月5日\(月\) 20:30/);
   assert.match(message.body, /ルーム ラズルーム → インルーム/);
+});
+
+test("割引・決済方法・決済状況", () => {
+  const paid = buildTherapistPush({
+    ...base,
+    kind: "new",
+    context: {
+      ...context,
+      discount: 2000,
+      discount_names: ["事前予約限定クーポン❷"],
+      payment_method: null,
+      payment_details: [{ method: "card", amount: 10000 }, { method: "cash", amount: 16000 }],
+      payment_status: "unpaid",
+      payment_fee: 1000,
+    },
+  });
+  assert.match(paid.body, /🏷️ 割引：−2,000円（事前予約限定クーポン❷）/);
+  assert.match(paid.body, /💳 決済方法：カード 10,000円＋現金 16,000円/);
+  assert.match(paid.body, /🧾 決済状況：未決済（カード・PayPay分はお店が確認／残りは当日現金でお受け取り）/);
+  assert.match(buildTherapistPush({ ...base, kind: "new", context: { ...context, payment_method: "paypay", payment_status: "paid" } }).body, /決済方法：PayPay\n🧾 決済状況：決済済み/);
+  assert.deepEqual(
+    describeChanges({ discount: 0, payment_method: "cash", payment_details: null, payment_status: "unpaid" }, { ...context, discount: 1000, payment_method: "card", payment_status: "paid" }),
+    ["割引 −0円 → −1,000円", "決済方法 現金 → カード", "決済状況 未決済（お店が決済を確認します） → 決済済み"],
+  );
 });
 
 test("変更点の並べ方", () => {

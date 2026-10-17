@@ -23,6 +23,13 @@ export interface ReservationLineContext {
   payment_fee?: number | null;
   nomination_type?: string | null;
   discount_names?: string[] | null;
+  /** 割引金額（円） */
+  discount?: number | null;
+  /** cash / card / paypay（分割払いのときは payment_details） */
+  payment_method?: string | null;
+  payment_details?: { method?: string | null; amount?: number | null }[] | null;
+  /** unpaid / paid */
+  payment_status?: string | null;
   store_visit_count?: number | null;
   cast_visit_count?: number | null;
   cast_history?: ReservationLineHistoryEntry[] | null;
@@ -111,20 +118,62 @@ function formatNomination(value: string | null | undefined): string {
   return !nomination || nomination === "none" ? "フリー" : nomination;
 }
 
-export function buildReservationLineMessage(context: ReservationLineContext): string {
+const PAYMENT_LABELS: Record<string, string> = { cash: "現金", card: "カード", paypay: "PayPay" };
+
+export function paymentMethodLabel(method: string | null | undefined): string {
+  const key = (method ?? "").trim().toLowerCase();
+  if (!key) return "現金";
+  return PAYMENT_LABELS[key] ?? (key === "カード" ? "カード" : method!.trim());
+}
+
+/** 決済方法：「現金」「カード」、分割払いは「カード 10,000円＋現金 9,000円」 */
+export function formatPaymentMethod(context: Pick<ReservationLineContext, "payment_method" | "payment_details">): string {
+  const details = (context.payment_details ?? []).filter((detail) => nonNegativeInteger(detail?.amount) > 0);
+  if (details.length > 0) {
+    return details
+      .map((detail) => `${paymentMethodLabel(detail.method)} ${nonNegativeInteger(detail.amount).toLocaleString("ja-JP")}円`)
+      .join("＋");
+  }
+  return paymentMethodLabel(context.payment_method);
+}
+
+/** 決済状況：決済済み／カード・PayPayの事前決済待ち／当日現金でお受け取り */
+export function formatPaymentStatus(context: Pick<ReservationLineContext, "payment_method" | "payment_details" | "payment_status">): string {
+  if ((context.payment_status ?? "").toLowerCase() === "paid") return "決済済み";
+  const methods = new Set(
+    (context.payment_details ?? []).filter((detail) => nonNegativeInteger(detail?.amount) > 0)
+      .map((detail) => (detail.method ?? "").toLowerCase()),
+  );
+  if (methods.size === 0) methods.add((context.payment_method ?? "cash").toLowerCase() || "cash");
+  const online = [...methods].filter((method) => method === "card" || method === "paypay" || method === "カード");
+  if (online.length === 0) return "未決済（当日現金でお受け取り）";
+  return methods.size > online.length
+    ? "未決済（カード・PayPay分はお店が確認／残りは当日現金でお受け取り）"
+    : "未決済（お店が決済を確認します）";
+}
+
+/** 予約の中身の行（新しい予約・変更・LINE・プッシュ通知で共通。セラピストへの通知はこれで漏れなくそろえる） */
+export function reservationDetailLines(context: ReservationLineContext): string[] {
   const paymentFee = nonNegativeInteger(context.payment_fee);
   const totalAmount = nonNegativeInteger(context.price) + paymentFee;
+  const discount = nonNegativeInteger(context.discount);
+  const discountNames = (context.discount_names ?? []).filter((name) => typeof name === "string" && name.trim());
   const nomination = formatNomination(context.nomination_type);
   const storeVisitCount = nullableCount(context.store_visit_count);
+  const clock = parseClockParts(context.start_time);
+  const startLabel = clock ? formatClock((clock.hour < 6 ? clock.hour + 24 : clock.hour) * 60 + clock.minute) : context.start_time;
 
   const lines = [
-    "🔔 新規予約のご案内",
-    "",
     `📅 ${formatBusinessDateLabel(context.reservation_date, context.start_time)}`,
-    `⏰ ${formatReservationTimeRange(context.start_time, context.duration, context.extension_minutes)}`,
+    `⏰ 開始 ${startLabel}（${formatReservationTimeRange(context.start_time, context.duration, context.extension_minutes)}）`,
     `💆 ${formatCourse(context.course_name, context.duration)}`,
     `👤 担当：${context.cast_name?.trim() || "未設定"}`,
     `💴 金額：${totalAmount.toLocaleString("ja-JP")}円${paymentFee > 0 ? `（決済手数料${paymentFee.toLocaleString("ja-JP")}円込み）` : ""}`,
+    discount > 0 || discountNames.length > 0
+      ? `🏷️ 割引：−${discount.toLocaleString("ja-JP")}円${discountNames.length ? `（${discountNames.join("・")}）` : ""}`
+      : "🏷️ 割引：なし",
+    `💳 決済方法：${formatPaymentMethod(context)}`,
+    `🧾 決済状況：${formatPaymentStatus(context)}`,
   ];
 
   if (storeVisitCount === null) {
@@ -176,5 +225,9 @@ export function buildReservationLineMessage(context: ReservationLineContext): st
     lines.push("施術後にお客様の口コミ投稿をその場で確認できたら、5,000円キャッシュバックされます。完了画面を必ず確認してください。");
   }
 
-  return lines.join("\n");
+  return lines;
+}
+
+export function buildReservationLineMessage(context: ReservationLineContext): string {
+  return ["🔔 新規予約のご案内", "", ...reservationDetailLines(context)].join("\n");
 }
