@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Loader2, Link as LinkIcon, Copy, Eye, EyeOff, GripVertical, FileUp, X, ChevronDown, ChevronRight, ExternalLink, Bot, AlertTriangle, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Loader2, Link as LinkIcon, Copy, Eye, EyeOff, GripVertical, FileUp, X, ChevronDown, ChevronRight, ExternalLink, Bot, AlertTriangle, Archive, ArchiveRestore, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { driveImgUrl } from "@/lib/drive";
 import { ImportModal } from "@/components/ImportModal";
 import { EstamaImportModal, type EstamaProfileData } from "@/components/EstamaImportModal";
@@ -334,6 +335,8 @@ export default function Staff() {
   const [memoText, setMemoText] = useState("");
   const [parsingMemo, setParsingMemo] = useState(false);
   const [memoMode, setMemoMode] = useState<"new" | "existing">("new");
+  // AIメモ登録は普段は隠し、「⋯」のメニューから開く
+  const [aiMemoOpen, setAiMemoOpen] = useState(false);
   const [memoTargetCastId, setMemoTargetCastId] = useState("");
   const dragCastId = useRef<string | null>(null);
   const dragPhotoIdxRef = useRef<number | null>(null);
@@ -1587,12 +1590,20 @@ export default function Staff() {
         
         <main className="flex-1 p-4 md:p-6 md:ml-[240px] overflow-x-hidden">
           <div className="max-w-7xl mx-auto">
-            {isAdmin && (
+            {isAdmin && aiMemoOpen && (
               <div className="mb-6 rounded-xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-rose-50 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">🤖</span>
                   <p className="font-bold text-rose-600">AIメモ登録</p>
                   <span className="text-xs text-muted-foreground">メモを貼るだけでAIが下書きします</span>
+                  <button
+                    type="button"
+                    className="ml-auto rounded p-1 text-muted-foreground hover:bg-white/60"
+                    aria-label="AIメモ登録を閉じる"
+                    onClick={() => setAiMemoOpen(false)}
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
 
                 {/* モード切替 */}
@@ -1665,33 +1676,7 @@ export default function Staff() {
                   <p className="text-muted-foreground">キャストの登録・管理</p>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-                  {isAdmin && (
-                    <Button
-                      variant="outline"
-                      className="col-span-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800 sm:col-auto"
-                      onClick={() => setEstamaAutomationOpen(true)}
-                    >
-                      <Bot size={16} />
-                      エスたま自動化
-                    </Button>
-                  )}
-                  {isAdmin && (
-                    <Button
-                      variant="outline"
-                      className="col-span-2 border-pink-200 text-pink-700 hover:bg-pink-50 hover:text-pink-800 sm:col-auto"
-                      onClick={() => setIsEstamaImportOpen(true)}
-                    >
-                      <ExternalLink size={16} />
-                      エスたまからインポート
-                    </Button>
-                  )}
-                  {isAdmin && (
-                    <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-                      <FileUp size={16} />
-                      CSVインポート
-                    </Button>
-                  )}
+                <div className="flex items-center gap-2">
                   {isAdmin && (
                     <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                       <DialogTrigger asChild>
@@ -1909,15 +1894,33 @@ export default function Staff() {
                   </DialogContent>
                 </Dialog>
               )}
+              {/* たまにしか使わない操作はまとめてしまう */}
               {isAdmin && (
-                <Button
-                  variant="outline"
-                  className="col-span-2 sm:col-auto"
-                  onClick={() => navigate("/staff/dispatch-registration")}
-                >
-                  <LinkIcon size={16} />
-                  派遣登録フォーム
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" aria-label="その他の操作">
+                      <MoreHorizontal size={18} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => setAiMemoOpen(true)}>
+                      <span className="mr-2">🤖</span>AIメモで登録・追記
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsEstamaImportOpen(true)}>
+                      <ExternalLink size={14} className="mr-2" />エスたまからインポート
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
+                      <FileUp size={14} className="mr-2" />CSVインポート
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/staff/dispatch-registration")}>
+                      <LinkIcon size={14} className="mr-2" />派遣登録フォーム
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setEstamaAutomationOpen(true)}>
+                      <Bot size={14} className="mr-2" />エスたま自動化の設定
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               </div>
             </div>
