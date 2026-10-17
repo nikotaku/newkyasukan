@@ -354,6 +354,13 @@
 - 月別清算では、日別精算から経費に入る交通費（`expenses` の「日別清算より…」）を経費から外す（給与の交通費として数えているため）
 - `daily_clearances` は昔から anon に全部開いているので、明細（お客様名）・不足分・口座は anon が読めない `settlement_approvals` / `cast_bank_accounts` に分けている。新しい列を `daily_clearances` に足さないこと
 
+## セラピストの登録（源氏名が未定でも本名だけで）・プロフィールの入力率
+
+- スタッフ画面の新規追加は、源氏名か本名のどちらかがあれば登録できる。源氏名が空なら `casts.name = '源氏名未定'`（本名は name に入れない。casts の name は anon から読めるため）
+- 源氏名が未定の間は DBトリガー `trg_casts_pending_stage_name` が `is_visible = false`・`estama_auto_register = false` にそろえる（HPに出さない・エステ魂に登録しない）。源氏名が決まったら名前を入れて、HPの表示とエスたま自動登録をオンにする
+- スタッフ画面のカードは源氏名未定なら本名＋「源氏名未定」バッジ、名前の下に「プロフィール ◯%」（バーと未入力の項目）。項目と判定は `src/lib/castProfileCompletion.ts`（テスト `npm run test:cast-profile`）
+- 本名・生年月日・メモ・面接シートなどの内部情報の列は anon から読めない（`20261017150000_cast_pending_stage_name.sql` で revoke）。公開ページで casts の列を足すときは anon に grant されているか確かめる
+
 ## セラピストのマイページ：その月の本数
 
 - メニューの「◯月の本数」（`src/components/therapist/TherapistMonthlyCount.tsx`）。施術済み（completed）を大きく、予定（confirmed）を別に出す。キャンセルは数えない。指名の種類（指名なしはフリー）・コースの時間・日ごとの内訳つき。左右で過去24か月まで切り替え

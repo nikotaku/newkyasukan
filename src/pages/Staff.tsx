@@ -24,6 +24,7 @@ import { getEstamaJobStatus, runEstamaCastAutomation, startEstamaCastAutomation,
 import { getCastBookingUrl, getCustomDomainBaseUrl } from "@/lib/bookingUrl";
 import { ESTHE_RANKING_ACTIVE } from "@/lib/mediaRegistration";
 import { CastBannerAssetsEditor } from "@/components/CastBannerAssetsEditor";
+import { castAdminLabel, castProfileCompletion, isStageNamePending, PENDING_STAGE_NAME } from "@/lib/castProfileCompletion";
 
 const THERAPIST_FEATURES = [
   "新人", "経験豊富", "業界未経験", "施術上手", "上品", "甘えん坊", "おとなしい", "おっとり",
@@ -559,6 +560,15 @@ export default function Staff() {
       return;
     }
 
+    const stageName = formData.name.trim();
+    if (!stageName && !formData.real_name.trim()) {
+      toast({ title: "源氏名か本名を入れてください", description: "源氏名が決まっていなければ本名だけで登録できます", variant: "destructive" });
+      return;
+    }
+    // 源氏名が未定の間はHPに出さず、エステ魂にも登録しない（DBトリガーでもそろえる）
+    const stageNamePending = isStageNamePending(stageName);
+    const autoRegisterEstama = formData.estama_auto_register && !stageNamePending;
+
     setAddingCast(true);
     try {
       // Step 1: insert base fields
@@ -566,7 +576,8 @@ export default function Staff() {
         .from('casts')
         .insert([{
           store_id: storeId,
-          name: formData.name.trim() || "名称未設定",
+          name: stageNamePending ? PENDING_STAGE_NAME : stageName,
+          ...(stageNamePending ? { is_visible: false } : {}),
           type: formData.type,
           room: formData.room,
           status: formData.status,
@@ -588,7 +599,7 @@ export default function Staff() {
           memo: formData.memo || null,
           dispatch_status: formData.dispatch_status || 'none',
           repeat_scheduled: formData.repeat_scheduled || false,
-          estama_auto_register: formData.estama_auto_register,
+          estama_auto_register: autoRegisterEstama,
         } as never])
         .select('id, store_id')
         .single();
@@ -634,9 +645,14 @@ export default function Staff() {
       await fetchCasts();
       setArchiveView("active");
       setCategoryTab("ノーステータス");
-      toast({ title: "追加しました", description: "新しいセラピストが登録されました" });
+      toast({
+        title: "追加しました",
+        description: stageNamePending
+          ? "源氏名が決まったら名前を入れて、HPの表示とエスたま自動登録をオンにしてください"
+          : "新しいセラピストが登録されました",
+      });
       setIsAddDialogOpen(false);
-      if (inserted?.id && formData.estama_auto_register) {
+      if (inserted?.id && autoRegisterEstama) {
         try {
           const result = await runEstamaCastAutomation({
             storeId: inserted.store_id,
@@ -1744,15 +1760,16 @@ export default function Staff() {
                         <Label className="font-semibold">基本情報</Label>
                         <div className="grid grid-cols-1 gap-3">
                           <div>
-                            <Label htmlFor="add-name">名前 <span className="text-destructive">*</span></Label>
-                            <Input id="add-name" placeholder="例：さくら" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+                            <Label htmlFor="add-name">源氏名</Label>
+                            <Input id="add-name" placeholder="例：さくら（未定なら空のままでOK）" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+                            <p className="text-[10px] text-muted-foreground mt-0.5">未定なら本名だけで登録できます。決まるまでHPには出ず、エスたまにも登録しません</p>
                           </div>
                           <div>
                             <Label htmlFor="add-name-kana">フリガナ</Label>
                             <Input id="add-name-kana" placeholder="例：サクラ" value={formData.name_kana} onChange={(e) => setFormData({...formData, name_kana: e.target.value})} />
                           </div>
                           <div>
-                            <Label htmlFor="add-real-name">本名</Label>
+                            <Label htmlFor="add-real-name">本名 {!formData.name.trim() && <span className="text-destructive">*</span>}</Label>
                             <Input id="add-real-name" placeholder="例：佐藤 花子" value={formData.real_name} onChange={(e) => setFormData({...formData, real_name: e.target.value})} />
                             <p className="text-[10px] text-muted-foreground mt-0.5">紹介費明細などの内部書類に使用（公開されません）</p>
                           </div>
@@ -2193,8 +2210,16 @@ export default function Staff() {
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">基本情報</Label>
                         <div>
-                          <Label htmlFor="e-name">名前</Label>
-                          <Input id="e-name" value={editingCast.name} onChange={(e) => setEditingCast({...editingCast, name: e.target.value})} />
+                          <Label htmlFor="e-name">源氏名</Label>
+                          <Input
+                            id="e-name"
+                            placeholder="例：さくら"
+                            value={isStageNamePending(editingCast.name) ? "" : editingCast.name}
+                            onChange={(e) => setEditingCast({...editingCast, name: e.target.value})}
+                          />
+                          {isStageNamePending(editingCast.name) && (
+                            <p className="text-[10px] text-amber-700 mt-0.5">源氏名未定です。決まったら入れて保存し、HPの表示・エスたま自動登録をオンにしてください</p>
+                          )}
                         </div>
                         <div>
                           <Label htmlFor="e-name-kana">フリガナ</Label>
@@ -2641,6 +2666,8 @@ export default function Staff() {
               {categoryFilteredCasts.map((cast) => {
                 const checklistExpanded = expandedChecklistIds.has(cast.id);
                 const completedChecklistCount = CAST_CHECKLIST_ITEMS.filter(item => !!cast[item.field]).length;
+                const profileCompletion = castProfileCompletion(cast);
+                const stageNamePending = isStageNamePending(cast.name);
                 return (
                   <div
                   key={cast.id}
@@ -2677,7 +2704,12 @@ export default function Staff() {
                     {/* Name */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm truncate">{cast.name}</span>
+                        <span className="font-medium text-sm truncate">{castAdminLabel(cast)}</span>
+                        {stageNamePending && (
+                          <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full border font-semibold bg-amber-50 text-amber-700 border-amber-300">
+                            源氏名未定
+                          </span>
+                        )}
                         {getCastLevel(cast) && (
                           <span className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${LEVEL_BADGES[getCastLevel(cast)!].className}`}>
                             <span>{LEVEL_BADGES[getCastLevel(cast)!].icon}</span>
@@ -2701,6 +2733,34 @@ export default function Staff() {
                           <Badge variant="outline" className="text-[10px] px-1 py-0 text-amber-700 border-amber-300">
                             <Archive size={10} className="mr-0.5" />アーカイブ
                           </Badge>
+                        )}
+                      </div>
+                      {/* プロフィールの入力状況 */}
+                      <div
+                        className="mt-1 flex items-center gap-2"
+                        title={profileCompletion.missing.length ? `未入力：${profileCompletion.missing.join("・")}` : "プロフィールはすべて入力済み"}
+                      >
+                        <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className={`h-full rounded-full ${
+                              profileCompletion.percent >= 100
+                                ? "bg-emerald-500"
+                                : profileCompletion.percent >= 70
+                                  ? "bg-sky-500"
+                                  : profileCompletion.percent >= 40
+                                    ? "bg-amber-500"
+                                    : "bg-rose-500"
+                            }`}
+                            style={{ width: `${profileCompletion.percent}%` }}
+                          />
+                        </div>
+                        <span className={`text-[11px] font-semibold tabular-nums ${profileCompletion.percent >= 100 ? "text-emerald-700" : "text-muted-foreground"}`}>
+                          プロフィール {profileCompletion.percent}%
+                        </span>
+                        {profileCompletion.missing.length > 0 && (
+                          <span className="hidden sm:inline truncate text-[10px] text-muted-foreground">
+                            未入力：{profileCompletion.missing.slice(0, 3).join("・")}{profileCompletion.missing.length > 3 ? ` ほか${profileCompletion.missing.length - 3}` : ""}
+                          </span>
                         )}
                       </div>
                     </div>
