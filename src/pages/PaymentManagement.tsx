@@ -37,7 +37,7 @@ type BankAccount = {
   account_name: string;
   bank_name: string | null;
   branch_name: string | null;
-  account_type: string | null;
+  account_type?: string | null;
   account_number: string | null;
   account_holder: string | null;
 };
@@ -131,7 +131,7 @@ export default function PaymentManagement() {
     const [fixedResult, expenseResult, requestResult] = await Promise.all([
       supabase
         .from("business_fixed_costs" as never)
-        .select("id,item_name,amount,payment_day,payment_method,transfer_destination,transfer_account_id,debit_account_id,transfer_account:business_bank_accounts!transfer_account_id(id,account_name,bank_name,branch_name,account_type,account_number,account_holder),debit_account:business_bank_accounts!debit_account_id(id,account_name,bank_name,branch_name,account_type,account_number,account_holder)")
+        .select("id,item_name,amount,payment_day,payment_method,transfer_destination,transfer_account_id,debit_account_id,transfer_account:business_bank_accounts!transfer_account_id(id,account_name,bank_name,branch_name,account_number,account_holder),debit_account:business_bank_accounts!debit_account_id(id,account_name,bank_name,branch_name,account_number,account_holder)")
         .order("payment_day", { ascending: true, nullsFirst: false }),
       supabase
         .from("expenses")
@@ -147,12 +147,13 @@ export default function PaymentManagement() {
         .limit(200),
     ]);
 
-    const firstError = fixedResult.error || expenseResult.error || requestResult.error;
-    if (firstError) {
-      toast.error(`支払い情報を読み込めませんでした: ${firstError.message}`);
-      setLoading(false);
-      return;
-    }
+    // 1つ読めなくても、ほかの欄（給与の不足分など）は出す
+    const failed = [
+      fixedResult.error && `固定費（${fixedResult.error.message}）`,
+      expenseResult.error && `支払い（${expenseResult.error.message}）`,
+      requestResult.error && `給与の不足分（${requestResult.error.message}）`,
+    ].filter(Boolean);
+    if (failed.length) toast.error(`支払い情報の一部を読み込めませんでした: ${failed.join(" / ")}`);
 
     const requestRows = (requestResult.data ?? []) as unknown as TransferRequest[];
     const castIds = [...new Set(requestRows.map((row) => row.cast_id))];
@@ -166,8 +167,8 @@ export default function PaymentManagement() {
       else accounts = (accountResult.data ?? []) as unknown as CastBankAccount[];
     }
 
-    setFixedCosts((fixedResult.data ?? []) as unknown as FixedCost[]);
-    setExpenses((expenseResult.data ?? []) as Expense[]);
+    setFixedCosts((fixedResult.error ? [] : fixedResult.data ?? []) as unknown as FixedCost[]);
+    setExpenses((expenseResult.error ? [] : expenseResult.data ?? []) as Expense[]);
     setRequests(requestRows);
     setCastAccounts(Object.fromEntries(accounts.map((account) => [account.cast_id, account])));
     setLoading(false);
