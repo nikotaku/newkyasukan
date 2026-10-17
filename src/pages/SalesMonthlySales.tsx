@@ -110,16 +110,18 @@ export default function SalesMonthlySales() {
         if (!byMonth[month]) byMonth[month] = {};
         if (!byMonth[month][date]) byMonth[month][date] = [];
         const { deductions, salaryAdditions } = splitClearanceExtraItems(row.other_expenses);
+        const adjustments = splitSalaryAdjustments(salaryAdditions);
         byMonth[month][date].push({
           castName: row.casts?.name ?? "不明",
-          totalSales: row.total_sales ?? 0,
+          // 返金・キャッシュバックはお店の負担なので売上から引く
+          totalSales: (row.total_sales ?? 0) - adjustments.returnTotal,
           therapistBack: row.therapist_back ?? 0,
           miscExpenses: row.misc_expenses ?? 0,
           accommodationFee: row.accommodation_fee ?? 0,
           transportationFee: row.transportation_fee ?? 0,
           otherExpenses: sumClearanceExtraItems(deductions),
           // 追加支給だけ（給与不足分の相殺は前回の給与の支払いなので入れない）
-          salaryAdjustments: splitSalaryAdjustments(salaryAdditions).additionTotal,
+          salaryAdjustments: adjustments.additionTotal,
           payoutAmount: row.payout_amount ?? 0,
         });
       }

@@ -361,6 +361,13 @@
 - スタッフ画面のカードは源氏名未定なら本名＋「源氏名未定」バッジ、名前の下に「プロフィール ◯%」（バーと未入力の項目）。項目と判定は `src/lib/castProfileCompletion.ts`（テスト `npm run test:cast-profile`）
 - 本名・生年月日・メモ・面接シートなどの内部情報の列は anon から読めない（`20261017150000_cast_pending_stage_name.sql` で revoke）。公開ページで casts の列を足すときは anon に grant されているか確かめる
 
+## お客様へのキャッシュバック・返金（精算の入れ忘れ防止）
+
+- 起きた予約に記録する：予約表の予約詳細「💴 キャッシュバック・返金」（`src/components/ReservationCashReturns.tsx`）か、セラピストのマイページの精算「お客様に返したお金」（`src/components/therapist/TherapistCashReturns.tsx`、RPC `save_therapist_cash_return` / `get_therapist_cash_returns` / `cancel_therapist_cash_return`、本人のトークン）。種類（キャッシュバック／返金）・金額・理由（施術時間不足／クレーム対応／お釣りの返し忘れ／その他）・メモ
+- 表 `reservation_cash_returns`（anon は読めない。取り消しは `cancelled_at`、行は消さない）。店舗・担当は予約からトリガーで入る
+- 日別精算：締めていない日は、記録が `other_expenses` の kind = `cash_return`（`source_return_id` 付き）の行として自動で入る（`syncCashReturnItems`）。お店がセラピストに返す＝セラピストの受け取りが増え、店落ちが減る。セラピストの取り分（バック）は返金前の料金のまま。精算の後に記録されたものは赤で出し「精算に入れる」→「承認し直す」。入っていないまま承認しようとすると確認が出る
+- 月別清算・月別売上：返金・キャッシュバックはお店の負担として**売上から引く**（給与・追加支給には入れない）。分け方は `splitSalaryAdjustments` の `returns`。画面・計算は `src/lib/cashReturns.ts`（テスト `npm run test:clearance-defaults`）
+
 ## セラピストのマイページ：その月の本数
 
 - メニューの「◯月の本数」（`src/components/therapist/TherapistMonthlyCount.tsx`）。施術済み（completed）を大きく、予定（confirmed）を別に出す。キャンセルは数えない。指名の種類（指名なしはフリー）・コースの時間・日ごとの内訳つき。左右で過去24か月まで切り替え

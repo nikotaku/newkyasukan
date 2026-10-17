@@ -23,6 +23,7 @@ import checkoutLaundryImg from "@/assets/checkout-laundry.png";
 import checkoutClosetImg from "@/assets/checkout-closet.jpeg";
 import checkoutSandalsImg from "@/assets/checkout-sandals.jpeg";
 import { toast } from "sonner";
+import { TherapistCashReturns } from "@/components/therapist/TherapistCashReturns";
 import { format, addDays } from "date-fns";
 import { ja } from "date-fns/locale";
 import { calcPaymentFee, findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
@@ -965,6 +966,8 @@ export default function TherapistCheckout() {
                     )}
                   </CardContent>
                 </Card>
+
+                {token && <TherapistCashReturns token={token} reservations={reservations} />}
 
                 {/* 集計 */}
                 <Card className="bg-muted/30">
