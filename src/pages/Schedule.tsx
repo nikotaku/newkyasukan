@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { ReservationCashReturns } from "@/components/ReservationCashReturns";
 import { format, addDays, subDays, addMonths, subMonths, parse, addMinutes, startOfMonth, endOfMonth, startOfWeek, eachDayOfInterval } from "date-fns";
 import { toExtTime, toStoredTime } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
@@ -1950,6 +1951,7 @@ export default function Schedule() {
                         </>
                       )}
                     </div>
+                    <ReservationCashReturns reservationId={detailRes.id} />
                     {detailRes.payment_method === "PayPay" && (
                       <a href={paypayGuideUrl} target="_blank" rel="noopener noreferrer" className="block mt-3">
                         <img

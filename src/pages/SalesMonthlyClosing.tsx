@@ -80,6 +80,8 @@ interface ClearanceRec {
   salary_adjustments: number;
   /** 前回までの給与不足分の相殺。前回の給与に入っているので利益の計算には入れない */
   shortage_offsets: number;
+  /** お客様への返金・キャッシュバック（お店の負担）。total_sales からは引いてある */
+  cash_returns: number;
 }
 
 interface ReservationRec {
@@ -320,11 +322,12 @@ export default function SalesMonthlyClosing() {
     })));
     setClearances((clrRes.data ?? []).map((r) => {
       const { deductions, salaryAdditions } = splitClearanceExtraItems(r.other_expenses);
-      const { additionTotal, offsetTotal } = splitSalaryAdjustments(salaryAdditions);
+      const { additionTotal, offsetTotal, returnTotal } = splitSalaryAdjustments(salaryAdditions);
       return {
         cast_id: r.cast_id,
         cast_name: r.casts?.name ?? "不明",
-        total_sales: r.total_sales ?? 0,
+        // 返金・キャッシュバックはお店の負担なので売上から引く
+        total_sales: (r.total_sales ?? 0) - returnTotal,
         therapist_back: r.therapist_back ?? 0,
         misc_expenses: r.misc_expenses ?? 0,
         accommodation_fee: r.accommodation_fee ?? 0,
@@ -332,6 +335,7 @@ export default function SalesMonthlyClosing() {
         other_expenses: sumClearanceExtraItems(deductions),
         salary_adjustments: additionTotal,
         shortage_offsets: offsetTotal,
+        cash_returns: returnTotal,
       };
     }));
     setReferralSuggested(reservationRows.reduce((sum, r) => sum + (r.referral_reward_amount ?? 0), 0));
@@ -410,6 +414,7 @@ export default function SalesMonthlyClosing() {
   const totalOther = clearances.reduce((s, c) => s + c.other_expenses, 0);
   const totalSalaryAdjustments = clearances.reduce((s, c) => s + c.salary_adjustments, 0);
   const totalShortageOffsets = clearances.reduce((s, c) => s + c.shortage_offsets, 0);
+  const totalCashReturns = clearances.reduce((s, c) => s + c.cash_returns, 0);
   // 回収＝セラピストのバックから差し引いた諸費（店側のプラス）
   const totalRecovered = totalMisc + totalAccom + totalOther;
   // 給与（経費）= バック − 雑費 − 宿泊費 − その他 ＋ 交通費 ＋ 追加支給。
@@ -883,6 +888,11 @@ export default function SalesMonthlyClosing() {
                         {totalShortageOffsets > 0 && (
                           <div className="px-4 py-2 flex items-center justify-between text-xs text-sky-700">
                             <span>参考：給与不足分の相殺 {yen(totalShortageOffsets)}（前回の給与を現金で払った分。給与合計・利益には入れない）</span>
+                          </div>
+                        )}
+                        {totalCashReturns > 0 && (
+                          <div className="px-4 py-2 flex items-center justify-between text-xs text-amber-700">
+                            <span>参考：返金・キャッシュバック {yen(totalCashReturns)}（お店の負担。売上から引いてある・給与合計には入れない）</span>
                           </div>
                         )}
                       </div>

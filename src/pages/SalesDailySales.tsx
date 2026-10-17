@@ -18,6 +18,7 @@ import { ChevronLeft, ChevronRight, CheckCircle, Loader2, CreditCard, Download, 
 import { toast } from "sonner";
 import { downloadClearanceReceipt, toReceiptSnapshot, type ClearanceReceiptData } from "@/lib/clearanceReceipt";
 import { offsetClearanceIds, offsetItemsFor } from "@/lib/settlementApproval";
+import { cashReturnItem, cashReturnTotal, syncCashReturnItems, unreflectedCashReturns, type CashReturn } from "@/lib/cashReturns";
 import {
   approveDailySettlement,
   loadBankAccounts,
@@ -36,6 +37,7 @@ import {
   combineClearanceExtraItems,
   isShortageOffset,
   splitClearanceExtraItems,
+  isCashReturn,
   splitSalaryAdjustments,
   sumClearanceExtraItems,
 } from "@/lib/clearanceExtraItems";
@@ -183,6 +185,8 @@ export default function SalesDailySales() {
   const [approvals, setApprovals] = useState<Record<string, SettlementApprovalRow>>({});
   const [notices, setNotices] = useState<Map<string, SettlementNoticeRow>>(new Map());
   const [outstanding, setOutstanding] = useState<SettlementApprovalRow[]>([]);
+  // その日の予約に記録された返金・キャッシュバック（セラピストごと）
+  const [cashReturnsByCast, setCashReturnsByCast] = useState<Record<string, CashReturn[]>>({});
   const [bankAccounts, setBankAccounts] = useState<Record<string, CastBankAccountRow>>({});
   const [receiptCastId, setReceiptCastId] = useState<string | null>(null);
 
@@ -362,6 +366,26 @@ export default function SalesDailySales() {
       const groupList = Object.values(groups).sort((a, b) => a.castName.localeCompare(b.castName));
       setCastGroups(groupList);
 
+      // 予約に記録された返金・キャッシュバック（取り消したものを除く）
+      const reservationById = new Map(allRes.map((r) => [r.id, r]));
+      const returnsByCast: Record<string, CashReturn[]> = {};
+      if (allRes.length > 0) {
+        const { data: returnRows, error: returnsError } = await supabase
+          .from("reservation_cash_returns" as never)
+          .select("id, reservation_id, cast_id, kind, amount, reason, note, source, created_at")
+          .in("reservation_id", allRes.map((r) => r.id))
+          .is("cancelled_at", null)
+          .order("created_at");
+        if (returnsError) console.warn("返金・キャッシュバックの読み込みに失敗:", returnsError.message);
+        for (const row of (returnRows as unknown as CashReturn[]) || []) {
+          const castId = reservationById.get(row.reservation_id)?.cast_id;
+          if (!castId) continue;
+          (returnsByCast[castId] ??= []).push(row);
+        }
+      }
+      setCashReturnsByCast(returnsByCast);
+      const customerNameOf = (reservationId: string) => reservationById.get(reservationId)?.customer_name ?? null;
+
       const clearMap: Record<string, Clearance> = {};
       for (const c of (clearResult.data as Clearance[]) || []) clearMap[c.cast_id] = c;
       setClearances(clearMap);
@@ -385,12 +409,18 @@ export default function SalesDailySales() {
           accommodationFee: ex?.accommodation_fee ?? (g.isDekasegi ? DEKASEGI_ACCOMMODATION_PER_DAY : 0),
           transportationFee: ex?.transportation_fee ?? 0,
           otherItems: deductions,
-          // まだ保存していない日は、「次回出勤日に相殺」を選んだ前回までの不足分を上乗せする
-          salaryAdjustmentItems: ex
-            ? salaryAdditions
-            : offsetItemsFor(outstandingRows.filter((row) => (
-              row.cast_id === g.castId && row.shortage_method === "offset" && row.date < dateStr
-            ))),
+          // まだ保存していない日は、「次回出勤日に相殺」を選んだ前回までの不足分を上乗せする。
+          // 締めていない日は、予約に記録された返金・キャッシュバックをお店が返す行として自動で入れる
+          salaryAdjustmentItems: (() => {
+            const base = ex
+              ? salaryAdditions
+              : offsetItemsFor(outstandingRows.filter((row) => (
+                row.cast_id === g.castId && row.shortage_method === "offset" && row.date < dateStr
+              )));
+            return isFinalizedDailyClearance(ex)
+              ? base
+              : syncCashReturnItems(base, returnsByCast[g.castId] ?? [], customerNameOf);
+          })(),
           payoutMethod: ex?.payout_method ?? "",
           submitting: false,
           saving: false,
@@ -486,6 +516,12 @@ export default function SalesDailySales() {
   const handleClear = async (group: CastGroup) => {
     const input = clearanceInputs[group.castId];
     if (!input) return;
+    const missingReturns = unreflectedCashReturns(input.salaryAdjustmentItems, cashReturnsByCast[group.castId] ?? []);
+    if (missingReturns.length > 0 && !window.confirm(
+      `返金・キャッシュバック ${missingReturns.length}件 ${yen(cashReturnTotal(missingReturns))} が精算に入っていません。入れずに承認しますか？`,
+    )) {
+      return;
+    }
     if (input.therapistBack !== group.autoBack) {
       const confirmed = window.confirm(
         `給与バックが自動計算と一致しません。\n\n入力額：${yen(input.therapistBack)}\n自動計算：${yen(group.autoBack)}\n\n手動変更した金額で承認しますか？`,
@@ -793,6 +829,8 @@ export default function SalesDailySales() {
                 const hasCard = g.cashSales !== g.totalSales;
                 const submission = submissions[g.castId];
                 const approval = approvals[g.castId];
+                const dayReturns = cashReturnsByCast[g.castId] ?? [];
+                const missingReturns = unreflectedCashReturns(input.salaryAdjustmentItems, dayReturns);
 
                 return (
                   <Card key={g.castId} id={`clearance-${g.castId}`} className={`scroll-mt-20 ${cleared ? "border-green-200" : "border-primary/20"}`}>
@@ -825,6 +863,37 @@ export default function SalesDailySales() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                      {/* 返金・キャッシュバック（予約に記録したもの）。精算に入れ忘れないよう目立たせる */}
+                      {dayReturns.length > 0 && (
+                        <div className={`rounded-md border px-3 py-2 text-xs ${missingReturns.length > 0 ? "border-rose-300 bg-rose-50 text-rose-800" : "border-amber-300 bg-amber-50 text-amber-900"}`}>
+                          <div className="font-semibold">
+                            💴 この日は返金・キャッシュバックが {dayReturns.length}件 {yen(cashReturnTotal(dayReturns))} あります
+                          </div>
+                          {missingReturns.length > 0 ? (
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <span>精算の後に記録された {missingReturns.length}件 {yen(cashReturnTotal(missingReturns))} が入っていません。</span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 border-rose-300 bg-white px-2 text-xs text-rose-800 hover:bg-rose-100"
+                                onClick={() => updateInput(g.castId, "salaryAdjustmentItems", [
+                                  ...input.salaryAdjustmentItems,
+                                  ...missingReturns.map((item) => cashReturnItem(
+                                    item,
+                                    g.reservations.find((r) => r.id === item.reservation_id)?.customer_name,
+                                  )),
+                                ])}
+                              >
+                                精算に入れる
+                              </Button>
+                              {cleared && <span>入れたら「承認し直す」を押してください</span>}
+                            </div>
+                          ) : (
+                            <div className="mt-0.5">精算に入っています（お店の負担としてセラピストに返し、売上から引きます。セラピストの取り分は返金前のまま）</div>
+                          )}
+                        </div>
+                      )}
                       {/* Reservations */}
                       <div className="border rounded-md divide-y text-sm">
                         {g.reservations.map((r) => (
@@ -1060,6 +1129,14 @@ export default function SalesDailySales() {
                             <div className="space-y-1.5">
                               {input.salaryAdjustmentItems.map((item, idx) => (
                                 <div key={idx} className="flex gap-1.5 items-center">
+                                  {isCashReturn(item) ? (
+                                    <span
+                                      className="inline-flex h-8 shrink-0 items-center rounded border border-amber-300 bg-amber-50 px-1.5 text-[10px] font-semibold text-amber-800"
+                                      title="予約に記録した返金・キャッシュバック。お店が返し、売上から引きます"
+                                    >
+                                      返金
+                                    </span>
+                                  ) : (
                                   <button
                                     type="button"
                                     className={`h-8 shrink-0 rounded border px-1.5 text-[10px] font-semibold ${
@@ -1077,6 +1154,7 @@ export default function SalesDailySales() {
                                   >
                                     {isShortageOffset(item) ? "相殺" : "追加支給"}
                                   </button>
+                                  )}
                                   <Input
                                     className="h-8 text-xs flex-1 bg-white"
                                     aria-label={`追加支給項目 ${idx + 1} の項目名`}
@@ -1180,7 +1258,7 @@ export default function SalesDailySales() {
                           <span className="tabular-nums text-blue-700">{yen(salary)}</span>
                         </div>
                         {(() => {
-                          const { additionTotal, offsetTotal } = splitSalaryAdjustments(input.salaryAdjustmentItems);
+                          const { additionTotal, offsetTotal, returnTotal } = splitSalaryAdjustments(input.salaryAdjustmentItems);
                           return (
                             <>
                               {additionTotal > 0 && (
@@ -1193,6 +1271,12 @@ export default function SalesDailySales() {
                                 <div className="flex justify-between text-sky-700">
                                   <span>うち給与不足分の相殺（前回の給与の支払い・売上と経費には入れない）</span>
                                   <span className="tabular-nums">＋{yen(offsetTotal)}</span>
+                                </div>
+                              )}
+                              {returnTotal > 0 && (
+                                <div className="flex justify-between text-amber-700">
+                                  <span>うち返金・キャッシュバックをお店が返す分（売上から引く・給与ではない）</span>
+                                  <span className="tabular-nums">＋{yen(returnTotal)}</span>
                                 </div>
                               )}
                             </>
