@@ -317,6 +317,12 @@
 - `payload.fields = "sns"` のジョブはブログ・SNS欄だけを直す（写真・紹介文はエステ魂のまま）
 - プロフィールの「ブログ・SNS」欄：**X(旧Twitter)＝SNS運用管理のXのプロフィールURL**（`casts.x_account` を `https://x.com/ID` に直して送る）、**外部ブログ＝O2のプロフィールURL**（`casts.o2_url`、O2が無い人だけ `blog_url`）。変換は `server/estama-sns-links.ts`。`o2_url` の変更でも同期が積まれる（トリガー `trg_enqueue_estama_cast_update`）
 
+## エステ魂の「ご案内状況（今すぐ）」の自動更新
+
+- pg_cron `estama-availability-hourly`（毎時40分）→ `private.dispatch_estama_availability_refresh()` → Vercel `/api/cron/estama-availability`。エステ魂の「ご案内状況」画面で、エステ魂に載っている勤務時間の中にいる人を「今すぐ」にする（手で別の状態にした人はそのまま）。表示は1時間で切れる。結果は `estama_sync_reports`（「ご案内状況」）
+- 毎時だけだと出勤の開始から最大1時間近く「今すぐ」が出ないので、pg_cron `estama-availability-on-shift-start`（5分ごと）→ `private.dispatch_estama_availability_on_shift_start()` が、出勤の開始・休憩明けから20分以内でまだ更新していなければ同じ更新をかける（毎時27〜42分は動かさない）
+- 出勤者がいない時間は「現在勤務中のセラピストがいないため更新対象なし」で正常（止まっているわけではない）
+
 ## エステ魂の仮予約の取り込み（WEB予約受付 /schedule/web-bookings）
 
 - エステ魂の仮予約は、管理画面「お店への予約」（`/admin/reserve/`）にお客様名・電話・希望日時・指名・コース・クーポン・ご要望がそろって出る（IVRyの自動音声の電話をコピペする必要はない）。pg_cron `estama-reserve-sync`（毎分確認。仮予約のメールの合図（`private.estama_reserve_sync_requests`）があればすぐ、無ければ定期の 2,7,12,17,22,47,52,57分だけ。定期分は朝4〜9時は休み・毎時27〜42分の空き枠更新とは重ならない。別のエスたま処理中で読めなければ、合図が消えるまで毎分やり直す）→ `private.dispatch_estama_reserve_sync()` → `private.estama_scout_call(store, 'reserve-sync')` → Vercel `/api/cron/estama-appeal?action=estama-scout`（mode `reserve-sync`、本体 `server/estama-reserve-sync.ts`）が1ページ目（受付の新しい順20件）を**読むだけ**
