@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1513,11 +1514,23 @@ export default function Staff() {
         const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(fileName);
         uploaded.push(publicUrl);
       }
-      setEditingCast({ ...editingCast, management_photos: [...(editingCast.management_photos || []), ...uploaded] });
-      toast({ title: "アップロード完了", description: "管理用写真をアップロードしました" });
+      // 写真は1か所にまとめて入れる。HPに出す写真がまだ無ければ1枚目だけHP表示にし、残りは非公開（トグルで切り替え）
+      setEditingCast((current) => {
+        if (!current) return current;
+        const shown = current.photos || [];
+        const toShow = shown.length === 0 ? uploaded.slice(0, 1) : [];
+        const photos = [...shown, ...toShow];
+        return {
+          ...current,
+          photos,
+          photo: photos[0] || null,
+          management_photos: [...(current.management_photos || []), ...uploaded.slice(toShow.length)],
+        };
+      });
+      toast({ title: "アップロード完了", description: `${uploaded.length}枚追加しました。HPに出す写真は「HP表示」で選んでください` });
     } catch (error: any) {
       console.error("Error uploading management photo:", error);
-      toast({ title: "エラー", description: "管理用写真のアップロードに失敗しました", variant: "destructive" });
+      toast({ title: "エラー", description: "写真のアップロードに失敗しました", variant: "destructive" });
     } finally {
       setUploadingPhoto(false);
       if (managementPhotoInputRef.current) managementPhotoInputRef.current.value = "";
@@ -1528,6 +1541,43 @@ export default function Staff() {
     if (!editingCast) return;
     const updated = (editingCast.management_photos || []).filter((_, i) => i !== index);
     setEditingCast({ ...editingCast, management_photos: updated });
+  };
+
+  // 編集の写真欄：HP表示のオン・オフで photos（HPに出す・順番あり）と management_photos（非公開）の間を移す
+  const MAX_SHOWN_PHOTOS = 6;
+  const setPhotoShown = (url: string, show: boolean) => {
+    if (!editingCast) return;
+    const shown = editingCast.photos || [];
+    const stock = editingCast.management_photos || [];
+    if (show) {
+      if (shown.length >= MAX_SHOWN_PHOTOS) {
+        toast({ title: `HPに出せる写真は${MAX_SHOWN_PHOTOS}枚までです`, description: "どれかをオフにしてから選んでください", variant: "destructive" });
+        return;
+      }
+      const photos = [...shown, url];
+      setEditingCast({ ...editingCast, photos, photo: photos[0], management_photos: stock.filter((u) => u !== url) });
+    } else {
+      const photos = shown.filter((u) => u !== url);
+      setEditingCast({ ...editingCast, photos, photo: photos[0] || null, management_photos: [url, ...stock.filter((u) => u !== url)] });
+    }
+  };
+
+  const addEditPhotoUrl = (url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed || !editingCast) return;
+    const shown = editingCast.photos || [];
+    if (shown.length === 0) {
+      setEditingCast({ ...editingCast, photos: [trimmed], photo: trimmed });
+    } else {
+      setEditingCast({ ...editingCast, management_photos: [...(editingCast.management_photos || []), trimmed] });
+    }
+    setNewPhotoUrl("");
+  };
+
+  const makeMainPhoto = (url: string) => {
+    if (!editingCast) return;
+    const photos = [url, ...(editingCast.photos || []).filter((u) => u !== url)];
+    setEditingCast({ ...editingCast, photos, photo: url });
   };
 
   const handleRemovePhoto = (index: number, isEdit: boolean = false) => {
@@ -1801,110 +1851,6 @@ export default function Staff() {
                     </DialogTitle>
                   </DialogHeader>
 
-                  {/* ステータス・操作（一覧から移設） */}
-                  {isAdmin && (
-                    <div className="rounded-lg border bg-muted/30 p-3 space-y-2.5">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs text-muted-foreground">レベル</Label>
-                          <Select
-                            value={getCastLevel(editingCast) ?? "__none__"}
-                            onValueChange={(v) => handleSetLevelTag(editingCast.id, v === "__none__" ? "" : v as LevelTag)}
-                          >
-                            <SelectTrigger className="h-8 text-xs mt-0.5">
-                              <SelectValue placeholder="レベル" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">未設定</SelectItem>
-                              {LEVEL_TAGS.map(lv => (
-                                <SelectItem key={lv} value={lv}>{LEVEL_BADGES[lv].icon} {lv}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground">ステータス</Label>
-                          <Select
-                            value={getCastCategory(editingCast)}
-                            onValueChange={(v) => handleSetCategoryTag(editingCast.id, v as CategoryTag)}
-                          >
-                            <SelectTrigger className="h-8 text-xs mt-0.5">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {CATEGORY_TAGS.map(cat => (
-                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {editingCast.access_token ? (
-                          <>
-                            <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => copyPortalLink(editingCast.access_token!)}>
-                              <Copy size={13} />ポータルURL
-                            </Button>
-                            <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => copyBookingFormLink(editingCast)}>
-                              <Copy size={13} />予約フォームURL
-                            </Button>
-                          </>
-                        ) : (
-                          <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => generateAccessToken(editingCast.id)}>
-                            <LinkIcon size={13} />専用リンク発行
-                          </Button>
-                        )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs gap-1 text-violet-600 border-violet-200 hover:bg-violet-50 hover:text-violet-700"
-                          onClick={() => handleRegisterEstama(editingCast)}
-                          disabled={estamaRegisteringCastId === editingCast.id}
-                        >
-                          {estamaRegisteringCastId === editingCast.id
-                            ? <Loader2 size={13} className="animate-spin" />
-                            : <Bot size={13} />}
-                          {estamaRegisteringCastId === editingCast.id ? "登録・連携中" : "エスたま登録・連携"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs gap-1 text-pink-600 border-pink-200 hover:bg-pink-50 hover:text-pink-700"
-                          onClick={() => handleSyncEstama(editingCast)}
-                        >
-                          <ExternalLink size={13} />エスたま転記
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className={`h-8 text-xs gap-1 ${editingCast.is_active
-                            ? "text-amber-700 border-amber-300 hover:bg-amber-50 hover:text-amber-800"
-                            : "text-emerald-700 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"}`}
-                          onClick={() => void handleArchiveCast(editingCast)}
-                          disabled={archiveUpdatingId === editingCast.id}
-                        >
-                          {archiveUpdatingId === editingCast.id
-                            ? <Loader2 size={13} className="animate-spin" />
-                            : editingCast.is_active ? <Archive size={13} /> : <ArchiveRestore size={13} />}
-                          {editingCast.is_active ? "アーカイブ" : "在籍中に戻す"}
-                        </Button>
-                        {deleteConfirmId === editingCast.id ? (
-                          <>
-                            <Button type="button" variant="destructive" size="sm" className="h-8 text-xs" onClick={() => handleDeleteCast(editingCast.id)}>削除を確定</Button>
-                            <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setDeleteConfirmId(null)}>キャンセル</Button>
-                          </>
-                        ) : (
-                          <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive hover:text-destructive-foreground ml-auto" onClick={() => setDeleteConfirmId(editingCast.id)}>
-                            <Trash2 size={13} />削除
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
                   <Tabs value={editTab} onValueChange={setEditTab} className="w-full">
                     <TabsList className="mb-2 flex h-auto w-full flex-wrap justify-start gap-1">
                       {(() => {
@@ -2156,117 +2102,114 @@ export default function Staff() {
                     </TabsContent>
 
                     <TabsContent value="photos" className="space-y-5 pb-4">
-                      {/* 写真 */}
-                      <div>
-                        <Label className="font-semibold">セラピスト写真</Label>
-                        <div className="mt-2 space-y-2">
-                          <input
-                            ref={editPhotoInputRef}
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            className="hidden"
-                            onChange={(e) => handlePhotoFileUpload(e, true)}
-                          />
-                          <Button type="button" variant="outline" className="w-full" onClick={() => editPhotoInputRef.current?.click()} disabled={uploadingPhoto}>
-                            <Camera className="h-4 w-4 mr-1.5" />
-                            {uploadingPhoto ? "アップロード中..." : "写真をアップロード"}
-                          </Button>
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="またはGoogleドライブURL / ファイルID"
-                              value={newPhotoUrl}
-                              onChange={(e) => setNewPhotoUrl(e.target.value)}
-                              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhotoUrl(newPhotoUrl, true))}
-                            />
-                            <Button type="button" variant="outline" onClick={() => addPhotoUrl(newPhotoUrl, true)} disabled={!newPhotoUrl.trim()}>
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground">ドラッグで順番を変更できます</p>
-                          <div className="grid grid-cols-3 gap-2">
-                            {Array.from({ length: 6 }).map((_, index) => {
-                              const photos = editingCast.photos || [];
-                              const photo = photos[index];
-                              return (
-                                <div
-                                  key={index}
-                                  draggable={!!photo}
-                                  onDragStart={() => { if (photo) dragPhotoIdxRef.current = index; }}
-                                  onDragOver={(e) => e.preventDefault()}
-                                  onDrop={() => {
-                                    const from = dragPhotoIdxRef.current;
-                                    dragPhotoIdxRef.current = null;
-                                    if (from === null || from === index) return;
-                                    const arr = [...photos];
-                                    const [moved] = arr.splice(from, 1);
-                                    arr.splice(index, 0, moved);
-                                    const cleaned = arr.filter(Boolean);
-                                    setEditingCast({ ...editingCast, photos: cleaned, photo: cleaned[0] || null });
-                                  }}
-                                  className={`relative aspect-square border-2 border-dashed border-muted rounded-md overflow-hidden flex items-center justify-center bg-muted/30 ${photo ? "cursor-grab active:cursor-grabbing" : ""}`}
-                                >
-                                  {photo ? (
-                                    <>
-                                      <img src={driveImgUrl(photo)} alt={`写真${index + 1}`} className="w-full h-full object-cover" />
-                                      <Button type="button" variant="destructive" size="sm" className="absolute top-1 right-1 h-6 w-6 p-0" onClick={() => handleRemovePhoto(index, true)}>
-                                        <X className="h-3 w-3" />
-                                      </Button>
-                                      <div className="absolute bottom-1 left-1 flex items-center gap-0.5">
-                                        <Badge variant="secondary" className="text-[10px] px-1">{index + 1}</Badge>
-                                        <GripVertical size={12} className="text-white/80 drop-shadow" />
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">写真{index + 1}</span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 画像ストック（非公開・枚数無制限） */}
-                      <div className="border rounded-lg p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="font-semibold">
-                            画像ストック
-                            <span className="ml-2 text-xs font-normal text-muted-foreground">
-                              {(editingCast.management_photos || []).length}枚
-                            </span>
-                          </Label>
-                          <Button type="button" variant="outline" size="sm" onClick={() => managementPhotoInputRef.current?.click()} disabled={uploadingPhoto}>
-                            <Camera className="h-4 w-4 mr-1.5" />
-                            {uploadingPhoto ? "アップロード中..." : "画像を追加"}
-                          </Button>
-                        </div>
-                        <input ref={managementPhotoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleManagementPhotoUpload} />
-                        <p className="text-xs text-muted-foreground">
-                          投稿・広告用などの画像を何枚でもストックできます（複数選択OK）。HPには公開されません。タップで拡大表示。
-                        </p>
-                        {(editingCast.management_photos || []).length === 0 ? (
-                          <p className="text-center text-xs text-muted-foreground py-6 border border-dashed rounded-md">
-                            まだ画像がありません
-                          </p>
-                        ) : (
-                          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                            {(editingCast.management_photos || []).map((url, i) => (
-                              <div key={i} className="relative aspect-square rounded-md overflow-hidden border bg-muted/30">
-                                <img
-                                  src={url}
-                                  alt={`ストック画像${i + 1}`}
-                                  loading="lazy"
-                                  className="w-full h-full object-cover cursor-pointer"
-                                  onClick={() => window.open(url, "_blank")}
-                                />
-                                <Button type="button" variant="destructive" size="sm" className="absolute top-1 right-1 h-6 w-6 p-0" onClick={() => handleRemoveManagementPhoto(i)}>
-                                  <X className="h-3 w-3" />
+                      {/* 写真（アップロードは1か所。HP表示のオン・オフで、HPに出す写真を選ぶ） */}
+                      <div className="space-y-2">
+                        {(() => {
+                          const shown = editingCast.photos || [];
+                          const stock = editingCast.management_photos || [];
+                          const items = [
+                            ...shown.map((url, i) => ({ url, shownIndex: i })),
+                            ...stock.filter((url) => !shown.includes(url)).map((url) => ({ url, shownIndex: -1 })),
+                          ];
+                          return (
+                            <>
+                              <div className="flex items-center justify-between">
+                                <Label className="font-semibold">
+                                  写真
+                                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                    全{items.length}枚・HP表示 {shown.length}/{MAX_SHOWN_PHOTOS}
+                                  </span>
+                                </Label>
+                                <Button type="button" variant="outline" size="sm" onClick={() => managementPhotoInputRef.current?.click()} disabled={uploadingPhoto}>
+                                  <Camera className="h-4 w-4 mr-1.5" />
+                                  {uploadingPhoto ? "アップロード中..." : "写真を追加"}
                                 </Button>
                               </div>
-                            ))}
-                          </div>
-                        )}
+                              <input ref={managementPhotoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleManagementPhotoUpload} />
+                              <div className="flex gap-2">
+                                <Input
+                                  placeholder="またはGoogleドライブURL / ファイルID"
+                                  value={newPhotoUrl}
+                                  onChange={(e) => setNewPhotoUrl(e.target.value)}
+                                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addEditPhotoUrl(newPhotoUrl))}
+                                />
+                                <Button type="button" variant="outline" onClick={() => addEditPhotoUrl(newPhotoUrl)} disabled={!newPhotoUrl.trim()}>
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                「HP表示」をオンにした写真だけHPに出ます（{MAX_SHOWN_PHOTOS}枚まで・番号の順。①がメイン）。オフの写真は非公開で何枚でも置けます。HP表示の写真はドラッグで並べ替え、タップで拡大。
+                              </p>
+                              {items.length === 0 ? (
+                                <p className="text-center text-xs text-muted-foreground py-6 border border-dashed rounded-md">
+                                  まだ写真がありません
+                                </p>
+                              ) : (
+                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                  {items.map(({ url, shownIndex }) => {
+                                    const isShown = shownIndex >= 0;
+                                    return (
+                                      <div
+                                        key={url}
+                                        draggable={isShown}
+                                        onDragStart={() => { if (isShown) dragPhotoIdxRef.current = shownIndex; }}
+                                        onDragOver={(e) => { if (isShown) e.preventDefault(); }}
+                                        onDrop={() => {
+                                          const from = dragPhotoIdxRef.current;
+                                          dragPhotoIdxRef.current = null;
+                                          if (!isShown || from === null || from === shownIndex) return;
+                                          const arr = [...shown];
+                                          const [moved] = arr.splice(from, 1);
+                                          arr.splice(shownIndex, 0, moved);
+                                          setEditingCast({ ...editingCast, photos: arr, photo: arr[0] || null });
+                                        }}
+                                        className={`overflow-hidden rounded-md border-2 bg-muted/30 ${isShown ? "border-primary cursor-grab active:cursor-grabbing" : "border-transparent"}`}
+                                      >
+                                        <div className="relative aspect-square">
+                                          <img
+                                            src={driveImgUrl(url)}
+                                            alt={isShown ? `HP写真${shownIndex + 1}` : "写真"}
+                                            loading="lazy"
+                                            className={`w-full h-full object-cover cursor-pointer ${isShown ? "" : "opacity-60"}`}
+                                            onClick={() => window.open(driveImgUrl(url), "_blank")}
+                                          />
+                                          <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="sm"
+                                            className="absolute top-1 right-1 h-6 w-6 p-0"
+                                            onClick={() => isShown ? handleRemovePhoto(shownIndex, true) : handleRemoveManagementPhoto(stock.indexOf(url))}
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </Button>
+                                          {isShown && (
+                                            <div className="absolute bottom-1 left-1 flex items-center gap-0.5">
+                                              <Badge className="text-[10px] px-1">{shownIndex === 0 ? "①メイン" : shownIndex + 1}</Badge>
+                                              <GripVertical size={12} className="text-white/80 drop-shadow" />
+                                            </div>
+                                          )}
+                                          {isShown && shownIndex > 0 && (
+                                            <button
+                                              type="button"
+                                              className="absolute bottom-1 right-1 rounded bg-black/60 px-1 text-[10px] text-white"
+                                              onClick={() => makeMainPhoto(url)}
+                                            >
+                                              メインに
+                                            </button>
+                                          )}
+                                        </div>
+                                        <label className="flex cursor-pointer items-center justify-between gap-1 px-1.5 py-1 text-[11px]">
+                                          <span className={isShown ? "font-semibold text-primary" : "text-muted-foreground"}>HP表示</span>
+                                          <Switch checked={isShown} onCheckedChange={(v) => setPhotoShown(url, v)} className="scale-75" />
+                                        </label>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
 
                       {/* トップバナーの素材（出勤日にHPのトップバナーへ自動で出す） */}
@@ -2305,6 +2248,88 @@ export default function Staff() {
                     </TabsContent>
 
                     <TabsContent value="mgmt" className="space-y-4 pb-4">
+                      {/* レベル・ステータス・リンク・アーカイブ・削除 */}
+                      {isAdmin && (
+                        <div className="rounded-lg border p-3 space-y-2.5">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-xs text-muted-foreground">レベル</Label>
+                              <Select
+                                value={getCastLevel(editingCast) ?? "__none__"}
+                                onValueChange={(v) => handleSetLevelTag(editingCast.id, v === "__none__" ? "" : v as LevelTag)}
+                              >
+                                <SelectTrigger className="h-8 text-xs mt-0.5">
+                                  <SelectValue placeholder="レベル" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__none__">未設定</SelectItem>
+                                  {LEVEL_TAGS.map(lv => (
+                                    <SelectItem key={lv} value={lv}>{LEVEL_BADGES[lv].icon} {lv}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">ステータス</Label>
+                              <Select
+                                value={getCastCategory(editingCast)}
+                                onValueChange={(v) => handleSetCategoryTag(editingCast.id, v as CategoryTag)}
+                              >
+                                <SelectTrigger className="h-8 text-xs mt-0.5">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {CATEGORY_TAGS.map(cat => (
+                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {editingCast.access_token ? (
+                              <>
+                                <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => copyPortalLink(editingCast.access_token!)}>
+                                  <Copy size={13} />ポータルURL
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => copyBookingFormLink(editingCast)}>
+                                  <Copy size={13} />予約フォームURL
+                                </Button>
+                              </>
+                            ) : (
+                              <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => generateAccessToken(editingCast.id)}>
+                                <LinkIcon size={13} />専用リンク発行
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className={`h-8 text-xs gap-1 ${editingCast.is_active
+                                ? "text-amber-700 border-amber-300 hover:bg-amber-50 hover:text-amber-800"
+                                : "text-emerald-700 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"}`}
+                              onClick={() => void handleArchiveCast(editingCast)}
+                              disabled={archiveUpdatingId === editingCast.id}
+                            >
+                              {archiveUpdatingId === editingCast.id
+                                ? <Loader2 size={13} className="animate-spin" />
+                                : editingCast.is_active ? <Archive size={13} /> : <ArchiveRestore size={13} />}
+                              {editingCast.is_active ? "アーカイブ" : "在籍中に戻す"}
+                            </Button>
+                            {deleteConfirmId === editingCast.id ? (
+                              <>
+                                <Button type="button" variant="destructive" size="sm" className="h-8 text-xs" onClick={() => handleDeleteCast(editingCast.id)}>削除を確定</Button>
+                                <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setDeleteConfirmId(null)}>キャンセル</Button>
+                              </>
+                            ) : (
+                              <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive hover:text-destructive-foreground ml-auto" onClick={() => setDeleteConfirmId(editingCast.id)}>
+                                <Trash2 size={13} />削除
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between p-3 rounded-lg border">
                         <div className="flex items-center gap-2">
                           {editingCast.is_visible ? <Eye className="h-4 w-4 text-green-600" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
@@ -2372,12 +2397,6 @@ export default function Staff() {
                               {uploadingPhoto ? "アップロード中..." : editingCast.interview_sheet_url ? "画像を変更" : "画像をアップロード"}
                             </Button>
                           </div>
-                        </div>
-                        <div>
-                          <Label>画像ストック</Label>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            「プロフィール」タブの画像ストック欄に移動しました（{(editingCast.management_photos || []).length}枚登録済み）
-                          </p>
                         </div>
                       </div>
 
