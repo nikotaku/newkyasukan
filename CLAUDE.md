@@ -368,6 +368,7 @@
 - 本名・生年月日・メモ・面接シートなどの内部情報の列は anon から読めない（`20261017150000_cast_pending_stage_name.sql` で revoke）。公開ページで casts の列を足すときは anon に grant されているか確かめる
 - **仮登録**：キャスト管理の「＋新規追加」は短い画面（本名・源氏名（任意）・入店日・ルーム）。「仮登録する」か「登録して続きを入力」（そのまま編集の「未入力」タブが開く）。AIメモ・エスたまからの取り込みで入った項目も一緒に保存する
 - **編集画面のタブ**：未入力（足りない項目だけ。`src/components/staff/CastMissingFields.tsx`）／基本／インタビュー／写真／コメント／管理。「保存する」は下に固定でどのタブからでも押せる。カードの「プロフィール ◯%」を押すと「未入力」タブで開く
+- **写真タブ**：アップロードは「写真を追加」1か所。各写真の「HP表示」トグルでHPに出すか選ぶ（オン＝`casts.photos`・最大6枚・番号順で①がメイン＝`photo`、オフ＝`casts.management_photos`・非公開）。新しく入れた写真は非公開に入る（HP表示が0枚のときだけ1枚目をオン）。レベル・ステータス・URLコピー・アーカイブ・削除は「管理」タブ（エスたまは自動同期なので手動ボタンは置かない）
 - 編集画面は `casts_admin_safe`（access_token・O2のパスワードを除いたビュー）から読む。**casts に列を足したらこのビューにも足す**（ビューは security_invoker。今は authenticated が casts を表ごと読めるので権限の付け忘れは起きない）（足さないと編集画面で空に見え、保存で消える。2026年10月に `new_customer_max_minutes`・バナーの列が抜けていたのを `20261018093000_casts_admin_safe_new_columns.sql` で直した）
 - **本人のプロフィール入力**：マイページのメニュー「プロフィール入力」（`?view=profile`、`src/components/therapist/TherapistProfileForm.tsx`）でインタビューの項目を入れて「お店に送る」→ `cast_profile_submissions`（status: pending → applied / rejected、RPC `get_therapist_profile_form` / `submit_therapist_profile`、本人のトークン・項目は `therapist_profile_field_keys()` だけ）。キャスト管理の上の「📝 セラピストから届いたプロフィール」で変わる項目を見比べて「反映する」（casts に入る。カップは bust_size、コメントは profile、3サイズは body_size もそろえる）。「未入力」タブの「本人に入力してもらう」で入力用URLをコピー。項目と変換は `src/lib/therapistProfileForm.ts`（テスト `npm run test:cast-profile`）
 
