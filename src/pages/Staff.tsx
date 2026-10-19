@@ -1562,18 +1562,6 @@ export default function Staff() {
     }
   };
 
-  const addEditPhotoUrl = (url: string) => {
-    const trimmed = url.trim();
-    if (!trimmed || !editingCast) return;
-    const shown = editingCast.photos || [];
-    if (shown.length === 0) {
-      setEditingCast({ ...editingCast, photos: [trimmed], photo: trimmed });
-    } else {
-      setEditingCast({ ...editingCast, management_photos: [...(editingCast.management_photos || []), trimmed] });
-    }
-    setNewPhotoUrl("");
-  };
-
   const makeMainPhoto = (url: string) => {
     if (!editingCast) return;
     const photos = [url, ...(editingCast.photos || []).filter((u) => u !== url)];
@@ -2126,17 +2114,6 @@ export default function Staff() {
                                 </Button>
                               </div>
                               <input ref={managementPhotoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleManagementPhotoUpload} />
-                              <div className="flex gap-2">
-                                <Input
-                                  placeholder="またはGoogleドライブURL / ファイルID"
-                                  value={newPhotoUrl}
-                                  onChange={(e) => setNewPhotoUrl(e.target.value)}
-                                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addEditPhotoUrl(newPhotoUrl))}
-                                />
-                                <Button type="button" variant="outline" onClick={() => addEditPhotoUrl(newPhotoUrl)} disabled={!newPhotoUrl.trim()}>
-                                  <Plus className="h-4 w-4" />
-                                </Button>
-                              </div>
                               <p className="text-xs text-muted-foreground">
                                 「HP表示」をオンにした写真だけHPに出ます（{MAX_SHOWN_PHOTOS}枚まで・番号の順。①がメイン）。オフの写真は非公開で何枚でも置けます。HP表示の写真はドラッグで並べ替え、タップで拡大。
                               </p>
