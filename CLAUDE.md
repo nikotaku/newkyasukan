@@ -368,7 +368,7 @@
 - 本名・生年月日・メモ・面接シートなどの内部情報の列は anon から読めない（`20261017150000_cast_pending_stage_name.sql` で revoke）。公開ページで casts の列を足すときは anon に grant されているか確かめる
 - **仮登録**：キャスト管理の「＋新規追加」は短い画面（本名・源氏名（任意）・入店日・ルーム）。「仮登録する」か「登録して続きを入力」（そのまま編集の「未入力」タブが開く）。AIメモ・エスたまからの取り込みで入った項目も一緒に保存する
 - **編集画面のタブ**：未入力（足りない項目だけ。`src/components/staff/CastMissingFields.tsx`）／基本／インタビュー／写真／コメント／管理。「保存する」は下に固定でどのタブからでも押せる。カードの「プロフィール ◯%」を押すと「未入力」タブで開く
-- 編集画面は `casts_admin_safe`（access_token・O2のパスワードを除いたビュー）から読む。**casts に列を足したらこのビューにも足す**（足さないと編集画面で空に見え、保存で消える。2026年10月に `new_customer_max_minutes`・バナーの列が抜けていたのを `20261018093000_casts_admin_safe_new_columns.sql` で直した）
+- 編集画面は `casts_admin_safe`（access_token・O2のパスワードを除いたビュー）から読む。**casts に列を足したらこのビューにも足す**。ビューは security_invoker なので、**足す列は authenticated に select の権限があること**を確かめる（無い列が1つでもあるとキャスト管理の一覧ごと読めなくなる。2026-10-19 に x_sub_account で起きた）（足さないと編集画面で空に見え、保存で消える。2026年10月に `new_customer_max_minutes`・バナーの列が抜けていたのを `20261018093000_casts_admin_safe_new_columns.sql` で直した）
 - **本人のプロフィール入力**：マイページのメニュー「プロフィール入力」（`?view=profile`、`src/components/therapist/TherapistProfileForm.tsx`）でインタビューの項目を入れて「お店に送る」→ `cast_profile_submissions`（status: pending → applied / rejected、RPC `get_therapist_profile_form` / `submit_therapist_profile`、本人のトークン・項目は `therapist_profile_field_keys()` だけ）。キャスト管理の上の「📝 セラピストから届いたプロフィール」で変わる項目を見比べて「反映する」（casts に入る。カップは bust_size、コメントは profile、3サイズは body_size もそろえる）。「未入力」タブの「本人に入力してもらう」で入力用URLをコピー。項目と変換は `src/lib/therapistProfileForm.ts`（テスト `npm run test:cast-profile`）
 
 ## お客様へのキャッシュバック・返金（精算の入れ忘れ防止）
