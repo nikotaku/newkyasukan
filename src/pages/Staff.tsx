@@ -1822,12 +1822,6 @@ export default function Staff() {
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 flex-wrap">
                       セラピスト編集
-                      {getCastLevel(editingCast) && (
-                        <span className={`inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full font-semibold ${LEVEL_BADGES[getCastLevel(editingCast)!].className}`}>
-                          <span>{LEVEL_BADGES[getCastLevel(editingCast)!].icon}</span>
-                          {getCastLevel(editingCast)}
-                        </span>
-                      )}
                       <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border font-semibold ${
                         isSbLinked(editingCast)
                           ? "bg-emerald-50 text-emerald-700 border-emerald-300"
@@ -1925,34 +1919,6 @@ export default function Staff() {
                         </Select>
                       </div>
 
-                      {/* セラピストレベル */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">セラピストレベル</Label>
-                        <Select
-                          value={getCastLevel(editingCast) ?? "__none__"}
-                          onValueChange={(v) => {
-                            const otherTags = (editingCast.tags || []).filter(t => !LEVEL_TAGS.includes(t as LevelTag));
-                            setEditingCast({...editingCast, tags: v !== "__none__" ? [...otherTags, v] : otherTags});
-                          }}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue placeholder="レベル未設定" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">未設定</SelectItem>
-                            {LEVEL_TAGS.map(lv => (
-                              <SelectItem key={lv} value={lv}>{lv}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <div className="space-y-1 text-xs text-muted-foreground">
-                          <p>1.ビギナーズ — 講習中・デビュー前</p>
-                          <p>2.スタンダード — 初出勤済み・SNS教育中</p>
-                          <p>3.ソルジャー — SNS投稿こなし、日7〜8万水準</p>
-                          <p>4.マスター — 本指名率30%以上・皆勤・クレームなし達成</p>
-                        </div>
-                      </div>
-
                       {/* 称号バッジ（HPの写真右上に表示） */}
                       <div className="border rounded-lg p-4 space-y-2">
                         <Label className="font-semibold">称号バッジ</Label>
@@ -1973,58 +1939,6 @@ export default function Staff() {
                         </Select>
                       </div>
 
-                      {/* カスタムタグ */}
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <Label className="font-semibold">カスタムタグ</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="タグ名を入力してEnter"
-                            value={customTagInput}
-                            onChange={(e) => setCustomTagInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                const t = customTagInput.trim();
-                                if (t && !(editingCast.tags || []).includes(t)) {
-                                  setEditingCast({...editingCast, tags: [...(editingCast.tags || []), t]});
-                                  setCustomTagInput("");
-                                }
-                              }
-                            }}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const t = customTagInput.trim();
-                              if (t && !(editingCast.tags || []).includes(t)) {
-                                setEditingCast({...editingCast, tags: [...(editingCast.tags || []), t]});
-                                setCustomTagInput("");
-                              }
-                            }}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                          {(editingCast.tags || []).filter(t => !ALL_SYSTEM_TAGS.includes(t)).map((tag) => (
-                            <span key={tag} className="flex items-center gap-1 bg-[#f5e6e0] text-[#7a706c] text-xs px-2 py-1 rounded-full">
-                              {tag}
-                              <button
-                                type="button"
-                                onClick={() => setEditingCast({...editingCast, tags: (editingCast.tags || []).filter(t => t !== tag)})}
-                                className="text-[#c49480] hover:text-[#a87b65] leading-none"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </span>
-                          ))}
-                          {(editingCast.tags || []).filter(t => !ALL_SYSTEM_TAGS.includes(t)).length === 0 && (
-                            <p className="text-xs text-muted-foreground">タグなし</p>
-                          )}
-                        </div>
-                      </div>
 
                       {/* ブログ・SNSは別メニュー(SNS連携管理)に統合済みのため、この画面には表示しない */}
                     </TabsContent>
@@ -2225,28 +2139,10 @@ export default function Staff() {
                     </TabsContent>
 
                     <TabsContent value="mgmt" className="space-y-4 pb-4">
-                      {/* レベル・ステータス・リンク・アーカイブ・削除 */}
+                      {/* ステータス・リンク・アーカイブ・削除 */}
                       {isAdmin && (
                         <div className="rounded-lg border p-3 space-y-2.5">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <Label className="text-xs text-muted-foreground">レベル</Label>
-                              <Select
-                                value={getCastLevel(editingCast) ?? "__none__"}
-                                onValueChange={(v) => handleSetLevelTag(editingCast.id, v === "__none__" ? "" : v as LevelTag)}
-                              >
-                                <SelectTrigger className="h-8 text-xs mt-0.5">
-                                  <SelectValue placeholder="レベル" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="__none__">未設定</SelectItem>
-                                  {LEVEL_TAGS.map(lv => (
-                                    <SelectItem key={lv} value={lv}>{LEVEL_BADGES[lv].icon} {lv}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
+                          <div>
                               <Label className="text-xs text-muted-foreground">ステータス</Label>
                               <Select
                                 value={getCastCategory(editingCast)}
@@ -2261,7 +2157,6 @@ export default function Staff() {
                                   ))}
                                 </SelectContent>
                               </Select>
-                            </div>
                           </div>
                           <div className="flex flex-wrap gap-1.5">
                             {editingCast.access_token ? (
@@ -2511,12 +2406,6 @@ export default function Staff() {
                         {stageNamePending && (
                           <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full border font-semibold bg-amber-50 text-amber-700 border-amber-300">
                             源氏名未定
-                          </span>
-                        )}
-                        {getCastLevel(cast) && (
-                          <span className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${LEVEL_BADGES[getCastLevel(cast)!].className}`}>
-                            <span>{LEVEL_BADGES[getCastLevel(cast)!].icon}</span>
-                            {getCastLevel(cast)}
                           </span>
                         )}
                         <span className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${
