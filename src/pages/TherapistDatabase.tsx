@@ -111,7 +111,8 @@ export default function TherapistDatabase() {
           "id,name,is_active,photo,age,height,bust,cup_size,waist,hip,blood_type,therapist_years,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,message,profile,x_account,line_url,litlink_url,o2_url,ranking_cast_id"
         ).order("name"),
         supabase.from("therapist_profiles" as any).select("*"),
-        supabase.rpc("get_cast_access_tokens").catch(() => ({ data: null })),
+        // Supabase の問い合わせ（rpc）には .catch が無いので Promise にしてから受ける（直接 .catch すると一覧ごと読めなくなる）
+        Promise.resolve(supabase.rpc("get_cast_access_tokens")).catch(() => ({ data: null })),
       ]);
       setCasts(castsRes.data || []);
       const map: Record<string, InternalProfile> = {};
