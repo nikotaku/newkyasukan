@@ -74,3 +74,7 @@ verify_jwt = false
 
 [functions.subline]
 verify_jwt = true
+
+[functions.therapist-photos]
+# マイページの長いトークンを関数内で確かめる
+verify_jwt = false

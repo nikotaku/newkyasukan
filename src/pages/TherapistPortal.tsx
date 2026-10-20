@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { AtSign, Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, ChevronRight, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart, PencilLine, Check, X, Copy, CheckCircle2, Megaphone, MapPin, KeyRound, ListOrdered, ImageIcon, Maximize2, ZoomIn, ZoomOut, RotateCcw, Sparkles, Trophy, Flame, Target, Zap, Medal, Footprints } from "lucide-react";
+import { AtSign, Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, ChevronRight, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart, PencilLine, Check, X, Copy, CheckCircle2, Megaphone, MapPin, KeyRound, ListOrdered, ImageIcon, Maximize2, ZoomIn, ZoomOut, RotateCcw, Sparkles, Trophy, Flame, Target, Zap, Medal, Footprints, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format, startOfMonth, endOfMonth, isSameDay, addDays } from "date-fns";
@@ -19,6 +19,7 @@ import { TherapistPushCard } from "@/components/therapist/TherapistPushCard";
 import { TherapistSettlementNotice } from "@/components/therapist/TherapistSettlementNotice";
 import { TherapistMonthlyCount } from "@/components/therapist/TherapistMonthlyCount";
 import { TherapistProfileForm } from "@/components/therapist/TherapistProfileForm";
+import { TherapistPhotoUpload } from "@/components/therapist/TherapistPhotoUpload";
 import { BackRateTable, type BackRateRow } from "@/components/therapist/BackRateTable";
 import { TherapistSnsAccount } from "@/components/therapist/TherapistSnsAccount";
 import { hasUnseenSnsNotice, useTherapistSnsAccount } from "@/lib/therapistSns";
@@ -103,7 +104,7 @@ interface EntryPhotoViewer {
   total: number;
 }
 
-type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers" | "upcoming" | "promotion" | "sns" | "profile";
+type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers" | "upcoming" | "promotion" | "sns" | "profile" | "photos";
 
 interface PromotionScheduleTask {
   id: string;
@@ -704,6 +705,7 @@ export default function TherapistPortal() {
     { title: "退勤フォーム", description: "売上入力・清掃チェック・フィードバック", icon: LogOut, action: () => navigate(`/therapist/${token}/checkout`) },
     { title: "顧客カルテ", description: "担当したお客様の好み・来店履歴を確認", icon: Users, action: () => setView("customers") },
     { title: "プロフィール入力", description: "HPに載るプロフィールを入力してお店に送る", icon: PencilLine, action: () => setView("profile") },
+    { title: "画像アップロード", description: "プロフィール・宣伝に使う写真をお店に送る", icon: ImagePlus, action: () => setView("photos") },
     { title: "SNSアカウント", description: "X・O2のログイン情報と設定マニュアル", icon: AtSign, action: () => setView("sns") },
     { title: "入室方法", description: "各ルームへの入室手順・鍵の場所を確認", icon: DoorOpen, action: () => setView("entry") },
     { title: "振り込み申請", description: "報酬の振り込み申請フォーム", icon: ExternalLink, action: () => window.open("https://yoom.fun/5eee42a7-b4ff-49a8-8373-606c66495142/forms/shared/Cu2K735X9qaSAdMs45x6Bw", "_blank") },
@@ -738,7 +740,7 @@ export default function TherapistPortal() {
           <div className="min-w-0">
             <p className="font-bold text-base leading-tight truncate">{cast.name}様</p>
             <p className="text-xs text-muted-foreground">
-              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : view === "upcoming" ? "事前予約" : view === "promotion" ? "投稿宣伝スケジュール" : view === "sns" ? "SNSアカウント" : view === "profile" ? "プロフィール入力" : "交通費申請"}
+              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : view === "upcoming" ? "事前予約" : view === "promotion" ? "投稿宣伝スケジュール" : view === "sns" ? "SNSアカウント" : view === "profile" ? "プロフィール入力" : view === "photos" ? "画像アップロード" : "交通費申請"}
             </p>
           </div>
         </div>
@@ -1089,34 +1091,6 @@ export default function TherapistPortal() {
             )}
           </div>
 
-          {/* 外部サイト連携（O2・魂セラピスト） */}
-          <div className="rounded-xl border bg-card overflow-hidden">
-            <div className="px-4 py-3 bg-muted/30 flex items-center gap-2">
-              <ExternalLink size={15} className="text-primary" />
-              <p className="font-semibold text-sm">外部サイト登録・連携</p>
-            </div>
-            <div className="p-4 space-y-4">
-              {(["o2", "esutama"] as const).map((site) => (
-                <div key={site}>
-                  <p className="text-sm font-medium mb-2">{SITE_LABEL[site]}</p>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button variant="outline" className="flex-1" onClick={() => setGuideSite(site)}>
-                      <FileText size={15} className="mr-1.5" />登録URLはこちら
-                    </Button>
-                    {site === "o2" && (
-                      <Button variant="outline" className="flex-1" onClick={() => navigate(`/therapist/${token}/posts`)}>
-                        <Send size={15} className="mr-1.5" />本人用O2接続設定
-                      </Button>
-                    )}
-                  </div>
-                  {site === "esutama" && <p className="text-[11px] text-muted-foreground mt-1.5">エスたまの連携は店舗管理者が一括設定します。</p>}
-                </div>
-              ))}
-              <p className="text-xs text-muted-foreground">
-                お店が用意したX・O2のログイン情報は、メニューの「SNSアカウント」で確認できます。
-              </p>
-            </div>
-          </div>
           </div>
         )}
 
@@ -1528,6 +1502,7 @@ export default function TherapistPortal() {
 
         {/* ── PROFILE（本人がプロフィールを入力してお店に送る） ── */}
         {view === "profile" && token && <TherapistProfileForm token={token} />}
+        {view === "photos" && token && <TherapistPhotoUpload token={token} />}
 
         {view === "customers" && (
           <div className="space-y-3">

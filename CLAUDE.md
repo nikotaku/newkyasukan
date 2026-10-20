@@ -371,6 +371,7 @@
 - **写真タブ**：アップロードは「写真を追加」1か所。各写真の「HP表示」トグルでHPに出すか選ぶ（オン＝`casts.photos`・最大6枚・番号順で①がメイン＝`photo`、オフ＝`casts.management_photos`・非公開）。新しく入れた写真は非公開に入る（HP表示が0枚のときだけ1枚目をオン）。レベル・ステータス・URLコピー・アーカイブ・削除は「管理」タブ（エスたまは自動同期なので手動ボタンは置かない）。セラピストレベル（ビギナーズ〜マスター）とカスタムタグは廃止（`casts.tags` のデータは残っている。出稼ぎなどのステータスは今も tags）
 - 編集画面は `casts_admin_safe`（access_token・O2のパスワードを除いたビュー）から読む。**casts に列を足したらこのビューにも足す**（ビューは security_invoker。今は authenticated が casts を表ごと読めるので権限の付け忘れは起きない）（足さないと編集画面で空に見え、保存で消える。2026年10月に `new_customer_max_minutes`・バナーの列が抜けていたのを `20261018093000_casts_admin_safe_new_columns.sql` で直した）
 - **本人のプロフィール入力**：マイページのメニュー「プロフィール入力」（`?view=profile`、`src/components/therapist/TherapistProfileForm.tsx`）でインタビューの項目を入れて「お店に送る」→ `cast_profile_submissions`（status: pending → applied / rejected、RPC `get_therapist_profile_form` / `submit_therapist_profile`、本人のトークン・項目は `therapist_profile_field_keys()` だけ）。キャスト管理の上の「📝 セラピストから届いたプロフィール」で変わる項目を見比べて「反映する」（casts に入る。カップは bust_size、コメントは profile、3サイズは body_size もそろえる）。「未入力」タブの「本人に入力してもらう」で入力用URLをコピー。項目と変換は `src/lib/therapistProfileForm.ts`（テスト `npm run test:cast-profile`）
+- **本人の画像アップロード**：マイページのメニュー「画像アップロード」（`src/components/therapist/TherapistPhotoUpload.tsx`）で写真を何枚でも送れる（1人60枚まで・長い辺2000pxのJPEGにして送る）。Edge Function `therapist-photos`（verify_jwt なし・本人のトークンで確認、list / upload / remove）が `cast-photos` の `therapist-uploads/<cast_id>/` に置き、`casts.management_photos`（非公開）に足す。HPに出すかはお店が編集画面の写真タブの「HP表示」で選ぶ。本人が消せるのはHPに出ていない自分の写真だけ。マイページの「外部サイト登録・連携」欄は廃止
 
 ## お客様へのキャッシュバック・返金（精算の入れ忘れ防止）
 
