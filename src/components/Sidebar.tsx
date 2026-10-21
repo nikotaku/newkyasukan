@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { useSmsUnread } from "@/hooks/useSmsUnread";
+import { SidebarLinkVariants } from "@/components/SidebarLinkVariants";
 
 interface MenuItemLeaf {
   href: string;
@@ -33,6 +34,8 @@ interface MenuItemLeaf {
 
 interface MenuItemChild extends MenuItemLeaf {
   groupHeader?: string;
+  /** タップで開く・URLをコピーを選ぶ版（面談用ページの出稼ぎ用／在籍用など） */
+  variants?: MenuItemLeaf[];
 }
 
 interface MenuSubGroup {
@@ -235,7 +238,14 @@ const menuItems: MenuItem[] = [
       { href: "/recruit-scout", label: "引き抜きDM" },
       { href: "/recruit/estama-scout", label: "エステ魂スカウト" },
       { href: "/marketing/recruit-lp", label: "求人LP A/B分析" },
-      { href: "/interview", label: "面談用ページ（画面共有）" },
+      {
+        href: "/interview",
+        label: "面談用ページ（画面共有）",
+        variants: [
+          { href: "/interview?type=dekasegi", label: "出稼ぎ用" },
+          { href: "/interview?type=zaiseki", label: "在籍用" },
+        ],
+      },
     ],
   },
   {
@@ -356,6 +366,9 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                                 {child.groupHeader}
                               </div>
                             )}
+                            {child.variants ? (
+                              <SidebarLinkVariants child={child} active={isChildCurrentPath} onClose={onClose} />
+                            ) : (
                             <Link
                               to={child.href}
                               onClick={onClose}
@@ -373,6 +386,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                                 </span>
                               )}
                             </Link>
+                            )}
                           </div>
                         );
                       })}
