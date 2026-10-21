@@ -9,8 +9,35 @@ import simultaneousPostSystemImage from "@/assets/recruit/enka-simultaneous-post
 import {
   ArrowLeft, MapPin, Clock, Train, ShieldCheck,
   Home, IdCard, Camera, AlertTriangle, Sparkles, Check, ChevronDown,
-  Footprints, Tablet, Share2, Loader2, MessageCircle, type LucideIcon,
+  Footprints, Tablet, Share2, Loader2, MessageCircle, Smartphone, CalendarPlus, Calendar,
+  Bell, Send, Receipt, LogOut, Users, PencilLine, ImagePlus, AtSign, DoorOpen, Trophy, Plane, BarChart3,
+  type LucideIcon,
 } from "lucide-react";
+
+// セラピストポータル（マイページ）でできること。マイページのメニューと同じ並び・同じ名前で書く
+const PORTAL_FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
+  { icon: Bell, title: "予約の通知", body: "予約が入った・変わった・キャンセルになったら、すぐスマホに届きます（開始時刻・コース・お客様・決済方法など）" },
+  { icon: CalendarPlus, title: "シフト提出", body: "出勤したい日をカレンダーから選んで提出" },
+  { icon: Calendar, title: "シフト確認・事前予約", body: "確定したシフトと出勤ルーム、今日以降の予約を確認" },
+  { icon: DoorOpen, title: "入室方法", body: "ルームまでの道順・鍵の開け方（動画・写真）・Wi-Fi" },
+  { icon: LogOut, title: "退勤フォーム（精算）", body: "売上・清掃チェックを入れて送るだけ。お店が承認すると清算明細が届きます" },
+  { icon: Receipt, title: "バック表", body: "コース・オプション・指名ごとのお給料をいつでも確認" },
+  { icon: BarChart3, title: "その月の本数", body: "施術済み・予定の本数、指名の内訳を月ごとに確認" },
+  { icon: Users, title: "顧客カルテ", body: "担当したお客様の好み・NG・来店履歴" },
+  { icon: Send, title: "2媒体投稿", body: "写真1枚と文章で、HP・O2・魂セラピストへ同時に投稿" },
+  { icon: Trophy, title: "集客ミッション", body: "投稿などのミッションを達成してポイントを貯める" },
+  { icon: PencilLine, title: "プロフィール入力", body: "HPに載るプロフィールを自分で入力してお店に送る" },
+  { icon: ImagePlus, title: "画像アップロード", body: "プロフィール・宣伝用の写真をお店に送る（HPに載せる写真はお店が選びます）" },
+  { icon: AtSign, title: "SNSアカウント", body: "お店が用意したX・O2のログイン情報と設定マニュアル" },
+  { icon: Plane, title: "交通費申請", body: "交通費の申請と申請履歴の確認" },
+];
+
+const PORTAL_STEPS: { title: string; body: string }[] = [
+  { title: "専用URLを開く", body: "勤務が決まったら、あなた専用のマイページのURLをLINEでお送りします。ログインやパスワードはいりません（URLは人に教えないでください）" },
+  { title: "ホーム画面に追加", body: "iPhoneはSafariで開いて「共有」→「ホーム画面に追加」。AndroidはChromeのメニュー→「ホーム画面に追加」。アプリのように開けます" },
+  { title: "通知をオンにする", body: "ホーム画面のアイコンから開いて「通知をオンにする」→ テスト通知が届けば準備完了。予約のお知らせはここに届きます" },
+  { title: "出勤日の流れ", body: "入室方法を見てルームへ → 予約の通知を確認 → 退勤時に「退勤フォーム」で売上を送信 → お店が承認すると清算明細が届きます" },
+];
 
 // 面談の最後に追加してもらうLINE（面談用。店舗の settings.interview_line_url があればそちら）
 const INTERVIEW_LINE_URL = "https://line.me/ti/p/XgF2NXcP0T";
@@ -278,6 +305,39 @@ export default function InterviewGuide() {
         <p className="mt-2 text-center text-xs leading-5 text-gray-500">
           画像をタップすると原寸で確認できます。テスト投稿ではホームページへ掲載されません。
         </p>
+      </Section>
+
+      {/* セラピストポータル（マイページ） */}
+      <Section icon={Smartphone} title="セラピストポータル（マイページ）" sub="スマホ1つで、出勤・予約・精算まで" tone="rose">
+        <p className="mb-4 text-sm leading-relaxed text-gray-600">
+          セラピスト一人ひとりに専用のマイページがあります。シフト・予約・入室方法・精算・投稿まで、ここ1つで完結します。
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {PORTAL_FEATURES.map(({ icon: Icon, title, body }) => (
+            <div key={title} className="flex gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-50">
+                <Icon size={18} className="text-rose-500" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-gray-800">{title}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="mb-2 mt-6 text-sm font-bold text-gray-800">使い方</p>
+        <ol className="space-y-2">
+          {PORTAL_STEPS.map((step, i) => (
+            <li key={step.title} className="flex gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-500 text-xs font-bold text-white">{i + 1}</span>
+              <div>
+                <p className="text-sm font-bold text-gray-800">{step.title}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{step.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
       </Section>
 
       {/* ルーム環境 */}
