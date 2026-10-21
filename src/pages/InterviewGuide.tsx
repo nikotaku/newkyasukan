@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/hooks/useStore";
@@ -38,6 +38,9 @@ async function buildQrPath(text: string) {
 
 export default function InterviewGuide() {
   const navigate = useNavigate();
+  // ?type=zaiseki は在籍用（出稼ぎ向けの「12時間勤務」を出さない）。それ以外は出稼ぎ用
+  const [searchParams] = useSearchParams();
+  const isResident = searchParams.get("type") === "zaiseki";
 
   useEffect(() => {
     document.title = "艶華｜面談資料";
@@ -216,7 +219,7 @@ export default function InterviewGuide() {
       <Section icon={Clock} title="勤務・待機時間" tone="rose">
         <Card>
           <KV k="待機開始" v="12:00 または 13:00" />
-          <KV k="勤務時間" v="12時間勤務" hl />
+          {!isResident && <KV k="勤務時間" v="12時間勤務" hl />}
           <KV k="相談" v="勤務時間の相談可" />
         </Card>
       </Section>

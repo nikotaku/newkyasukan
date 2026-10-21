@@ -407,3 +407,8 @@
 - Edge Function `generate-cast-content` がカテゴリ別のAIコンテンツ生成を担当
   - `type`: profile / announcement / catchphrase / news / coupon / schedule / shop_comment / newstaff
   - Lovable AI Gateway 経由で `google/gemini-2.5-flash` を使用
+
+## 面談用ページ（/interview）
+
+- サイドバーの「面談用ページ（画面共有）」をタップすると「出稼ぎ用」（`/interview?type=dekasegi`）・「在籍用」（`?type=zaiseki`）ごとに「開く」「URLをコピー」が出る（`src/components/SidebarLinkVariants.tsx`）。ホーム画面に追加した管理アプリにはアドレスバーが無いため。コピーは `src/lib/copyText.ts`（だめなら長押しでコピーできる小窓）
+- 在籍用は「勤務時間 12時間勤務」を出さない。ページはログインなしでも開ける
