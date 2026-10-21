@@ -412,3 +412,4 @@
 
 - サイドバーの「面談用ページ（画面共有）」をタップすると「出稼ぎ用」（`/interview?type=dekasegi`）・「在籍用」（`?type=zaiseki`）ごとに「開く」「URLをコピー」が出る（`src/components/SidebarLinkVariants.tsx`）。ホーム画面に追加した管理アプリにはアドレスバーが無いため。コピーは `src/lib/copyText.ts`（だめなら長押しでコピーできる小窓）
 - 在籍用は「勤務時間 12時間勤務」を出さない。ページはログインなしでも開ける
+- 「セラピストポータル（マイページ）」の欄（できること・使い方）は出稼ぎ用・在籍用の両方に出す。中身は `InterviewGuide.tsx` の `PORTAL_FEATURES` / `PORTAL_STEPS`。マイページのメニューを増やしたらここも直す
