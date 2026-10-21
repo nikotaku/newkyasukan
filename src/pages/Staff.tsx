@@ -2347,6 +2347,13 @@ export default function Staff() {
                 })}
               </div>
 
+            {/* セラピストがマイページから送ったプロフィール（反映待ち） */}
+            <CastProfileSubmissions
+              storeId={storeId}
+              casts={casts as unknown as { id: string; name: string; real_name?: string | null }[]}
+              onApplied={() => void fetchCasts()}
+            />
+
             {missingSbCasts.length > 0 && (
               <div className="flex items-start gap-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2.5 text-rose-800" role="alert">
                 <AlertTriangle size={17} className="mt-0.5 flex-shrink-0" />
