@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FlipHorizontal, Heart, Loader2, Move, RotateCcw, RotateCw, Undo2, Grid3x3, ScanFace } from "lucide-react";
+import { FlipHorizontal, Heart, Loader2, Move, RotateCcw, RotateCw, Undo2, Grid3x3, ScanFace, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
@@ -23,7 +23,7 @@ const ASPECT_OPTIONS: { value: PhotoAspect; label: string }[] = [
   { value: "4:3", label: "横 4:3" },
 ];
 
-type Tool = "move" | "heart" | "mosaic" | "background";
+type Tool = "move" | "glow" | "heart" | "mosaic" | "background";
 
 /**
  * セラピスト編集の写真をその場で加工する（切り抜き・回転・反転・明るさ・顔隠し）。
@@ -144,7 +144,7 @@ export function PhotoEditorDialog({
       type="button"
       onClick={() => setTool(value)}
       className={cn(
-        "flex flex-1 items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-xs",
+        "flex min-w-[4.5rem] flex-1 items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-xs",
         tool === value ? "border-primary bg-primary/10 font-semibold text-primary" : "bg-background",
       )}
     >
@@ -177,8 +177,9 @@ export function PhotoEditorDialog({
               />
             </div>
 
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1">
               {toolButton("move", "動かす", Move)}
+              {toolButton("glow", "白ぼかし", Sparkles)}
               {toolButton("heart", "ハート", Heart)}
               {toolButton("mosaic", "モザイク", Grid3x3)}
               {toolButton("background", "背景", ScanFace)}
@@ -196,7 +197,9 @@ export function PhotoEditorDialog({
             <p className="text-[11px] text-muted-foreground">
               {tool === "move"
                 ? "写真をドラッグして位置を合わせます（ズームで寄せてから動かせます）"
-                : tool === "heart"
+                : tool === "glow"
+                  ? "隠したい所（口もとなど）をタップすると、白くふんわりぼかします"
+                  : tool === "heart"
                   ? "隠したい所をタップするとハートを置きます"
                   : tool === "mosaic"
                     ? "隠したい所をタップ・なぞるとモザイクになります"
@@ -245,7 +248,7 @@ export function PhotoEditorDialog({
                 )}
               </div>
             )}
-            {(tool === "heart" || tool === "mosaic") && (
+            {(tool === "glow" || tool === "heart" || tool === "mosaic") && (
               <div>
                 <p className="mb-1 text-xs">大きさ</p>
                 <Slider min={5} max={70} step={1} value={[Math.round(stampSize * 100)]} onValueChange={([v]) => setStampSize(v / 100)} />
