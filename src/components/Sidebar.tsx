@@ -17,8 +17,6 @@ import {
   Megaphone,
   Calculator,
   WalletCards,
-  CheckSquare,
-  BookUser,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -122,16 +120,6 @@ const menuItems: MenuItem[] = [
     href: "/marketing/media",
     label: "媒体攻略",
     icon: Megaphone,
-  },
-  {
-    href: "/tasks",
-    label: "タスクリスト",
-    icon: CheckSquare,
-  },
-  {
-    href: "/bios",
-    label: "bio保存書",
-    icon: BookUser,
   },
   {
     href: "/inquiry-stats",
