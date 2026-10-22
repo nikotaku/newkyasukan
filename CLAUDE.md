@@ -413,3 +413,8 @@
 - サイドバーの「面談用ページ（画面共有）」をタップすると「出稼ぎ用」（`/interview?type=dekasegi`）・「在籍用」（`?type=zaiseki`）ごとに「開く」「URLをコピー」が出る（`src/components/SidebarLinkVariants.tsx`）。ホーム画面に追加した管理アプリにはアドレスバーが無いため。コピーは `src/lib/copyText.ts`（だめなら長押しでコピーできる小窓）
 - 在籍用は「勤務時間 12時間勤務」を出さない。ページはログインなしでも開ける
 - 「セラピストポータル（マイページ）」の欄（できること・使い方）は出稼ぎ用・在籍用の両方に出す。中身は `InterviewGuide.tsx` の `PORTAL_FEATURES` / `PORTAL_STEPS`。マイページのメニューを増やしたらここも直す
+
+## LINEの定期レポート
+
+- 「シフト空き枠レポート」（Edge Function `shift-availability-report`、毎月1・11・21日 9:00）は止めている（pg_cron `shift-availability-report` を active = false。`20261022090000_stop_shift_availability_report.sql`）
+- 毎晩23時の「明日の出勤リマインド」（`send-shift-reminder`、pg_cron `shift-reminder`）は送る。後ろに付けていた「来月の空き状況」は外した
