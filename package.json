@@ -27,6 +27,7 @@
     "test:room-entry": "node --experimental-strip-types --test tests/roomEntry.test.ts",
     "test:clearance-defaults": "node --experimental-strip-types --test tests/cashReturns.test.ts tests/clearanceDefaults.test.ts tests/dailyClearanceDraft.test.ts tests/settlementApproval.test.ts",
     "test:subline": "node --experimental-strip-types --test tests/sublinePhone.test.ts",
+    "test:photo-editor": "node --experimental-strip-types --test tests/photoEditor.test.ts",
     "test:cast-profile": "node --experimental-strip-types --test tests/castProfileCompletion.test.ts tests/therapistProfileForm.test.ts",
     "test:therapist-monthly-count": "node --experimental-strip-types --test tests/therapistMonthlyCount.test.ts",
     "test:promotion-quota": "node --experimental-strip-types --test tests/promotionQuota.test.ts",

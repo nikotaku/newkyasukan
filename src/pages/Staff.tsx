@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { PhotoEditorDialog } from "@/components/staff/PhotoEditorDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1562,6 +1563,23 @@ export default function Staff() {
     }
   };
 
+  // 写真タブの「加工」：加工した写真を新しいファイルで保存し、同じ場所（HP表示の順番もそのまま）に差し替える。元のファイルは消さない
+  const [photoEditUrl, setPhotoEditUrl] = useState<string | null>(null);
+  const saveEditedPhoto = async (blob: Blob) => {
+    if (!editingCast || !photoEditUrl) return;
+    const fileName = `management-photos/${crypto.randomUUID()}.jpg`;
+    const { error } = await supabase.storage.from("cast-photos").upload(fileName, blob, { contentType: "image/jpeg" });
+    if (error) throw new Error(`加工した写真を保存できませんでした：${error.message}`);
+    const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(fileName);
+    const replace = (list: string[] | null | undefined) => (list || []).map((u) => (u === photoEditUrl ? publicUrl : u));
+    setEditingCast((current) => {
+      if (!current) return current;
+      const photos = replace(current.photos);
+      return { ...current, photos, photo: photos[0] || null, management_photos: replace(current.management_photos) };
+    });
+    toast({ title: "加工した写真に差し替えました", description: "下の「保存する」で確定します" });
+  };
+
   const makeMainPhoto = (url: string) => {
     if (!editingCast) return;
     const photos = [url, ...(editingCast.photos || []).filter((u) => u !== url)];
@@ -2064,6 +2082,14 @@ export default function Staff() {
                                             className={`w-full h-full object-cover cursor-pointer ${isShown ? "" : "opacity-60"}`}
                                             onClick={() => window.open(driveImgUrl(url), "_blank")}
                                           />
+                                          <button
+                                            type="button"
+                                            aria-label="加工"
+                                            className="absolute top-1 left-1 flex h-6 items-center gap-0.5 rounded bg-black/60 px-1.5 text-[10px] text-white"
+                                            onClick={() => setPhotoEditUrl(url)}
+                                          >
+                                            <Edit size={11} />加工
+                                          </button>
                                           <Button
                                             type="button"
                                             variant="destructive"
@@ -2102,6 +2128,13 @@ export default function Staff() {
                           );
                         })()}
                       </div>
+
+                      <PhotoEditorDialog
+                        url={photoEditUrl ? driveImgUrl(photoEditUrl) : null}
+                        open={!!photoEditUrl}
+                        onOpenChange={(v) => { if (!v) setPhotoEditUrl(null); }}
+                        onSave={saveEditedPhoto}
+                      />
 
                       {/* トップバナーの素材（出勤日にHPのトップバナーへ自動で出す） */}
                       {editingCast.id && (
