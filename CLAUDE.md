@@ -90,6 +90,7 @@
 - 媒体登録状況（`src/components/education/MediaRegistrationMatrix.tsx`）: エステ魂・O2・Xの登録を1表で見て切り替える。手でチェックする項目は casts の真偽値列（`estama_listed` など、スタッフ画面の「登録・SNS準備」と同じ）、「自動連携」「魂セラピスト」「ログイン情報」は `external_cast_profiles` と `get_sns_connection_overview_v9` から自動で出す（`src/lib/mediaRegistration.ts`）
 - エスラン（メンズエステランキング）は今は掲載していないので、`src/lib/mediaRegistration.ts` の `ESTHE_RANKING_ACTIVE = false` で登録状況の列・スタッフ画面のチェック・セラピストDBのランキング転記・シフトのエスラン登録欄を隠している。掲載を再開したら true に戻す（データは残してある）
 - SNS連携・ログイン情報は `src/pages/O2Management.tsx`（教育画面のタブとして表示）。以前の `/marketing/o2` は `/education?tab=sns` へ転送
+- **受講状況はチェックリスト**：講習（`training_modules`）ごとのチェック項目 `checklist`（[{ id, label }]）をカリキュラム管理の「チェック項目」で足す・直す・並べ替える（`src/components/education/ModuleChecklistEditor.tsx`）。受講状況で講習を開いてチェックをタップするとすぐ保存（`cast_training_records.checked_items`）、講習・カテゴリ・全体の％はチェックした数で出す。項目が無い講習は「受講した」1つ。`checked_items` が空（null）の昔の「完了」は100%扱い。状態（未実施・受講中・完了）はチェックの数から自動。計算は `src/lib/trainingChecklist.ts`（テスト `npm run test:training-checklist`）。実施日・担当講師・習熟度・フィードバック・改善項目の入力欄は廃止（列は残っている）
 
 ## 宣伝ノルマ（/promotion-schedule の「露出ノルマ」タブ）
 

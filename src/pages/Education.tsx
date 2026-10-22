@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Search, Save, Plus, Trash2, ChevronDown, GraduationCap, Star,
+  Search, Plus, Trash2, ChevronDown, GraduationCap,
   CircleCheck, CircleDashed, CircleDot, Loader2, BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -20,6 +21,18 @@ import { driveImgUrl } from "@/lib/drive";
 import { format } from "date-fns";
 import { MediaRegistrationMatrix } from "@/components/education/MediaRegistrationMatrix";
 import O2Management from "@/pages/O2Management";
+import { ModuleChecklistEditor } from "@/components/education/ModuleChecklistEditor";
+import {
+  type ChecklistItem,
+  type ChecklistProgress,
+  checkedIds,
+  combinedProgress,
+  moduleItems,
+  moduleProgress,
+  newChecklistItemId,
+  normalizeChecklist,
+  statusFromProgress,
+} from "@/lib/trainingChecklist";
 
 interface Cast {
   id: string;
@@ -34,6 +47,7 @@ interface Module {
   description: string | null;
   display_order: number;
   is_active: boolean;
+  checklist: ChecklistItem[];
 }
 
 interface TrainingRecord {
@@ -46,7 +60,10 @@ interface TrainingRecord {
   score: number | null;
   feedback: string | null;
   improvement: string | null;
+  checked_items: string[] | null;
 }
+
+type RecordLite = Pick<TrainingRecord, "status" | "checked_items">;
 
 const STATUS_META: Record<string, { label: string; icon: any; color: string; badge: string }> = {
   not_started: { label: "未実施", icon: CircleDashed, color: "text-muted-foreground", badge: "bg-muted text-muted-foreground" },
@@ -56,7 +73,7 @@ const STATUS_META: Record<string, { label: string; icon: any; color: string; bad
 
 const emptyRecord = (cast_id: string, module_id: string): TrainingRecord => ({
   cast_id, module_id, status: "not_started",
-  implemented_date: null, instructor: null, score: null, feedback: null, improvement: null,
+  implemented_date: null, instructor: null, score: null, feedback: null, improvement: null, checked_items: null,
 });
 
 export default function Education() {
@@ -70,13 +87,13 @@ export default function Education() {
   const [castSort, setCastSort] = useState<"name" | "progressAsc" | "progressDesc">("name");
   const [moduleSort, setModuleSort] = useState<"category" | "status">("category");
   // 全セラピストの受講状況（一覧の進捗率ソート用）key: `${cast_id}:${module_id}`
-  const [allStatuses, setAllStatuses] = useState<Record<string, string>>({});
+  const [allRecords, setAllRecords] = useState<Record<string, RecordLite>>({});
   const [selectedCast, setSelectedCast] = useState<Cast | null>(null);
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [savingModule, setSavingModule] = useState<string | null>(null);
 
   // Curriculum management
-  const [newModule, setNewModule] = useState({ category: "", title: "", description: "" });
+  const [newModule, setNewModule] = useState({ category: "", title: "", description: "", items: "" });
   const [addingModule, setAddingModule] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
@@ -101,13 +118,15 @@ export default function Education() {
     const [castsRes, modulesRes, recordsRes] = await Promise.all([
       supabase.from("casts").select("id,name,photo").eq("is_active", true).order("name"),
       supabase.from("training_modules" as any).select("*").eq("is_active", true).order("display_order"),
-      supabase.from("cast_training_records" as any).select("cast_id, module_id, status"),
+      supabase.from("cast_training_records" as any).select("cast_id, module_id, status, checked_items"),
     ]);
     setCasts((castsRes.data || []) as Cast[]);
-    setModules((modulesRes.data || []) as Module[]);
-    const statusMap: Record<string, string> = {};
-    ((recordsRes.data || []) as any[]).forEach((r) => { statusMap[`${r.cast_id}:${r.module_id}`] = r.status; });
-    setAllStatuses(statusMap);
+    setModules(((modulesRes.data || []) as any[]).map((m) => ({ ...m, checklist: normalizeChecklist(m.checklist) })) as Module[]);
+    const recordMap: Record<string, RecordLite> = {};
+    ((recordsRes.data || []) as any[]).forEach((r) => {
+      recordMap[`${r.cast_id}:${r.module_id}`] = { status: r.status, checked_items: r.checked_items };
+    });
+    setAllRecords(recordMap);
     setLoading(false);
   };
 
@@ -128,62 +147,58 @@ export default function Education() {
   const getRecord = (moduleId: string): TrainingRecord =>
     records[moduleId] ?? (selectedCast ? emptyRecord(selectedCast.id, moduleId) : emptyRecord("", moduleId));
 
-  const setRecordField = (moduleId: string, field: keyof TrainingRecord, value: any) => {
-    setRecords((prev) => {
-      const base = prev[moduleId] ?? (selectedCast ? emptyRecord(selectedCast.id, moduleId) : emptyRecord("", moduleId));
-      return { ...prev, [moduleId]: { ...base, [field]: value } };
-    });
-  };
-
-  const saveRecord = async (moduleId: string, overrides?: Partial<TrainingRecord>) => {
+  // チェックを付け外しするたびにすぐ保存する（状態はチェックの数から決める）
+  const toggleItem = async (m: Module, itemId: string) => {
     if (!selectedCast) return;
-    setSavingModule(moduleId);
-    const current = { ...getRecord(moduleId), ...overrides };
-    // auto-set implemented_date when first completed
-    if (current.status === "completed" && !current.implemented_date) {
-      current.implemented_date = format(new Date(), "yyyy-MM-dd");
-    }
-    const payload = {
-      cast_id: selectedCast.id,
-      module_id: moduleId,
-      status: current.status,
-      implemented_date: current.implemented_date || null,
-      instructor: current.instructor || null,
-      score: current.score ?? null,
-      feedback: current.feedback || null,
-      improvement: current.improvement || null,
-      updated_at: new Date().toISOString(),
-    };
-    const { data, error } = await supabase
-      .from("cast_training_records" as any)
-      .upsert(payload, { onConflict: "cast_id,module_id" })
-      .select()
-      .single();
-    setSavingModule(null);
-    if (error) { toast.error("保存に失敗しました"); return; }
-    setRecords((prev) => ({ ...prev, [moduleId]: data as TrainingRecord }));
-    setAllStatuses((prev) => ({ ...prev, [`${selectedCast.id}:${moduleId}`]: (data as TrainingRecord).status }));
-  };
+    const castId = selectedCast.id;
+    const before = getRecord(m.id);
+    const ids = checkedIds(m.checklist, before);
+    if (ids.has(itemId)) ids.delete(itemId);
+    else ids.add(itemId);
+    const checked = moduleItems(m.checklist).map((i) => i.id).filter((id) => ids.has(id));
+    const status = statusFromProgress(moduleProgress(m.checklist, { checked_items: checked }));
+    const implemented_date = before.implemented_date
+      ?? (status === "completed" ? format(new Date(), "yyyy-MM-dd") : null);
+    const next = { ...before, checked_items: checked, status, implemented_date };
+    setRecords((prev) => ({ ...prev, [m.id]: next }));
+    setAllRecords((prev) => ({ ...prev, [`${castId}:${m.id}`]: { status, checked_items: checked } }));
 
-  const quickSetStatus = (moduleId: string, status: TrainingRecord["status"]) => {
-    setRecordField(moduleId, "status", status);
-    saveRecord(moduleId, { status });
+    setSavingModule(m.id);
+    const { error } = await supabase
+      .from("cast_training_records" as any)
+      .upsert({
+        cast_id: castId,
+        module_id: m.id,
+        status,
+        checked_items: checked,
+        implemented_date,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "cast_id,module_id" });
+    setSavingModule(null);
+    if (error) {
+      toast.error("保存に失敗しました");
+      setRecords((prev) => ({ ...prev, [m.id]: before }));
+      setAllRecords((prev) => ({ ...prev, [`${castId}:${m.id}`]: { status: before.status, checked_items: before.checked_items } }));
+    }
   };
 
   const addModule = async () => {
     if (!newModule.title.trim()) { toast.error("項目名を入力してください"); return; }
     setAddingModule(true);
     const maxOrder = Math.max(0, ...modules.map(m => m.display_order));
+    const checklist = newModule.items.split("\n").map((l) => l.trim()).filter(Boolean)
+      .map((label) => ({ id: newChecklistItemId(), label }));
     const { error } = await supabase.from("training_modules" as any).insert([{
       category: newModule.category.trim() || "一般",
       title: newModule.title.trim(),
       description: newModule.description.trim() || null,
       display_order: maxOrder + 10,
+      checklist,
     }]);
     setAddingModule(false);
     if (error) { toast.error("追加に失敗しました"); return; }
     toast.success("カリキュラム項目を追加しました");
-    setNewModule({ category: "", title: "", description: "" });
+    setNewModule({ category: "", title: "", description: "", items: "" });
     fetchBase();
   };
 
@@ -195,19 +210,22 @@ export default function Education() {
     fetchBase();
   };
 
-  // セラピストごとの完了率（一覧ソート・表示用）
+  // セラピストごとの進み具合（チェックした項目の％。一覧ソート・表示用）
   const castProgress = useMemo(() => {
     const map: Record<string, number> = {};
-    if (modules.length === 0) return map;
     for (const c of casts) {
-      let completed = 0;
-      for (const m of modules) {
-        if (allStatuses[`${c.id}:${m.id}`] === "completed") completed++;
-      }
-      map[c.id] = Math.round((completed / modules.length) * 100);
+      map[c.id] = combinedProgress(modules.map((m) => moduleProgress(m.checklist, allRecords[`${c.id}:${m.id}`]))).pct;
     }
     return map;
-  }, [casts, modules, allStatuses]);
+  }, [casts, modules, allRecords]);
+
+  // 選んだセラピストの講習ごとの進み具合
+  const moduleProgressMap = useMemo(() => {
+    const map: Record<string, ChecklistProgress> = {};
+    for (const m of modules) map[m.id] = moduleProgress(m.checklist, records[m.id]);
+    return map;
+  }, [modules, records]);
+  const moduleStatus = (m: Module) => statusFromProgress(moduleProgressMap[m.id] ?? { done: 0, total: 1, pct: 0 });
 
   const filtered = useMemo(() => {
     const list = casts.filter((c) => c.name.includes(searchQuery));
@@ -238,26 +256,26 @@ export default function Education() {
     return order
       .map((st) => ({
         label: STATUS_META[st].label,
-        mods: modules.filter((m) => (records[m.id]?.status ?? "not_started") === st),
+        mods: modules.filter((m) => statusFromProgress(moduleProgressMap[m.id]) === st),
       }))
       .filter((g) => g.mods.length > 0);
-  }, [moduleSort, grouped, modules, records]);
+  }, [moduleSort, grouped, modules, moduleProgressMap]);
 
   // progress for selected cast
   const progress = useMemo(() => {
     const total = modules.length;
     let completed = 0, inProgress = 0;
     for (const m of modules) {
-      const st = records[m.id]?.status ?? "not_started";
+      const st = statusFromProgress(moduleProgressMap[m.id]);
       if (st === "completed") completed++;
       else if (st === "in_progress") inProgress++;
     }
     const notStarted = total - completed - inProgress;
-    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+    const pct = combinedProgress(modules.map((m) => moduleProgressMap[m.id])).pct;
     return { total, completed, inProgress, notStarted, pct };
-  }, [modules, records]);
+  }, [modules, moduleProgressMap]);
 
-  const notTaught = modules.filter((m) => (records[m.id]?.status ?? "not_started") === "not_started");
+  const notTaught = modules.filter((m) => moduleStatus(m) === "not_started");
 
   return (
     <div className="min-h-screen bg-background">
@@ -411,17 +429,29 @@ export default function Education() {
                       </div>
 
                       {/* Curriculum grouped by category or status */}
-                      {moduleGroups.map(({ label, mods }) => (
+                      {moduleGroups.map(({ label, mods }) => {
+                        const group = combinedProgress(mods.map((m) => moduleProgressMap[m.id]));
+                        return (
                         <div key={label}>
-                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                            <BookOpen size={13} />{label}
-                          </p>
+                          <div className="mb-2 flex items-center gap-2">
+                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                              <BookOpen size={13} />{label}
+                            </p>
+                            <div className="h-1.5 flex-1 max-w-[120px] rounded-full bg-muted overflow-hidden">
+                              <div className="h-full bg-primary transition-all" style={{ width: `${group.pct}%` }} />
+                            </div>
+                            <span className={`text-xs font-semibold tabular-nums ${group.pct >= 100 ? "text-green-600" : group.pct > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
+                              {group.pct}%
+                            </span>
+                          </div>
                           <div className="space-y-2">
                             {mods.map((m) => {
                               const rec = getRecord(m.id);
-                              const meta = STATUS_META[rec.status];
+                              const mp = moduleProgressMap[m.id];
+                              const meta = STATUS_META[statusFromProgress(mp)];
                               const StatusIcon = meta.icon;
                               const isExpanded = expandedModule === m.id;
+                              const checked = checkedIds(m.checklist, rec);
                               return (
                                 <div key={m.id} id={`mod-${m.id}`} className="rounded-xl border bg-card overflow-hidden">
                                   <button
@@ -435,81 +465,33 @@ export default function Education() {
                                         <p className="text-xs text-muted-foreground">実施日：{rec.implemented_date}</p>
                                       )}
                                     </div>
-                                    {rec.score ? (
-                                      <span className="flex items-center gap-0.5 text-amber-500 text-xs">
-                                        <Star size={12} fill="currentColor" />{rec.score}
-                                      </span>
-                                    ) : null}
-                                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${meta.badge}`}>{meta.label}</span>
+                                    {savingModule === m.id && <Loader2 size={13} className="animate-spin text-muted-foreground" />}
+                                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full tabular-nums ${meta.badge}`}>
+                                      {mp.total > 1 ? `${mp.done}/${mp.total}・` : ""}{mp.pct}%
+                                    </span>
                                     <ChevronDown size={15} className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                                   </button>
 
                                   {isExpanded && (
-                                    <div className="px-4 pb-4 pt-1 space-y-3 border-t bg-muted/10">
+                                    <div className="px-4 pb-3 pt-1 border-t bg-muted/10">
                                       {m.description && (
-                                        <p className="text-xs text-muted-foreground pt-2">{m.description}</p>
+                                        <p className="text-xs text-muted-foreground pt-2 pb-1">{m.description}</p>
                                       )}
-
-                                      {/* Status quick buttons */}
-                                      <div className="flex gap-1.5">
-                                        {(["not_started", "in_progress", "completed"] as const).map((st) => {
-                                          const sm = STATUS_META[st];
-                                          const SIcon = sm.icon;
-                                          return (
-                                            <button key={st}
-                                              onClick={() => quickSetStatus(m.id, st)}
-                                              className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${rec.status === st ? `${sm.badge} border-transparent font-semibold` : "border-border hover:bg-muted/50"}`}>
-                                              <SIcon size={13} />{sm.label}
-                                            </button>
-                                          );
-                                        })}
+                                      <div className="divide-y">
+                                        {moduleItems(m.checklist).map((item) => (
+                                          <label key={item.id} className="flex items-center gap-3 py-2.5 cursor-pointer select-none">
+                                            <Checkbox
+                                              className="h-5 w-5"
+                                              checked={checked.has(item.id)}
+                                              onCheckedChange={() => void toggleItem(m, item.id)}
+                                            />
+                                            <span className={`text-sm ${checked.has(item.id) ? "text-muted-foreground line-through" : ""}`}>{item.label}</span>
+                                          </label>
+                                        ))}
                                       </div>
-
-                                      <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                          <Label className="text-xs">実施日</Label>
-                                          <Input type="date" className="mt-1 h-9 text-sm"
-                                            value={rec.implemented_date ?? ""}
-                                            onChange={(e) => setRecordField(m.id, "implemented_date", e.target.value)} />
-                                        </div>
-                                        <div>
-                                          <Label className="text-xs">担当講師</Label>
-                                          <Input className="mt-1 h-9 text-sm" placeholder="講師名"
-                                            value={rec.instructor ?? ""}
-                                            onChange={(e) => setRecordField(m.id, "instructor", e.target.value)} />
-                                        </div>
-                                      </div>
-
-                                      <div>
-                                        <Label className="text-xs">習熟度</Label>
-                                        <div className="flex gap-1 mt-1">
-                                          {[1, 2, 3, 4, 5].map((n) => (
-                                            <button key={n} onClick={() => setRecordField(m.id, "score", rec.score === n ? null : n)}
-                                              className="p-0.5">
-                                              <Star size={20} className={n <= (rec.score ?? 0) ? "text-amber-400" : "text-muted-foreground/30"}
-                                                fill={n <= (rec.score ?? 0) ? "currentColor" : "none"} />
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-
-                                      <div>
-                                        <Label className="text-xs">フィードバック</Label>
-                                        <Textarea className="mt-1 text-sm resize-none" rows={2} placeholder="良かった点・できている点など"
-                                          value={rec.feedback ?? ""}
-                                          onChange={(e) => setRecordField(m.id, "feedback", e.target.value)} />
-                                      </div>
-                                      <div>
-                                        <Label className="text-xs">改善項目</Label>
-                                        <Textarea className="mt-1 text-sm resize-none" rows={2} placeholder="次回までの課題・改善点"
-                                          value={rec.improvement ?? ""}
-                                          onChange={(e) => setRecordField(m.id, "improvement", e.target.value)} />
-                                      </div>
-
-                                      <Button size="sm" onClick={() => saveRecord(m.id)} disabled={savingModule === m.id}>
-                                        {savingModule === m.id ? <Loader2 size={14} className="mr-1.5 animate-spin" /> : <Save size={14} className="mr-1.5" />}
-                                        保存
-                                      </Button>
+                                      {m.checklist.length === 0 && (
+                                        <p className="text-[11px] text-muted-foreground">チェック項目は「カリキュラム管理」で足せます</p>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -517,7 +499,8 @@ export default function Education() {
                             })}
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -547,6 +530,11 @@ export default function Education() {
                       <Textarea className="mt-1 resize-none" rows={2} placeholder="講習内容の説明" value={newModule.description}
                         onChange={(e) => setNewModule(f => ({ ...f, description: e.target.value }))} />
                     </div>
+                    <div>
+                      <Label className="text-xs">チェック項目（1行に1つ）</Label>
+                      <Textarea className="mt-1 resize-none" rows={3} placeholder={"例：出勤・遅刻のルール\n身だしなみ\n連絡の取り方"} value={newModule.items}
+                        onChange={(e) => setNewModule(f => ({ ...f, items: e.target.value }))} />
+                    </div>
                     <Button onClick={addModule} disabled={addingModule}>
                       <Plus size={14} className="mr-1.5" />
                       {addingModule ? "追加中..." : "項目を追加"}
@@ -560,14 +548,21 @@ export default function Education() {
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">{category}</p>
                       <div className="space-y-2">
                         {mods.map((m) => (
-                          <div key={m.id} className="rounded-xl border bg-card px-4 py-3 flex items-start gap-3">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium">{m.title}</p>
-                              {m.description && <p className="text-xs text-muted-foreground mt-0.5">{m.description}</p>}
+                          <div key={m.id} className="rounded-xl border bg-card px-4 py-3">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium">{m.title}</p>
+                                {m.description && <p className="text-xs text-muted-foreground mt-0.5">{m.description}</p>}
+                              </div>
+                              <button onClick={() => deleteModule(m.id)} className="text-muted-foreground hover:text-destructive p-1 shrink-0">
+                                <Trash2 size={15} />
+                              </button>
                             </div>
-                            <button onClick={() => deleteModule(m.id)} className="text-muted-foreground hover:text-destructive p-1 shrink-0">
-                              <Trash2 size={15} />
-                            </button>
+                            <ModuleChecklistEditor
+                              moduleId={m.id}
+                              checklist={m.checklist}
+                              onSaved={(checklist) => setModules((prev) => prev.map((x) => (x.id === m.id ? { ...x, checklist } : x)))}
+                            />
                           </div>
                         ))}
                       </div>
