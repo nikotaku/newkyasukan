@@ -45,7 +45,12 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       jobType: "estama_register_cast",
       limit: 10,
     });
-    res.status(200).json({ ok: true, processed: results.length, results });
+    // ログイン切れなどで「待ち」に戻ったシフト同期も、次の23時の一括同期を待たずに流す
+    const shiftResults = await processAvailableJobs(admin, {
+      jobType: "estama_sync_shift",
+      limit: 10,
+    });
+    res.status(200).json({ ok: true, processed: results.length + shiftResults.length, results: [...results, ...shiftResults] });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(JSON.stringify({ event: "estama_profile_worker_failed", error: message }));
