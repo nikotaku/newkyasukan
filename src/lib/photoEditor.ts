@@ -1,0 +1,232 @@
+// セラピスト写真の簡単な加工（切り抜き・回転・反転・明るさなど・顔隠しのハート／モザイク）。
+// ブラウザの canvas だけで描く（Safari は ctx.filter が使えないので、色の調整は画素を直接いじる）。
+
+export type PhotoAspect = "original" | "1:1" | "3:4" | "4:3" | "9:16";
+
+export type PhotoOverlay = {
+  kind: "heart" | "mosaic";
+  /** 切り抜いた枠の中の位置（0〜1） */
+  x: number;
+  y: number;
+  /** 枠の幅に対する大きさ（0〜1） */
+  size: number;
+};
+
+export type PhotoEditState = {
+  rotation: 0 | 90 | 180 | 270;
+  flipX: boolean;
+  aspect: PhotoAspect;
+  /** 1 = 枠いっぱい（はみ出しなし）、大きいほど寄る */
+  zoom: number;
+  /** 枠の幅・高さに対するずらし量（-0.5〜0.5 くらい） */
+  offsetX: number;
+  offsetY: number;
+  /** -100〜100 */
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  overlays: PhotoOverlay[];
+};
+
+export const initialPhotoEditState = (): PhotoEditState => ({
+  rotation: 0,
+  flipX: false,
+  aspect: "original",
+  zoom: 1,
+  offsetX: 0,
+  offsetY: 0,
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  overlays: [],
+});
+
+const ASPECTS: Record<Exclude<PhotoAspect, "original">, number> = {
+  "1:1": 1,
+  "3:4": 3 / 4,
+  "4:3": 4 / 3,
+  "9:16": 9 / 16,
+};
+
+/** 回転したあとの元画像の幅・高さ */
+export function rotatedSize(width: number, height: number, rotation: PhotoEditState["rotation"]) {
+  return rotation === 90 || rotation === 270 ? { width: height, height: width } : { width, height };
+}
+
+/** 出来上がりの枠の大きさ（長い辺を longEdge に合わせる） */
+export function frameSize(
+  imageWidth: number,
+  imageHeight: number,
+  state: Pick<PhotoEditState, "rotation" | "aspect">,
+  longEdge: number,
+) {
+  const src = rotatedSize(imageWidth, imageHeight, state.rotation);
+  const ratio = state.aspect === "original" ? src.width / src.height : ASPECTS[state.aspect];
+  const maxEdge = Math.min(longEdge, Math.max(src.width, src.height));
+  return ratio >= 1
+    ? { width: Math.round(maxEdge), height: Math.round(maxEdge / ratio) }
+    : { width: Math.round(maxEdge * ratio), height: Math.round(maxEdge) };
+}
+
+/** ずらし過ぎて枠に空白が出ないように、ずらし量の限度を返す */
+export function offsetLimits(
+  imageWidth: number,
+  imageHeight: number,
+  state: Pick<PhotoEditState, "rotation" | "aspect" | "zoom">,
+) {
+  const frame = frameSize(imageWidth, imageHeight, state, 1000);
+  const src = rotatedSize(imageWidth, imageHeight, state.rotation);
+  const scale = Math.max(frame.width / src.width, frame.height / src.height) * state.zoom;
+  return {
+    x: Math.max(0, (src.width * scale - frame.width) / 2 / frame.width),
+    y: Math.max(0, (src.height * scale - frame.height) / 2 / frame.height),
+  };
+}
+
+export function clampOffsets(image: { width: number; height: number }, state: PhotoEditState): PhotoEditState {
+  const limit = offsetLimits(image.width, image.height, state);
+  return {
+    ...state,
+    offsetX: Math.min(limit.x, Math.max(-limit.x, state.offsetX)),
+    offsetY: Math.min(limit.y, Math.max(-limit.y, state.offsetY)),
+  };
+}
+
+const clamp255 = (value: number) => (value < 0 ? 0 : value > 255 ? 255 : value);
+
+/** 明るさ・コントラスト・彩度（-100〜100）を画素に当てる */
+export function adjustPixels(data: Uint8ClampedArray, brightness: number, contrast: number, saturation: number) {
+  if (!brightness && !contrast && !saturation) return;
+  const b = brightness * 1.28; // ±128
+  const c = contrast / 100;
+  const contrastFactor = (1 + c) / (1 - Math.min(c, 0.99));
+  const s = 1 + saturation / 100;
+  for (let i = 0; i < data.length; i += 4) {
+    let r = data[i] + b;
+    let g = data[i + 1] + b;
+    let bl = data[i + 2] + b;
+    r = (r - 128) * contrastFactor + 128;
+    g = (g - 128) * contrastFactor + 128;
+    bl = (bl - 128) * contrastFactor + 128;
+    const gray = 0.299 * r + 0.587 * g + 0.114 * bl;
+    data[i] = clamp255(gray + (r - gray) * s);
+    data[i + 1] = clamp255(gray + (g - gray) * s);
+    data[i + 2] = clamp255(gray + (bl - gray) * s);
+  }
+}
+
+/** 丸い範囲をモザイクにする（ブロックの平均色で塗る） */
+function mosaic(ctx: CanvasRenderingContext2D, cx: number, cy: number, radius: number, block: number) {
+  const x0 = Math.max(0, Math.floor(cx - radius));
+  const y0 = Math.max(0, Math.floor(cy - radius));
+  const x1 = Math.min(ctx.canvas.width, Math.ceil(cx + radius));
+  const y1 = Math.min(ctx.canvas.height, Math.ceil(cy + radius));
+  if (x1 <= x0 || y1 <= y0) return;
+  const image = ctx.getImageData(x0, y0, x1 - x0, y1 - y0);
+  const { data, width, height } = image;
+  for (let by = 0; by < height; by += block) {
+    for (let bx = 0; bx < width; bx += block) {
+      const centerX = x0 + bx + block / 2 - cx;
+      const centerY = y0 + by + block / 2 - cy;
+      if (centerX * centerX + centerY * centerY > radius * radius) continue;
+      let r = 0, g = 0, b = 0, n = 0;
+      for (let y = by; y < Math.min(by + block, height); y += 1) {
+        for (let x = bx; x < Math.min(bx + block, width); x += 1) {
+          const i = (y * width + x) * 4;
+          r += data[i]; g += data[i + 1]; b += data[i + 2]; n += 1;
+        }
+      }
+      r /= n; g /= n; b /= n;
+      for (let y = by; y < Math.min(by + block, height); y += 1) {
+        for (let x = bx; x < Math.min(bx + block, width); x += 1) {
+          const i = (y * width + x) * 4;
+          data[i] = r; data[i + 1] = g; data[i + 2] = b;
+        }
+      }
+    }
+  }
+  ctx.putImageData(image, x0, y0);
+}
+
+/** 白いハート（顔隠し用） */
+function heart(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number) {
+  const w = size;
+  const h = size * 0.92;
+  const top = cy - h * 0.42;
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.25)";
+  ctx.shadowBlur = size * 0.08;
+  ctx.fillStyle = "rgba(255,255,255,0.96)";
+  ctx.beginPath();
+  ctx.moveTo(cx, top + h * 0.28);
+  ctx.bezierCurveTo(cx, top, cx - w * 0.5, top, cx - w * 0.5, top + h * 0.3);
+  ctx.bezierCurveTo(cx - w * 0.5, top + h * 0.6, cx - w * 0.1, top + h * 0.78, cx, top + h);
+  ctx.bezierCurveTo(cx + w * 0.1, top + h * 0.78, cx + w * 0.5, top + h * 0.6, cx + w * 0.5, top + h * 0.3);
+  ctx.bezierCurveTo(cx + w * 0.5, top, cx, top, cx, top + h * 0.28);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/** 加工した絵を canvas に描く。longEdge は出来上がりの長い辺の画素数 */
+export function renderEditedPhoto(canvas: HTMLCanvasElement, image: HTMLImageElement, state: PhotoEditState, longEdge: number) {
+  const iw = image.naturalWidth;
+  const ih = image.naturalHeight;
+  const frame = frameSize(iw, ih, state, longEdge);
+  canvas.width = frame.width;
+  canvas.height = frame.height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("画像を描けませんでした");
+
+  const src = rotatedSize(iw, ih, state.rotation);
+  const scale = Math.max(frame.width / src.width, frame.height / src.height) * state.zoom;
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, frame.width, frame.height);
+  ctx.translate(frame.width / 2 + state.offsetX * frame.width, frame.height / 2 + state.offsetY * frame.height);
+  ctx.rotate((state.rotation * Math.PI) / 180);
+  if (state.flipX) ctx.scale(-1, 1);
+  ctx.scale(scale, scale);
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(image, -iw / 2, -ih / 2);
+  ctx.restore();
+
+  if (state.brightness || state.contrast || state.saturation) {
+    const pixels = ctx.getImageData(0, 0, frame.width, frame.height);
+    adjustPixels(pixels.data, state.brightness, state.contrast, state.saturation);
+    ctx.putImageData(pixels, 0, 0);
+  }
+
+  for (const overlay of state.overlays) {
+    const cx = overlay.x * frame.width;
+    const cy = overlay.y * frame.height;
+    const size = overlay.size * frame.width;
+    if (overlay.kind === "mosaic") {
+      mosaic(ctx, cx, cy, size / 2, Math.max(4, Math.round(frame.width / 40)));
+    } else {
+      heart(ctx, cx, cy, size);
+    }
+  }
+}
+
+/** 保存用の JPEG（長い辺 2000px まで） */
+export async function exportEditedPhoto(image: HTMLImageElement, state: PhotoEditState): Promise<Blob> {
+  const canvas = document.createElement("canvas");
+  renderEditedPhoto(canvas, image, state, 2000);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+  if (!blob) throw new Error("画像を書き出せませんでした");
+  return blob;
+}
+
+/** 加工用に画像を読み込む（保存先がCORSを許していないと加工できない） */
+export function loadEditableImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("この写真は加工用に読み込めませんでした（保存先が外部の写真は加工できません）"));
+    const sep = url.includes("?") ? "&" : "?";
+    // ブラウザが CORS なしでキャッシュした絵を使わないように、加工用は別のURLで読む
+    img.src = `${url}${sep}edit=1`;
+  });
+}
