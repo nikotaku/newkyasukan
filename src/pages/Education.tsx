@@ -13,7 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Search, Plus, Trash2, ChevronDown, GraduationCap,
+  Search, Plus, Trash2, ChevronDown, GraduationCap, Pencil, Check, X,
   CircleCheck, CircleDashed, CircleDot, Loader2, BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -95,6 +95,9 @@ export default function Education() {
   // Curriculum management
   const [newModule, setNewModule] = useState({ category: "", title: "", description: "", items: "" });
   const [addingModule, setAddingModule] = useState(false);
+  const [renamingCategory, setRenamingCategory] = useState<{ from: string; to: string } | null>(null);
+  const [editingModule, setEditingModule] = useState<{ id: string; category: string; title: string; description: string } | null>(null);
+  const [savingCurriculum, setSavingCurriculum] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -200,6 +203,39 @@ export default function Education() {
     toast.success("カリキュラム項目を追加しました");
     setNewModule({ category: "", title: "", description: "", items: "" });
     fetchBase();
+  };
+
+  // カテゴリの名前を変える（そのカテゴリの講習をまとめて付け替える）
+  const renameCategory = async () => {
+    if (!renamingCategory) return;
+    const to = renamingCategory.to.trim();
+    if (!to) { toast.error("カテゴリ名を入力してください"); return; }
+    if (to === renamingCategory.from) { setRenamingCategory(null); return; }
+    const ids = modules.filter((m) => m.category === renamingCategory.from).map((m) => m.id);
+    setSavingCurriculum(true);
+    const { error } = await supabase.from("training_modules" as any).update({ category: to }).in("id", ids);
+    setSavingCurriculum(false);
+    if (error) { toast.error("保存に失敗しました"); return; }
+    setModules((prev) => prev.map((m) => (ids.includes(m.id) ? { ...m, category: to } : m)));
+    setRenamingCategory(null);
+    toast.success("カテゴリ名を変えました");
+  };
+
+  // 講習のカテゴリ・名前・説明を直す
+  const saveModuleEdit = async () => {
+    if (!editingModule) return;
+    const category = editingModule.category.trim() || "一般";
+    const title = editingModule.title.trim();
+    if (!title) { toast.error("項目名を入力してください"); return; }
+    const description = editingModule.description.trim() || null;
+    setSavingCurriculum(true);
+    const { error } = await supabase.from("training_modules" as any)
+      .update({ category, title, description }).eq("id", editingModule.id);
+    setSavingCurriculum(false);
+    if (error) { toast.error("保存に失敗しました"); return; }
+    setModules((prev) => prev.map((m) => (m.id === editingModule.id ? { ...m, category, title, description } : m)));
+    setEditingModule(null);
+    toast.success("保存しました");
   };
 
   const deleteModule = async (id: string) => {
@@ -516,7 +552,7 @@ export default function Education() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label className="text-xs">カテゴリ</Label>
-                        <Input className="mt-1" placeholder="例：施術技術" value={newModule.category}
+                        <Input className="mt-1" list="training-categories" placeholder="例：施術技術" value={newModule.category}
                           onChange={(e) => setNewModule(f => ({ ...f, category: e.target.value }))} />
                       </div>
                       <div>
@@ -545,19 +581,66 @@ export default function Education() {
                 <div className="space-y-4">
                   {Object.entries(grouped).map(([category, mods]) => (
                     <div key={category}>
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">{category}</p>
+                      {renamingCategory?.from === category ? (
+                        <div className="mb-2 flex items-center gap-1">
+                          <Input className="h-8 text-sm" autoFocus value={renamingCategory.to}
+                            onChange={(e) => setRenamingCategory({ from: category, to: e.target.value })}
+                            onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) void renameCategory(); }} />
+                          <Button size="icon" className="h-8 w-8 shrink-0" onClick={() => void renameCategory()} disabled={savingCurriculum} aria-label="保存">
+                            {savingCurriculum ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setRenamingCategory(null)} aria-label="やめる">
+                            <X size={14} />
+                          </Button>
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => setRenamingCategory({ from: category, to: category })}
+                          className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground tracking-wider hover:text-foreground">
+                          {category}<Pencil size={12} />
+                        </button>
+                      )}
                       <div className="space-y-2">
                         {mods.map((m) => (
                           <div key={m.id} className="rounded-xl border bg-card px-4 py-3">
+                            {editingModule?.id === m.id ? (
+                              <div className="space-y-2">
+                                <div>
+                                  <Label className="text-xs">カテゴリ</Label>
+                                  <Input className="mt-1 h-9 text-sm" list="training-categories" value={editingModule.category}
+                                    onChange={(e) => setEditingModule({ ...editingModule, category: e.target.value })} />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">項目名</Label>
+                                  <Input className="mt-1 h-9 text-sm" value={editingModule.title}
+                                    onChange={(e) => setEditingModule({ ...editingModule, title: e.target.value })} />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">説明</Label>
+                                  <Textarea className="mt-1 text-sm resize-none" rows={2} value={editingModule.description}
+                                    onChange={(e) => setEditingModule({ ...editingModule, description: e.target.value })} />
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button size="sm" onClick={() => void saveModuleEdit()} disabled={savingCurriculum}>
+                                    {savingCurriculum && <Loader2 size={14} className="mr-1.5 animate-spin" />}保存
+                                  </Button>
+                                  <Button size="sm" variant="ghost" onClick={() => setEditingModule(null)}>やめる</Button>
+                                </div>
+                              </div>
+                            ) : (
                             <div className="flex items-start gap-3">
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium">{m.title}</p>
                                 {m.description && <p className="text-xs text-muted-foreground mt-0.5">{m.description}</p>}
                               </div>
+                              <button onClick={() => setEditingModule({ id: m.id, category: m.category, title: m.title, description: m.description ?? "" })}
+                                className="text-muted-foreground hover:text-foreground p-1 shrink-0" aria-label="編集">
+                                <Pencil size={15} />
+                              </button>
                               <button onClick={() => deleteModule(m.id)} className="text-muted-foreground hover:text-destructive p-1 shrink-0">
                                 <Trash2 size={15} />
                               </button>
                             </div>
+                            )}
                             <ModuleChecklistEditor
                               moduleId={m.id}
                               checklist={m.checklist}
@@ -571,6 +654,9 @@ export default function Education() {
                   {modules.length === 0 && (
                     <p className="text-center text-muted-foreground text-sm py-8">カリキュラム項目がありません</p>
                   )}
+                  <datalist id="training-categories">
+                    {Object.keys(grouped).map((c) => <option key={c} value={c} />)}
+                  </datalist>
                 </div>
               </div>
             </TabsContent>
