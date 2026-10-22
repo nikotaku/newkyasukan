@@ -585,8 +585,15 @@ export default function O2Management() {
         }
         return;
       }
+      const savedRow = editing;
+      const readyToNotify = Boolean(o2LoginId || savedRow.credential_configured || xLoginId) && !notices.has(savedRow.cast_id);
       closeEdit();
-      toast.success("O2・X・魂セラピストの設定を更新しました");
+      // XかO2のアカウントを登録したら、そのままセラピストに知らせられるようにする
+      toast.success("O2・X・魂セラピストの設定を更新しました", readyToNotify ? {
+        description: `アカウントの準備ができたら、${savedRow.cast_name}さんのマイページに通知しましょう`,
+        duration: 15000,
+        action: { label: "セラピストに通知", onClick: () => void notifySnsReady(savedRow) },
+      } : undefined);
       await load();
     } finally {
       savingRef.current = false;
@@ -861,6 +868,16 @@ export default function O2Management() {
               </div>
             </section>
 
+            {editing && !isEditingCredentials && (
+              <section className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <p className="text-sm font-semibold">セラピストに知らせる</p>
+                <p className="text-xs text-muted-foreground">
+                  XとO2のアカウントを作って登録し終わったら押してください。マイページに通知が届き、「SNSアカウント」でログインIDとパスワード・設定マニュアルが見られます。
+                </p>
+                {snsNoticeButton(editing, "default")}
+                {snsNoticeStatus(editing)}
+              </section>
+            )}
             <p className="text-xs text-muted-foreground">O2・X・魂セラピストの情報は別々に保存されます。Xのパスワードは任意で、投稿フォームの連携先はO2と魂セラピストのみです。</p>
             {isEditingCredentials && (
               <div className="flex gap-2">
