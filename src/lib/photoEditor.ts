@@ -4,7 +4,7 @@
 export type PhotoAspect = "original" | "1:1" | "3:4" | "4:3" | "9:16";
 
 export type PhotoOverlay = {
-  kind: "heart" | "mosaic";
+  kind: "heart" | "mosaic" | "glow";
   /** 切り抜いた枠の中の位置（0〜1） */
   x: number;
   y: number;
@@ -167,6 +167,50 @@ function mosaic(ctx: CanvasRenderingContext2D, cx: number, cy: number, radius: n
 }
 
 /** 白いハート（顔隠し用） */
+/** 位置から決まる乱数（画面で見た絵と保存した絵で、白ぼかしの粒が同じになるように） */
+export function seededRandom(seed: number) {
+  let t = (seed >>> 0) || 1;
+  return () => {
+    t = (t + 0x6d2b79f5) >>> 0;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** 白ぼかし（顔隠し）：まん中は白く、ふちに向かってふんわり消え、まわりにキラキラした白い粒を散らす */
+function glow(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, seed: number) {
+  const r = size / 2;
+  ctx.save();
+  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  gradient.addColorStop(0, "rgba(255,255,255,1)");
+  gradient.addColorStop(0.45, "rgba(255,255,255,0.97)");
+  gradient.addColorStop(0.7, "rgba(255,255,255,0.75)");
+  gradient.addColorStop(0.88, "rgba(255,255,255,0.3)");
+  gradient.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 粒：ふちのあたりに多く、外へ行くほど少なく・薄く（見本の写真のようなザラっとした白い粒）
+  const random = seededRandom(seed);
+  const count = Math.round(900 + size * 5);
+  const dot = Math.max(0.8, size / 180);
+  for (let i = 0; i < count; i += 1) {
+    const angle = random() * Math.PI * 2;
+    const distance = r * (0.5 + Math.pow(random(), 0.65) * 1.15);
+    const x = cx + Math.cos(angle) * distance;
+    const y = cy + Math.sin(angle) * distance;
+    const fade = 1 - Math.min(1, Math.max(0, (distance - r * 0.6) / (r * 1.1)));
+    ctx.fillStyle = `rgba(255,255,255,${Math.min(1, (0.55 + random() * 0.45) * fade * 1.1)})`;
+    ctx.beginPath();
+    ctx.arc(x, y, dot * (0.5 + random() * 1.1), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function heart(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number) {
   const w = size;
   const h = size * 0.92;
@@ -319,6 +363,8 @@ export function renderEditedPhoto(
     const size = overlay.size * frame.width;
     if (overlay.kind === "mosaic") {
       mosaic(ctx, cx, cy, size / 2, Math.max(4, Math.round(frame.width / 40)));
+    } else if (overlay.kind === "glow") {
+      glow(ctx, cx, cy, size, Math.round(overlay.x * 100000) * 7919 + Math.round(overlay.y * 100000));
     } else {
       heart(ctx, cx, cy, size);
     }

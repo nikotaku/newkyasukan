@@ -58,3 +58,13 @@ test("なぞった2点から残す楕円を作る（小さすぎない）", asyn
   assert.equal(tiny.rx, 0.03);
   assert.equal(tiny.ry, 0.03);
 });
+
+test("白ぼかしの粒は同じ位置なら毎回同じ並びになる", async () => {
+  const { seededRandom } = await import("../src/lib/photoEditor.ts");
+  const a = seededRandom(12345);
+  const b = seededRandom(12345);
+  const seqA = [a(), a(), a()];
+  assert.deepEqual(seqA, [b(), b(), b()]);
+  assert.ok(seqA.every((v) => v >= 0 && v < 1));
+  assert.notDeepEqual(seqA, [seededRandom(999)(), 0, 0]);
+});
