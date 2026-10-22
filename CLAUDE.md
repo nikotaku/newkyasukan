@@ -418,3 +418,10 @@
 
 - 「シフト空き枠レポート」（Edge Function `shift-availability-report`、毎月1・11・21日 9:00）は止めている（pg_cron `shift-availability-report` を active = false。`20261022090000_stop_shift_availability_report.sql`）
 - 毎晩23時の「明日の出勤リマインド」（`send-shift-reminder`、pg_cron `shift-reminder`）は送る。後ろに付けていた「来月の空き状況」は外した
+
+## エステ魂のシフト同期（いつ・どう反映されるか）
+
+- シフトを保存すると DBトリガー `trg_enqueue_estama_shift` が `automation_jobs`（`estama_sync_shift`）に積む（今日〜13日後・エステ魂につながっている人だけ。担当や日付を変えたら前の枠の削除も積む）
+- 流すのは2つ：①毎分の `estama-profile-sync-every-minute` → `private.dispatch_estama_profile_sync()` → Vercel `estama-profile-worker`（プロフィール同期の次に、待っているシフト同期も10件まで流す。毎時27〜42分は動かさない）②毎晩23時の `estama-shift-sync-daily` → `private.dispatch_estama_sync()` → Edge Function `estama-reconcile-dispatch`（14日分を全部送り直す）
+- 2026-10-22 まで①はプロフィールだけで、ログインが切れていた間に直したシフトが翌23時まで反映されなかった（`20261022110000_estama_shift_jobs_background.sql` で直した）。ログインが切れていると、どちらも再ログイン（`estama-relogin`）まで止まる
+- 結果は「エスたま自動化履歴」（`/schedule/estama-sync-history`）
