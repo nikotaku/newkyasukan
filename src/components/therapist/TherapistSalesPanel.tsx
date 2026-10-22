@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Check, CheckCircle2, ChevronDown, ChevronUp, Loader2, RefreshCw } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, ChevronUp, Loader2, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toExtTime } from "@/lib/timeFormat";
 import { calcPaymentFee, findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
+import { type SplitRow, balanceSplit, initialSplit, splitError, splitFee } from "@/lib/therapistSplitPayment";
+import { SplitPaymentFields } from "@/components/therapist/SplitPaymentFields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -61,6 +63,8 @@ interface EditState {
   discount_amount: number;
   payment_method: string;
   nomination_type: string;
+  /** 支払いを分けるとき（例：はじめはカード、追加オプションは現金）。null は1つの方法 */
+  split: SplitRow[] | null;
 }
 
 interface Submission {
@@ -154,6 +158,9 @@ export function TherapistSalesPanel({
       discount_amount: reservation.discount || 0,
       payment_method: normalizePaymentMethod(reservation.payment_method, reservation.payment_details),
       nomination_type: reservation.nomination_type || "none",
+      split: reservation.payment_details?.length
+        ? reservation.payment_details.map((detail) => ({ method: normalizePaymentMethod(detail.method), amount: detail.amount || 0 }))
+        : null,
     };
   }, []);
 
@@ -212,8 +219,9 @@ export function TherapistSalesPanel({
     subtotal += nominationFee;
     const discount = Math.min(Math.max(state.discount_amount || 0, 0), subtotal);
     const price = subtotal - discount;
-    const fee = calcPaymentFee(price, paymentSettings, state.payment_method);
-    return { subtotal, nominationFee, discount, price, fee, total: price + fee };
+    const split = state.split ? balanceSplit(state.split, price) : null;
+    const fee = split ? splitFee(split, paymentSettings) : calcPaymentFee(price, paymentSettings, state.payment_method);
+    return { subtotal, nominationFee, discount, price, fee, total: price + fee, split };
   }, [backRates, nominationRates, optionRates, paymentSettings]);
 
   const updateEdit = (reservationId: string, patch: Partial<EditState>) => {
@@ -229,30 +237,48 @@ export function TherapistSalesPanel({
     const state = editStates[reservation.id];
     if (!state) return;
     const calculation = calcPrice(state);
-    if (reservation.payment_details?.length && calculation.price !== reservation.price) {
-      toast.error("分割払いの予約は金額内訳の再設定が必要です。店舗へ連絡してください");
-      return;
+    if (calculation.split) {
+      const problem = splitError(calculation.split, calculation.price);
+      if (problem) {
+        toast.error(`支払いの分け方：${problem}`);
+        return;
+      }
     }
+    // 分けて払った／分割をやめたときは、内訳ごと保存する関数を使う
+    const useSplitRpc = Boolean(calculation.split) || Boolean(reservation.payment_details?.length);
 
     const backRate = backRates.find((rate) => rate.course_type === state.course_type && rate.duration === state.duration);
     const courseName = backRate ? `${state.course_type} ${state.duration}分` : reservation.course_name;
 
     setSavingId(reservation.id);
     try {
-      const { error } = await supabase.rpc("therapist_update_reservation", {
-        p_token: token,
-        p_reservation_id: reservation.id,
-        p_course_type: state.course_type,
-        p_duration: state.duration,
-        p_course_name: courseName,
-        p_options: [...new Set(state.selectedOptions)],
-        p_discount: calculation.discount,
-        p_discount_ids: reservation.discount_ids || [],
-        p_price: calculation.price,
-        p_payment_fee: calculation.fee,
-        p_payment_method: state.payment_method,
-        p_nomination_type: state.nomination_type === "none" ? null : state.nomination_type,
-      });
+      const { error } = useSplitRpc
+        ? await supabase.rpc("therapist_update_reservation_split" as never, {
+          p_token: token,
+          p_reservation_id: reservation.id,
+          p_course_type: state.course_type,
+          p_duration: state.duration,
+          p_course_name: courseName,
+          p_options: [...new Set(state.selectedOptions)],
+          p_discount: calculation.discount,
+          p_price: calculation.price,
+          p_nomination_type: state.nomination_type === "none" ? null : state.nomination_type,
+          p_payment_details: calculation.split ?? [{ method: state.payment_method, amount: calculation.price }],
+        } as never)
+        : await supabase.rpc("therapist_update_reservation", {
+          p_token: token,
+          p_reservation_id: reservation.id,
+          p_course_type: state.course_type,
+          p_duration: state.duration,
+          p_course_name: courseName,
+          p_options: [...new Set(state.selectedOptions)],
+          p_discount: calculation.discount,
+          p_discount_ids: reservation.discount_ids || [],
+          p_price: calculation.price,
+          p_payment_fee: calculation.fee,
+          p_payment_method: state.payment_method,
+          p_nomination_type: state.nomination_type === "none" ? null : state.nomination_type,
+        });
       if (error) throw error;
 
       setReservations((current) => current.map((row) => row.id === reservation.id ? {
@@ -264,9 +290,11 @@ export function TherapistSalesPanel({
         discount: calculation.discount,
         price: calculation.price,
         payment_fee: calculation.fee,
-        payment_method: state.payment_method,
+        payment_method: calculation.split ? calculation.split[0].method : state.payment_method,
+        payment_details: calculation.split ? calculation.split.map((detail) => ({ ...detail, fee: calcPaymentFee(detail.amount, paymentSettings, detail.method) })) : null,
         nomination_type: state.nomination_type === "none" ? null : state.nomination_type,
       } : row));
+      setEditStates((current) => ({ ...current, [reservation.id]: { ...state, split: calculation.split } }));
       setDirtyIds((current) => {
         const next = new Set(current);
         next.delete(reservation.id);
@@ -516,14 +544,36 @@ export function TherapistSalesPanel({
                   </div>
 
                   <div>
-                    <Label className="text-xs">お支払い方法</Label>
-                    {hasSplitPayment ? (
-                      <div className="mt-1 rounded-lg border bg-muted/30 p-2 text-xs space-y-1">
-                        {reservation.payment_details?.map((detail, index) => (
-                          <div key={`${detail.method}-${index}`} className="flex justify-between"><span>{PAYMENT_METHODS.find((method) => method.value === detail.method)?.label || detail.method}</span><span>¥{detail.amount.toLocaleString()}</span></div>
-                        ))}
-                        <p className="text-amber-700 flex gap-1 pt-1"><AlertCircle size={13} className="shrink-0" />金額が変わる場合は店舗へ分割内訳の変更を依頼してください。</p>
-                      </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-xs">お支払い方法</Label>
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-primary"
+                        onClick={() => updateEdit(reservation.id, {
+                          split: state.split
+                            ? null
+                            : initialSplit(
+                              normalizePaymentMethod(reservation.payment_method),
+                              hasSplitPayment ? calculation.price : reservation.price || 0,
+                              calculation.price,
+                            ),
+                          payment_method: state.split ? (calculation.split?.[0]?.method ?? state.payment_method) : state.payment_method,
+                        })}
+                      >
+                        {state.split ? "分けずに1つで払う" : "支払いを分ける"}
+                      </button>
+                    </div>
+                    {state.split ? (
+                      <>
+                        <p className="mt-1 text-[11px] text-muted-foreground">例：はじめの会計はカード、あとから足したオプションは現金</p>
+                        <SplitPaymentFields
+                          rows={state.split}
+                          price={calculation.price}
+                          cardFeePct={cardFeePct}
+                          paypayFeePct={paypayFeePct}
+                          onChange={(rows) => updateEdit(reservation.id, { split: rows })}
+                        />
+                      </>
                     ) : (
                       <Select value={state.payment_method} onValueChange={(value) => updateEdit(reservation.id, { payment_method: value })}>
                         <SelectTrigger className="h-9 mt-1 text-xs"><SelectValue /></SelectTrigger>
