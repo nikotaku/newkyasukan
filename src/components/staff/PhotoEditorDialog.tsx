@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { FlipHorizontal, Heart, Loader2, Move, RotateCcw, RotateCw, Undo2, Grid3x3 } from "lucide-react";
+import { FlipHorizontal, Heart, Loader2, Move, RotateCcw, RotateCw, Undo2, Grid3x3, ScanFace } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
 import {
   clampOffsets,
+  ellipseFromDrag,
   exportEditedPhoto,
   initialPhotoEditState,
   loadEditableImage,
@@ -22,7 +23,7 @@ const ASPECT_OPTIONS: { value: PhotoAspect; label: string }[] = [
   { value: "4:3", label: "横 4:3" },
 ];
 
-type Tool = "move" | "heart" | "mosaic";
+type Tool = "move" | "heart" | "mosaic" | "background";
 
 /**
  * セラピスト編集の写真をその場で加工する（切り抜き・回転・反転・明るさ・顔隠し）。
@@ -46,7 +47,7 @@ export function PhotoEditorDialog({
   const [tool, setTool] = useState<Tool>("move");
   const [stampSize, setStampSize] = useState(0.3);
   const [saving, setSaving] = useState(false);
-  const drag = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
+  const drag = useRef<{ x: number; y: number; offsetX: number; offsetY: number; startX?: number; startY?: number } | null>(null);
 
   useEffect(() => {
     if (!open || !url) return;
@@ -64,7 +65,7 @@ export function PhotoEditorDialog({
   useEffect(() => {
     if (!image || !canvasRef.current) return;
     try {
-      renderEditedPhoto(canvasRef.current, image, state, 900);
+      renderEditedPhoto(canvasRef.current, image, state, 900, { showGuides: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -87,6 +88,12 @@ export function PhotoEditorDialog({
       drag.current = { x: e.clientX, y: e.clientY, offsetX: state.offsetX, offsetY: state.offsetY };
       return;
     }
+    if (tool === "background") {
+      // なぞり始めた所から、残す範囲（楕円）を囲む
+      drag.current = { x: e.clientX, y: e.clientY, offsetX: 0, offsetY: 0, startX: p.x, startY: p.y };
+      setState((s) => ({ ...s, background: { ...s.background, enabled: true } }));
+      return;
+    }
     setState((s) => ({ ...s, overlays: [...s.overlays, { kind: tool, x: p.x, y: p.y, size: stampSize }] }));
     drag.current = { x: e.clientX, y: e.clientY, offsetX: 0, offsetY: 0 };
   };
@@ -99,6 +106,11 @@ export function PhotoEditorDialog({
         offsetX: drag.current.offsetX + (e.clientX - drag.current.x) / p.rect.width,
         offsetY: drag.current.offsetY + (e.clientY - drag.current.y) / p.rect.height,
       });
+      return;
+    }
+    if (tool === "background" && drag.current.startX !== undefined && drag.current.startY !== undefined) {
+      const keep = ellipseFromDrag({ x: drag.current.startX, y: drag.current.startY }, { x: p.x, y: p.y });
+      setState((s) => ({ ...s, background: { ...s.background, enabled: true, keep } }));
       return;
     }
     if (tool === "mosaic") {
@@ -169,6 +181,7 @@ export function PhotoEditorDialog({
               {toolButton("move", "動かす", Move)}
               {toolButton("heart", "ハート", Heart)}
               {toolButton("mosaic", "モザイク", Grid3x3)}
+              {toolButton("background", "背景", ScanFace)}
               <Button
                 type="button"
                 variant="outline"
@@ -185,9 +198,54 @@ export function PhotoEditorDialog({
                 ? "写真をドラッグして位置を合わせます（ズームで寄せてから動かせます）"
                 : tool === "heart"
                   ? "隠したい所をタップするとハートを置きます"
-                  : "隠したい所をタップ・なぞるとモザイクになります"}
+                  : tool === "mosaic"
+                    ? "隠したい所をタップ・なぞるとモザイクになります"
+                    : "残したい人のまわりを、斜めになぞって囲みます（点線の外が背景になります）"}
             </p>
-            {tool !== "move" && (
+            {tool === "background" && (
+              <div className="space-y-2 rounded-md border p-2">
+                <div className="flex items-center gap-1">
+                  {(["mosaic", "blur"] as const).map((effect) => (
+                    <button
+                      key={effect}
+                      type="button"
+                      onClick={() => setState((s) => ({ ...s, background: { ...s.background, enabled: true, effect } }))}
+                      className={cn(
+                        "flex-1 rounded-md border px-2 py-1 text-xs",
+                        state.background.enabled && state.background.effect === effect
+                          ? "border-primary bg-primary/10 font-semibold text-primary"
+                          : "bg-background",
+                      )}
+                    >
+                      背景を{effect === "mosaic" ? "モザイク" : "ぼかし"}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setState((s) => ({ ...s, background: { ...s.background, enabled: false } }))}
+                    className={cn(
+                      "rounded-md border px-2 py-1 text-xs",
+                      !state.background.enabled ? "border-primary bg-primary/10 font-semibold text-primary" : "bg-background",
+                    )}
+                  >
+                    なし
+                  </button>
+                </div>
+                {state.background.enabled && (
+                  <div>
+                    <p className="mb-1 text-xs">強さ</p>
+                    <Slider
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={[state.background.strength]}
+                      onValueChange={([v]) => setState((s) => ({ ...s, background: { ...s.background, strength: v } }))}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            {(tool === "heart" || tool === "mosaic") && (
               <div>
                 <p className="mb-1 text-xs">大きさ</p>
                 <Slider min={5} max={70} step={1} value={[Math.round(stampSize * 100)]} onValueChange={([v]) => setStampSize(v / 100)} />

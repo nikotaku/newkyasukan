@@ -50,3 +50,11 @@ test("明るさ・彩度の調整", () => {
   adjustPixels(same, 0, 0, 0);
   assert.deepEqual([...same], [10, 20, 30, 255]);
 });
+
+test("なぞった2点から残す楕円を作る（小さすぎない）", async () => {
+  const { ellipseFromDrag } = await import("../src/lib/photoEditor.ts");
+  assert.deepEqual(ellipseFromDrag({ x: 0.2, y: 0.1 }, { x: 0.8, y: 0.9 }), { x: 0.5, y: 0.5, rx: 0.30000000000000004, ry: 0.4 });
+  const tiny = ellipseFromDrag({ x: 0.5, y: 0.5 }, { x: 0.5, y: 0.5 });
+  assert.equal(tiny.rx, 0.03);
+  assert.equal(tiny.ry, 0.03);
+});

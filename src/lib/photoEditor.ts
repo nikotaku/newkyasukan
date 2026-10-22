@@ -12,6 +12,22 @@ export type PhotoOverlay = {
   size: number;
 };
 
+/** 背景のモザイク・ぼかし。keep の楕円（枠の中の位置 0〜1）の中は元のまま残す */
+export type PhotoBackground = {
+  enabled: boolean;
+  effect: "mosaic" | "blur";
+  /** 1〜100 */
+  strength: number;
+  keep: { x: number; y: number; rx: number; ry: number };
+};
+
+export const defaultBackground = (): PhotoBackground => ({
+  enabled: false,
+  effect: "mosaic",
+  strength: 50,
+  keep: { x: 0.5, y: 0.45, rx: 0.32, ry: 0.42 },
+});
+
 export type PhotoEditState = {
   rotation: 0 | 90 | 180 | 270;
   flipX: boolean;
@@ -26,6 +42,7 @@ export type PhotoEditState = {
   contrast: number;
   saturation: number;
   overlays: PhotoOverlay[];
+  background: PhotoBackground;
 };
 
 export const initialPhotoEditState = (): PhotoEditState => ({
@@ -39,6 +56,7 @@ export const initialPhotoEditState = (): PhotoEditState => ({
   contrast: 0,
   saturation: 0,
   overlays: [],
+  background: defaultBackground(),
 });
 
 const ASPECTS: Record<Exclude<PhotoAspect, "original">, number> = {
@@ -168,8 +186,104 @@ function heart(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: numb
   ctx.restore();
 }
 
+/** 2点から楕円（中心・半径）を作る（指でなぞった範囲） */
+export function ellipseFromDrag(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return {
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+    rx: Math.max(0.03, Math.abs(a.x - b.x) / 2),
+    ry: Math.max(0.03, Math.abs(a.y - b.y) / 2),
+  };
+}
+
+/** 背景用に、全体をモザイク／ぼかしにした絵を作る（Safari でも動くよう縮小→拡大で作る） */
+function processedCopy(source: HTMLCanvasElement, effect: PhotoBackground["effect"], strength: number) {
+  const { width, height } = source;
+  const out = document.createElement("canvas");
+  out.width = width;
+  out.height = height;
+  const ctx = out.getContext("2d");
+  if (!ctx) return out;
+  const small = document.createElement("canvas");
+  if (effect === "mosaic") {
+    const block = Math.max(4, Math.round((width / 120) * (0.4 + strength / 25)));
+    small.width = Math.max(1, Math.round(width / block));
+    small.height = Math.max(1, Math.round(height / block));
+    const sctx = small.getContext("2d");
+    if (!sctx) return out;
+    sctx.imageSmoothingEnabled = true;
+    sctx.drawImage(source, 0, 0, small.width, small.height);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(small, 0, 0, width, height);
+    return out;
+  }
+  // ぼかし：小さくしてなめらかに戻すのを2回
+  const factor = Math.max(2, Math.round(2 + strength / 6));
+  small.width = Math.max(1, Math.round(width / factor));
+  small.height = Math.max(1, Math.round(height / factor));
+  const sctx = small.getContext("2d");
+  if (!sctx) return out;
+  sctx.imageSmoothingEnabled = true;
+  sctx.imageSmoothingQuality = "high";
+  sctx.drawImage(source, 0, 0, small.width, small.height);
+  const tiny = document.createElement("canvas");
+  tiny.width = Math.max(1, Math.round(small.width / 2));
+  tiny.height = Math.max(1, Math.round(small.height / 2));
+  const tctx = tiny.getContext("2d");
+  if (tctx) {
+    tctx.imageSmoothingEnabled = true;
+    tctx.drawImage(small, 0, 0, tiny.width, tiny.height);
+    sctx.clearRect(0, 0, small.width, small.height);
+    sctx.drawImage(tiny, 0, 0, small.width, small.height);
+  }
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(small, 0, 0, width, height);
+  return out;
+}
+
+/** 背景をモザイク／ぼかしにし、楕円の中だけ元の絵を残す（ふちはなめらかにつなぐ） */
+function applyBackground(ctx: CanvasRenderingContext2D, background: PhotoBackground) {
+  const canvas = ctx.canvas;
+  const { width, height } = canvas;
+  const keep = document.createElement("canvas");
+  keep.width = width;
+  keep.height = height;
+  const kctx = keep.getContext("2d");
+  if (!kctx) return;
+  kctx.drawImage(canvas, 0, 0);
+  // 楕円の形の、ふちがぼけたマスク
+  const cx = background.keep.x * width;
+  const cy = background.keep.y * height;
+  const rx = Math.max(1, background.keep.rx * width);
+  const ry = Math.max(1, background.keep.ry * height);
+  kctx.globalCompositeOperation = "destination-in";
+  kctx.save();
+  kctx.translate(cx, cy);
+  kctx.scale(1, ry / rx);
+  const gradient = kctx.createRadialGradient(0, 0, rx * 0.82, 0, 0, rx);
+  gradient.addColorStop(0, "rgba(0,0,0,1)");
+  gradient.addColorStop(1, "rgba(0,0,0,0)");
+  kctx.fillStyle = gradient;
+  kctx.beginPath();
+  kctx.arc(0, 0, rx, 0, Math.PI * 2);
+  kctx.fill();
+  kctx.restore();
+
+  const processed = processedCopy(canvas, background.effect, background.strength);
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(processed, 0, 0);
+  ctx.drawImage(keep, 0, 0);
+}
+
 /** 加工した絵を canvas に描く。longEdge は出来上がりの長い辺の画素数 */
-export function renderEditedPhoto(canvas: HTMLCanvasElement, image: HTMLImageElement, state: PhotoEditState, longEdge: number) {
+export function renderEditedPhoto(
+  canvas: HTMLCanvasElement,
+  image: HTMLImageElement,
+  state: PhotoEditState,
+  longEdge: number,
+  options: { showGuides?: boolean } = {},
+) {
   const iw = image.naturalWidth;
   const ih = image.naturalHeight;
   const frame = frameSize(iw, ih, state, longEdge);
@@ -197,6 +311,8 @@ export function renderEditedPhoto(canvas: HTMLCanvasElement, image: HTMLImageEle
     ctx.putImageData(pixels, 0, 0);
   }
 
+  if (state.background.enabled) applyBackground(ctx, state.background);
+
   for (const overlay of state.overlays) {
     const cx = overlay.x * frame.width;
     const cy = overlay.y * frame.height;
@@ -206,6 +322,19 @@ export function renderEditedPhoto(canvas: HTMLCanvasElement, image: HTMLImageEle
     } else {
       heart(ctx, cx, cy, size);
     }
+  }
+
+  // 画面で見るときだけ、残す範囲の楕円を点線で出す（保存する絵には描かない）
+  if (options.showGuides && state.background.enabled) {
+    const { keep } = state.background;
+    ctx.save();
+    ctx.setLineDash([Math.max(4, frame.width / 80), Math.max(4, frame.width / 80)]);
+    ctx.lineWidth = Math.max(2, frame.width / 300);
+    ctx.strokeStyle = "rgba(255,255,255,0.95)";
+    ctx.beginPath();
+    ctx.ellipse(keep.x * frame.width, keep.y * frame.height, keep.rx * frame.width, keep.ry * frame.height, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
