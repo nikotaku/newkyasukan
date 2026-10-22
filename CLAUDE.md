@@ -382,6 +382,11 @@
 - 日別精算：締めていない日は、記録が `other_expenses` の kind = `cash_return`（`source_return_id` 付き）の行として自動で入る（`syncCashReturnItems`）。お店がセラピストに返す＝セラピストの受け取りが増え、店落ちが減る。セラピストの取り分（バック）は返金前の料金のまま。精算の後に記録されたものは赤で出し「精算に入れる」→「承認し直す」。入っていないまま承認しようとすると確認が出る
 - 月別清算・月別売上：返金・キャッシュバックはお店の負担として**売上から引く**（給与・追加支給には入れない）。分け方は `splitSalaryAdjustments` の `returns`。画面・計算は `src/lib/cashReturns.ts`（テスト `npm run test:clearance-defaults`）
 
+## セラピストの精算：支払いを分けて申請
+
+- マイページの売上入力（`TherapistSalesPanel`）と精算ページ（`/therapist/:token/checkout`）の予約ごとの「お支払い方法」の「支払いを分ける」で、方法ごとの金額に分けて保存できる（例：はじめの会計はカード、あとから足したオプションは現金）。分け始めは今までの方法で前の料金、増えた分は別の方法（カードなら現金）。最後の行は残りの金額が自動で入る。部品は `src/components/therapist/SplitPaymentFields.tsx`、計算は `src/lib/therapistSplitPayment.ts`（テスト `npm run test:therapist-split-payment`）
+- 保存は RPC `therapist_update_reservation_split`（本人のトークン）。中で分割を外してから既存の `therapist_update_reservation`（料金の確かめ・送信済みの未承認報告の取り消し）を通し、そのあと `reservations.payment_details`（[{ method, amount, fee }]、手数料は店舗の設定で計算し直す）・`payment_fee`（合計）・`payment_method`（1つ目）を入れる。1件だけ渡すと分割をやめる。管理画面の分割払いと同じ形なので、精算の合計・承認はそのまま方法ごとに分かれる
+
 ## セラピストのマイページ：その月の本数
 
 - メニューの「◯月の本数」（`src/components/therapist/TherapistMonthlyCount.tsx`）。施術済み（completed）を大きく、予定（confirmed）を別に出す。キャンセルは数えない。指名の種類（指名なしはフリー）・コースの時間・日ごとの内訳つき。左右で過去24か月まで切り替え

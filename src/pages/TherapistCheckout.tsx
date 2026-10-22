@@ -27,6 +27,8 @@ import { TherapistCashReturns } from "@/components/therapist/TherapistCashReturn
 import { format, addDays } from "date-fns";
 import { ja } from "date-fns/locale";
 import { calcPaymentFee, findPaymentSetting, PaymentSetting } from "@/lib/paymentFee";
+import { type SplitRow, balanceSplit, initialSplit, splitError, splitFee } from "@/lib/therapistSplitPayment";
+import { SplitPaymentFields } from "@/components/therapist/SplitPaymentFields";
 
 interface Cast {
   id: string;
@@ -90,6 +92,8 @@ interface EditState {
   discount_amount: number;
   payment_method: string;
   nomination_type: string;
+  /** 支払いを分けるとき（例：はじめはカード、追加オプションは現金）。null は1つの方法 */
+  split: SplitRow[] | null;
 }
 
 // 割引プルダウンの選択肢（1,000円〜5,000円）
@@ -292,6 +296,9 @@ export default function TherapistCheckout() {
           discount_amount,
           payment_method: normalizePaymentMethod(r.payment_method),
           nomination_type: r.nomination_type ?? "none",
+          split: r.payment_details?.length
+            ? r.payment_details.map((d) => ({ method: normalizePaymentMethod(d.method), amount: d.amount || 0 }))
+            : null,
         },
       }));
     }
@@ -302,7 +309,7 @@ export default function TherapistCheckout() {
   };
 
   // 価格計算
-  const calcPrice = useCallback((state: EditState): { subtotal: number; nominationFee: number; discount: number; fee: number; total: number } => {
+  const calcPrice = useCallback((state: EditState): { subtotal: number; nominationFee: number; discount: number; fee: number; total: number; split: SplitRow[] | null } => {
     const backRate = backRates.find(r => r.course_type === state.course_type && r.duration === state.duration);
     let subtotal = backRate?.customer_price ?? 0;
     state.selectedOptions.forEach(opt => {
@@ -317,39 +324,58 @@ export default function TherapistCheckout() {
     subtotal += nominationFee;
     const discountAmt = Math.min(state.discount_amount || 0, subtotal);
     const price = subtotal - discountAmt;
-    const fee = calcPaymentFee(price, paymentSettings, state.payment_method);
-    return { subtotal, nominationFee, discount: discountAmt, fee, total: price + fee };
+    const split = state.split ? balanceSplit(state.split, price) : null;
+    const fee = split ? splitFee(split, paymentSettings) : calcPaymentFee(price, paymentSettings, state.payment_method);
+    return { subtotal, nominationFee, discount: discountAmt, fee, total: price + fee, split };
   }, [backRates, optionRates, paymentSettings, nominationRates]);
 
   const handleSaveEdit = async (r: Reservation) => {
     const state = editStates[r.id];
     if (!state) return;
-    const { subtotal: _, discount, fee, total } = calcPrice(state);
+    const { discount, fee, total, split } = calcPrice(state);
     const updatedPrice = total - fee;
-    if (r.payment_details?.length && updatedPrice !== r.price) {
-      toast.error("分割払いの予約は金額内訳の再設定が必要です。店舗へ連絡してください");
-      return;
+    if (split) {
+      const problem = splitError(split, updatedPrice);
+      if (problem) {
+        toast.error(`支払いの分け方：${problem}`);
+        return;
+      }
     }
+    // 分けて払った／分割をやめたときは、内訳ごと保存する関数を使う
+    const useSplitRpc = Boolean(split) || Boolean(r.payment_details?.length);
     setSavingId(r.id);
     const backRate = backRates.find(b => b.course_type === state.course_type && b.duration === state.duration);
     const courseName = backRate ? `${state.course_type} ${state.duration}分` : r.course_name;
     try {
       const discountIds: string[] = r.discount_ids ?? [];
       // セラピストポータルは anon 権限のため、token 検証付きRPC経由で予約を直接更新する
-      const { error } = await supabase.rpc("therapist_update_reservation", {
-        p_token: token,
-        p_reservation_id: r.id,
-        p_course_type: state.course_type,
-        p_duration: state.duration,
-        p_course_name: courseName,
-        p_options: state.selectedOptions,
-        p_discount: discount,
-        p_discount_ids: discountIds,
-        p_price: updatedPrice,
-        p_payment_fee: fee,
-        p_payment_method: state.payment_method,
-        p_nomination_type: state.nomination_type === "none" ? null : state.nomination_type,
-      });
+      const { error } = useSplitRpc
+        ? await supabase.rpc("therapist_update_reservation_split" as never, {
+          p_token: token,
+          p_reservation_id: r.id,
+          p_course_type: state.course_type,
+          p_duration: state.duration,
+          p_course_name: courseName,
+          p_options: state.selectedOptions,
+          p_discount: discount,
+          p_price: updatedPrice,
+          p_nomination_type: state.nomination_type === "none" ? null : state.nomination_type,
+          p_payment_details: split ?? [{ method: state.payment_method, amount: updatedPrice }],
+        } as never)
+        : await supabase.rpc("therapist_update_reservation", {
+          p_token: token,
+          p_reservation_id: r.id,
+          p_course_type: state.course_type,
+          p_duration: state.duration,
+          p_course_name: courseName,
+          p_options: state.selectedOptions,
+          p_discount: discount,
+          p_discount_ids: discountIds,
+          p_price: updatedPrice,
+          p_payment_fee: fee,
+          p_payment_method: state.payment_method,
+          p_nomination_type: state.nomination_type === "none" ? null : state.nomination_type,
+        });
       if (error) throw error;
       setReservations(prev => prev.map(res => res.id === r.id ? {
         ...res,
@@ -361,10 +387,12 @@ export default function TherapistCheckout() {
         discount_ids: discountIds,
         price: updatedPrice,
         payment_fee: fee,
-        payment_method: state.payment_method,
+        payment_method: split ? split[0].method : state.payment_method,
+        payment_details: split ? split.map((d) => ({ ...d, fee: calcPaymentFee(d.amount, paymentSettings, d.method) })) : null,
         nomination_type: state.nomination_type === "none" ? null : state.nomination_type,
       } : res));
-      setPaymentEdits(prev => ({ ...prev, [r.id]: state.payment_method }));
+      setEditStates(prev => ({ ...prev, [r.id]: { ...state, split } }));
+      setPaymentEdits(prev => ({ ...prev, [r.id]: split ? split[0].method : state.payment_method }));
       setExpandedId(null);
       toast.success("予約を更新しました");
     } catch {
@@ -891,9 +919,39 @@ export default function TherapistCheckout() {
                                     </div>
                                   </div>
 
-                                  {/* 支払い方法 */}
+                                  {/* 支払い方法（分けて払ったときは方法ごとの金額） */}
                                   <div>
-                                    <Label className="text-xs">お支払い方法</Label>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <Label className="text-xs">お支払い方法</Label>
+                                      <button
+                                        type="button"
+                                        className="text-xs font-medium text-primary"
+                                        onClick={() => updateEdit(r.id, {
+                                          split: state.split
+                                            ? null
+                                            : initialSplit(
+                                              normalizePaymentMethod(r.payment_method),
+                                              r.payment_details?.length ? (calc ? calc.total - calc.fee : r.price) : r.price || 0,
+                                              calc ? calc.total - calc.fee : r.price,
+                                            ),
+                                          payment_method: state.split ? (calc?.split?.[0]?.method ?? state.payment_method) : state.payment_method,
+                                        })}
+                                      >
+                                        {state.split ? "分けずに1つで払う" : "支払いを分ける"}
+                                      </button>
+                                    </div>
+                                    {state.split ? (
+                                      <>
+                                        <p className="mt-1 text-[11px] text-muted-foreground">例：はじめの会計はカード、あとから足したオプションは現金</p>
+                                        <SplitPaymentFields
+                                          rows={state.split}
+                                          price={calc ? calc.total - calc.fee : r.price}
+                                          cardFeePct={cardFeePct}
+                                          paypayFeePct={paypayFeePct}
+                                          onChange={(rows) => updateEdit(r.id, { split: rows })}
+                                        />
+                                      </>
+                                    ) : (
                                     <Select
                                       value={state.payment_method}
                                       onValueChange={(v) => updateEdit(r.id, { payment_method: v })}
@@ -907,6 +965,7 @@ export default function TherapistCheckout() {
                                         <SelectItem value="paypay" className="text-xs">PayPay{paypayFeePct > 0 ? `（手数料${paypayFeePct}%）` : ""}</SelectItem>
                                       </SelectContent>
                                     </Select>
+                                    )}
                                   </div>
 
                                   {/* 金額プレビュー */}
