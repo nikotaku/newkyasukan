@@ -68,3 +68,9 @@ test("白ぼかしの粒は同じ位置なら毎回同じ並びになる", async
   assert.ok(seqA.every((v) => v >= 0 && v < 1));
   assert.notDeepEqual(seqA, [seededRandom(999)(), 0, 0]);
 });
+
+test("人の確からしさからマスクの濃さを作る（迷う所は人に寄せる）", async () => {
+  const { personAlpha } = await import("../src/lib/subjectSegmentation.ts");
+  const alpha = personAlpha(new Float32Array([0, 0.2, 0.5, 0.75, 1]));
+  assert.deepEqual([3, 7, 11, 15, 19].map((i) => alpha[i]), [0, 0, 128, 255, 255]);
+});

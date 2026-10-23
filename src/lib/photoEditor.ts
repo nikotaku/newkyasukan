@@ -14,9 +14,13 @@ export type PhotoOverlay = {
   seed?: number;
 };
 
-/** 背景のモザイク・ぼかし。keep の楕円（枠の中の位置 0〜1）の中は元のまま残す */
+/**
+ * 背景のモザイク・ぼかし。残す範囲は、auto＝写真の人を自動で見分けたマスク（renderEditedPhoto の subjectMask）、
+ * ellipse＝keep の楕円（枠の中の位置 0〜1）の中
+ */
 export type PhotoBackground = {
   enabled: boolean;
+  mode: "auto" | "ellipse";
   effect: "mosaic" | "blur";
   /** 1〜100 */
   strength: number;
@@ -25,6 +29,7 @@ export type PhotoBackground = {
 
 export const defaultBackground = (): PhotoBackground => ({
   enabled: false,
+  mode: "auto",
   effect: "mosaic",
   strength: 50,
   keep: { x: 0.5, y: 0.45, rx: 0.32, ry: 0.42 },
@@ -288,8 +293,8 @@ function processedCopy(source: HTMLCanvasElement, effect: PhotoBackground["effec
   return out;
 }
 
-/** 背景をモザイク／ぼかしにし、楕円の中だけ元の絵を残す（ふちはなめらかにつなぐ） */
-function applyBackground(ctx: CanvasRenderingContext2D, background: PhotoBackground) {
+/** 背景をモザイク／ぼかしにし、人（自動）か楕円の中だけ元の絵を残す（ふちはなめらかにつなぐ） */
+function applyBackground(ctx: CanvasRenderingContext2D, background: PhotoBackground, frameMask: HTMLCanvasElement | null) {
   const canvas = ctx.canvas;
   const { width, height } = canvas;
   const keep = document.createElement("canvas");
@@ -298,6 +303,16 @@ function applyBackground(ctx: CanvasRenderingContext2D, background: PhotoBackgro
   const kctx = keep.getContext("2d");
   if (!kctx) return;
   kctx.drawImage(canvas, 0, 0);
+  if (background.mode === "auto" && frameMask) {
+    // 自動で見分けた人の形で残す
+    kctx.globalCompositeOperation = "destination-in";
+    kctx.drawImage(frameMask, 0, 0);
+    const processed = processedCopy(canvas, background.effect, background.strength);
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(processed, 0, 0);
+    ctx.drawImage(keep, 0, 0);
+    return;
+  }
   // 楕円の形の、ふちがぼけたマスク
   const cx = background.keep.x * width;
   const cy = background.keep.y * height;
@@ -328,7 +343,7 @@ export function renderEditedPhoto(
   image: HTMLImageElement,
   state: PhotoEditState,
   longEdge: number,
-  options: { showGuides?: boolean } = {},
+  options: { showGuides?: boolean; subjectMask?: HTMLCanvasElement | null; selectedOverlay?: number | null } = {},
 ) {
   const iw = image.naturalWidth;
   const ih = image.naturalHeight;
@@ -351,13 +366,31 @@ export function renderEditedPhoto(
   ctx.drawImage(image, -iw / 2, -ih / 2);
   ctx.restore();
 
+  // 自動で見分けた人のマスクにも、写真と同じ回転・反転・ズーム・位置をかける
+  let frameMask: HTMLCanvasElement | null = null;
+  if (state.background.enabled && state.background.mode === "auto" && options.subjectMask) {
+    frameMask = document.createElement("canvas");
+    frameMask.width = frame.width;
+    frameMask.height = frame.height;
+    const mctx = frameMask.getContext("2d");
+    if (mctx) {
+      mctx.translate(frame.width / 2 + state.offsetX * frame.width, frame.height / 2 + state.offsetY * frame.height);
+      mctx.rotate((state.rotation * Math.PI) / 180);
+      if (state.flipX) mctx.scale(-1, 1);
+      mctx.scale(scale, scale);
+      mctx.imageSmoothingEnabled = true;
+      mctx.imageSmoothingQuality = "high";
+      mctx.drawImage(options.subjectMask, -iw / 2, -ih / 2, iw, ih);
+    }
+  }
+
   if (state.brightness || state.contrast || state.saturation) {
     const pixels = ctx.getImageData(0, 0, frame.width, frame.height);
     adjustPixels(pixels.data, state.brightness, state.contrast, state.saturation);
     ctx.putImageData(pixels, 0, 0);
   }
 
-  if (state.background.enabled) applyBackground(ctx, state.background);
+  if (state.background.enabled) applyBackground(ctx, state.background, frameMask);
 
   for (const overlay of state.overlays) {
     const cx = overlay.x * frame.width;
@@ -372,8 +405,21 @@ export function renderEditedPhoto(
     }
   }
 
+  // 画面で見るときだけ、選んでいる白ぼかし・ハート・モザイクを点線の円で囲む（保存する絵には描かない）
+  const picked = options.showGuides && options.selectedOverlay != null ? state.overlays[options.selectedOverlay] : undefined;
+  if (picked) {
+    ctx.save();
+    ctx.setLineDash([Math.max(4, frame.width / 90), Math.max(4, frame.width / 90)]);
+    ctx.lineWidth = Math.max(2, frame.width / 300);
+    ctx.strokeStyle = "rgba(236,72,153,0.95)";
+    ctx.beginPath();
+    ctx.arc(picked.x * frame.width, picked.y * frame.height, (picked.size * frame.width) / 2 + ctx.lineWidth * 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // 画面で見るときだけ、残す範囲の楕円を点線で出す（保存する絵には描かない）
-  if (options.showGuides && state.background.enabled) {
+  if (options.showGuides && state.background.enabled && state.background.mode === "ellipse") {
     const { keep } = state.background;
     ctx.save();
     ctx.setLineDash([Math.max(4, frame.width / 80), Math.max(4, frame.width / 80)]);
@@ -387,9 +433,13 @@ export function renderEditedPhoto(
 }
 
 /** 保存用の JPEG（長い辺 2000px まで） */
-export async function exportEditedPhoto(image: HTMLImageElement, state: PhotoEditState): Promise<Blob> {
+export async function exportEditedPhoto(
+  image: HTMLImageElement,
+  state: PhotoEditState,
+  subjectMask?: HTMLCanvasElement | null,
+): Promise<Blob> {
   const canvas = document.createElement("canvas");
-  renderEditedPhoto(canvas, image, state, 2000);
+  renderEditedPhoto(canvas, image, state, 2000, { subjectMask });
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
   if (!blob) throw new Error("画像を書き出せませんでした");
   return blob;

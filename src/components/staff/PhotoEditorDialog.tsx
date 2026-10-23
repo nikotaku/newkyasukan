@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FlipHorizontal, Heart, Loader2, Move, RotateCcw, RotateCw, Undo2, Grid3x3, ScanFace, Sparkles } from "lucide-react";
+import { FlipHorizontal, Heart, Loader2, Move, RotateCcw, RotateCw, Undo2, Grid3x3, ScanFace, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
@@ -13,6 +13,7 @@ import {
   type PhotoAspect,
   type PhotoEditState,
 } from "@/lib/photoEditor";
+import { detectSubjectMask } from "@/lib/subjectSegmentation";
 import { cn } from "@/lib/utils";
 
 const ASPECT_OPTIONS: { value: PhotoAspect; label: string }[] = [
@@ -24,6 +25,8 @@ const ASPECT_OPTIONS: { value: PhotoAspect; label: string }[] = [
 ];
 
 type Tool = "move" | "glow" | "heart" | "mosaic" | "background";
+
+const OVERLAY_LABELS = { glow: "白ぼかし", heart: "ハート", mosaic: "モザイク" } as const;
 
 /**
  * セラピスト編集の写真をその場で加工する（切り抜き・回転・反転・明るさ・顔隠し）。
@@ -47,6 +50,14 @@ export function PhotoEditorDialog({
   const [tool, setTool] = useState<Tool>("move");
   const [stampSize, setStampSize] = useState(0.3);
   const [saving, setSaving] = useState(false);
+  /** 大きさを変える・消す対象（最後に置いた・触った白ぼかし・ハート・モザイク） */
+  const [selected, setSelected] = useState<number | null>(null);
+  /** 自動で見分けた人のマスク（元の写真の大きさ） */
+  const [subjectMask, setSubjectMask] = useState<HTMLCanvasElement | null>(null);
+  const [detecting, setDetecting] = useState(false);
+  const [detectError, setDetectError] = useState<string | null>(null);
+  /** 今見分けている写真（同じ写真を二重に見分けない・別の写真に切り替わったら結果を捨てる） */
+  const detectingFor = useRef<HTMLImageElement | null>(null);
   const drag = useRef<{
     x: number; y: number; offsetX: number; offsetY: number; startX?: number; startY?: number;
     /** 動かしている白ぼかし・ハート・モザイクの番号と、つかんだ位置のずれ */
@@ -60,6 +71,11 @@ export function PhotoEditorDialog({
     setError(null);
     setState(initialPhotoEditState());
     setTool("move");
+    setSelected(null);
+    setSubjectMask(null);
+    setDetectError(null);
+    setDetecting(false);
+    detectingFor.current = null;
     loadEditableImage(url)
       .then((img) => { if (active) setImage(img); })
       .catch((e) => { if (active) setError(e instanceof Error ? e.message : String(e)); });
@@ -69,11 +85,30 @@ export function PhotoEditorDialog({
   useEffect(() => {
     if (!image || !canvasRef.current) return;
     try {
-      renderEditedPhoto(canvasRef.current, image, state, 900, { showGuides: true });
+      renderEditedPhoto(canvasRef.current, image, state, 900, { showGuides: true, subjectMask, selectedOverlay: selected });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [image, state]);
+  }, [image, state, subjectMask, selected]);
+
+  // 背景を自動にしたら、写真の人を見分ける（1枚につき1回）
+  const needsDetection = Boolean(image) && state.background.enabled && state.background.mode === "auto" && !subjectMask;
+  useEffect(() => {
+    if (!needsDetection || !image || detectError || detectingFor.current === image) return;
+    detectingFor.current = image;
+    setDetecting(true);
+    detectSubjectMask(image)
+      .then((mask) => { if (detectingFor.current === image) setSubjectMask(mask); })
+      .catch((e) => {
+        console.error("人を見分けられませんでした", e);
+        if (detectingFor.current === image) setDetectError("人を自動で見分けられませんでした。「手で囲む」で残す範囲を囲んでください");
+      })
+      .finally(() => {
+        if (detectingFor.current !== image) return;
+        detectingFor.current = null;
+        setDetecting(false);
+      });
+  }, [needsDetection, image, detectError]);
 
   const update = (patch: Partial<PhotoEditState>) => {
     if (!image) return;
@@ -93,9 +128,8 @@ export function PhotoEditorDialog({
       return;
     }
     if (tool === "background") {
-      // なぞり始めた所から、残す範囲（楕円）を囲む
+      // なぞり始めた所から、残す範囲（楕円）を囲む（なぞったら手で囲むほうに切り替える）
       drag.current = { x: e.clientX, y: e.clientY, offsetX: 0, offsetY: 0, startX: p.x, startY: p.y };
-      setState((s) => ({ ...s, background: { ...s.background, enabled: true } }));
       return;
     }
     // 置いてある白ぼかし・ハート・モザイクに触れたら、それをつかんで動かす（上に重なっているものから）
@@ -105,12 +139,15 @@ export function PhotoEditorDialog({
       const dy = (p.y - o.y) * p.rect.height;
       if (Math.hypot(dx, dy) <= Math.max((o.size * p.rect.width) / 2, 18)) {
         drag.current = { x: e.clientX, y: e.clientY, offsetX: 0, offsetY: 0, moveIndex: i, grabX: p.x - o.x, grabY: p.y - o.y };
+        setSelected(i);
+        setStampSize(o.size);
         return;
       }
     }
     const index = state.overlays.length;
     const seed = Math.floor(Math.random() * 2 ** 31);
     setState((s) => ({ ...s, overlays: [...s.overlays, { kind: tool, x: p.x, y: p.y, size: stampSize, seed }] }));
+    setSelected(index);
     // 白ぼかし・ハートは置いたまま指を離さずに動かせる（モザイクはなぞった跡を足す）
     drag.current = tool === "mosaic"
       ? { x: e.clientX, y: e.clientY, offsetX: 0, offsetY: 0 }
@@ -128,8 +165,12 @@ export function PhotoEditorDialog({
       return;
     }
     if (tool === "background" && drag.current.startX !== undefined && drag.current.startY !== undefined) {
-      const keep = ellipseFromDrag({ x: drag.current.startX, y: drag.current.startY }, { x: p.x, y: p.y });
-      setState((s) => ({ ...s, background: { ...s.background, enabled: true, keep } }));
+      const startX = drag.current.startX;
+      const startY = drag.current.startY;
+      // 指が少し動いてから囲み始める（タップだけで自動の範囲を消さないように）
+      if (Math.hypot(p.x - startX, p.y - startY) < 0.03) return;
+      const keep = ellipseFromDrag({ x: startX, y: startY }, { x: p.x, y: p.y });
+      setState((s) => ({ ...s, background: { ...s.background, enabled: true, mode: "ellipse", keep } }));
       return;
     }
     if (drag.current.moveIndex !== undefined) {
@@ -155,7 +196,7 @@ export function PhotoEditorDialog({
     if (!image) return;
     setSaving(true);
     try {
-      const blob = await exportEditedPhoto(image, state);
+      const blob = await exportEditedPhoto(image, state, subjectMask);
       await onSave(blob);
       onOpenChange(false);
     } catch (e) {
@@ -164,6 +205,8 @@ export function PhotoEditorDialog({
       setSaving(false);
     }
   };
+
+  const selectedOverlay = selected !== null ? state.overlays[selected] ?? null : null;
 
   const toolButton = (value: Tool, label: string, Icon: typeof Move) => (
     <button
@@ -215,7 +258,10 @@ export function PhotoEditorDialog({
                 size="sm"
                 className="h-auto px-2 text-xs"
                 disabled={state.overlays.length === 0}
-                onClick={() => setState((s) => ({ ...s, overlays: s.overlays.slice(0, -1) }))}
+                onClick={() => {
+                  setState((s) => ({ ...s, overlays: s.overlays.slice(0, -1) }));
+                  setSelected((current) => (current !== null && current >= state.overlays.length - 1 ? null : current));
+                }}
               >
                 <Undo2 size={13} className="mr-1" />戻す
               </Button>
@@ -229,7 +275,9 @@ export function PhotoEditorDialog({
                   ? "隠したい所をタップするとハートを置きます。置いたハートはドラッグで動かせます"
                   : tool === "mosaic"
                     ? "隠したい所をタップ・なぞるとモザイクになります。置いたモザイクはドラッグで動かせます"
-                    : "残したい人のまわりを、斜めになぞって囲みます（点線の外が背景になります）"}
+                    : state.background.mode === "auto"
+                      ? "写真の人を自動で見分けて、人以外をぼかします。うまくいかないときは写真をなぞって囲むと手動に切り替わります"
+                      : "残したい人のまわりを、斜めになぞって囲みます（点線の外が背景になります）"}
             </p>
             {tool === "background" && (
               <div className="space-y-2 rounded-md border p-2">
@@ -261,6 +309,36 @@ export function PhotoEditorDialog({
                   </button>
                 </div>
                 {state.background.enabled && (
+                  <div className="flex items-center gap-1">
+                    <span className="mr-1 text-xs">残す人</span>
+                    {([
+                      ["auto", "自動で見分ける"],
+                      ["ellipse", "手で囲む"],
+                    ] as const).map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => {
+                          if (mode === "auto") setDetectError(null);
+                          setState((s) => ({ ...s, background: { ...s.background, mode } }));
+                        }}
+                        className={cn(
+                          "flex-1 rounded-md border px-2 py-1 text-xs",
+                          state.background.mode === mode ? "border-primary bg-primary/10 font-semibold text-primary" : "bg-background",
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {state.background.enabled && state.background.mode === "auto" && (detecting || detectError) && (
+                  <p className={cn("flex items-center gap-1 text-[11px]", detectError ? "text-rose-600" : "text-muted-foreground")}>
+                    {detecting && <Loader2 size={12} className="animate-spin" />}
+                    {detectError ?? "写真の人を見分けています…（初めては少し時間がかかります）"}
+                  </p>
+                )}
+                {state.background.enabled && (
                   <div>
                     <p className="mb-1 text-xs">強さ</p>
                     <Slider
@@ -276,8 +354,39 @@ export function PhotoEditorDialog({
             )}
             {(tool === "glow" || tool === "heart" || tool === "mosaic") && (
               <div>
-                <p className="mb-1 text-xs">大きさ</p>
-                <Slider min={5} max={70} step={1} value={[Math.round(stampSize * 100)]} onValueChange={([v]) => setStampSize(v / 100)} />
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <p className="text-xs">
+                    大きさ
+                    {selectedOverlay && <span className="ml-1 text-muted-foreground">（点線で囲んだ{OVERLAY_LABELS[selectedOverlay.kind]}を変えます）</span>}
+                  </p>
+                  {selectedOverlay && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-rose-600"
+                      onClick={() => {
+                        const index = selected;
+                        setState((s) => ({ ...s, overlays: s.overlays.filter((_, i) => i !== index) }));
+                        setSelected(null);
+                      }}
+                    >
+                      <Trash2 size={12} className="mr-0.5" />消す
+                    </Button>
+                  )}
+                </div>
+                <Slider
+                  min={5}
+                  max={90}
+                  step={1}
+                  value={[Math.round((selectedOverlay?.size ?? stampSize) * 100)]}
+                  onValueChange={([v]) => {
+                    const size = v / 100;
+                    setStampSize(size);
+                    if (selected === null) return;
+                    setState((s) => ({ ...s, overlays: s.overlays.map((o, i) => (i === selected ? { ...o, size } : o)) }));
+                  }}
+                />
               </div>
             )}
 
