@@ -8,6 +8,7 @@ import { useAdminStore } from "@/hooks/useAdminStore";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminAppManifest } from "@/hooks/useAdminAppManifest";
 import { CtiCallPopup } from "@/components/CtiCallPopup";
+import { O2ControlAlert } from "@/components/sns/O2ControlPanel";
 import { EstamaPendingAlert } from "@/components/EstamaPendingAlert";
 import { TherapistNotifyAlert } from "@/components/TherapistNotifyAlert";
 import caskanLogo from "@/assets/caskan-logo.png";
@@ -111,6 +112,8 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
               <div className="text-xs text-primary font-medium">管理者</div>
             )}
           </div>
+
+          <O2ControlAlert />
 
           {canSwitch ? (
             <button

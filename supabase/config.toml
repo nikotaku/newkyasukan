@@ -78,3 +78,7 @@ verify_jwt = true
 [functions.therapist-photos]
 # マイページの長いトークンを関数内で確かめる
 verify_jwt = false
+
+[functions.o2-control]
+# JWT for managers, hashed Gmail relay token, or an internal worker secret are checked in the handler.
+verify_jwt = false
