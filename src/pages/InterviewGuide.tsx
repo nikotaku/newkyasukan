@@ -4,12 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/hooks/useStore";
 import { useAdminStore } from "@/hooks/useAdminStore";
-import { BackList, BackRateTable, type BackListRow, type BackRateRow } from "@/components/therapist/BackRateTable";
+import { MISC_FEE_DAILY_CAP, MISC_FEE_PER_SESSION, DEKASEGI_ACCOMMODATION_PER_DAY } from "@/lib/clearanceDefaults";
+import { SIGNATURE_COURSE, SIGNATURE_OPTION, type SystemItem, signatureCombo, systemItem } from "@/lib/interviewSystem";
 import simultaneousPostSystemImage from "@/assets/recruit/enka-simultaneous-post-system.png";
 import {
   ArrowLeft, MapPin, Clock, Train, ShieldCheck,
   Home, IdCard, Camera, AlertTriangle, Sparkles, Check, ChevronDown,
-  Footprints, Tablet, Share2, Loader2, MessageCircle, Smartphone, CalendarPlus, Calendar,
+  Footprints, Tablet, Share2, Loader2, Smartphone, CalendarPlus, Calendar, Crown, Wallet, ListChecks,
   Bell, Send, Receipt, LogOut, Users, PencilLine, ImagePlus, AtSign, DoorOpen, Trophy, Plane, BarChart3,
   type LucideIcon,
 } from "lucide-react";
@@ -39,23 +40,13 @@ const PORTAL_STEPS: { title: string; body: string }[] = [
   { title: "出勤日の流れ", body: "入室方法を見てルームへ → 予約の通知を確認 → 退勤時に「退勤フォーム」で売上を送信 → お店が承認すると清算明細が届きます" },
 ];
 
-// 面談の最後に追加してもらうLINE（面談用。店舗の settings.interview_line_url があればそちら）
-const INTERVIEW_LINE_URL = "https://line.me/ti/p/XgF2NXcP0T";
-
-async function buildQrPath(text: string) {
-  const { default: qrcode } = await import("qrcode-generator");
-  const qr = qrcode(0, "M");
-  qr.addData(text, "Byte");
-  qr.make();
-  const count = qr.getModuleCount();
-  let path = "";
-  for (let row = 0; row < count; row += 1) {
-    for (let col = 0; col < count; col += 1) {
-      if (qr.isDark(row, col)) path += `M${col + 4},${row + 4}h1v1h-1z`;
-    }
-  }
-  return { size: count + 8, path };
-}
+// 面談の最後に説明する「今後の流れ」（勤務が決まってから最初の出勤まで）
+const NEXT_STEPS: { icon: LucideIcon; title: string; body: string }[] = [
+  { icon: Smartphone, title: "マイページを準備する", body: "専用のマイページのURLをお送りします。ホーム画面に追加して「通知をオンにする」まで済ませてください" },
+  { icon: PencilLine, title: "プロフィール項目の入力", body: "マイページの「プロフィール入力」で、HPに載るプロフィール（タイプ・趣味・好きなことなど）を入力してお店に送ります" },
+  { icon: ImagePlus, title: "パネル写真のアップロード", body: "マイページの「画像アップロード」から、パネル（プロフィール）用の写真を送ります。HPに載せる写真と加工はお店が行います" },
+  { icon: AtSign, title: "SNSアカウント（X・O2）の作成", body: "X・O2のアカウントはお店が作ります。準備ができたらマイページに通知が届くので、「SNSアカウント」でログイン情報と設定マニュアルを見て初期設定をします" },
+];
 
 /**
  * 面談用（画面共有）ページ。ビデオ通話で候補者に画面共有しながら、
@@ -75,26 +66,18 @@ export default function InterviewGuide() {
 
   // バック表（マイページの「バック表」と同じもの）。ログイン中は自分の店舗、そうでなければ開いているサイトの店舗
   const { user, loading: authLoading } = useAuth();
-  const { store: siteStore, storeId: siteStoreId, loading: siteStoreLoading } = useStore();
-  const configuredLine = siteStore?.settings?.interview_line_url;
-  const recruitLineUrl = typeof configuredLine === "string" && configuredLine ? configuredLine : INTERVIEW_LINE_URL;
-  const [lineQr, setLineQr] = useState<{ size: number; path: string } | null>(null);
-  useEffect(() => {
-    let active = true;
-    void buildQrPath(recruitLineUrl).then((qr) => { if (active) setLineQr(qr); });
-    return () => { active = false; };
-  }, [recruitLineUrl]);
+  const { storeId: siteStoreId, loading: siteStoreLoading } = useStore();
   const { storeId: adminStoreId, loading: adminStoreLoading } = useAdminStore();
   const backRateStoreId = authLoading
     ? null
     : user
       ? (adminStoreLoading ? null : adminStoreId)
       : (siteStoreLoading ? null : siteStoreId);
-  // コース・オプション・指名のバック（マイページ・精算と同じ並び。表示を止めているものもそのまま載せる）
-  const [backRates, setBackRates] = useState<{
-    courses: BackRateRow[];
-    options: BackListRow[];
-    nominations: BackListRow[];
+  // 料金・報酬システム：コース・オプション・指名ごとに、お客様の料金・バック・店落ち（今お客様に出しているものだけ）
+  const [system, setSystem] = useState<{
+    courses: SystemItem[];
+    options: SystemItem[];
+    nominations: SystemItem[];
   } | null>(null);
   useEffect(() => {
     if (!backRateStoreId) return;
@@ -102,34 +85,47 @@ export default function InterviewGuide() {
     Promise.all([
       supabase
         .from("back_rates")
-        .select("course_type, duration, therapist_back")
+        .select("course_type, duration, customer_price, therapist_back, is_visible, description")
         .eq("store_id", backRateStoreId)
         .order("display_order")
         .order("duration"),
       supabase
         .from("option_rates")
-        .select("id, option_name, therapist_back")
+        .select("id, option_name, customer_price, therapist_back, is_visible")
         .eq("store_id", backRateStoreId)
         .order("display_order")
         .order("option_name"),
       supabase
         .from("nomination_rates")
-        .select("id, nomination_type, therapist_back")
+        .select("id, nomination_type, customer_price, therapist_back")
         .eq("store_id", backRateStoreId)
         .order("customer_price")
         .order("nomination_type"),
     ]).then(([courses, options, nominations]) => {
       if (!active) return;
       const error = courses.error || options.error || nominations.error;
-      if (error) console.error("バック表を読めませんでした", error);
-      setBackRates({
-        courses: (courses.data ?? []) as BackRateRow[],
-        options: (options.data ?? []).map((row) => ({ key: row.id, label: row.option_name, back: row.therapist_back })),
-        nominations: (nominations.data ?? []).map((row) => ({ key: row.id, label: row.nomination_type, back: row.therapist_back })),
+      if (error) console.error("料金表を読めませんでした", error);
+      setSystem({
+        courses: (courses.data ?? [])
+          .filter((row) => row.is_visible !== false)
+          .map((row) => systemItem(`${row.course_type}-${row.duration}`, `${row.course_type} ${row.duration}分`, row.customer_price, row.therapist_back, row.description)),
+        options: (options.data ?? [])
+          .filter((row) => row.is_visible !== false)
+          .map((row) => systemItem(row.id, row.option_name, row.customer_price, row.therapist_back)),
+        nominations: (nominations.data ?? []).map((row) => systemItem(row.id, row.nomination_type, row.customer_price, row.therapist_back)),
       });
     });
     return () => { active = false; };
   }, [backRateStoreId]);
+
+  const signature = system
+    ? signatureCombo(
+      system.courses.find((row) => row.key === `${SIGNATURE_COURSE.course_type}-${SIGNATURE_COURSE.duration}`),
+      system.options.find((row) => row.label === SIGNATURE_OPTION),
+    )
+    : null;
+  const estamaPlans = system?.courses.filter((row) => row.label.startsWith("エスたま限定")) ?? [];
+  const yen = (n: number) => `¥${n.toLocaleString()}`;
 
   const Section = ({ id, icon: Icon, title, sub, children, tone = "rose", wide = false }: {
     id?: string; icon: LucideIcon; title: string; sub?: string; children: React.ReactNode;
@@ -251,34 +247,108 @@ export default function InterviewGuide() {
         </Card>
       </Section>
 
-      {/* 料金・報酬システム（セラピストのバック表をそのまま） */}
-      <Section icon={ShieldCheck} title="料金・報酬システム" sub="バック表（1本あたりのお給料）" tone="rose">
-        <div>
-          {backRates === null ? (
-            <div className="py-10 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-rose-400" /></div>
-          ) : backRates.courses.length + backRates.options.length + backRates.nominations.length === 0 ? (
-            <p className="py-6 text-center text-sm text-gray-500">料金・報酬の詳細は、面談時に個別にご案内します。</p>
-          ) : (
-            <div className="space-y-5">
-              {backRates.courses.length > 0 && (
-                <div>
-                  <p className="mb-2 text-sm font-bold text-gray-700">コース</p>
-                  <div className="rounded-lg bg-white"><BackRateTable rates={backRates.courses} /></div>
+      {/* 料金・報酬システム（お客様の料金・バック・店落ち・控除と支給をまとめて） */}
+      <Section icon={ShieldCheck} title="料金・報酬システム" sub="お客様の料金・セラピストのバック・店落ち" tone="rose">
+        {system === null ? (
+          <div className="py-10 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-rose-400" /></div>
+        ) : system.courses.length + system.options.length + system.nominations.length === 0 ? (
+          <p className="py-6 text-center text-sm text-gray-500">料金・報酬の詳細は、面談時に個別にご案内します。</p>
+        ) : (
+          <div className="space-y-5">
+            {([
+              ["コース", system.courses],
+              ["オプション", system.options],
+              ["指名", system.nominations],
+            ] as const).filter(([, rows]) => rows.length > 0).map(([title, rows]) => (
+              <div key={title}>
+                <p className="mb-2 text-sm font-bold text-gray-700">{title}</p>
+                <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                  <div className="grid grid-cols-[1fr_4.5rem_4.5rem_4.5rem] gap-1 bg-gray-50 px-3 py-2 text-[11px] font-bold text-gray-500">
+                    <span>内容</span><span className="text-right">料金</span><span className="text-right text-rose-600">バック</span><span className="text-right">店落ち</span>
+                  </div>
+                  {rows.map((row) => (
+                    <div key={row.key} className="grid grid-cols-[1fr_4.5rem_4.5rem_4.5rem] items-center gap-1 border-t border-gray-100 px-3 py-2.5 text-sm">
+                      <span className="min-w-0 text-gray-800">{row.label}</span>
+                      <span className="text-right tabular-nums text-gray-600">{yen(row.price)}</span>
+                      <span className="text-right font-bold tabular-nums text-rose-600">{row.back > 0 ? yen(row.back) : "なし"}</span>
+                      <span className="text-right tabular-nums text-gray-500">{yen(row.shop)}</span>
+                    </div>
+                  ))}
                 </div>
-              )}
-              {backRates.options.length > 0 && (
-                <div>
-                  <p className="mb-2 text-sm font-bold text-gray-700">オプション</p>
-                  <div className="rounded-lg bg-white"><BackList rows={backRates.options} /></div>
+              </div>
+            ))}
+            <p className="text-xs leading-relaxed text-gray-500">
+              料金＝お客様のお支払い（カード・PayPayの手数料はお客様のご負担）／バック＝1本あたりのセラピストのお給料／店落ち＝お店の取り分。指名料・オプションは、コースのバックに上乗せされます。
+            </p>
+          </div>
+        )}
+      </Section>
+
+      {/* 鉄板の組み合わせ・エスたま限定プラン */}
+      {system && (signature || estamaPlans.length > 0) && (
+        <Section icon={Crown} title="人気の組み合わせ・プラン" sub="よく入るコースと、エスたまからの限定プラン" tone="amber">
+          <div className="space-y-3">
+            {signature && (
+              <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-rose-50 px-5 py-4 shadow-sm">
+                <p className="text-xs font-bold text-amber-700">👑 鉄板の組み合わせ・いちばん人気</p>
+                <p className="mt-1 text-base font-bold text-gray-800">{signature.label}</p>
+                <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                  艶華コース80分に、オプションパック -牡丹- を付ける組み合わせがいちばん多く入ります。
+                </p>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-xl bg-white/80 py-2"><p className="text-[11px] text-gray-500">料金</p><p className="text-sm font-bold tabular-nums">{yen(signature.price)}</p></div>
+                  <div className="rounded-xl bg-white/80 py-2"><p className="text-[11px] text-rose-600">バック</p><p className="text-base font-bold tabular-nums text-rose-600">{yen(signature.back)}</p></div>
+                  <div className="rounded-xl bg-white/80 py-2"><p className="text-[11px] text-gray-500">店落ち</p><p className="text-sm font-bold tabular-nums">{yen(signature.shop)}</p></div>
                 </div>
-              )}
-              {backRates.nominations.length > 0 && (
-                <div>
-                  <p className="mb-2 text-sm font-bold text-gray-700">指名</p>
-                  <div className="rounded-lg bg-white"><BackList rows={backRates.nominations} /></div>
+              </div>
+            )}
+            {estamaPlans.map((plan) => (
+              <Card key={plan.key} className="py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-gray-800">{plan.label}{plan.label.includes("110") ? " リラックスプラン" : ""}</p>
+                    {plan.note && <p className="mt-1 text-xs leading-relaxed text-gray-600">{plan.note}</p>}
+                    <p className="mt-1 text-[11px] text-gray-400">エステ魂（エスたま）の会員限定のプランです</p>
+                  </div>
+                  <div className="shrink-0 text-right text-xs">
+                    <p className="tabular-nums text-gray-500">料金 {yen(plan.price)}</p>
+                    <p className="text-sm font-bold tabular-nums text-rose-600">バック {yen(plan.back)}</p>
+                    <p className="tabular-nums text-gray-500">店落ち {yen(plan.shop)}</p>
+                  </div>
                 </div>
-              )}
-            </div>
+              </Card>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* お給料から引くもの・支給されるもの */}
+      <Section icon={Wallet} title="控除・支給（交通費・雑費・宿泊費）" sub="その日の退勤時に精算します" tone="gray">
+        <Card>
+          <KV k="雑費（控除）" v={<>1本 {yen(MISC_FEE_PER_SESSION)}<br /><span className="text-xs text-gray-400">1日 {yen(MISC_FEE_DAILY_CAP)} まで</span></>} />
+          <KV
+            k="宿泊費（控除）"
+            v={isResident
+              ? <>出稼ぎの方のみ<br /><span className="text-xs text-gray-400">1日 {yen(DEKASEGI_ACCOMMODATION_PER_DAY)}</span></>
+              : <>1日 {yen(DEKASEGI_ACCOMMODATION_PER_DAY)}</>}
+          />
+          <KV k="交通費（支給）" v={<>マイページの「交通費申請」から申請<br /><span className="text-xs text-gray-400">お店が承認して精算でお渡し</span></>} />
+          <KV k="お給料の受け取り" v={<>日払い（退勤時に精算）<br /><span className="text-xs text-gray-400">お預かりした現金から受け取り</span></>} hl />
+        </Card>
+        <div className="mt-3 rounded-2xl border border-gray-100 bg-white px-5 py-4 text-sm shadow-sm">
+          <p className="mb-2 text-xs font-bold text-gray-500">その日のお給料の計算</p>
+          <p className="leading-relaxed text-gray-700">
+            お給料 ＝ <span className="font-bold text-rose-600">バックの合計</span> − 雑費{isResident ? "" : " − 宿泊費"} ＋ 交通費{isResident ? "（出稼ぎの方は宿泊費も引きます）" : ""}
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-gray-500">
+            カード・PayPayのお客様が多くて、お預かりした現金がお給料より少ない日は、足りない分をお店があとからお支払いします（振込か、次の出勤日の精算で相殺。マイページで選べます）。
+          </p>
+          {signature && (
+            <p className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-xs leading-relaxed text-rose-800">
+              例：{signature.label}を2本 → バック {yen(signature.back * 2)} − 雑費 {yen(Math.min(MISC_FEE_PER_SESSION * 2, MISC_FEE_DAILY_CAP))}
+              {!isResident && <> − 宿泊費 {yen(DEKASEGI_ACCOMMODATION_PER_DAY)}</>}
+              {" "}＝ <span className="font-bold">{yen(signature.back * 2 - Math.min(MISC_FEE_PER_SESSION * 2, MISC_FEE_DAILY_CAP) - (isResident ? 0 : DEKASEGI_ACCOMMODATION_PER_DAY))}</span>（交通費は別に支給）
+            </p>
           )}
         </div>
       </Section>
@@ -432,29 +502,19 @@ export default function InterviewGuide() {
         </div>
       </Section>
 
-      {/* 求人LINEの追加（画面共有中はQRをスマホで読み取ってもらう） */}
-      <Section icon={MessageCircle} title="LINEを追加してください" sub="今後のご連絡・体験入店の日程調整はLINEで行います" tone="rose">
-        <Card className="py-6">
-          <div className="flex flex-col items-center gap-4 text-center">
-            {lineQr && (
-              <div className="w-48 h-48 rounded-xl bg-white p-2 shadow-inner border border-gray-100">
-                <svg viewBox={`0 0 ${lineQr.size} ${lineQr.size}`} className="block h-full w-full" shapeRendering="crispEdges" role="img" aria-label="LINE追加のQRコード">
-                  <path d={lineQr.path} fill="#111827" />
-                </svg>
+      {/* 今後の流れ（勤務が決まってから最初の出勤まで） */}
+      <Section icon={ListChecks} title="今後の流れ" sub="勤務が決まってから、最初の出勤まで" tone="rose">
+        <ol className="space-y-2">
+          {NEXT_STEPS.map(({ icon: Icon, title, body }, i) => (
+            <li key={title} className="flex gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-rose-500 text-xs font-bold text-white">{i + 1}</span>
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-sm font-bold text-gray-800"><Icon size={15} className="text-rose-500" />{title}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{body}</p>
               </div>
-            )}
-            <p className="text-sm text-gray-600">スマホのカメラでQRコードを読み取るか、下のボタンから追加できます</p>
-            <a
-              href={recruitLineUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-full bg-[#06c755] px-8 py-3 text-base font-bold text-white shadow"
-            >
-              <MessageCircle size={18} />LINEで友だち追加
-            </a>
-            <p className="text-xs text-gray-400 break-all">{recruitLineUrl}</p>
-          </div>
-        </Card>
+            </li>
+          ))}
+        </ol>
       </Section>
 
       <footer className="py-10 text-center text-xs text-gray-400">

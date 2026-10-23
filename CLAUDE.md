@@ -420,6 +420,7 @@
 - サイドバーの「面談用ページ（画面共有）」をタップすると「出稼ぎ用」（`/interview?type=dekasegi`）・「在籍用」（`?type=zaiseki`）ごとに「開く」「URLをコピー」が出る（`src/components/SidebarLinkVariants.tsx`）。ホーム画面に追加した管理アプリにはアドレスバーが無いため。コピーは `src/lib/copyText.ts`（だめなら長押しでコピーできる小窓）
 - 在籍用は「勤務時間 12時間勤務」を出さない。ページはログインなしでも開ける
 - 「セラピストポータル（マイページ）」の欄（できること・使い方）は出稼ぎ用・在籍用の両方に出す。中身は `InterviewGuide.tsx` の `PORTAL_FEATURES` / `PORTAL_STEPS`。マイページのメニューを増やしたらここも直す
+- 「料金・報酬システム」はコース・オプション・指名ごとに 料金／バック／店落ち（料金−バック）の表（`back_rates` / `option_rates` / `nomination_rates` の表示中のもの。計算は `src/lib/interviewSystem.ts`、テスト `npm run test:interview-system`）。「人気の組み合わせ・プラン」は鉄板（艶華80分＋オプションパック -牡丹-、`SIGNATURE_COURSE` / `SIGNATURE_OPTION`）とエスたま限定プラン（説明は `back_rates.description`）。「控除・支給」は雑費・宿泊費（`clearanceDefaults.ts` の金額）・交通費（マイページで申請）・日払い。最後は「今後の流れ」（マイページ準備 → プロフィール入力 → パネル写真のアップロード → SNSアカウントはお店が作って通知、`NEXT_STEPS`）。LINE追加のQRは外した（別のページへ移す）
 
 ## LINEの定期レポート
 
