@@ -74,3 +74,10 @@ test("人の確からしさからマスクの濃さを作る（迷う所は人�
   const alpha = personAlpha(new Float32Array([0, 0.2, 0.5, 0.75, 1]));
   assert.deepEqual([3, 7, 11, 15, 19].map((i) => alpha[i]), [0, 0, 128, 255, 255]);
 });
+
+test("背景モザイクのマスクはふちをくっきりそろえる", async () => {
+  const { sharpenAlpha } = await import("../src/lib/photoEditor.ts");
+  assert.equal(sharpenAlpha(90, [0.42, 0.58]), 0);
+  assert.ok(Math.abs(sharpenAlpha(128, [0.42, 0.58]) - 128) < 8);
+  assert.equal(sharpenAlpha(170, [0.42, 0.58]), 255);
+});

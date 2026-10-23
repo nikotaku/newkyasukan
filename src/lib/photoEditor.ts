@@ -304,6 +304,63 @@ function processedCopy(source: HTMLCanvasElement, effect: PhotoBackground["effec
   return out;
 }
 
+/** マスクのふちの迷っている所を、[low, high] の間でなめらかに 0〜1 にそろえる（幅が狭いほどくっきり） */
+export function sharpenAlpha(alpha: number, [low, high]: [number, number]) {
+  const t = Math.min(1, Math.max(0, (alpha / 255 - low) / (high - low)));
+  return Math.round(t * t * (3 - 2 * t) * 255);
+}
+
+function sharpenedMask(mask: HTMLCanvasElement, range: [number, number]) {
+  const out = document.createElement("canvas");
+  out.width = mask.width;
+  out.height = mask.height;
+  const octx = out.getContext("2d", { willReadFrequently: true });
+  if (!octx) return mask;
+  octx.drawImage(mask, 0, 0);
+  const pixels = octx.getImageData(0, 0, out.width, out.height);
+  const data = pixels.data;
+  for (let i = 3; i < data.length; i += 4) data[i] = sharpenAlpha(data[i], range);
+  octx.putImageData(pixels, 0, 0);
+  return out;
+}
+
+/**
+ * 背景だけのモザイク／ぼかしを作る。人の色が背景のマスに混ざって、人のまわりに
+ * 人の色のふちが出ないように、人を抜いた絵で平均を取る（抜いた所は縮小のときに重みが0になる）。
+ * 人ばかりで背景の色が取れないマスは、ふつうに作った絵の色を使う（人の下に隠れる所）。
+ */
+function backgroundOnlyCopy(source: HTMLCanvasElement, mask: HTMLCanvasElement, effect: PhotoBackground["effect"], strength: number) {
+  const { width, height } = source;
+  const bgOnly = document.createElement("canvas");
+  bgOnly.width = width;
+  bgOnly.height = height;
+  const bctx = bgOnly.getContext("2d");
+  if (!bctx) return processedCopy(source, effect, strength);
+  bctx.drawImage(source, 0, 0);
+  bctx.globalCompositeOperation = "destination-out";
+  bctx.drawImage(mask, 0, 0);
+
+  const background = processedCopy(bgOnly, effect, strength);
+  const plain = processedCopy(source, effect, strength);
+  const bgCtx = background.getContext("2d", { willReadFrequently: true });
+  const plainCtx = plain.getContext("2d", { willReadFrequently: true });
+  if (!bgCtx || !plainCtx) return plain;
+  const bg = bgCtx.getImageData(0, 0, width, height);
+  const all = plainCtx.getImageData(0, 0, width, height);
+  const b = bg.data;
+  const a = all.data;
+  for (let i = 0; i < b.length; i += 4) {
+    if (b[i + 3] < 40) {
+      b[i] = a[i];
+      b[i + 1] = a[i + 1];
+      b[i + 2] = a[i + 2];
+    }
+    b[i + 3] = 255;
+  }
+  bgCtx.putImageData(bg, 0, 0);
+  return background;
+}
+
 /** 背景をモザイク／ぼかしにし、人（自動）か楕円の中だけ元の絵を残す（ふちはなめらかにつなぐ） */
 function applyBackground(ctx: CanvasRenderingContext2D, background: PhotoBackground, frameMask: HTMLCanvasElement | null) {
   const canvas = ctx.canvas;
@@ -315,10 +372,11 @@ function applyBackground(ctx: CanvasRenderingContext2D, background: PhotoBackgro
   if (!kctx) return;
   kctx.drawImage(canvas, 0, 0);
   if (background.mode === "auto" && frameMask) {
-    // 自動で見分けた人の形で残す
+    // 自動で見分けた人の形で残す。モザイクはふちをくっきり、ぼかしは少しなめらかに
+    const mask = sharpenedMask(frameMask, background.effect === "mosaic" ? [0.42, 0.58] : [0.3, 0.7]);
     kctx.globalCompositeOperation = "destination-in";
-    kctx.drawImage(frameMask, 0, 0);
-    const processed = processedCopy(canvas, background.effect, background.strength);
+    kctx.drawImage(mask, 0, 0);
+    const processed = backgroundOnlyCopy(canvas, mask, background.effect, background.strength);
     ctx.clearRect(0, 0, width, height);
     ctx.drawImage(processed, 0, 0);
     ctx.drawImage(keep, 0, 0);
