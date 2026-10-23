@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminStore } from "@/hooks/useAdminStore";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -100,6 +101,7 @@ export default function Education() {
   const [savingCurriculum, setSavingCurriculum] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
+  const { storeId, loading: storeLoading } = useAdminStore();
   const navigate = useNavigate();
   // タブはURL（?tab=）で開けるようにする（以前の「SNS連携管理」/marketing/o2 は ?tab=sns へ転送）
   const [searchParams, setSearchParams] = useSearchParams();
@@ -112,18 +114,17 @@ export default function Education() {
     if (!authLoading && !user) navigate("/login");
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    if (user) fetchBase();
-  }, [user]);
-
-  const fetchBase = async () => {
+  const fetchBase = useCallback(async () => {
+    if (!user || storeLoading) return;
     setLoading(true);
     const [castsRes, modulesRes, recordsRes] = await Promise.all([
-      supabase.from("casts").select("id,name,photo").eq("is_active", true).order("name"),
+      supabase.from("casts").select("id,name,photo").eq("store_id", storeId).eq("is_active", true).order("name"),
       supabase.from("training_modules" as any).select("*").eq("is_active", true).order("display_order"),
       supabase.from("cast_training_records" as any).select("cast_id, module_id, status, checked_items"),
     ]);
-    setCasts((castsRes.data || []) as Cast[]);
+    const activeCasts = (castsRes.data || []) as Cast[];
+    setCasts(activeCasts);
+    setSelectedCast((current) => activeCasts.find((cast) => cast.id === current?.id) ?? null);
     setModules(((modulesRes.data || []) as any[]).map((m) => ({ ...m, checklist: normalizeChecklist(m.checklist) })) as Module[]);
     const recordMap: Record<string, RecordLite> = {};
     ((recordsRes.data || []) as any[]).forEach((r) => {
@@ -131,7 +132,15 @@ export default function Education() {
     });
     setAllRecords(recordMap);
     setLoading(false);
-  };
+  }, [user, storeId, storeLoading]);
+
+  useEffect(() => {
+    void fetchBase();
+    // 別画面でアーカイブしたセラピストも、画面に戻った時に一覧から除く。
+    const refresh = () => { void fetchBase(); };
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [fetchBase]);
 
   const selectCast = async (cast: Cast) => {
     setSelectedCast(cast);
