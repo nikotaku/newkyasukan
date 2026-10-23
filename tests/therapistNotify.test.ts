@@ -188,3 +188,11 @@ test("不足分を振り込んだお知らせ", () => {
   assert.equal(push.url, "/therapist/token-abc?settlement=c-1");
   assert.match(buildSettlementLineText({ event: "shortage_paid", date: "2026-10-14", shortage: 12000 }), /不足分 ¥12,000 を振り込みました/);
 });
+
+test("写真の確認依頼はマイページの「写真の確認」を開く", async () => {
+  const { buildPhotoReviewPush, buildPhotoReviewLineText } = await import("../supabase/functions/notify-therapist/messages.ts");
+  const push = buildPhotoReviewPush({ portalUrl: "/therapist/abc", count: 3, reviewId: "r1" });
+  assert.equal(push.url, "/therapist/abc?view=photo-review");
+  assert.match(push.body, /3枚/);
+  assert.match(buildPhotoReviewLineText(3), /写真の確認/);
+});

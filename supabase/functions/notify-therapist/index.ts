@@ -5,7 +5,8 @@
 //    ② 端末が無い人だけ、移行中は本人のLINEグループへ（共通グループには送らない）
 //    ③ どちらも無い・送れない → 管理画面のスマホ通知（topic therapist_notify）で知らせる
 //    予約の確定・変更・キャンセルのほか、SNSアカウント（X・O2）の準備ができたお知らせ（kind = sns_ready）と
-//    精算の承認（kind = settlement。届かなくてもマイページを開けば見られるので、管理画面には知らせない）も送る
+//    精算の承認（kind = settlement。届かなくてもマイページを開けば見られるので、管理画面には知らせない）と
+//    加工した写真の確認依頼（kind = photo_review）も送る
 //  - マイページから { action: "test", token } … 本人の端末にテスト通知を送る
 // VAPIDの鍵は Vault（RPC get_web_push_vapid）。暗号化と署名は _shared/webPush.ts。
 
@@ -13,6 +14,8 @@ import { sendWebPush, type VapidKeys } from "../_shared/webPush.ts";
 import { pushLineText } from "../_shared/linePush.ts";
 import type { ReservationLineContext } from "../notify-line-therapist/reservationLineNotification.ts";
 import {
+  buildPhotoReviewLineText,
+  buildPhotoReviewPush,
   buildSettlementLineText,
   buildSettlementPush,
   buildSnsReadyLineText,
@@ -59,7 +62,7 @@ interface Notification {
   reservation_id: string | null;
   kind: TherapistNotificationKind;
   changes: ReservationChanges;
-  snapshot: CancelledSnapshot & SettlementSnapshot;
+  snapshot: CancelledSnapshot & SettlementSnapshot & { review_id?: string; count?: number };
   source: string;
   attempts: number;
 }
@@ -149,7 +152,7 @@ async function processNotification(notification: Notification) {
     }
   }
 
-  const when = notification.kind === "sns_ready" || notification.kind === "settlement"
+  const when = notification.kind === "sns_ready" || notification.kind === "settlement" || notification.kind === "photo_review"
     ? ""
     : notification.kind === "cancelled"
     ? whenLabel(notification.snapshot?.reservation_date, notification.snapshot?.start_time)
@@ -162,6 +165,8 @@ async function processNotification(notification: Notification) {
   )) ?? [];
   const pushMessage = notification.kind === "sns_ready"
     ? buildSnsReadyPush({ portalUrl, castId: cast.id })
+    : notification.kind === "photo_review"
+    ? buildPhotoReviewPush({ portalUrl, count: notification.snapshot?.count, reviewId: notification.snapshot?.review_id })
     : notification.kind === "settlement"
     ? buildSettlementPush({ portalUrl, snapshot: notification.snapshot })
     : buildTherapistPush({
@@ -185,6 +190,8 @@ async function processNotification(notification: Notification) {
   if (!devices.length && cast.line_group_id && LINE_TOKEN) {
     const text = notification.kind === "sns_ready"
       ? buildSnsReadyLineText()
+      : notification.kind === "photo_review"
+      ? buildPhotoReviewLineText(notification.snapshot?.count)
       : notification.kind === "settlement"
       ? buildSettlementLineText(notification.snapshot)
       : buildTherapistLineText({ kind: notification.kind, context, changes: notification.changes, snapshot: notification.snapshot });
