@@ -20,6 +20,8 @@ import { TherapistSettlementNotice } from "@/components/therapist/TherapistSettl
 import { TherapistMonthlyCount } from "@/components/therapist/TherapistMonthlyCount";
 import { TherapistProfileForm } from "@/components/therapist/TherapistProfileForm";
 import { TherapistPhotoUpload } from "@/components/therapist/TherapistPhotoUpload";
+import { TherapistPhotoReview, fetchTherapistPhotoReview } from "@/components/therapist/TherapistPhotoReview";
+import type { PhotoReview } from "@/lib/photoReview";
 import { BackRateTable, type BackRateRow } from "@/components/therapist/BackRateTable";
 import { TherapistSnsAccount } from "@/components/therapist/TherapistSnsAccount";
 import { hasUnseenSnsNotice, useTherapistSnsAccount } from "@/lib/therapistSns";
@@ -104,7 +106,7 @@ interface EntryPhotoViewer {
   total: number;
 }
 
-type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers" | "upcoming" | "promotion" | "sns" | "profile" | "photos";
+type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers" | "upcoming" | "promotion" | "sns" | "profile" | "photos" | "photo-review";
 
 interface PromotionScheduleTask {
   id: string;
@@ -220,7 +222,7 @@ export default function TherapistPortal() {
   // ?view=sns（SNSアカウントの準備ができた通知）・?view=profile（お店から送るプロフィール入力のURL）で直接開く
   const [view, setView] = useState<View>(() => {
     const requested = searchParams.get("view");
-    return requested === "sns" || requested === "profile" ? requested : "menu";
+    return requested === "sns" || requested === "profile" || requested === "photo-review" ? requested : "menu";
   });
   // お店が用意した X・O2 のアカウント（スマホ通知の「SNSアカウントの準備ができました」から ?view=sns で開く）
   const snsAccount = useTherapistSnsAccount(token);
@@ -230,8 +232,11 @@ export default function TherapistPortal() {
   }, [reloadSnsAccount]);
   useEffect(() => {
     if (view === "sns") void reloadSnsAccount();
-    if (view !== "sns" && view !== "profile" && searchParams.get("view")) setSearchParams({}, { replace: true });
+    if (view !== "sns" && view !== "profile" && view !== "photo-review" && searchParams.get("view")) setSearchParams({}, { replace: true });
+    if (view === "menu" && token) void fetchTherapistPhotoReview(token).then(setPhotoReview).catch(() => setPhotoReview(null));
   }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
+  // お店から届いた写真の確認依頼（返事待ちならメニューの上に出す）
+  const [photoReview, setPhotoReview] = useState<PhotoReview | null>(null);
   const [showBackRates, setShowBackRates] = useState(false);
   const [therapistBackRates, setTherapistBackRates] = useState<BackRateRow[]>([]);
   const [therapistBackRatesLoading, setTherapistBackRatesLoading] = useState(false);
@@ -706,6 +711,7 @@ export default function TherapistPortal() {
     { title: "顧客カルテ", description: "担当したお客様の好み・来店履歴を確認", icon: Users, action: () => setView("customers") },
     { title: "プロフィール入力", description: "HPに載るプロフィールを入力してお店に送る", icon: PencilLine, action: () => setView("profile") },
     { title: "画像アップロード", description: "プロフィール・宣伝に使う写真をお店に送る", icon: ImagePlus, action: () => setView("photos") },
+    { title: "写真の確認", description: "お店が加工した写真を見てOK・直してほしいを返事", icon: ImageIcon, action: () => setView("photo-review") },
     { title: "SNSアカウント", description: "X・O2のログイン情報と設定マニュアル", icon: AtSign, action: () => setView("sns") },
     { title: "入室方法", description: "各ルームへの入室手順・鍵の場所を確認", icon: DoorOpen, action: () => setView("entry") },
     { title: "振り込み申請", description: "報酬の振り込み申請フォーム", icon: ExternalLink, action: () => window.open("https://yoom.fun/5eee42a7-b4ff-49a8-8373-606c66495142/forms/shared/Cu2K735X9qaSAdMs45x6Bw", "_blank") },
@@ -740,7 +746,7 @@ export default function TherapistPortal() {
           <div className="min-w-0">
             <p className="font-bold text-base leading-tight truncate">{cast.name}様</p>
             <p className="text-xs text-muted-foreground">
-              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : view === "upcoming" ? "事前予約" : view === "promotion" ? "投稿宣伝スケジュール" : view === "sns" ? "SNSアカウント" : view === "profile" ? "プロフィール入力" : view === "photos" ? "画像アップロード" : "交通費申請"}
+              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : view === "upcoming" ? "事前予約" : view === "promotion" ? "投稿宣伝スケジュール" : view === "sns" ? "SNSアカウント" : view === "profile" ? "プロフィール入力" : view === "photos" ? "画像アップロード" : view === "photo-review" ? "写真の確認" : "交通費申請"}
             </p>
           </div>
         </div>
@@ -757,6 +763,18 @@ export default function TherapistPortal() {
 
           {/* 精算が承認されました（不足分があれば、振込か次回出勤日に相殺を選ぶ・振込先を入れる） */}
           {token && <TherapistSettlementNotice token={token} />}
+
+          {/* お店から写真の確認依頼（返事待ちのとき） */}
+          {photoReview?.status === "pending" && (
+            <button
+              type="button"
+              onClick={() => setView("photo-review")}
+              className="w-full rounded-xl border-2 border-amber-400/60 bg-amber-50 px-4 py-3 text-left dark:bg-amber-950/30"
+            >
+              <p className="flex items-center gap-2 text-sm font-bold"><ImageIcon size={16} className="text-amber-600" />写真の確認をお願いします（{photoReview.photos.length}枚）</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">お店が加工した写真を見て、OKか直してほしいかを返事する <ChevronRight size={12} className="inline" /></p>
+            </button>
+          )}
 
           {/* お店から「XとO2の準備ができました」のお知らせ（まだ開いていないとき） */}
           {hasUnseenSnsNotice(snsAccount.account) && (
@@ -1503,6 +1521,7 @@ export default function TherapistPortal() {
         {/* ── PROFILE（本人がプロフィールを入力してお店に送る） ── */}
         {view === "profile" && token && <TherapistProfileForm token={token} />}
         {view === "photos" && token && <TherapistPhotoUpload token={token} />}
+        {view === "photo-review" && token && <TherapistPhotoReview token={token} />}
 
         {view === "customers" && (
           <div className="space-y-3">

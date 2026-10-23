@@ -2,6 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   checkedIds,
+  moveInList,
+  moveModule,
+  orderedCategories,
+  parseCategoryList,
+  renumberByCategories,
   combinedProgress,
   moduleItems,
   moduleProgress,
@@ -50,4 +55,45 @@ test("カテゴリの％は項目の数でまとめる", () => {
     moduleProgress([], { checked_items: [] }),
   ]);
   assert.deepEqual(p, { done: 3, total: 4, pct: 75 });
+});
+
+test("カテゴリの並び：保存した順のあとに講習だけにあるカテゴリ", () => {
+  const modules = [
+    { id: "a", category: "接客", display_order: 10 },
+    { id: "b", category: "施術", display_order: 20 },
+    { id: "c", category: "一般", display_order: 30 },
+  ];
+  assert.deepEqual(orderedCategories(["施術", "衛生"], modules), ["施術", "衛生", "接客", "一般"]);
+  assert.deepEqual(parseCategoryList('["a"," a ","",3,"b"]'), ["a", "b"]);
+  assert.deepEqual(parseCategoryList("壊れた"), []);
+  assert.deepEqual(moveInList(["x", "y", "z"], 0, 2), ["y", "z", "x"]);
+});
+
+test("講習のドラッグ移動：別のカテゴリの途中へ・最後へ", () => {
+  const modules = [
+    { id: "a", category: "接客", display_order: 10 },
+    { id: "b", category: "接客", display_order: 20 },
+    { id: "c", category: "施術", display_order: 30 },
+  ];
+  const cats = ["接客", "施術", "衛生"];
+  const r1 = moveModule(modules, cats, "a", "施術", "c");
+  assert.deepEqual(r1.modules.map((m) => `${m.id}:${m.category}:${m.display_order}`), ["b:接客:10", "a:施術:20", "c:施術:30"]);
+  assert.deepEqual(r1.changed.map((c) => c.id).sort(), ["a", "b"]);
+
+  const r2 = moveModule(modules, cats, "b", "衛生", null);
+  assert.deepEqual(r2.modules.map((m) => `${m.id}:${m.category}`), ["a:接客", "c:施術", "b:衛生"]);
+
+  const r3 = moveModule(modules, cats, "b", "接客", "a");
+  assert.deepEqual(r3.modules.map((m) => m.id), ["b", "a", "c"]);
+  assert.equal(moveModule(modules, cats, "a", "接客", "a").changed.length, 0);
+});
+
+test("カテゴリの並べ替えで講習の順番も振り直す", () => {
+  const modules = [
+    { id: "a", category: "接客", display_order: 10 },
+    { id: "c", category: "施術", display_order: 30 },
+  ];
+  const r = renumberByCategories(modules, ["施術", "接客"]);
+  assert.deepEqual(r.modules.map((m) => `${m.id}:${m.display_order}`), ["c:10", "a:20"]);
+  assert.equal(r.changed.length, 2);
 });

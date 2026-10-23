@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { PhotoEditorDialog } from "@/components/staff/PhotoEditorDialog";
+import { CastPhotoReviewPanel } from "@/components/staff/CastPhotoReviewPanel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -2123,6 +2124,13 @@ export default function Staff() {
                                     );
                                   })}
                                 </div>
+                              )}
+                              {/* 加工が終わったら、セラピストのマイページに確認依頼を送る */}
+                              {editingCast.id && (
+                                <CastPhotoReviewPanel
+                                  castId={editingCast.id}
+                                  photos={items.map(({ url, shownIndex }) => ({ url, shown: shownIndex >= 0 }))}
+                                />
                               )}
                             </>
                           );

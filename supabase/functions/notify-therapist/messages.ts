@@ -11,7 +11,7 @@ import {
   type ReservationLineContext,
 } from "../notify-line-therapist/reservationLineNotification.ts";
 
-export type TherapistNotificationKind = "new" | "changed" | "cancelled" | "sns_ready" | "settlement";
+export type TherapistNotificationKind = "new" | "changed" | "cancelled" | "sns_ready" | "settlement" | "photo_review";
 
 export interface TherapistPushMessage {
   title: string;
@@ -177,6 +177,26 @@ export function buildSnsReadyLineText() {
   ].join("\n") + "\n\n📲 マイページをホーム画面に追加して通知をオンにすると、お知らせがスマホに直接届きます";
 }
 
+/** お店が加工した写真の確認依頼。マイページの「写真の確認」を開く */
+export function buildPhotoReviewPush(input: { portalUrl: string; count?: number; reviewId?: string }): TherapistPushMessage {
+  const separator = input.portalUrl.includes("?") ? "&" : "?";
+  return {
+    title: "🖼 写真の確認をお願いします",
+    body: `お店で加工した写真${input.count ? ` ${input.count}枚` : ""}を確認して、OKか直してほしい所を返事してください`,
+    url: `${input.portalUrl}${separator}view=photo-review`,
+    tag: `photo-review-${input.reviewId ?? "latest"}`,
+    icon: ICON,
+  };
+}
+
+export function buildPhotoReviewLineText(count?: number) {
+  return [
+    "🖼 写真の確認をお願いします",
+    "",
+    `お店で加工した写真${count ? ` ${count}枚` : ""}を、マイページの「写真の確認」で見て、写真ごとに「OK」か「直してほしい」で返事してください。`,
+  ].join("\n") + "\n\n📲 マイページをホーム画面に追加して通知をオンにすると、お知らせがスマホに直接届きます";
+}
+
 // 精算の承認（承認した時点の金額。マイページでは最新の内容を出す）
 export interface SettlementSnapshot {
   clearance_id?: string;
@@ -288,10 +308,13 @@ export function unreachableAdminMessage(input: {
     : input.kind === "changed" ? "予約の変更"
     : input.kind === "sns_ready" ? "SNSアカウント準備完了のお知らせ"
     : input.kind === "settlement" ? "精算の承認"
+    : input.kind === "photo_review" ? "写真の確認依頼"
     : "キャンセル";
   return {
     title: input.kind === "sns_ready"
       ? `⚠️ ${input.castName}さんにSNSのお知らせが届いていません`
+      : input.kind === "photo_review"
+      ? `⚠️ ${input.castName}さんに写真の確認依頼が届いていません`
       : `⚠️ ${input.castName}さんに予約通知が届いていません`,
     body: `${input.when ? `${input.when} の` : ""}${kindLabel}。${
       input.reason === "no_device"

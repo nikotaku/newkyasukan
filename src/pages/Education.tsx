@@ -4,8 +4,6 @@ import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +12,7 @@ import { useAdminStore } from "@/hooks/useAdminStore";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Search, Plus, Trash2, ChevronDown, GraduationCap, Pencil, Check, X,
+  Search, ChevronDown, GraduationCap,
   CircleCheck, CircleDashed, CircleDot, Loader2, BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,7 +20,7 @@ import { driveImgUrl } from "@/lib/drive";
 import { format } from "date-fns";
 import { MediaRegistrationMatrix } from "@/components/education/MediaRegistrationMatrix";
 import O2Management from "@/pages/O2Management";
-import { ModuleChecklistEditor } from "@/components/education/ModuleChecklistEditor";
+import { CurriculumManager } from "@/components/education/CurriculumManager";
 import {
   type ChecklistItem,
   type ChecklistProgress,
@@ -30,7 +28,6 @@ import {
   combinedProgress,
   moduleItems,
   moduleProgress,
-  newChecklistItemId,
   normalizeChecklist,
   statusFromProgress,
 } from "@/lib/trainingChecklist";
@@ -92,13 +89,6 @@ export default function Education() {
   const [selectedCast, setSelectedCast] = useState<Cast | null>(null);
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [savingModule, setSavingModule] = useState<string | null>(null);
-
-  // Curriculum management
-  const [newModule, setNewModule] = useState({ category: "", title: "", description: "", items: "" });
-  const [addingModule, setAddingModule] = useState(false);
-  const [renamingCategory, setRenamingCategory] = useState<{ from: string; to: string } | null>(null);
-  const [editingModule, setEditingModule] = useState<{ id: string; category: string; title: string; description: string } | null>(null);
-  const [savingCurriculum, setSavingCurriculum] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
   const { storeId, loading: storeLoading } = useAdminStore();
@@ -192,67 +182,6 @@ export default function Education() {
       setRecords((prev) => ({ ...prev, [m.id]: before }));
       setAllRecords((prev) => ({ ...prev, [`${castId}:${m.id}`]: { status: before.status, checked_items: before.checked_items } }));
     }
-  };
-
-  const addModule = async () => {
-    if (!newModule.title.trim()) { toast.error("項目名を入力してください"); return; }
-    setAddingModule(true);
-    const maxOrder = Math.max(0, ...modules.map(m => m.display_order));
-    const checklist = newModule.items.split("\n").map((l) => l.trim()).filter(Boolean)
-      .map((label) => ({ id: newChecklistItemId(), label }));
-    const { error } = await supabase.from("training_modules" as any).insert([{
-      category: newModule.category.trim() || "一般",
-      title: newModule.title.trim(),
-      description: newModule.description.trim() || null,
-      display_order: maxOrder + 10,
-      checklist,
-    }]);
-    setAddingModule(false);
-    if (error) { toast.error("追加に失敗しました"); return; }
-    toast.success("カリキュラム項目を追加しました");
-    setNewModule({ category: "", title: "", description: "", items: "" });
-    fetchBase();
-  };
-
-  // カテゴリの名前を変える（そのカテゴリの講習をまとめて付け替える）
-  const renameCategory = async () => {
-    if (!renamingCategory) return;
-    const to = renamingCategory.to.trim();
-    if (!to) { toast.error("カテゴリ名を入力してください"); return; }
-    if (to === renamingCategory.from) { setRenamingCategory(null); return; }
-    const ids = modules.filter((m) => m.category === renamingCategory.from).map((m) => m.id);
-    setSavingCurriculum(true);
-    const { error } = await supabase.from("training_modules" as any).update({ category: to }).in("id", ids);
-    setSavingCurriculum(false);
-    if (error) { toast.error("保存に失敗しました"); return; }
-    setModules((prev) => prev.map((m) => (ids.includes(m.id) ? { ...m, category: to } : m)));
-    setRenamingCategory(null);
-    toast.success("カテゴリ名を変えました");
-  };
-
-  // 講習のカテゴリ・名前・説明を直す
-  const saveModuleEdit = async () => {
-    if (!editingModule) return;
-    const category = editingModule.category.trim() || "一般";
-    const title = editingModule.title.trim();
-    if (!title) { toast.error("項目名を入力してください"); return; }
-    const description = editingModule.description.trim() || null;
-    setSavingCurriculum(true);
-    const { error } = await supabase.from("training_modules" as any)
-      .update({ category, title, description }).eq("id", editingModule.id);
-    setSavingCurriculum(false);
-    if (error) { toast.error("保存に失敗しました"); return; }
-    setModules((prev) => prev.map((m) => (m.id === editingModule.id ? { ...m, category, title, description } : m)));
-    setEditingModule(null);
-    toast.success("保存しました");
-  };
-
-  const deleteModule = async (id: string) => {
-    if (!confirm("この項目を削除しますか？受講記録も削除されます。")) return;
-    const { error } = await supabase.from("training_modules" as any).update({ is_active: false }).eq("id", id);
-    if (error) { toast.error("削除に失敗しました"); return; }
-    toast.success("削除しました");
-    fetchBase();
   };
 
   // セラピストごとの進み具合（チェックした項目の％。一覧ソート・表示用）
@@ -554,120 +483,7 @@ export default function Education() {
 
             {/* ── カリキュラム管理 ── */}
             <TabsContent value="curriculum">
-              <div className="max-w-3xl space-y-5">
-                <Card>
-                  <CardContent className="pt-5 space-y-3">
-                    <p className="font-semibold text-sm">新規カリキュラム項目を追加</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs">カテゴリ</Label>
-                        <Input className="mt-1" list="training-categories" placeholder="例：施術技術" value={newModule.category}
-                          onChange={(e) => setNewModule(f => ({ ...f, category: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">項目名</Label>
-                        <Input className="mt-1" placeholder="例：オイルトリートメント基礎" value={newModule.title}
-                          onChange={(e) => setNewModule(f => ({ ...f, title: e.target.value }))} />
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs">説明</Label>
-                      <Textarea className="mt-1 resize-none" rows={2} placeholder="講習内容の説明" value={newModule.description}
-                        onChange={(e) => setNewModule(f => ({ ...f, description: e.target.value }))} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">チェック項目（1行に1つ）</Label>
-                      <Textarea className="mt-1 resize-none" rows={3} placeholder={"例：出勤・遅刻のルール\n身だしなみ\n連絡の取り方"} value={newModule.items}
-                        onChange={(e) => setNewModule(f => ({ ...f, items: e.target.value }))} />
-                    </div>
-                    <Button onClick={addModule} disabled={addingModule}>
-                      <Plus size={14} className="mr-1.5" />
-                      {addingModule ? "追加中..." : "項目を追加"}
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <div className="space-y-4">
-                  {Object.entries(grouped).map(([category, mods]) => (
-                    <div key={category}>
-                      {renamingCategory?.from === category ? (
-                        <div className="mb-2 flex items-center gap-1">
-                          <Input className="h-8 text-sm" autoFocus value={renamingCategory.to}
-                            onChange={(e) => setRenamingCategory({ from: category, to: e.target.value })}
-                            onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) void renameCategory(); }} />
-                          <Button size="icon" className="h-8 w-8 shrink-0" onClick={() => void renameCategory()} disabled={savingCurriculum} aria-label="保存">
-                            {savingCurriculum ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => setRenamingCategory(null)} aria-label="やめる">
-                            <X size={14} />
-                          </Button>
-                        </div>
-                      ) : (
-                        <button type="button" onClick={() => setRenamingCategory({ from: category, to: category })}
-                          className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground tracking-wider hover:text-foreground">
-                          {category}<Pencil size={12} />
-                        </button>
-                      )}
-                      <div className="space-y-2">
-                        {mods.map((m) => (
-                          <div key={m.id} className="rounded-xl border bg-card px-4 py-3">
-                            {editingModule?.id === m.id ? (
-                              <div className="space-y-2">
-                                <div>
-                                  <Label className="text-xs">カテゴリ</Label>
-                                  <Input className="mt-1 h-9 text-sm" list="training-categories" value={editingModule.category}
-                                    onChange={(e) => setEditingModule({ ...editingModule, category: e.target.value })} />
-                                </div>
-                                <div>
-                                  <Label className="text-xs">項目名</Label>
-                                  <Input className="mt-1 h-9 text-sm" value={editingModule.title}
-                                    onChange={(e) => setEditingModule({ ...editingModule, title: e.target.value })} />
-                                </div>
-                                <div>
-                                  <Label className="text-xs">説明</Label>
-                                  <Textarea className="mt-1 text-sm resize-none" rows={2} value={editingModule.description}
-                                    onChange={(e) => setEditingModule({ ...editingModule, description: e.target.value })} />
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button size="sm" onClick={() => void saveModuleEdit()} disabled={savingCurriculum}>
-                                    {savingCurriculum && <Loader2 size={14} className="mr-1.5 animate-spin" />}保存
-                                  </Button>
-                                  <Button size="sm" variant="ghost" onClick={() => setEditingModule(null)}>やめる</Button>
-                                </div>
-                              </div>
-                            ) : (
-                            <div className="flex items-start gap-3">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium">{m.title}</p>
-                                {m.description && <p className="text-xs text-muted-foreground mt-0.5">{m.description}</p>}
-                              </div>
-                              <button onClick={() => setEditingModule({ id: m.id, category: m.category, title: m.title, description: m.description ?? "" })}
-                                className="text-muted-foreground hover:text-foreground p-1 shrink-0" aria-label="編集">
-                                <Pencil size={15} />
-                              </button>
-                              <button onClick={() => deleteModule(m.id)} className="text-muted-foreground hover:text-destructive p-1 shrink-0">
-                                <Trash2 size={15} />
-                              </button>
-                            </div>
-                            )}
-                            <ModuleChecklistEditor
-                              moduleId={m.id}
-                              checklist={m.checklist}
-                              onSaved={(checklist) => setModules((prev) => prev.map((x) => (x.id === m.id ? { ...x, checklist } : x)))}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  {modules.length === 0 && (
-                    <p className="text-center text-muted-foreground text-sm py-8">カリキュラム項目がありません</p>
-                  )}
-                  <datalist id="training-categories">
-                    {Object.keys(grouped).map((c) => <option key={c} value={c} />)}
-                  </datalist>
-                </div>
-              </div>
+              <CurriculumManager modules={modules} setModules={setModules} onReload={fetchBase} />
             </TabsContent>
           </Tabs>
         </div>
