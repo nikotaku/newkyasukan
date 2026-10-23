@@ -47,7 +47,11 @@ export function PhotoEditorDialog({
   const [tool, setTool] = useState<Tool>("move");
   const [stampSize, setStampSize] = useState(0.3);
   const [saving, setSaving] = useState(false);
-  const drag = useRef<{ x: number; y: number; offsetX: number; offsetY: number; startX?: number; startY?: number } | null>(null);
+  const drag = useRef<{
+    x: number; y: number; offsetX: number; offsetY: number; startX?: number; startY?: number;
+    /** 動かしている白ぼかし・ハート・モザイクの番号と、つかんだ位置のずれ */
+    moveIndex?: number; grabX?: number; grabY?: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!open || !url) return;
@@ -94,8 +98,23 @@ export function PhotoEditorDialog({
       setState((s) => ({ ...s, background: { ...s.background, enabled: true } }));
       return;
     }
-    setState((s) => ({ ...s, overlays: [...s.overlays, { kind: tool, x: p.x, y: p.y, size: stampSize }] }));
-    drag.current = { x: e.clientX, y: e.clientY, offsetX: 0, offsetY: 0 };
+    // 置いてある白ぼかし・ハート・モザイクに触れたら、それをつかんで動かす（上に重なっているものから）
+    for (let i = state.overlays.length - 1; i >= 0; i--) {
+      const o = state.overlays[i];
+      const dx = (p.x - o.x) * p.rect.width;
+      const dy = (p.y - o.y) * p.rect.height;
+      if (Math.hypot(dx, dy) <= Math.max((o.size * p.rect.width) / 2, 18)) {
+        drag.current = { x: e.clientX, y: e.clientY, offsetX: 0, offsetY: 0, moveIndex: i, grabX: p.x - o.x, grabY: p.y - o.y };
+        return;
+      }
+    }
+    const index = state.overlays.length;
+    const seed = Math.floor(Math.random() * 2 ** 31);
+    setState((s) => ({ ...s, overlays: [...s.overlays, { kind: tool, x: p.x, y: p.y, size: stampSize, seed }] }));
+    // 白ぼかし・ハートは置いたまま指を離さずに動かせる（モザイクはなぞった跡を足す）
+    drag.current = tool === "mosaic"
+      ? { x: e.clientX, y: e.clientY, offsetX: 0, offsetY: 0 }
+      : { x: e.clientX, y: e.clientY, offsetX: 0, offsetY: 0, moveIndex: index, grabX: 0, grabY: 0 };
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -111,6 +130,13 @@ export function PhotoEditorDialog({
     if (tool === "background" && drag.current.startX !== undefined && drag.current.startY !== undefined) {
       const keep = ellipseFromDrag({ x: drag.current.startX, y: drag.current.startY }, { x: p.x, y: p.y });
       setState((s) => ({ ...s, background: { ...s.background, enabled: true, keep } }));
+      return;
+    }
+    if (drag.current.moveIndex !== undefined) {
+      const { moveIndex, grabX = 0, grabY = 0 } = drag.current;
+      const x = Math.min(1, Math.max(0, p.x - grabX));
+      const y = Math.min(1, Math.max(0, p.y - grabY));
+      setState((s) => ({ ...s, overlays: s.overlays.map((o, i) => (i === moveIndex ? { ...o, x, y } : o)) }));
       return;
     }
     if (tool === "mosaic") {
@@ -198,11 +224,11 @@ export function PhotoEditorDialog({
               {tool === "move"
                 ? "写真をドラッグして位置を合わせます（ズームで寄せてから動かせます）"
                 : tool === "glow"
-                  ? "隠したい所（口もとなど）をタップすると、白くふんわりぼかします"
+                  ? "隠したい所（口もとなど）をタップすると、白くふんわりぼかします。置いたぼかしはドラッグで動かせます"
                   : tool === "heart"
-                  ? "隠したい所をタップするとハートを置きます"
+                  ? "隠したい所をタップするとハートを置きます。置いたハートはドラッグで動かせます"
                   : tool === "mosaic"
-                    ? "隠したい所をタップ・なぞるとモザイクになります"
+                    ? "隠したい所をタップ・なぞるとモザイクになります。置いたモザイクはドラッグで動かせます"
                     : "残したい人のまわりを、斜めになぞって囲みます（点線の外が背景になります）"}
             </p>
             {tool === "background" && (
