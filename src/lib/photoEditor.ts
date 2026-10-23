@@ -10,6 +10,8 @@ export type PhotoOverlay = {
   y: number;
   /** 枠の幅に対する大きさ（0〜1） */
   size: number;
+  /** 白ぼかしのキラキラの並び（動かしても変わらないように置いたときに決める） */
+  seed?: number;
 };
 
 /** 背景のモザイク・ぼかし。keep の楕円（枠の中の位置 0〜1）の中は元のまま残す */
@@ -364,7 +366,7 @@ export function renderEditedPhoto(
     if (overlay.kind === "mosaic") {
       mosaic(ctx, cx, cy, size / 2, Math.max(4, Math.round(frame.width / 40)));
     } else if (overlay.kind === "glow") {
-      glow(ctx, cx, cy, size, Math.round(overlay.x * 100000) * 7919 + Math.round(overlay.y * 100000));
+      glow(ctx, cx, cy, size, overlay.seed ?? Math.round(overlay.x * 100000) * 7919 + Math.round(overlay.y * 100000));
     } else {
       heart(ctx, cx, cy, size);
     }
