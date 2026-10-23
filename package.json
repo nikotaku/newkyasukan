@@ -30,6 +30,7 @@
     "test:photo-editor": "node --experimental-strip-types --test tests/photoEditor.test.ts",
     "test:training-checklist": "node --experimental-strip-types --test tests/trainingChecklist.test.ts",
     "test:therapist-split-payment": "node --experimental-strip-types --test tests/therapistSplitPayment.test.ts",
+    "test:interview-system": "node --experimental-strip-types --test tests/interviewSystem.test.ts",
     "test:cast-profile": "node --experimental-strip-types --test tests/castProfileCompletion.test.ts tests/therapistProfileForm.test.ts",
     "test:therapist-monthly-count": "node --experimental-strip-types --test tests/therapistMonthlyCount.test.ts",
     "test:promotion-quota": "node --experimental-strip-types --test tests/promotionQuota.test.ts",
