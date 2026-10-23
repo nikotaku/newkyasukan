@@ -173,7 +173,6 @@ function mosaic(ctx: CanvasRenderingContext2D, cx: number, cy: number, radius: n
   ctx.putImageData(image, x0, y0);
 }
 
-/** 白いハート（顔隠し用） */
 /** 位置から決まる乱数（画面で見た絵と保存した絵で、白ぼかしの粒が同じになるように） */
 export function seededRandom(seed: number) {
   let t = (seed >>> 0) || 1;
@@ -185,39 +184,51 @@ export function seededRandom(seed: number) {
   };
 }
 
-/** 白ぼかし（顔隠し）：まん中は白く、ふちに向かってふんわり消え、まわりにキラキラした白い粒を散らす */
+/** 0〜1 をなめらかにつなぐ（ふちに線が見えないように） */
+function smoothstep(edge0: number, edge1: number, x: number) {
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+/** 白ぼかし（顔隠し）：まん中は白く、ふちに向かって線が見えないように少しずつ消え、まわりにキラキラした白い粒を散らす */
 function glow(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, seed: number) {
   const r = size / 2;
+  // 白いところは r まで。ふちは r の外まで長く伸ばして、濃さを少しずつ落とす
+  const outer = r * 1.35;
   ctx.save();
-  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-  gradient.addColorStop(0, "rgba(255,255,255,1)");
-  gradient.addColorStop(0.45, "rgba(255,255,255,0.97)");
-  gradient.addColorStop(0.7, "rgba(255,255,255,0.75)");
-  gradient.addColorStop(0.88, "rgba(255,255,255,0.3)");
-  gradient.addColorStop(1, "rgba(255,255,255,0)");
+  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, outer);
+  const steps = 24;
+  for (let i = 0; i <= steps; i += 1) {
+    const t = i / steps;
+    const fade = 1 - smoothstep(0.35, 1, t);
+    gradient.addColorStop(t, `rgba(255,255,255,${(Math.pow(fade, 1.2) * 0.98).toFixed(4)})`);
+  }
   ctx.fillStyle = gradient;
   ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.arc(cx, cy, outer, 0, Math.PI * 2);
   ctx.fill();
 
   // 粒：ふちのあたりに多く、外へ行くほど少なく・薄く（見本の写真のようなザラっとした白い粒）
   const random = seededRandom(seed);
-  const count = Math.round(900 + size * 5);
-  const dot = Math.max(0.8, size / 180);
+  const count = Math.round(1100 + size * 6);
+  const dot = Math.max(0.7, size / 200);
   for (let i = 0; i < count; i += 1) {
     const angle = random() * Math.PI * 2;
-    const distance = r * (0.5 + Math.pow(random(), 0.65) * 1.15);
+    const distance = r * (0.35 + Math.pow(random(), 0.75) * 1.35);
     const x = cx + Math.cos(angle) * distance;
     const y = cy + Math.sin(angle) * distance;
-    const fade = 1 - Math.min(1, Math.max(0, (distance - r * 0.6) / (r * 1.1)));
-    ctx.fillStyle = `rgba(255,255,255,${Math.min(1, (0.55 + random() * 0.45) * fade * 1.1)})`;
+    const fade = 1 - smoothstep(r * 0.55, r * 1.7, distance);
+    const alpha = (0.35 + random() * 0.65) * fade;
+    if (alpha < 0.03) continue;
+    ctx.fillStyle = `rgba(255,255,255,${Math.min(1, alpha).toFixed(3)})`;
     ctx.beginPath();
-    ctx.arc(x, y, dot * (0.5 + random() * 1.1), 0, Math.PI * 2);
+    ctx.arc(x, y, dot * (0.4 + random() * 1.1), 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
 }
 
+/** 白いハート（顔隠し用） */
 function heart(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number) {
   const w = size;
   const h = size * 0.92;
