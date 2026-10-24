@@ -152,10 +152,12 @@ export function catalogPrefill(request: EstamaReservationRequest, catalog: Estam
   }
   if (request.option_label && options.length === 0) unmatched.push(`オプション「${request.option_label}」`);
 
-  // クーポン：割引の名前が書いてあるもの
+  // クーポン：割引の名前が書いてあるもの（名前の後ろの（…）は補足なので外しても見る。例「予約時に使える¥10,000クーポン（総額10,000円クーポン）」）
   const coupon = normalize(request.coupon ?? "");
+  const couponKeys = (name: string) => [normalize(name), normalize(name.replace(/[（(][^（()）]*[)）]\s*$/, ""))]
+    .filter((key) => key.length >= 4);
   const discount = coupon
-    ? catalog.discounts.find((item) => item.is_active !== false && normalize(item.name).length >= 4 && coupon.includes(normalize(item.name)))
+    ? catalog.discounts.find((item) => item.is_active !== false && couponKeys(item.name).some((key) => coupon.includes(key)))
     : undefined;
   if (request.coupon && !discount) unmatched.push("クーポン（割引を選んでください）");
 
