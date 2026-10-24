@@ -82,3 +82,18 @@ test("長い名前のオプションから当てる・分からないものは�
   assert.deepEqual(unknown.selectedOptions, []);
   assert.equal(unknown.unmatched.length, 2);
 });
+
+test("エステ魂のクーポンの文面から、同じ名前の割引を当てる（名前の後ろの（…）は無くてもよい）", () => {
+  const estamaCatalog = {
+    ...catalog,
+    discounts: [
+      { id: "new", name: "新規割 ご新規様1000円オフ", is_active: true },
+      { id: "line", name: "¥2,000×5枚=総額¥10,000（公式LINE）", is_active: true },
+      { id: "10k", name: "予約時に使える¥10,000クーポン（総額10,000円クーポン）", is_active: true },
+    ],
+  };
+  const pick = (coupon: string) => catalogPrefill({ ...base, coupon }, estamaCatalog).discount_ids;
+  assert.deepEqual(pick("新規割 ご新規様1000円オフ"), ["new"]);
+  assert.deepEqual(pick("¥2,000×5枚=総額¥10,000!今日から使える! 公式LINE登録後、トークで「クーポン」と送信"), ["line"]);
+  assert.deepEqual(pick("【予約時に使える】¥10,000クーポン|条件は2つだ ご予約時にすぐ使えるクーポンです。"), ["10k"]);
+});
