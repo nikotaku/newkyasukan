@@ -22,6 +22,8 @@ export interface TherapistPushStatus {
   thisDevice: boolean;
   /** この端末でテスト通知を受け取ったか */
   thisDeviceTestConfirmed: boolean;
+  /** 設定完了（ホーム画面に追加したアプリのどれかで、テスト通知を受け取った） */
+  setupComplete: boolean;
 }
 
 const callRpc = (name: string, args: Record<string, unknown>) => supabase.rpc(name as never, args as never);
@@ -33,12 +35,13 @@ export async function getTherapistPushStatus(token: string): Promise<TherapistPu
     p_endpoint: subscription?.endpoint ?? null,
   });
   if (error) throw new Error(error.message);
-  const status = (data ?? {}) as { devices?: number; this_device?: boolean; this_device_test_confirmed?: boolean };
+  const status = (data ?? {}) as { devices?: number; this_device?: boolean; this_device_test_confirmed?: boolean; setup_complete?: boolean };
   return {
     devices: Number(status.devices ?? 0),
     // 通知の許可が取り消されていたら届かないので、未設定として扱う
     thisDevice: Boolean(status.this_device) && (typeof Notification === "undefined" || Notification.permission === "granted"),
     thisDeviceTestConfirmed: Boolean(status.this_device_test_confirmed),
+    setupComplete: Boolean(status.setup_complete),
   };
 }
 

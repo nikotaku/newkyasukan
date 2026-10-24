@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Bell, BellOff, BellRing, CheckCircle2, Copy, Loader2, Send, Share, SquarePlus } from "lucide-react";
+import { Bell, BellRing, CheckCircle2, Copy, Loader2, Send, Share, SquarePlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   confirmTherapistPushTest,
-  disableTherapistPush,
   enableTherapistPush,
   getTherapistPushStatus,
   isIOS,
@@ -17,7 +16,8 @@ import {
 
 // マイページの一番上に出す「予約の通知」カード。
 // 予約の確定・変更・キャンセルはこのアプリ（ホーム画面に追加したマイページ）へのプッシュ通知だけで届くので、
-// まだ設定していない人には目立つ形で手順を出し、設定済みなら小さく「オン」とだけ出す。
+// まだ設定していない人には目立つ形で手順を出し、テスト通知を受け取るまで続ける。
+// 設定完了（ホーム画面に追加したアプリでテスト通知を受け取った）なら、カードは出さない（Safariで開いたときも）。
 
 const isInAppBrowser = () => typeof navigator !== "undefined" && /Line\/|FBAN|FBAV|Instagram/i.test(navigator.userAgent);
 
@@ -30,7 +30,7 @@ export function TherapistPushCard({ token }: { token: string }) {
 
   const [status, setStatus] = useState<TherapistPushStatus | null>(null);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(supported ? Notification.permission : "unsupported");
-  const [busy, setBusy] = useState<"enable" | "disable" | "test" | "confirm" | null>(null);
+  const [busy, setBusy] = useState<"enable" | "test" | "confirm" | null>(null);
   const [showSteps, setShowSteps] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -38,7 +38,7 @@ export function TherapistPushCard({ token }: { token: string }) {
     try {
       setStatus(await getTherapistPushStatus(token));
     } catch {
-      setStatus({ devices: 0, thisDevice: false, thisDeviceTestConfirmed: false });
+      setStatus({ devices: 0, thisDevice: false, thisDeviceTestConfirmed: false, setupComplete: false });
     }
   }, [supported, token]);
 
@@ -92,11 +92,6 @@ export function TherapistPushCard({ token }: { token: string }) {
     toast.success("テスト通知の受け取りを確認しました。設定は完了です");
   });
 
-  const disable = () => run("disable", async () => {
-    await disableTherapistPush(token);
-    toast.success("この端末の通知をオフにしました");
-  });
-
   const copyUrl = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -108,7 +103,10 @@ export function TherapistPushCard({ token }: { token: string }) {
 
   if (!status) return null;
 
-  // 設定済み：小さく出す
+  // 設定完了：もう出さない（この端末で通知がオンで、テスト済み・またはホーム画面のアプリで設定済み）
+  if (status.thisDevice && status.thisDeviceTestConfirmed) return null;
+  if (status.setupComplete && !status.thisDevice) return null;
+
   // 通知はオンだが、テスト通知が届いたことをまだ確かめていない
   if (status.thisDevice && !status.thisDeviceTestConfirmed) {
     return (
@@ -125,25 +123,6 @@ export function TherapistPushCard({ token }: { token: string }) {
             {busy === "confirm" ? <Loader2 size={14} className="mr-1 animate-spin" /> : <CheckCircle2 size={14} className="mr-1" />}届いた
           </Button>
         </div>
-      </div>
-    );
-  }
-
-  if (status.thisDevice) {
-    return (
-      <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 px-4 py-2.5 flex items-center gap-2">
-        <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-        <p className="text-sm flex-1 min-w-0">
-          <span className="font-semibold">予約の通知：オン</span>
-          <span className="text-xs text-muted-foreground ml-1">（この端末・テスト済み）</span>
-        </p>
-        <Button size="sm" variant="ghost" className="h-8 px-2" onClick={test} disabled={busy !== null}>
-          {busy === "test" ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-          <span className="ml-1 text-xs">テスト</span>
-        </Button>
-        <Button size="sm" variant="ghost" className="h-8 px-2 text-muted-foreground" onClick={disable} disabled={busy !== null} aria-label="通知をオフにする">
-          {busy === "disable" ? <Loader2 size={14} className="animate-spin" /> : <BellOff size={14} />}
-        </Button>
       </div>
     );
   }
