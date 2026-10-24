@@ -32,10 +32,12 @@ export interface EstamaDailyReport {
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
-export function classifyReportEmail(subject: string): ReportEmailKind {
+// from は送り元（転送されたメールも元の送り元のまま）。件名に「エステ魂」が無くても、estama.jp からの予約のメールは仮予約として扱う
+export function classifyReportEmail(subject: string, from = ""): ReportEmailKind {
   if (/着信内容の報告通知/.test(subject) && /IVRy/i.test(subject)) return "ivry_call";
   if (/エステ魂/.test(subject) && /デイリーレポート/.test(subject)) return "estama_daily_report";
   if (/エステ魂|エスたま|estama/i.test(subject) && /予約/.test(subject)) return "estama_reservation";
+  if (/estama\.jp/i.test(from) && /予約/.test(subject)) return "estama_reservation";
   return "unknown";
 }
 

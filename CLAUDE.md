@@ -239,6 +239,8 @@
 - 電話（IVRy着信通知）とエステ魂デイリーレポート（アクセス数・問い合わせ数）は、店舗のGmailで動く Google Apps Script（`scripts/gmail-report-sync.gs`）が1分ごとに Edge Function `report-email-ingest` へ送って取り込む（一度送ったメールは6時間送り直さない）。Codex は使わない
 - エステ魂の仮予約のメール（`estama_reservation`）か、IVRyの 0120-286-634 の着信通知が届いたら、RPC `request_estama_reserve_sync` → すぐにエステ魂の「お店への予約」を読みに行く（下の「エステ魂の仮予約の取り込み」）
 - 認証は `x-ingest-token`（`report_ingest_tokens` にSHA-256で保存）。トークンはリポジトリに入れない
+- **設定は画面から**：WEB予約受付（`/schedule/web-bookings`）のエステ魂の欄の「メールですぐ取り込む」（`src/components/GmailInstantSyncSetup.tsx`）。「スクリプトをコピー」で RPC `create_report_ingest_token`（店長・オーナー、本体は返すだけで保存しない）のトークン入りの `scripts/gmail-report-sync.gs` がコピーされるので、転送先の Gmail（艶華は enka@ のメールを転送している chelsy… のアカウント）の script.google.com に貼って `setup` を実行。状況（最後に送ってきた時刻・最後の仮予約のメール）は RPC `get_report_ingest_status`。トークンをチャットに出さないこと
+- 仮予約のメールは件名（「エステ魂」と「予約」）か、送り元が estama.jp で件名に「予約」があるもの（転送でも元の送り元のまま。`classifyReportEmail(subject, from)`）
 - 受け取ったメールと読み取り結果は `report_email_messages`。書式が読めないものは `unparsed` で残るので `parse.ts` を直す（手順: `docs/gmail-report-sync.md`）
 
 ## メンエスなうウィジェット

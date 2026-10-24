@@ -14,6 +14,9 @@ test("件名でIVRyの着信通知とエステ魂のデイリーレポートを�
   assert.equal(classifyReportEmail("【エステ魂】仮予約のお知らせ"), "estama_reservation");
   assert.equal(classifyReportEmail("【エステ魂】ご予約が入りました"), "estama_reservation");
   assert.equal(classifyReportEmail("お知らせ"), "unknown");
+  // 転送されたメールでも送り元が estama.jp なら、件名に「エステ魂」が無くても仮予約
+  assert.equal(classifyReportEmail("新しいご予約があります", "エステ魂 <noreply@estama.jp>"), "estama_reservation");
+  assert.equal(classifyReportEmail("新しいご予約があります", "someone@example.com"), "unknown");
 });
 
 test("IVRyの着信は件名の番号と本文の着信日時・転送結果を使う", () => {

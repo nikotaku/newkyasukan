@@ -5,7 +5,7 @@ alter table public.therapist_notices
   add column if not exists period_start date,
   add column if not exists period_end date;
 
-drop function if exists public.post_therapist_notice(uuid, text, text, text, uuid[], boolean, timestamptz, boolean);
+-- 前の8引数の版は残す（画面は p_kind を付けて呼ぶので、こちらの11引数の版だけに当たる）
 
 create or replace function public.post_therapist_notice(
   p_store_id uuid,
