@@ -210,6 +210,7 @@
 - メール：Gmail の取り込み（`scripts/gmail-report-sync.gs`）で請求まわりのメールも送り、`report-email-ingest` が `classifyBillingMail` で `billing_failed`（支払い失敗・停止・カードの期限切れ）／`billing_paid`（領収書・請求書）に分ける。送り元のドメイン（`SERVICE_PRESETS.senders`）か登録したキーワードでサブスクと結びつける。IVRy は着信通知が `silence_days` 日届かなければ要確認
 - **Gmail の取り込みは2026年10月時点で未設定**（`report_email_messages` が0件）。設定するまでメールでの判定と IVRy の形跡の判定は動かない（画面に注意を出している）。スクリプトを貼り直すと請求メールも送るようになる
 - カード番号・パスワードは入れない（支払い方法は「Visa 下4桁」まで）
+- **月別清算の固定費の目安**：月別清算（`SalesMonthlyClosing`）の「未入力・未払い」で、紹介広告費の推奨額と同じように、薄い文字の目安（タップで金額欄に入る）を出す。見張りに入れた金額をサービスごとに固定費の項目へ（エステ魂→広告媒体費（エスたま）、Twilio・SUBLINE・IVRy・Supabase・Vercel・Browserbase・Anthropic→通信費）、Twilio は今月を見ているときは `sms-billing` の今月の使用額を優先。年払いは次の請求日がその月のときだけ。計算は `src/lib/expenseSuggestions.ts`（テスト `npm run test:expense-suggestions`）。見張りの金額が空のサービスは目安に入らない
 
 ## DBバックアップ
 

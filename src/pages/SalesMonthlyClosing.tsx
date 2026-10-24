@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { downloadMonthlyReport } from "@/lib/monthlyClosingReport";
 import { splitClearanceExtraItems, splitSalaryAdjustments, sumClearanceExtraItems } from "@/lib/clearanceExtraItems";
 import { ZENRYOKU_STORE_ID } from "@/lib/storeSwitch";
+import { expenseSuggestions, type ExpenseSuggestion, type WatchForSuggestion } from "@/lib/expenseSuggestions";
 
 /**
  * 月別清算：毎月の締め作業。
@@ -201,6 +202,8 @@ export default function SalesMonthlyClosing() {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(["expenses"]));
   // 紹介広告費の推奨額（完了予約 × 紹介ルール単価）
   const [referralSuggested, setReferralSuggested] = useState(0);
+  // ほかの固定費の目安（支払い管理のサブスクの金額・Twilioの今月の使用額）
+  const [otherSuggestions, setOtherSuggestions] = useState<Record<string, ExpenseSuggestion>>({});
   // 変動費の入力
   const [varCategory, setVarCategory] = useState<string>(VARIABLE_ITEMS[0]);
   const [varAmount, setVarAmount] = useState("");
@@ -227,6 +230,7 @@ export default function SalesMonthlyClosing() {
     setReservations([]);
     setIncompleteReservations([]);
     setReferralSuggested(0);
+    setOtherSuggestions({});
     setPay({ cash: 0, card: 0, paypay: 0, cashOnHand: 0 });
     setClosing(null);
     const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
@@ -340,6 +344,21 @@ export default function SalesMonthlyClosing() {
     }));
     setReferralSuggested(reservationRows.reduce((sum, r) => sum + (r.referral_reward_amount ?? 0), 0));
     setLoading(false);
+
+    // 目安：支払い管理の金額と、今月なら Twilio の使用額（取れなくても締めには関係ないので黙って飛ばす）
+    const { data: watches } = await supabase
+      .from("subscription_watches" as never)
+      .select("service, name, amount, billing_cycle, next_billing_date, is_active");
+    let twilioUsage: number | null = null;
+    if (isSameMonth(selectedMonth, new Date())) {
+      const { data: billing } = await supabase.functions.invoke("sms-billing", { body: { action: "summary" } }).catch(() => ({ data: null }));
+      if (billing && typeof billing.monthUsage === "number") twilioUsage = billing.monthUsage;
+    }
+    setOtherSuggestions(expenseSuggestions({
+      month: format(selectedMonth, "yyyy-MM"),
+      watches: (watches as WatchForSuggestion[] | null) ?? [],
+      twilioUsage,
+    }));
   }, [selectedMonth]);
 
   useEffect(() => {
@@ -984,7 +1003,11 @@ export default function SalesMonthlyClosing() {
                         </div>
                         <div className="divide-y">
                           {pendingItems.map((item) => {
-                            const showSuggest = item === "紹介広告費" && referralSuggested > 0;
+                            const other = otherSuggestions[item];
+                            const suggest = item === "紹介広告費"
+                              ? (referralSuggested > 0 ? { amount: referralSuggested, note: "完了予約から自動計算" } : null)
+                              : other ? { amount: other.amount, note: other.parts.map((part) => `${part.label} ${yen(part.amount)}`).join("＋") } : null;
+                            const showSuggest = !!suggest;
                             return (
                             <div key={item} className="px-4 py-3 flex items-center gap-3 flex-wrap">
                               <div className="flex-1 min-w-[160px]">
@@ -993,10 +1016,10 @@ export default function SalesMonthlyClosing() {
                                   <button
                                     type="button"
                                     className="ml-2 text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium hover:bg-primary/20 transition-colors"
-                                    onClick={() => setInputs((p) => ({ ...p, [item]: String(referralSuggested) }))}
+                                    onClick={() => setInputs((p) => ({ ...p, [item]: String(suggest!.amount) }))}
                                     title="タップで金額欄にセット"
                                   >
-                                    推奨 {yen(referralSuggested)}（完了予約から自動計算）
+                                    {item === "紹介広告費" ? "推奨" : "目安"} {yen(suggest!.amount)}（{suggest!.note}）
                                   </button>
                                 )}
                               </div>
@@ -1005,7 +1028,7 @@ export default function SalesMonthlyClosing() {
                                   type="number"
                                   inputMode="numeric"
                                   min="0"
-                                  placeholder={showSuggest ? String(referralSuggested) : "金額"}
+                                  placeholder={showSuggest ? String(suggest!.amount) : "金額"}
                                   className="w-32 h-9 text-sm"
                                   value={inputs[item] ?? ""}
                                   onChange={(e) => setInputs((p) => ({ ...p, [item]: e.target.value }))}
