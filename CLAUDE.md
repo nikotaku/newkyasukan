@@ -280,7 +280,7 @@
 - 端末が無い人だけ、移行中は**本人のLINEグループ**（`casts.line_group_id`）へ。**共通グループには送らない**。どちらも無い・送れない → `unreachable` / `failed` にして、管理画面の左下（`TherapistNotifyAlert`）とスマホ通知（topic `therapist_notify`）で知らせる。直接連絡して「連絡した」で消す
 - 予約表の「再送」（`ReservationResendDialog`）で、お客様への予約確認SMS（`send-sms`）とセラピストへの通知（RPC `resend_therapist_notification`）を送り直せる。端末のSMSアプリを開く旧方式と `notify-line-therapist` の呼び出しはやめた
 - 設定状況は `/settings/notifications` の「セラピストの予約通知（マイページ）」。未設定の人にはURLを送って設定してもらう
-- **完了の判断**：ホーム画面に追加したアプリ（`therapist_push_subscriptions.standalone`）で通知をオンにし、テスト通知を受け取った（通知をタップ＝ `?push_test=1` で開く、またはカードの「届いた」→ RPC `confirm_therapist_push_test` → `test_confirmed_at`）ら完了。`/education?tab=media`（SNS・媒体登録の完了状況）の「マイページ」列（ホーム画面・通知／テスト通知）に自動で✓が付く（`src/lib/mediaRegistration.ts` の `portal_app` / `portal_test`）
+- **完了の判断**：ホーム画面に追加したアプリ（`therapist_push_subscriptions.standalone`）で通知をオンにし、テスト通知を受け取った（通知をタップ＝ `?push_test=1` で開く、またはカードの「届いた」→ RPC `confirm_therapist_push_test` → `test_confirmed_at`）ら完了。`/education?tab=media`（SNS・媒体登録の完了状況）の「マイページ」列（ホーム画面・通知／テスト通知）に自動で✓が付く（`src/lib/mediaRegistration.ts` の `portal_app` / `portal_test`）。マイページの一番上の「予約の通知」カード（`TherapistPushCard`）は、通知をオンにしたらテスト通知の確認まで出し続け、完了したら消える（`get_therapist_push_status` の `setup_complete` ＝ ホーム画面のアプリでテスト済み。Safariで開いたときも出さない）
 - テスト: `npm run test:therapist-notify`
 
 ## お店からセラピストへのお知らせ（マイページの掲示板）
