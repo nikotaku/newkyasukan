@@ -285,6 +285,8 @@
 - 管理画面のセラピスト →「お知らせ（マイページ掲示板）」（`/therapist-notices`、`src/pages/TherapistNotices.tsx`）でタイトル・本文を書いて出す（ひな形：清掃のお願い・シフト提出のお願い）。大事（赤）・いちばん上に固定・掲載期限・宛先（在籍の全員 or 選んだ人）・スマホ通知も送る、を選べる
 - RPC `post_therapist_notice`（店長・オーナー）→ `therapist_notices` ＋ `therapist_notifications`（kind = `notice`、宛先の在籍中の人ごと）。届け方は予約通知と同じ（マイページのプッシュ → 本人のLINEグループ）。届かなくても管理画面には知らせない（マイページを開けば出る）
 - マイページのメニュー「お知らせ」（`?view=notices`、`src/components/therapist/TherapistNotices.tsx`）と、まだ確認していないものはメニューの上に出る。「確認しました」で `therapist_notice_reads`（RPC `get_therapist_notices` / `mark_therapist_notice_read`、本人のトークン）。管理画面の一覧で「確認済み x/y人」と、まだの人の名前が見られる
+- **シフトのお知らせ**：ひな形の「シフト提出のお願い」「シフト確定のお知らせ」は `therapist_notices.kind`（`shift_request` / `shift_confirmed`）と期間（`period_start` / `period_end`、月＋前期1〜15日／後期16日〜／1か月）を持つ。文面は「11月前期シフトが確定しました📢 マイページ→シフト確認からご確認ください。」（`shiftNoticeText`）。マイページのお知らせに「11月前期の空きシフトを確認」と「追加提出する」（提出のお願いは「シフトを提出する」）のボタンが付く
+- **空きシフト**：マイページのメニュー「空きシフト」（`src/components/therapist/TherapistOpenShifts.tsx`、前後の半月へ切り替え）。RPC `get_therapist_shift_board(p_token, p_from, p_to)`（ルーム管理で `show_in_therapist_portal` のルームと、取り消し・却下以外の出勤。ほかの人の名前は返さない）。営業 12:00〜26:00 のうち、ルームごとに3時間以上あいている時間を空きにする（`src/lib/shiftOpenSlots.ts`、テスト `npm run test:therapist-notices`）。シフト提出（`/therapist/:token/shift?from=&to=`）はその期間の月を開き、日ごとに空きのルーム数と自分の出勤・申請中を出す（自分が出している日は選べない。`submit_therapist_shifts` は同じ日の自分のシフトを置き換えるため）
 - 固定の切り替え・消す（`deleted_at`）は管理画面から表を直接更新（RLS は `can_manage_store`）。計算は `src/lib/therapistNotices.ts`（テスト `npm run test:therapist-notices`）
 
 ## セラピストのSNSアカウント（X・O2）の受け渡し

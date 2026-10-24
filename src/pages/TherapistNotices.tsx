@@ -20,10 +20,13 @@ import {
   NOTICE_TEMPLATES,
   expiresAtFromDate,
   readSummary,
+  shiftNoticeText,
   type NoticeCast,
   type NoticeImportance,
+  type NoticeKind,
   type TherapistNotice,
 } from "@/lib/therapistNotices";
+import { nextShiftPeriod, shiftPeriodLabel, shiftPeriodRange } from "@/lib/shiftOpenSlots";
 
 // セラピストへのお知らせ（掲示板）：書いて出すとマイページの「お知らせ」に載り、スマホ通知も届く。
 // 誰が「確認しました」を押したかをここで見る。
@@ -31,7 +34,18 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const untyped = (table: string) => (supabase as any).from(table);
 
-const emptyForm = { title: "", body: "", importance: "normal" as NoticeImportance, pinned: false, expires: "", notify: true };
+type Half = "first" | "second" | "all";
+const todayJst = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+const emptyForm = () => ({
+  title: "",
+  body: "",
+  importance: "normal" as NoticeImportance,
+  pinned: false,
+  expires: "",
+  notify: true,
+  kind: "general" as NoticeKind,
+  ...(() => { const next = nextShiftPeriod(todayJst()); return { month: next.month, half: next.half as Half }; })(),
+});
 
 export default function TherapistNotices() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -44,6 +58,16 @@ export default function TherapistNotices() {
   const [reads, setReads] = useState<{ notice_id: string; cast_id: string; read_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyForm);
+  const period = shiftPeriodRange(form.month, form.half);
+  const periodLabel = shiftPeriodLabel(period.start, period.end);
+
+  // シフトのお知らせは、期間を変えたら文面の期間も入れ替える
+  const applyShiftKind = (kind: NoticeKind, month = form.month, half = form.half) => {
+    if (kind === "general") { setForm((f) => ({ ...f, kind })); return; }
+    const range = shiftPeriodRange(month, half);
+    const text = shiftNoticeText(kind, shiftPeriodLabel(range.start, range.end));
+    setForm((f) => ({ ...f, kind, month, half, title: text.title, body: text.body, importance: "normal" }));
+  };
   const [targetMode, setTargetMode] = useState<"all" | "pick">("all");
   const [picked, setPicked] = useState<string[]>([]);
   const [posting, setPosting] = useState(false);
@@ -88,11 +112,14 @@ export default function TherapistNotices() {
       p_pinned: form.pinned,
       p_expires_at: form.expires ? expiresAtFromDate(form.expires) : null,
       p_notify: form.notify,
+      p_kind: form.kind,
+      p_period_start: form.kind === "general" ? null : period.start,
+      p_period_end: form.kind === "general" ? null : period.end,
     } as never);
     setPosting(false);
     if (error) { toast.error(`出せませんでした: ${error.message}`); return; }
     toast.success(form.notify ? "お知らせを出しました。マイページへスマホ通知も送っています" : "お知らせを出しました");
-    setForm(emptyForm);
+    setForm(emptyForm());
     setPicked([]);
     setTargetMode("all");
     void load();
@@ -123,11 +150,32 @@ export default function TherapistNotices() {
               <div className="flex flex-wrap gap-1.5">
                 {NOTICE_TEMPLATES.map((template) => (
                   <Button key={template.label} type="button" size="sm" variant="outline" className="h-7 text-xs"
-                    onClick={() => setForm((f) => ({ ...f, title: template.title || f.title, body: template.body || f.body, importance: template.importance }))}>
+                    onClick={() => template.kind
+                      ? applyShiftKind(template.kind)
+                      : setForm((f) => ({ ...f, kind: "general", title: template.title || f.title, body: template.body || f.body, importance: template.importance }))}>
                     {template.label}
                   </Button>
                 ))}
               </div>
+              {form.kind !== "general" && (
+                <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                  <p className="text-xs font-semibold">
+                    {form.kind === "shift_confirmed" ? "シフト確定のお知らせ" : "シフト提出のお願い"}：対象の期間
+                    <button type="button" className="ml-2 font-normal text-muted-foreground underline" onClick={() => applyShiftKind("general")}>ふつうのお知らせにする</button>
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input type="month" className="h-9 w-40" value={form.month}
+                      onChange={(e) => e.target.value && applyShiftKind(form.kind, e.target.value, form.half)} />
+                    {([["first", "前期（1〜15日）"], ["second", "後期（16日〜）"], ["all", "1か月"]] as const).map(([half, label]) => (
+                      <Button key={half} type="button" size="sm" variant={form.half === half ? "default" : "outline"}
+                        onClick={() => applyShiftKind(form.kind, form.month, half)}>{label}</Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    マイページのお知らせに「{periodLabel}の空きシフトを確認」{form.kind === "shift_confirmed" ? "「追加提出する」" : "「シフトを提出する」"}のボタンが付きます。
+                  </p>
+                </div>
+              )}
               <div>
                 <Label className="text-xs">タイトル</Label>
                 <Input className="mt-1" maxLength={80} placeholder="例：ルームの清掃について" value={form.title}
@@ -202,6 +250,11 @@ export default function TherapistNotices() {
                         <div className="flex flex-wrap items-center gap-1.5">
                           {notice.pinned && <Pin size={13} className="text-primary" />}
                           {notice.importance === "important" && <Badge variant="destructive" className="text-[10px]">大事</Badge>}
+                          {notice.kind && notice.kind !== "general" && notice.period_start && notice.period_end && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              {notice.kind === "shift_confirmed" ? "シフト確定" : "シフト提出"}・{shiftPeriodLabel(notice.period_start, notice.period_end)}
+                            </Badge>
+                          )}
                           {expired && <Badge variant="secondary" className="text-[10px]">掲載終了</Badge>}
                           <p className="font-semibold">{notice.title}</p>
                         </div>

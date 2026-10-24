@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { Check, Loader2, Megaphone, Pin } from "lucide-react";
+import { CalendarPlus, CalendarSearch, Check, Loader2, Megaphone, Pin } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import type { PortalNotice } from "@/lib/therapistNotices";
+import { shiftPeriodLabel } from "@/lib/shiftOpenSlots";
 
 /** お店からのお知らせ（本人あて・新しい順、固定が先） */
 export async function fetchTherapistNotices(token: string): Promise<PortalNotice[]> {
@@ -19,11 +21,15 @@ export function TherapistNotices({
   token,
   notices,
   onChange,
+  onOpenShifts,
 }: {
   token: string;
   notices: PortalNotice[];
   onChange: (notices: PortalNotice[]) => void;
+  /** シフトのお知らせの「◯◯の空きシフトを確認」 */
+  onOpenShifts: (start: string, end: string) => void;
 }) {
+  const navigate = useNavigate();
   const [saving, setSaving] = useState<string | null>(null);
 
   const markRead = async (notice: PortalNotice) => {
@@ -57,6 +63,17 @@ export function TherapistNotices({
               </div>
               <p className="font-bold">{notice.title}</p>
               {notice.body && <p className="whitespace-pre-wrap text-sm leading-relaxed">{notice.body}</p>}
+              {notice.kind && notice.kind !== "general" && notice.period_start && notice.period_end && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button type="button" variant="outline" onClick={() => onOpenShifts(notice.period_start!, notice.period_end!)}>
+                    <CalendarSearch size={16} className="mr-1" />{shiftPeriodLabel(notice.period_start, notice.period_end)}の空きシフトを確認
+                  </Button>
+                  <Button type="button" variant="outline"
+                    onClick={() => navigate(`/therapist/${token}/shift?from=${notice.period_start}&to=${notice.period_end}`)}>
+                    <CalendarPlus size={16} className="mr-1" />{notice.kind === "shift_confirmed" ? "追加提出する" : "シフトを提出する"}
+                  </Button>
+                </div>
+              )}
               {notice.read_at ? (
                 <p className="flex items-center gap-1 text-xs text-emerald-700">
                   <Check size={13} />{format(new Date(notice.read_at), "M/d HH:mm")} に確認しました

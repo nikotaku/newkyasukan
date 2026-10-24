@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from "date-fns";
 import { ja } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ChevronLeft, ChevronRight, ArrowLeft, Check } from "lucide-react";
 import { toast } from "sonner";
+import { fetchShiftBoard } from "@/components/therapist/TherapistOpenShifts";
+import { formatMinutes, shiftPeriodLabel, type DayBoard } from "@/lib/shiftOpenSlots";
 
 interface Cast {
   id: string;
@@ -28,8 +30,24 @@ export default function TherapistShiftSubmission() {
   const [cast, setCast] = useState<Cast | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
+  // お知らせの「追加提出する」から ?from=&to= で開くと、その期間の月を開いて期間の日を目立たせる
+  const [searchParams] = useSearchParams();
+  const periodFrom = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("from") ?? "") ? searchParams.get("from")! : null;
+  const periodTo = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("to") ?? "") ? searchParams.get("to")! : null;
+  const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(periodFrom ? new Date(`${periodFrom}T00:00:00`) : new Date()));
   const [selections, setSelections] = useState<Record<string, ShiftEntry>>({}); // dateStr -> {start, end}
+  // その月の空き（ルームごとの空いている時間）と、自分の出勤・申請
+  const [board, setBoard] = useState<Record<string, DayBoard>>({});
+  const [boardVersion, setBoardVersion] = useState(0);
+
+  useEffect(() => {
+    if (!token) return;
+    const start = format(startOfMonth(currentMonth), "yyyy-MM-dd");
+    const end = format(endOfMonth(currentMonth), "yyyy-MM-dd");
+    fetchShiftBoard(token, start, end)
+      .then((days) => setBoard(Object.fromEntries(days.map((day) => [day.date, day]))))
+      .catch(() => setBoard({}));
+  }, [token, currentMonth, boardVersion]);
 
   useEffect(() => {
     if (!token) {
@@ -97,6 +115,7 @@ export default function TherapistShiftSubmission() {
       if (error) throw error;
       toast.success(`${data ?? shifts.length}件のシフトを提出しました`);
       setSelections({});
+      setBoardVersion((v) => v + 1);
     } catch (e: any) {
       console.error(e);
       toast.error(e.message === "invalid_token" ? "アクセストークンが無効です" : "提出に失敗しました");
@@ -146,7 +165,10 @@ export default function TherapistShiftSubmission() {
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground mb-3">日付をタップして出勤日を追加。時間は自由に変更できます。</p>
+            <p className="text-xs text-muted-foreground mb-3">
+              日付をタップして出勤日を追加。時間は自由に変更できます。緑の数字はその日の空き（ルーム）、「出勤」「申請中」はあなたのシフトです（出している日は選べません）。
+              {periodFrom && periodTo && <span className="block mt-1 font-semibold text-primary">{shiftPeriodLabel(periodFrom, periodTo)}の日は枠が濃くなっています</span>}
+            </p>
             <div className="grid grid-cols-7 gap-1 mb-2">
               {WEEK_DAYS.map((d, i) => (
                 <div key={d} className={`text-center text-xs font-semibold py-1 ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-muted-foreground"}`}>{d}</div>
@@ -158,15 +180,28 @@ export default function TherapistShiftSubmission() {
                 const dateStr = format(day, "yyyy-MM-dd");
                 const entry = selections[dateStr];
                 const dow = day.getDay();
+                const info = board[dateStr];
+                const mine = info?.mine ?? [];
+                const inPeriod = periodFrom && periodTo ? dateStr >= periodFrom && dateStr <= periodTo : false;
                 return (
                   <div
                     key={dateStr}
-                    className={`border rounded-md p-1 min-h-[60px] flex flex-col transition-colors ${entry ? "bg-primary/10 border-primary/40" : "hover:bg-muted/40 cursor-pointer"} ${dow === 0 ? "border-red-200" : dow === 6 ? "border-blue-200" : ""}`}
-                    onClick={() => !entry && toggleDay(dateStr)}
+                    className={`border rounded-md p-1 min-h-[60px] flex flex-col transition-colors ${entry ? "bg-primary/10 border-primary/40" : mine.length ? "bg-muted/60" : "hover:bg-muted/40 cursor-pointer"} ${inPeriod ? "border-2 border-primary/50" : dow === 0 ? "border-red-200" : dow === 6 ? "border-blue-200" : ""}`}
+                    onClick={() => !entry && mine.length === 0 && toggleDay(dateStr)}
+                    title={info?.open.map((slot) => `${slot.room} ${formatMinutes(slot.start)}〜${formatMinutes(slot.end)}`).join("\n")}
                   >
-                    <div className={`text-xs font-bold mb-1 ${dow === 0 ? "text-red-500" : dow === 6 ? "text-blue-500" : ""}`}>
+                    <div className={`text-xs font-bold mb-1 flex items-center justify-between ${dow === 0 ? "text-red-500" : dow === 6 ? "text-blue-500" : ""}`}>
                       {format(day, "d")}
+                      {!entry && mine.length === 0 && (info?.open.length ?? 0) > 0 && (
+                        <span className="rounded bg-emerald-100 px-1 text-[9px] font-semibold text-emerald-800">空{new Set(info!.open.map((slot) => slot.room)).size}</span>
+                      )}
                     </div>
+                    {!entry && mine.length > 0 && (
+                      <div className="text-[10px] leading-tight text-primary font-semibold">
+                        {mine[0].approval === "approved" ? "出勤" : "申請中"}
+                        <span className="block font-normal text-muted-foreground">{mine[0].start.slice(0, 5)}〜</span>
+                      </div>
+                    )}
                     {entry ? (
                       <div className="space-y-0.5" onClick={e => e.stopPropagation()}>
                         <input
