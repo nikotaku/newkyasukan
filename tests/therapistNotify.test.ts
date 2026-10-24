@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildNoticeLineText,
+  buildNoticePush,
   buildSettlementLineText,
   buildSettlementPush,
   buildSnsReadyLineText,
@@ -195,4 +197,15 @@ test("写真の確認依頼はマイページの「写真の確認」を開く",
   assert.equal(push.url, "/therapist/abc?view=photo-review");
   assert.match(push.body, /3枚/);
   assert.match(buildPhotoReviewLineText(3), /写真の確認/);
+});
+
+test("お店からのお知らせ：マイページのお知らせを開く", () => {
+  const push = buildNoticePush({ portalUrl: "/therapist/abc", title: "清掃のお願い", important: true, noticeId: "n1" });
+  assert.equal(push.title, "⚠️ お店から大事なお知らせ");
+  assert.match(push.body, /清掃のお願い/);
+  assert.equal(push.url, "/therapist/abc?view=notices");
+  assert.equal(push.tag, "notice-n1");
+  assert.equal(buildNoticePush({ portalUrl: "/therapist/abc" }).title, "📢 お店からのお知らせ");
+  const text = buildNoticeLineText({ title: "シフト提出", body: "ルームが増えます" });
+  assert.match(text, /^📢 お店からのお知らせ\n\n【シフト提出】\nルームが増えます/);
 });

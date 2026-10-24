@@ -280,6 +280,13 @@
 - **完了の判断**：ホーム画面に追加したアプリ（`therapist_push_subscriptions.standalone`）で通知をオンにし、テスト通知を受け取った（通知をタップ＝ `?push_test=1` で開く、またはカードの「届いた」→ RPC `confirm_therapist_push_test` → `test_confirmed_at`）ら完了。`/education?tab=media`（SNS・媒体登録の完了状況）の「マイページ」列（ホーム画面・通知／テスト通知）に自動で✓が付く（`src/lib/mediaRegistration.ts` の `portal_app` / `portal_test`）
 - テスト: `npm run test:therapist-notify`
 
+## お店からセラピストへのお知らせ（マイページの掲示板）
+
+- 管理画面のセラピスト →「お知らせ（マイページ掲示板）」（`/therapist-notices`、`src/pages/TherapistNotices.tsx`）でタイトル・本文を書いて出す（ひな形：清掃のお願い・シフト提出のお願い）。大事（赤）・いちばん上に固定・掲載期限・宛先（在籍の全員 or 選んだ人）・スマホ通知も送る、を選べる
+- RPC `post_therapist_notice`（店長・オーナー）→ `therapist_notices` ＋ `therapist_notifications`（kind = `notice`、宛先の在籍中の人ごと）。届け方は予約通知と同じ（マイページのプッシュ → 本人のLINEグループ）。届かなくても管理画面には知らせない（マイページを開けば出る）
+- マイページのメニュー「お知らせ」（`?view=notices`、`src/components/therapist/TherapistNotices.tsx`）と、まだ確認していないものはメニューの上に出る。「確認しました」で `therapist_notice_reads`（RPC `get_therapist_notices` / `mark_therapist_notice_read`、本人のトークン）。管理画面の一覧で「確認済み x/y人」と、まだの人の名前が見られる
+- 固定の切り替え・消す（`deleted_at`）は管理画面から表を直接更新（RLS は `can_manage_store`）。計算は `src/lib/therapistNotices.ts`（テスト `npm run test:therapist-notices`）
+
 ## セラピストのSNSアカウント（X・O2）の受け渡し
 
 - お店が作った X・O2 のログインID・パスワード（`cast_site_credentials`、管理画面の SNS連携 `/education?tab=sns` で保存）を、セラピストのマイページのメニュー「SNSアカウント」（`?view=sns`）で本人が見られる。RPC `get_therapist_sns_account(p_token)`（anon可・トークンで本人確認）。画面は `src/components/therapist/TherapistSnsAccount.tsx`、例文・データは `src/lib/therapistSns.ts`
