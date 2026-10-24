@@ -121,6 +121,7 @@ import InquiryStats from "./pages/InquiryStats";
 import Tasks from "./pages/Tasks";
 import SmsInbox from "./pages/SmsInbox";
 import LineInbox from "./pages/LineInbox";
+import TherapistNotices from "./pages/TherapistNotices";
 import NotificationSettings from "./pages/NotificationSettings";
 import PhoneSettings from "./pages/PhoneSettings";
 import Bios from "./pages/Bios";
@@ -319,6 +320,7 @@ const App = () => {
           <Route path="/marketing/recruit-lp" element={<RecruitLpAnalytics />} />
           <Route path="/interview" element={<InterviewGuide />} />
           <Route path="/education" element={<Education />} />
+          <Route path="/therapist-notices" element={<TherapistNotices />} />
 
           <Route path="/business-continuity" element={<BusinessContinuity />} />
           <Route path="/business-continuity/vendors" element={<BusinessVendors />} />

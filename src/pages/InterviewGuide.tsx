@@ -12,7 +12,7 @@ import {
   Home, IdCard, Camera, AlertTriangle, Sparkles, Check, ChevronDown,
   Footprints, Tablet, Share2, Loader2, Smartphone, CalendarPlus, Calendar, Crown, Wallet, ListChecks,
   Bell, Send, Receipt, LogOut, Users, PencilLine, ImagePlus, AtSign, DoorOpen, Trophy, Plane, BarChart3,
-  ImageIcon, type LucideIcon,
+  ImageIcon, Megaphone, type LucideIcon,
 } from "lucide-react";
 
 // セラピストポータル（マイページ）でできること。マイページのメニューと同じ並び・同じ名前で書く
@@ -29,6 +29,7 @@ const PORTAL_FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
   { icon: Trophy, title: "集客ミッション", body: "投稿などのミッションを達成してポイントを貯める" },
   { icon: PencilLine, title: "プロフィール入力", body: "HPに載るプロフィールを自分で入力してお店に送る" },
   { icon: ImagePlus, title: "画像アップロード", body: "プロフィール・宣伝用の写真をお店に送る（HPに載せる写真はお店が選びます）" },
+  { icon: Megaphone, title: "お知らせ", body: "お店からの連絡・注意事項（清掃・シフト提出のお願いなど）。読んだら「確認しました」" },
   { icon: ImageIcon, title: "写真の確認", body: "お店が加工した写真を見て、1枚ずつOK・直してほしいを返事" },
   { icon: AtSign, title: "SNSアカウント", body: "お店が用意したX・O2のログイン情報と設定マニュアル" },
   { icon: Plane, title: "交通費申請", body: "交通費の申請と申請履歴の確認" },
