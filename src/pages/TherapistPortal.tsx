@@ -24,6 +24,8 @@ import { TherapistPhotoReview, fetchTherapistPhotoReview } from "@/components/th
 import type { PhotoReview } from "@/lib/photoReview";
 import { TherapistNotices, fetchTherapistNotices } from "@/components/therapist/TherapistNotices";
 import type { PortalNotice } from "@/lib/therapistNotices";
+import { TherapistOpenShifts } from "@/components/therapist/TherapistOpenShifts";
+import { nextShiftPeriod, shiftPeriodRange } from "@/lib/shiftOpenSlots";
 import { BackRateTable, type BackRateRow } from "@/components/therapist/BackRateTable";
 import { TherapistSnsAccount } from "@/components/therapist/TherapistSnsAccount";
 import { hasUnseenSnsNotice, useTherapistSnsAccount } from "@/lib/therapistSns";
@@ -108,7 +110,7 @@ interface EntryPhotoViewer {
   total: number;
 }
 
-type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers" | "upcoming" | "promotion" | "sns" | "profile" | "photos" | "photo-review" | "notices";
+type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers" | "upcoming" | "promotion" | "sns" | "profile" | "photos" | "photo-review" | "notices" | "open-shifts";
 
 interface PromotionScheduleTask {
   id: string;
@@ -243,6 +245,12 @@ export default function TherapistPortal() {
   // お店からのお知らせ（掲示板）。まだ確認していないものはメニューの上に出す
   const [notices, setNotices] = useState<PortalNotice[]>([]);
   const unreadNotices = notices.filter((notice) => !notice.read_at);
+  // 空きシフトを見る期間（お知らせのボタン・メニューから）
+  const [openShiftPeriod, setOpenShiftPeriod] = useState(() => {
+    const next = nextShiftPeriod(format(new Date(), "yyyy-MM-dd"));
+    return shiftPeriodRange(next.month, next.half);
+  });
+  const openShifts = (start: string, end: string) => { setOpenShiftPeriod({ start, end }); setView("open-shifts"); };
   const [showBackRates, setShowBackRates] = useState(false);
   const [therapistBackRates, setTherapistBackRates] = useState<BackRateRow[]>([]);
   const [therapistBackRatesLoading, setTherapistBackRatesLoading] = useState(false);
@@ -707,6 +715,7 @@ export default function TherapistPortal() {
 
   const menuItems = [
     { title: "シフト提出", description: "希望シフトをカレンダーから提出", icon: CalendarPlus, action: () => navigate(`/therapist/${token}/shift`) },
+    { title: "空きシフト", description: "ルームごとの空いている日・時間を見る", icon: Calendar, action: () => setView("open-shifts") },
     { title: "シフト確認", description: "確定したシフトと出勤ルームを確認", icon: Calendar, action: () => setView("shift") },
     { title: "事前予約", description: "今日以降に入っている予約を確認", icon: CalendarPlus, action: () => setView("upcoming") },
     { title: "2媒体投稿", description: "O2・魂セラピストへ同時投稿", icon: Edit, action: () => navigate(`/therapist/${token}/posts`) },
@@ -753,7 +762,7 @@ export default function TherapistPortal() {
           <div className="min-w-0">
             <p className="font-bold text-base leading-tight truncate">{cast.name}様</p>
             <p className="text-xs text-muted-foreground">
-              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : view === "upcoming" ? "事前予約" : view === "promotion" ? "投稿宣伝スケジュール" : view === "sns" ? "SNSアカウント" : view === "profile" ? "プロフィール入力" : view === "photos" ? "画像アップロード" : view === "photo-review" ? "写真の確認" : view === "notices" ? "お知らせ" : "交通費申請"}
+              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : view === "upcoming" ? "事前予約" : view === "promotion" ? "投稿宣伝スケジュール" : view === "sns" ? "SNSアカウント" : view === "profile" ? "プロフィール入力" : view === "photos" ? "画像アップロード" : view === "photo-review" ? "写真の確認" : view === "notices" ? "お知らせ" : view === "open-shifts" ? "空きシフト" : "交通費申請"}
             </p>
           </div>
         </div>
@@ -1544,7 +1553,11 @@ export default function TherapistPortal() {
         {view === "profile" && token && <TherapistProfileForm token={token} />}
         {view === "photos" && token && <TherapistPhotoUpload token={token} />}
         {view === "photo-review" && token && <TherapistPhotoReview token={token} />}
-        {view === "notices" && token && <TherapistNotices token={token} notices={notices} onChange={setNotices} />}
+        {view === "notices" && token && <TherapistNotices token={token} notices={notices} onChange={setNotices} onOpenShifts={openShifts} />}
+        {view === "open-shifts" && token && (
+          <TherapistOpenShifts token={token} start={openShiftPeriod.start} end={openShiftPeriod.end}
+            onChangePeriod={(start, end) => setOpenShiftPeriod({ start, end })} />
+        )}
 
         {view === "customers" && (
           <div className="space-y-3">

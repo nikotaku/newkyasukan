@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { expiresAtFromDate, noticeTargets, readSummary, unreadCount } from "../src/lib/therapistNotices.ts";
+import { expiresAtFromDate, noticeTargets, readSummary, shiftNoticeText, unreadCount } from "../src/lib/therapistNotices.ts";
 
 const casts = [
   { id: "a", name: "テストA" },
@@ -28,4 +28,10 @@ test("まだ確認していない数・掲載期限", () => {
   assert.equal(unreadCount([{ read_at: null }, { read_at: "2026-10-24T00:00:00Z" }, { read_at: null }]), 2);
   assert.equal(expiresAtFromDate("2026-11-30"), "2026-11-30T23:59:59+09:00");
   assert.equal(expiresAtFromDate(""), null);
+});
+
+test("シフトのお知らせの文面", () => {
+  assert.equal(shiftNoticeText("shift_confirmed", "11月前期").title, "11月前期シフトが確定しました📢");
+  assert.match(shiftNoticeText("shift_confirmed", "11月前期").body, /^マイページ→シフト確認からご確認ください。/);
+  assert.equal(shiftNoticeText("shift_request", "11月後期").title, "11月後期シフトの提出をお願いします");
 });

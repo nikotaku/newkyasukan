@@ -20,6 +20,7 @@ const PORTAL_FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
   { icon: Bell, title: "予約の通知", body: "予約が入った・変わった・キャンセルになったら、すぐスマホに届きます（開始時刻・コース・お客様・決済方法など）" },
   { icon: CalendarPlus, title: "シフト提出", body: "出勤したい日をカレンダーから選んで提出" },
   { icon: Calendar, title: "シフト確認・事前予約", body: "確定したシフトと出勤ルーム、今日以降の予約を確認" },
+  { icon: CalendarPlus, title: "空きシフト", body: "ルームごとの空いている日・時間を見て、出られる日を追加で提出" },
   { icon: DoorOpen, title: "入室方法", body: "ルームまでの道順・鍵の開け方（動画・写真）・Wi-Fi" },
   { icon: LogOut, title: "退勤フォーム（精算）", body: "売上・清掃チェックを入れて送るだけ。お店が承認すると清算明細が届きます" },
   { icon: Receipt, title: "バック表", body: "コース・オプション・指名ごとのお給料をいつでも確認" },

@@ -46,7 +46,8 @@ function syncReports() {
     threads.forEach(function (thread) {
       thread.getMessages().forEach(function (message) {
         const subject = message.getSubject() || '';
-        if (!SUBJECT_PATTERN.test(subject)) return;
+        // 件名で見分ける。エステ魂（estama.jp）からの予約のメールは件名に「エステ魂」が無くても送る
+        if (!SUBJECT_PATTERN.test(subject) && !(/estama\.jp/i.test(message.getFrom() || '') && /予約/.test(subject))) return;
         if (backfilled && cache.get('sent:' + message.getId())) return;
         messages.push({
           id: message.getId(),

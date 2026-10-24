@@ -2,6 +2,9 @@
 
 export type NoticeImportance = "normal" | "important";
 
+/** general ＝ ふつうのお知らせ / shift_request ＝ シフト提出のお願い / shift_confirmed ＝ シフト確定のお知らせ */
+export type NoticeKind = "general" | "shift_request" | "shift_confirmed";
+
 export interface TherapistNotice {
   id: string;
   title: string;
@@ -12,6 +15,9 @@ export interface TherapistNotice {
   expires_at: string | null;
   created_at: string;
   deleted_at?: string | null;
+  kind?: NoticeKind;
+  period_start?: string | null;
+  period_end?: string | null;
 }
 
 /** マイページで見るお知らせ（本人が「確認しました」を押したか） */
@@ -23,6 +29,9 @@ export interface PortalNotice {
   pinned: boolean;
   created_at: string;
   read_at: string | null;
+  kind?: NoticeKind;
+  period_start?: string | null;
+  period_end?: string | null;
 }
 
 export interface NoticeCast {
@@ -31,19 +40,15 @@ export interface NoticeCast {
 }
 
 /** よく出すお知らせのひな形（押すとタイトル・本文が入る。あとは手直し） */
-export const NOTICE_TEMPLATES: { label: string; title: string; body: string; importance: NoticeImportance }[] = [
+export const NOTICE_TEMPLATES: { label: string; title: string; body: string; importance: NoticeImportance; kind?: NoticeKind }[] = [
   {
     label: "清掃のお願い",
     title: "ルームの清掃について",
     body: "最近、清掃が行き届いていないところがありました。\n・シーツ・タオルの交換\n・床の髪の毛\n・洗面台・シャワー室の水滴\n・ゴミの回収\n施術後は次の方が気持ちよく使えるよう、チェックをお願いします。",
     importance: "important",
   },
-  {
-    label: "シフト提出のお願い",
-    title: "シフトの提出をお願いします",
-    body: "ルームが増えるため、出勤できる日を増やせます。\nマイページの「シフト提出」から、来月の出勤できる日を提出してください。",
-    importance: "normal",
-  },
+  { label: "シフト提出のお願い", title: "", body: "", importance: "normal", kind: "shift_request" },
+  { label: "シフト確定のお知らせ", title: "", body: "", importance: "normal", kind: "shift_confirmed" },
   {
     label: "ルール・注意",
     title: "",
@@ -81,4 +86,18 @@ export function unreadCount(notices: Pick<PortalNotice, "read_at">[]) {
 export function expiresAtFromDate(date: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   return `${date}T23:59:59+09:00`;
+}
+
+/** シフトのお知らせの文面（期間の名前を入れる。例：「11月前期シフトが確定しました📢」） */
+export function shiftNoticeText(kind: Exclude<NoticeKind, "general">, periodLabel: string) {
+  if (kind === "shift_confirmed") {
+    return {
+      title: `${periodLabel}シフトが確定しました📢`,
+      body: "マイページ→シフト確認からご確認ください。\n空いているシフトもあるので、出られる日があれば追加で提出してください。",
+    };
+  }
+  return {
+    title: `${periodLabel}シフトの提出をお願いします`,
+    body: "マイページ→シフト提出から、出勤できる日を提出してください。\n空いているシフト（ルーム・時間）も見られます。",
+  };
 }

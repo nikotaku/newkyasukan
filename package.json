@@ -28,7 +28,7 @@
     "test:clearance-defaults": "node --experimental-strip-types --test tests/cashReturns.test.ts tests/clearanceDefaults.test.ts tests/dailyClearanceDraft.test.ts tests/settlementApproval.test.ts",
     "test:subline": "node --experimental-strip-types --test tests/sublinePhone.test.ts",
     "test:photo-editor": "node --experimental-strip-types --test tests/photoEditor.test.ts",
-    "test:therapist-notices": "node --experimental-strip-types --test tests/therapistNotices.test.ts",
+    "test:therapist-notices": "node --experimental-strip-types --test tests/therapistNotices.test.ts tests/shiftOpenSlots.test.ts",
     "test:training-checklist": "node --experimental-strip-types --test tests/trainingChecklist.test.ts",
     "test:therapist-split-payment": "node --experimental-strip-types --test tests/therapistSplitPayment.test.ts",
     "test:interview-system": "node --experimental-strip-types --test tests/interviewSystem.test.ts",

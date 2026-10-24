@@ -108,7 +108,7 @@ Deno.serve(async (req: Request) => {
     const fresh = (email: ReportEmail) => Date.now() - new Date(email.date).getTime() < 30 * 60_000;
     for (const email of pending) {
       // 着信通知・レポート以外は、サブスクの請求まわりのメール（支払い失敗・停止／領収書）か見る（サブスクの見張りが使う）
-      const reportKind = classifyReportEmail(email.subject);
+      const reportKind = classifyReportEmail(email.subject, email.from ?? "");
       const kind = reportKind === "unknown" ? (classifyBillingMail(email.subject, email.body) ?? "unknown") : reportKind;
       const base = {
         store_id: storeId,
