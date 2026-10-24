@@ -748,19 +748,14 @@ export default function TherapistPortal() {
           {/* 精算が承認されました（不足分があれば、振込か次回出勤日に相殺を選ぶ・振込先を入れる） */}
           {token && <TherapistSettlementNotice token={token} />}
 
-          {/* お店からのお知らせ（まだ「確認しました」を押していないもの） */}
-          {unreadNotices.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setView("notices")}
-              className={`w-full rounded-xl border-2 px-4 py-3 text-left ${unreadNotices.some((n) => n.importance === "important") ? "border-rose-400/70 bg-rose-50 dark:bg-rose-950/30" : "border-primary/40 bg-primary/5"}`}
-            >
-              <p className="flex items-center gap-2 text-sm font-bold">
-                <Megaphone size={16} className={unreadNotices.some((n) => n.importance === "important") ? "text-rose-600" : "text-primary"} />
-                お店からのお知らせ（{unreadNotices.length}件）
-              </p>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">{unreadNotices[0].title} <ChevronRight size={12} className="inline" /></p>
-            </button>
+          {/* お店からのお知らせ（まだ「確認しました」を押していないものは全文をここに出し、押したら消える） */}
+          {token && unreadNotices.length > 0 && (
+            <TherapistNotices
+              token={token}
+              notices={unreadNotices}
+              onChange={(changed) => setNotices((prev) => prev.map((notice) => changed.find((c) => c.id === notice.id) ?? notice))}
+              onOpenShifts={openShifts}
+            />
           )}
 
           {/* お店から写真の確認依頼（返事待ちのとき） */}

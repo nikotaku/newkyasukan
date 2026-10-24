@@ -66,25 +66,46 @@ export function TherapistSettlementNotice({ token, mode = "card" }: { token: str
   if (!data) return null;
   const hasBankAccount = Boolean(data.bank_account);
   const opened = data.settlements.find((settlement) => settlement.id === openId) ?? null;
-  const attention = data.settlements.find((settlement) => settlementNeedsAttention(settlement, hasBankAccount));
+  // 上に出すもの：まだ見ていない精算と、不足分の受け取り方・振込先がまだのもの（古い分も全部）
+  const attentions = data.settlements.filter((settlement) => settlementNeedsAttention(settlement, hasBankAccount));
+  // 不足分の受け取り方・振込先がまだ（選ぶまで消えない）
+  const needsChoice = (settlement: TherapistSettlement) =>
+    settlement.shortage_amount > 0 && !settlement.shortage_settled_at
+    && (!settlement.shortage_method || (settlement.shortage_method === "transfer" && !hasBankAccount));
+  const acknowledge = async (settlement: TherapistSettlement) => {
+    try {
+      await markSettlementSeen(token, settlement.id);
+      await reload();
+    } catch (error) {
+      toast.error(errorText(error));
+    }
+  };
 
   return (
     <>
-      {mode === "card" && attention && (
-        <button
-          type="button"
-          onClick={() => setOpenId(attention.id)}
-          className="w-full rounded-xl border-2 border-emerald-400/60 bg-emerald-50 px-4 py-3 text-left dark:bg-emerald-950/30"
-        >
-          <p className="flex items-center gap-2 text-sm font-bold">
-            <CheckCircle2 size={16} className="text-emerald-600" />
-            {dayLabel(attention.date)}の精算が承認されました
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {cardMessage(attention, hasBankAccount)} <ChevronRight size={12} className="inline" />
-          </p>
-        </button>
-      )}
+      {mode === "card" && attentions.map((attention) => {
+        const choice = needsChoice(attention);
+        return (
+          <div key={attention.id}
+            className={`rounded-xl border-2 px-4 py-3 ${choice ? "border-amber-400/70 bg-amber-50 dark:bg-amber-950/30" : "border-emerald-400/60 bg-emerald-50 dark:bg-emerald-950/30"}`}>
+            <p className="flex items-center gap-2 text-sm font-bold">
+              <CheckCircle2 size={16} className={choice ? "text-amber-600" : "text-emerald-600"} />
+              {choice ? `${dayLabel(attention.date)}の精算：不足分の受け取り方を選んでください` : `${dayLabel(attention.date)}の精算が承認されました`}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{cardMessage(attention, hasBankAccount)}</p>
+            <div className="mt-2 flex gap-2">
+              <Button size="sm" variant={choice ? "default" : "outline"} className="flex-1" onClick={() => setOpenId(attention.id)}>
+                {choice ? "受け取り方を選ぶ" : "明細を見る"}<ChevronRight size={14} className="ml-0.5" />
+              </Button>
+              {!choice && (
+                <Button size="sm" className="flex-1" onClick={() => void acknowledge(attention)}>
+                  <CheckCircle2 size={14} className="mr-1" />確認しました
+                </Button>
+              )}
+            </div>
+          </div>
+        );
+      })}
 
       {mode === "list" && data.settlements.length > 0 && (
         <div className="rounded-xl border bg-card overflow-hidden">

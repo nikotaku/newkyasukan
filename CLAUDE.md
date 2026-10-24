@@ -368,6 +368,7 @@
 - 振込を選んで振込先がそろったら管理画面アプリに知らせる（push-notify の `settlement_transfer`、通知の種類は精算と同じ `daily_sales`）。日別精算の上の「まだ払っていない給与の不足分」で口座を見て振り込み、「振込済みにする」（`mark_settlement_shortage_paid`）
 - 「振込済みにする」を押すと、セラピストのマイページへ「💴 不足分 ¥X を振り込みました」を送る（`therapist_notifications` の kind = `settlement`・`snapshot.event = shortage_paid`。取り消すとまだ送っていない知らせは止める）
 - 「次回出勤日に相殺」は、次の精算に「前回の不足分（M/D）」として給与調整に自動で入り（`source_clearance_id` 付き）、その精算を承認すると相殺済みになる
+- **マイページの上に出すもの**：まだ見ていない精算・不足分の受け取り方（振込先）がまだの精算は1件ずつカードで出す（受け取り方がまだのものは黄色で「受け取り方を選ぶ」、選ぶまで消えない。それ以外は「確認しました」で消える＝ `mark_therapist_settlement_seen`）。`get_therapist_settlements` は直近62日・20件に加えて、まだ払っていない不足分は古くても返す。まだ確認していないお店からのお知らせも全文を上に出し、「確認しました」で消える
 - マイページの通知は届かなくても管理画面には知らせない（マイページを開けば `TherapistSettlementNotice` に出る）。画面・計算は `src/lib/settlementApproval.ts`（テスト `npm run test:clearance-defaults`）・`settlementAdmin.ts`・`therapistSettlement.ts`
 - **追加支給と給与不足分の相殺は分ける**（`daily_clearances.other_expenses` の `kind`）：`salary_addition` = 追加支給（講習手当・本指名バックなど。給与として経費に入る）、`shortage_offset` = 前回までの給与不足分を今回の現金で払った分（不足が出た日の給与に入っているので、月別清算の給与合計・純利益には入れない。今回の受け取り・投函額にだけ効く）。日別精算の「追加支給」「不足分の相殺」ボタンで入れ、行の左のラベルで切り替え。自動で入る「前回の不足分（M/D）」は相殺。分け方は `src/lib/clearanceExtraItems.ts` の `splitSalaryAdjustments`
 - **支払い管理（/payments）の「セラピストの給与不足分」**：まだ払っていない不足分（`settlement_approvals.shortage_amount > 0` で `shortage_settled_at` が空）を月に関係なく全部ためて出す。状態は 未振込（振込を選んだ）／相殺待ち（次の出勤日の精算で自動）／受け取り方 未選択。払ったものはその月の分だけ。上の「給与不足分 未払い」の件数とアラートの帯
