@@ -191,9 +191,11 @@ async function processNotification(notification: Notification) {
   }
 
   // ② 端末が無い人だけ、移行中は本人のLINEグループへ
+  //    精算の承認はマイページだけ（LINEには送らない。マイページを開けば上に出る）
+  const lineAllowed = notification.kind !== "settlement";
   let lineError = "";
   let lineQuotaExceeded = false;
-  if (!devices.length && cast.line_group_id && LINE_TOKEN) {
+  if (!devices.length && lineAllowed && cast.line_group_id && LINE_TOKEN) {
     const text = notification.kind === "sns_ready"
       ? buildSnsReadyLineText()
       : notification.kind === "notice"
@@ -215,7 +217,7 @@ async function processNotification(notification: Notification) {
   // ③ 送れなかった
   // 精算の承認・お知らせはマイページを開けば見られるので、管理画面には知らせない（お知らせの既読はお知らせの画面で見る）
   const quiet = notification.kind === "settlement" || notification.kind === "notice";
-  if (!devices.length && !cast.line_group_id) {
+  if (!devices.length && (!cast.line_group_id || !lineAllowed)) {
     if (quiet) {
       await finish(notification.id, { status: "skipped", error_message: "マイページのスマホ通知が未設定です（マイページを開くと見られます）" });
       return "skipped";
