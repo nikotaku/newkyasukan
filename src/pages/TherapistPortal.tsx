@@ -12,6 +12,7 @@ import { format, startOfMonth, endOfMonth, isSameDay, addDays } from "date-fns";
 import { toExtTime } from "@/lib/timeFormat";
 import { getCastBookingUrl, getCustomDomainBaseUrl } from "@/lib/bookingUrl";
 import { ja } from "date-fns/locale";
+import { TherapistCleaningStatus } from "@/components/therapist/TherapistCleaningStatus";
 import { TherapistSalesPanel } from "@/components/therapist/TherapistSalesPanel";
 import { allowPageZoom } from "@/lib/viewportZoomLock";
 import { useTherapistAppManifest } from "@/hooks/useTherapistAppManifest";
@@ -190,6 +191,7 @@ export default function TherapistPortal() {
   const nowForBusinessDate = new Date();
   const isBeforeBusinessStart = nowForBusinessDate.getHours() * 60 + nowForBusinessDate.getMinutes()
     < dayStartHour * 60 + dayStartMinute;
+  const [cleaningRevision, setCleaningRevision] = useState(0);
   const businessDate = format(isBeforeBusinessStart ? addDays(nowForBusinessDate, -1) : nowForBusinessDate, "yyyy-MM-dd");
   const dayStart = portalDayStartTime.slice(0, 5);
   const [cast, setCast] = useState<Cast | null>(null);
@@ -741,6 +743,8 @@ export default function TherapistPortal() {
         {/* ── MENU ── */}
         {view === "menu" && (
           <div className="space-y-4">
+
+          {token && <TherapistCleaningStatus token={token} businessDate={businessDate} revision={cleaningRevision} />}
 
           {/* 予約の通知（マイページのスマホ通知）。未設定なら目立たせる */}
           {token && <TherapistPushCard token={token} />}
@@ -1847,7 +1851,8 @@ export default function TherapistPortal() {
               onSalesSubmitted={() => {
                 void loadMenuReservations();
                 setSalesDialog(null);
-                navigate(`/therapist/${token}/cleaning-report`);
+                setCleaningRevision((value) => value + 1);
+                toast.success("精算を送信しました。清掃報告は掃除が終わってから送れます");
               }}
             />
           )}
