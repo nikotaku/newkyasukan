@@ -136,6 +136,7 @@ export default function TherapistCleaningReport() {
   const [waterPhoto, setWaterPhoto] = useState<PreparedPhoto | null>(null);
   const [preparing, setPreparing] = useState<PhotoKind | null>(null);
   const [laundryStarted, setLaundryStarted] = useState(false);
+  const [drainCleaned, setDrainCleaned] = useState(false);
   const [trashTakenOut, setTrashTakenOut] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [reportSaved, setReportSaved] = useState(false);
@@ -162,6 +163,18 @@ export default function TherapistCleaningReport() {
         setLoadError("この清掃報告リンクを確認できませんでした");
       } else {
         setCastName(row.name || "セラピスト");
+        const body = new FormData();
+        body.append("token", token);
+        body.append("action", "status");
+        const result = await supabase.functions.invoke("submit-cleaning-report", { body });
+        if (!active) return;
+        if (result.error || !result.data?.success) {
+          setLoadError("清掃報告の状態を確認できませんでした。ページを開き直してください");
+        } else if (result.data.report) {
+          reportIdRef.current = result.data.report.id;
+          setReportSaved(true);
+          setSubmitted(result.data.report.notification_status === "sent");
+        }
       }
       setLoading(false);
     })();
@@ -218,18 +231,20 @@ export default function TherapistCleaningReport() {
   const completedCount = Number(Boolean(roomPhoto))
     + Number(Boolean(waterPhoto))
     + Number(laundryStarted)
-    + Number(trashTakenOut);
-  const ready = completedCount === 4;
+    + Number(trashTakenOut)
+    + Number(drainCleaned);
+  const ready = reportSaved || completedCount === 5;
 
   const submitReport = async () => {
-    if (!token || !roomPhoto || !waterPhoto || !ready) return;
+    if (!token || !ready || submitting) return;
     setSubmitting(true);
     try {
       const formData = new FormData();
       formData.append("token", token);
       formData.append("report_id", reportIdRef.current);
-      formData.append("room_image", roomPhoto.file);
-      formData.append("water_image", waterPhoto.file);
+      if (roomPhoto) formData.append("room_image", roomPhoto.file);
+      if (waterPhoto) formData.append("water_image", waterPhoto.file);
+      formData.append("drain_cleaned", String(drainCleaned));
       formData.append("laundry_started", String(laundryStarted));
       formData.append("trash_taken_out", String(trashTakenOut));
 
@@ -300,16 +315,17 @@ export default function TherapistCleaningReport() {
             <p className="truncate text-sm font-bold">清掃完了報告</p>
             <p className="truncate text-[11px] text-muted-foreground">{castName} 様</p>
           </div>
-          <span className="ml-auto rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">{completedCount}/4 完了</span>
+          <span className="ml-auto rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">{reportSaved ? "保存済み" : `${completedCount}/5 完了`}</span>
         </div>
       </header>
 
       <main className="mx-auto max-w-lg space-y-5 px-4 py-5">
         <section>
-          <h1 className="text-xl font-bold leading-8">清掃確認画像をアップロードしてください</h1>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">画像2枚とチェック2項目がそろうと、清掃完了を報告できます。</p>
+          <h1 className="text-xl font-bold leading-8">清掃が終わったら報告してください</h1>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">画像2枚とチェック3項目がそろうと、清掃完了を報告できます。</p>
         </section>
 
+        {!reportSaved && <>
         <PhotoUploadCard
           id="cleaning-room-photo"
           label="ルームの画像をアップロード"
@@ -332,8 +348,28 @@ export default function TherapistCleaningReport() {
           onClear={() => clearPhoto("water")}
         />
 
+        <section className="rounded-xl border bg-white p-4">
+          <h2 className="font-bold">洗面所の排水口の掃除</h2>
+          <svg viewBox="0 0 320 110" role="img" aria-label="排水口の受け皿を外し、髪の毛を取り除き、ブラシで洗って戻す手順" className="my-3 w-full text-teal-700" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 60 Q50 115 90 60 Z M50 50 V15 M40 25 L50 15 60 25" />
+            <ellipse cx="50" cy="45" rx="18" ry="7" fill="#ccfbf1" />
+            <path d="M105 55 H120 M114 49 L120 55 114 61" />
+            <ellipse cx="160" cy="70" rx="26" ry="12" fill="#ccfbf1" />
+            <path d="M145 65 Q165 48 175 68 M145 72 Q160 55 177 73 M165 25 L155 49 M175 25 L165 49 M155 49 L165 49" />
+            <path d="M200 55 H215 M209 49 L215 55 209 61 M250 20 L280 50 M270 45 L255 60 M275 50 L260 65 M280 55 L265 70" />
+            <ellipse cx="270" cy="80" rx="30" ry="12" />
+            <path d="M295 20 V35 M305 30 V45" stroke="#38bdf8" />
+          </svg>
+          <p className="text-sm leading-6">① 外せる受け皿・ヘアキャッチャーを外す → ② 髪の毛やゴミを取り、ゴミ箱へ → ③ ブラシで汚れを落とし、水で流して元に戻す</p>
+          <p className="mt-2 text-xs text-muted-foreground">外れない部品は無理に外さず、見える範囲を掃除してください。</p>
+        </section>
         <Card>
           <CardContent className="divide-y p-0">
+            <label htmlFor="drain-cleaned" className="flex cursor-pointer items-center gap-3 px-4 py-4">
+              <Checkbox id="drain-cleaned" checked={drainCleaned} onCheckedChange={(checked) => setDrainCleaned(checked === true)} disabled={submitting || reportSaved} />
+              <span className="flex-1 font-semibold">洗面所の排水口を掃除した</span>
+              {drainCleaned && <CheckCircle2 size={19} className="text-emerald-600" />}
+            </label>
             <label htmlFor="laundry-started" className="flex cursor-pointer items-center gap-3 px-4 py-4">
               <Checkbox
                 id="laundry-started"
@@ -357,10 +393,12 @@ export default function TherapistCleaningReport() {
           </CardContent>
         </Card>
 
+        </>}
+
         {reportSaved && (
           <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
             <ShieldCheck size={18} className="mt-0.5 shrink-0" />
-            <p>清掃報告は保存済みです。下のボタンで予約通知グループへの通知だけを再送します。</p>
+            <p>清掃報告は保存済みです。写真の再提出は不要です。下のボタンでLINE通知だけを再送できます。精算とは別に保存されています。</p>
           </div>
         )}
       </main>

@@ -32,6 +32,7 @@ interface CleaningReportRecord {
   room_photo_path: string | null;
   water_area_photo_path: string | null;
   notification_status: string;
+  notes?: string | null;
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -160,6 +161,7 @@ async function notifyLine(
     "",
     "✅ 洗濯機を回した",
     "✅ ゴミ捨て",
+    ...(report.notes === "洗面所の排水口を掃除した" ? ["✅ 洗面所の排水口を掃除した"] : []),
     "📷 ルーム・水回り画像を確認してください",
   ];
 
@@ -209,10 +211,6 @@ Deno.serve(async (req: Request) => {
     const token = String(formData.get("token") || "").trim();
     const reportId = String(formData.get("report_id") || "").trim();
     if (!token || token.length > 200) return jsonResponse({ error: "無効なポータルリンクです" }, 401);
-    if (!UUID_V4_PATTERN.test(reportId)) return jsonResponse({ error: "無効な報告番号です" }, 400);
-    if (formData.get("laundry_started") !== "true" || formData.get("trash_taken_out") !== "true") {
-      return jsonResponse({ error: "洗濯機とゴミ捨てを確認してください" }, 400);
-    }
 
     const admin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -228,10 +226,24 @@ Deno.serve(async (req: Request) => {
     }
     if (!castData) return jsonResponse({ error: "無効なポータルリンクです" }, 401);
     const cast = castData as CastRecord;
+    if (formData.get("action") === "status") {
+      const { data: settings } = await admin.from("shop_settings").select("business_day_start")
+        .eq("store_id", cast.store_id).limit(1).maybeSingle();
+      const { data, error } = await admin.from("cleaning_checklists")
+        .select("id,date,notification_status,completed_at")
+        .eq("cast_id", cast.id).eq("store_id", cast.store_id)
+        .eq("date", currentBusinessDate(settings?.business_day_start || null))
+        .not("room_photo_path", "is", null).not("completed_at", "is", null)
+        .order("completed_at", { ascending: false }).limit(1).maybeSingle();
+      if (error) return jsonResponse({ error: "清掃報告の状態を確認できませんでした" }, 500);
+      return jsonResponse({ success: true, report: data });
+    }
+    if (!UUID_V4_PATTERN.test(reportId)) return jsonResponse({ error: "無効な報告番号です" }, 400);
+
 
     const { data: existingData, error: existingError } = await admin
       .from("cleaning_checklists")
-      .select("id,cast_id,store_id,date,room_name,room_photo_path,water_area_photo_path,notification_status")
+      .select("id,cast_id,store_id,date,room_name,room_photo_path,water_area_photo_path,notification_status,notes")
       .eq("id", reportId)
       .maybeSingle();
     if (existingError) {
@@ -251,6 +263,10 @@ Deno.serve(async (req: Request) => {
 
     let report = existingData as CleaningReportRecord | null;
     if (!report) {
+      if (formData.get("laundry_started") !== "true" || formData.get("trash_taken_out") !== "true"
+        || formData.get("drain_cleaned") !== "true") {
+        return jsonResponse({ error: "洗濯・ゴミ捨て・洗面所の排水口の掃除を確認してください" }, 400);
+      }
       let roomImage: File;
       let waterImage: File;
       try {
@@ -299,6 +315,7 @@ Deno.serve(async (req: Request) => {
           water_area_photo_path: waterPath,
           laundry_started: true,
           trash_taken_out: true,
+          notes: "洗面所の排水口を掃除した",
           room_cleaned: true,
           equipment_checked: true,
           status: "pending",
@@ -306,7 +323,7 @@ Deno.serve(async (req: Request) => {
           notification_status: "sending",
           notification_last_error: null,
         })
-        .select("id,cast_id,store_id,date,room_name,room_photo_path,water_area_photo_path,notification_status")
+        .select("id,cast_id,store_id,date,room_name,room_photo_path,water_area_photo_path,notification_status,notes")
         .single();
       if (insertError || !insertedData) {
         await admin.storage.from(BUCKET).remove(uploadedPaths);
@@ -315,13 +332,6 @@ Deno.serve(async (req: Request) => {
       }
       report = insertedData as CleaningReportRecord;
 
-      const { error: clearanceError } = await admin
-        .from("daily_clearances")
-        .update({ status: "completed" })
-        .eq("cast_id", cast.id)
-        .eq("date", businessDate)
-        .eq("status", "pending");
-      if (clearanceError) console.error("Daily clearance could not be completed", { reportId, code: clearanceError.code });
     } else {
       const { error: sendingError } = await admin
         .from("cleaning_checklists")
@@ -337,7 +347,9 @@ Deno.serve(async (req: Request) => {
     if (!lineResult.ok) {
       await markNotificationFailed(admin, report.id, lineResult.errorCode || "line_unknown_error");
       return jsonResponse({
-        error: "清掃報告は保存しましたが、予約通知グループへの通知に失敗しました。もう一度押してください",
+        error: lineResult.errorCode === "line_http_429"
+          ? "清掃報告は保存済みです。LINE側の送信制限により通知できません。時間をおいて再送してください。精算の再送は不要です"
+          : "清掃報告は保存済みですが、LINE通知に失敗しました。精算の再送は不要です",
         saved: true,
         retryable: true,
         report_id: report.id,

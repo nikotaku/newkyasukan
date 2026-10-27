@@ -625,6 +625,7 @@ export function TherapistSalesPanel({
             <Label className="text-xs">備考</Label>
             <Textarea value={salesNotes} onChange={(event) => setSalesNotes(event.target.value)} rows={2} className="mt-1" />
           </div>
+          <p className="text-sm text-muted-foreground">清掃前でも精算を送信できます。清掃報告はポータルからあとで送ってください。</p>
           <Button className="w-full h-12 text-base" onClick={submitSales} disabled={salesLocked || submitting || dirtyIds.size > 0}>
             {submitting ? <Loader2 size={17} className="animate-spin mr-2" /> : <CheckCircle2 size={17} className="mr-2" />}
             {salesLocked ? "本日の売上は承認済み" : submission ? "本日の売上を再確定する" : "本日の売上を確定する"}
