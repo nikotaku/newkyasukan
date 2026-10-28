@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { ReservationCashReturns } from "@/components/ReservationCashReturns";
 import { format, addDays, subDays, addMonths, subMonths, parse, addMinutes, startOfMonth, endOfMonth, startOfWeek, eachDayOfInterval } from "date-fns";
-import { toExtTime, toStoredTime } from "@/lib/timeFormat";
+import { toExtTime, toStoredTime, RESERVATION_DAY_START } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Heart, Zap, Trash2, Share2, Loader2, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
 import paypayGuideUrl from "@/assets/paypay-guide.jpeg";
@@ -156,7 +156,7 @@ function RoomBadges({ rooms, compact = false }: { rooms: string[]; compact?: boo
 }
 
 const TIME_START = 10;
-const TIME_END = 26;
+const TIME_END = 30; // 28時開始の予約も終了まで表示する
 const HOUR_HEIGHT = 80; // px per hour (vertical)
 const TIME_LABEL_W = 48;
 
@@ -404,7 +404,7 @@ export default function Schedule() {
 
   const { user, loading: authLoading, isAdmin } = useAuth();
   const [intervalMinutes, setIntervalMinutes] = useState(DEFAULT_RESERVATION_INTERVAL_MINUTES);
-  const [dayStartTime, setDayStartTime] = useState("10:00:00");
+  const [dayStartTime, setDayStartTime] = useState(RESERVATION_DAY_START);
   const [storeDayStartLoaded, setStoreDayStartLoaded] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -519,10 +519,9 @@ export default function Schedule() {
         if (!active) return;
         if (error) console.error("店舗の営業開始時刻の取得に失敗しました:", error);
 
-        const configuredStart = data?.business_day_start || "10:00";
-        const normalizedStart = configuredStart.length === 5
-          ? `${configuredStart}:00`
-          : configuredStart;
+        // 詳細・編集の24時間超表記と同じ06:00境界で予約を振り分ける。
+        // 店舗の開店時刻（00:00設定を含む）とは分離する。
+        const normalizedStart = RESERVATION_DAY_START;
         setDayStartTime(normalizedStart);
         setIntervalMinutes(
           data?.reservation_interval_minutes ?? DEFAULT_RESERVATION_INTERVAL_MINUTES,
@@ -1528,7 +1527,7 @@ export default function Schedule() {
                               className="absolute text-[10px] text-muted-foreground text-right pr-2 leading-none"
                               style={{ top: (h - TIME_START) * HOUR_HEIGHT - 6, right: 0, width: TIME_LABEL_W }}
                             >
-                              {h >= 24 ? h - 24 : h}:00
+                              {h}:00
                             </div>
                           ))}
                         </div>
@@ -1602,10 +1601,8 @@ export default function Schedule() {
                                 const effDuration = res.duration + extMin + freeMin;
                                 const resH = Math.max((effDuration / 60) * HOUR_HEIGHT, 28);
                                 const statusClass = STATUS_COLORS[res.status] || STATUS_COLORS.confirmed;
-                                const endTime = format(
-                                  addMinutes(parse(res.start_time.slice(0, 5), "HH:mm", new Date()), effDuration),
-                                  "HH:mm"
-                                );
+                                const endMinutes = resStartMin + effDuration;
+                                const endTime = `${Math.floor(endMinutes / 60)}:${String(endMinutes % 60).padStart(2, "0")}`;
                                 // 延長系オプションと通常オプションを分離
                                 const extNames = new Set(optionRates.filter((o) => (o.extension_minutes ?? 0) > 0).map((o) => o.option_name));
                                 const otherOpts = (res.options ?? []).filter((n) => !extNames.has(n));
