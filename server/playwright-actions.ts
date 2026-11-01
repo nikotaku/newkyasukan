@@ -1,6 +1,7 @@
 import type { Locator, Page } from "playwright-core";
 
 const RECOVERABLE_CLICK_ERROR = /intercepts pointer events|outside of the viewport/i;
+const COMPLETED_CLICK_NAVIGATION_TIMEOUT = /click action done[\s\S]*waiting for scheduled navigations to finish/i;
 const ORIGIN_SUBMIT_ATTRIBUTE = "data-enka-origin-submit";
 const ESTAMA_HOST = /^(?:www\.)?estama\.jp$/i;
 
@@ -40,6 +41,10 @@ export async function clickWithDomFallback(action: Locator, timeout = 5_000) {
     return "pointer" as const;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    // Playwright can time out after the click has already been dispatched while
+    // it waits for Estama's slow navigation to settle.  Retrying the click here
+    // can submit the same form twice; let the caller verify the resulting page.
+    if (COMPLETED_CLICK_NAVIGATION_TIMEOUT.test(message)) return "pointer" as const;
     if (!RECOVERABLE_CLICK_ERROR.test(message)) throw error;
 
     await action.evaluate((element) => (element as HTMLElement).click());
