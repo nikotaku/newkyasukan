@@ -35,7 +35,7 @@ export function isConfirmedEstamaSubmission(evidence: SubmissionEvidence) {
   return evidence.currentBody !== null && evidence.currentBody.trim() === "";
 }
 
-export async function clickWithDomFallback(action: Locator, timeout = 5_000) {
+export async function clickWithDomFallback(action: Locator, timeout = 30_000) {
   try {
     await action.click({ timeout });
     return "pointer" as const;

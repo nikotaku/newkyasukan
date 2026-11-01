@@ -49,6 +49,14 @@ test("通常のPlaywrightクリックが成功したらDOMクリックを使わ�
   assert.equal(state.domClickCalls, 0);
 });
 
+test("エステ魂の遅い画面遷移を待てるよう既定のクリック待機は30秒", async () => {
+  const { locator, state } = createLocator();
+
+  await clickWithDomFallback(locator as never);
+
+  assert.deepEqual(state.clickOptions, [{ timeout: 30_000 }]);
+});
+
 test("送信ボタンがviewport外ならDOMクリックへフォールバックする", async () => {
   const { locator, state } = createLocator(new Error(
     "locator.click: Timeout 15000ms exceeded. element is outside of the viewport",
