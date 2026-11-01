@@ -72,6 +72,22 @@ test("別要素がpointer eventsを遮っていたらDOMクリックへフォー
   assert.equal(state.domClickCalls, 1);
 });
 
+test("クリック完了後の画面遷移待ちタイムアウトは再クリックしない", async () => {
+  const { locator, state } = createLocator(new Error(
+    "locator.click: Timeout 5000ms exceeded.\n"
+      + "- performing click action\n"
+      + "- click action done\n"
+      + "- waiting for scheduled navigations to finish",
+  ));
+
+  const result = await clickWithDomFallback(locator as never, 5_000);
+
+  assert.equal(result, "pointer");
+  assert.equal(state.clickOptions.length, 1);
+  assert.equal(state.evaluateCalls, 0);
+  assert.equal(state.domClickCalls, 0);
+});
+
 test("viewport・pointer interception以外のクリック失敗は再throwする", async () => {
   const clickError = new Error("locator.click: element is detached from the DOM");
   const { locator, state } = createLocator(clickError);
