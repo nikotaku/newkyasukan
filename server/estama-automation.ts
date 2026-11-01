@@ -561,6 +561,9 @@ async function clickSave(page: Page, options: { diary?: boolean; root?: Locator 
       hasText: /確定|はい|登録する|保存する|投稿する/,
     }).last();
     if (await confirm.count()) await confirm.click().catch(() => undefined);
+    // エステ魂は保存時の画面遷移や非同期通信に数秒かかることがある。
+    // 通信中に編集画面を開き直すと保存を取り消してしまうため、静かになるまで待つ。
+    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
     await page.waitForTimeout(800);
     return undefined;
   }
