@@ -46,6 +46,7 @@ import {
 import { PromotionTaskDraftDialog } from "@/components/promotion/PromotionTaskDraftDialog";
 import { getCustomDomainBaseUrl } from "@/lib/bookingUrl";
 import { AUTO_CHECKABLE, promotionTaskKind } from "@/lib/promotionTaskDraft";
+import { promotionCreationErrorMessage } from "@/lib/promotionCreationError";
 
 type PromotionPlan = Database["public"]["Tables"]["promotion_plans"]["Row"];
 type PromotionTask = Database["public"]["Tables"]["promotion_plan_tasks"]["Row"] & {
@@ -188,6 +189,8 @@ export default function PromotionSchedule() {
   const [checking, setChecking] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const { store, storeId, loading: storeLoading } = useAdminStore();
+  const [createError, setCreateError] = useState("");
+  const [castLoadError, setCastLoadError] = useState("");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") === "plans" || searchParams.get("plan") ? "plans" : "quota";
@@ -247,8 +250,10 @@ export default function PromotionSchedule() {
     }
     if (castsResult.error) {
       console.error("セラピスト一覧の取得に失敗しました:", castsResult.error);
+      setCastLoadError(castsResult.error.message);
       toast.error("セラピスト一覧を読み込めませんでした");
     } else {
+      setCastLoadError("");
       setCastOptions(buildPromotionCastOptions(castsResult.data || [], storeId));
     }
     setLoading(false);
@@ -301,6 +306,8 @@ export default function PromotionSchedule() {
   };
 
   const createAiSchedule = async () => {
+    if (generating || loading || storeLoading || authLoading) return;
+    setCreateError("");
     const selectedCasts = castOptions.filter((cast) => selectedCastIds.includes(cast.id));
     if (selectedCasts.length === 0) {
       toast.error("セラピストを1名以上選んでください");
@@ -436,7 +443,9 @@ export default function PromotionSchedule() {
         await supabase.from("promotion_plans").delete().eq("id", createdPlanId).eq("store_id", storeId);
       }
       console.error("宣伝スケジュールの作成に失敗しました:", error);
-      toast.error(error instanceof Error ? error.message : "宣伝スケジュールを作成できませんでした");
+      const message = await promotionCreationErrorMessage(error);
+      setCreateError(message);
+      toast.error(message);
     } finally {
       setGenerating(false);
     }
@@ -575,7 +584,7 @@ export default function PromotionSchedule() {
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Button size="sm" onClick={() => { setCreateError(""); setCreateOpen(true); }}>
                 <Plus size={16} className="mr-1.5" />
                 新たな宣伝スケジュールを作成
               </Button>
@@ -814,7 +823,11 @@ export default function PromotionSchedule() {
               </div>
               <div className="space-y-2 rounded-xl border p-2">
                 {castOptions.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">選択できるセラピストがいません</p>
+                  <div className="space-y-2 py-4 text-center">
+                    <p className="text-sm text-muted-foreground">{loading || storeLoading || authLoading ? "セラピスト一覧を読み込んでいます" : castLoadError ? "セラピスト一覧を取得できませんでした" : "この店舗で選択できるセラピストがいません"}</p>
+                    {castLoadError && <p className="break-words text-xs text-destructive">{castLoadError}</p>}
+                    <Button type="button" size="sm" variant="outline" disabled={loading || storeLoading || authLoading} onClick={() => void load()}>セラピスト一覧を再読み込み</Button>
+                  </div>
                 ) : castOptions.map((cast) => {
                   const checked = selectedCastIds.includes(cast.id);
                   return (
@@ -895,9 +908,17 @@ export default function PromotionSchedule() {
             </div>
           </div>
 
+          {createError && (
+            <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              <p className="font-semibold">スケジュールを作成できませんでした</p>
+              <p className="mt-1 break-words">{createError}</p>
+              <p className="mt-2 text-xs">入力内容は残っています。原因を確認して、もう一度お試しください。</p>
+            </div>
+          )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={generating}>キャンセル</Button>
-            <Button onClick={() => void createAiSchedule()} disabled={generating || castOptions.length === 0}>
+            <Button onClick={() => void createAiSchedule()} disabled={generating || loading || storeLoading || authLoading || castOptions.length === 0}>
               {generating ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : <Sparkles size={16} className="mr-1.5" />}
               {generating ? "AIが作成中..." : "AIで作成する"}
             </Button>
