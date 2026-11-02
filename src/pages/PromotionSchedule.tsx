@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { PromotionQuotaBoard } from "@/components/promotion/PromotionQuotaBoard";
+import { TherapistPromotionReports } from "@/components/promotion/TherapistPromotionReports";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -189,10 +190,14 @@ export default function PromotionSchedule() {
   const { store, storeId, loading: storeLoading } = useAdminStore();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = searchParams.get("tab") === "plans" ? "plans" : "quota";
+  const tab = searchParams.get("tab") === "plans" || searchParams.get("plan") ? "plans" : "quota";
   const changeTab = (value: string) => {
     const next = new URLSearchParams(searchParams);
     next.set("tab", value);
+    if (value !== "plans") {
+      next.delete("plan");
+      next.delete("reports");
+    }
     setSearchParams(next, { replace: true });
   };
 
@@ -252,6 +257,12 @@ export default function PromotionSchedule() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const requestedPlan = searchParams.get("plan");
+    if (!requestedPlan || !plans.some((plan) => plan.id === requestedPlan)) return;
+    setExpandedPlanIds((previous) => previous.has(requestedPlan) ? previous : new Set(previous).add(requestedPlan));
+  }, [plans, searchParams]);
 
   const summary = useMemo(() => {
     const completed = tasks.filter((task) => task.is_completed).length;
@@ -592,6 +603,7 @@ export default function PromotionSchedule() {
               <PromotionQuotaBoard storeId={storeLoading ? null : storeId} />
             </TabsContent>
             <TabsContent value="plans" className="mt-0 space-y-5">
+              <TherapistPromotionReports storeId={storeLoading ? undefined : storeId} />
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <div className="rounded-xl border bg-card p-4">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground"><UsersRound size={15} />計画</div>

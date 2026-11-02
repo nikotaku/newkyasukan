@@ -13,6 +13,7 @@ export const PUSH_TOPICS = [
   { key: "line_inbox", label: "お客様から公式LINEが来たとき", hint: "LINE対応で見張っている公式LINEへのメッセージ・自動応答を送れなかったとき" },
   { key: "sms_balance", label: "SMSの残高が少ないとき", hint: "実質残高が1,000円を切ったら（1日1回まで）" },
   { key: "daily_sales", label: "セラピストが精算を入力したとき", hint: "マイページから今日の売上（精算）を送った・送り直したとき" },
+  { key: "promotion_task", label: "セラピストが企画の投稿を完了したとき", hint: "マイページの企画スケジュールから「投稿しました」が報告されたとき" },
   { key: "estama_scout", label: "エステ魂スカウトの確認", hint: "毎日の候補がそろったとき（OKで送信）・送り終わったとき" },
   { key: "estama_login", label: "エステ魂のログインが切れたとき", hint: "自動で再ログインできない・ログイン情報が未登録のとき（空き枠の更新などが止まります）" },
   { key: "subscription", label: "サブスクの課金が止まりそうなとき", hint: "支払い管理の「サブスクの見張り」で、支払い失敗・停止・カードの期限切れなどを見つけたとき" },

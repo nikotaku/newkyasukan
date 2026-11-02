@@ -257,3 +257,19 @@ export function subscriptionAlertMessage(alert: { id: string; level: string; mes
     tag: `subscription-${alert.id}`,
   };
 }
+
+export function promotionTaskMessage(report: {
+  id: string;
+  plan_id: string;
+  scheduled_on: string | null;
+  task_label: string | null;
+  plan_title: string | null;
+}, castName: string | null): PushMessage {
+  const who = castName?.trim() ? `${clip(castName, 40)}さん` : "セラピスト";
+  return {
+    title: `${who}が投稿しました`,
+    body: clip([dateLabel(report.scheduled_on), report.task_label, report.plan_title].filter(Boolean).join(" / ") || "企画の投稿完了報告を確認してください", 120),
+    url: `/promotion-schedule?tab=plans&plan=${encodeURIComponent(report.plan_id)}`,
+    tag: `promotion-task-${report.id}`,
+  };
+}

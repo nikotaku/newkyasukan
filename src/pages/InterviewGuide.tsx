@@ -27,7 +27,7 @@ const PORTAL_FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
   { icon: BarChart3, title: "その月の本数", body: "施術済み・予定の本数、指名の内訳を月ごとに確認" },
   { icon: Users, title: "顧客カルテ", body: "担当したお客様の好み・NG・来店履歴" },
   { icon: Send, title: "2媒体投稿", body: "写真1枚と文章で、HP・O2・魂セラピストへ同時に投稿" },
-  { icon: Trophy, title: "集客ミッション", body: "投稿などのミッションを達成してポイントを貯める" },
+  { icon: Megaphone, title: "投稿宣伝スケジュール", body: "お店が設定した日別の投稿予定を確認。投稿できたら「投稿しました」にチェックして、お店へ報告" },
   { icon: PencilLine, title: "プロフィール入力", body: "HPに載るプロフィールを自分で入力してお店に送る" },
   { icon: ImagePlus, title: "画像アップロード", body: "プロフィール・宣伝用の写真をお店に送る（HPに載せる写真はお店が選びます）" },
   { icon: Megaphone, title: "お知らせ", body: "お店からの連絡・注意事項（清掃・シフト提出のお願いなど）。読んだら「確認しました」" },
