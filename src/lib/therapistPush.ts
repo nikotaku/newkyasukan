@@ -22,7 +22,7 @@ export interface TherapistPushStatus {
   thisDevice: boolean;
   /** この端末でテスト通知を受け取ったか */
   thisDeviceTestConfirmed: boolean;
-  /** 設定完了（ホーム画面に追加したアプリのどれかで、テスト通知を受け取った） */
+  /** セラピスト全体の設定完了。別端末の完了も含むため、この端末の設定欄を隠す判定には使わない。 */
   setupComplete: boolean;
 }
 

@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Bell, BellRing, CheckCircle2, Copy, Loader2, Send, Share, SquarePlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { therapistPushSetupStep } from "@/lib/therapistPushSetup";
 import {
   confirmTherapistPushTest,
   enableTherapistPush,
@@ -17,7 +18,7 @@ import {
 // マイページの一番上に出す「予約の通知」カード。
 // 予約の確定・変更・キャンセルはこのアプリ（ホーム画面に追加したマイページ）へのプッシュ通知だけで届くので、
 // まだ設定していない人には目立つ形で手順を出し、テスト通知を受け取るまで続ける。
-// 設定完了（ホーム画面に追加したアプリでテスト通知を受け取った）なら、カードは出さない（Safariで開いたときも）。
+// 同じマイページを複数のスマホで使えるよう、この端末で通知をオンにしてテスト済みの場合だけ隠す。
 
 const isInAppBrowser = () => typeof navigator !== "undefined" && /Line\/|FBAN|FBAV|Instagram/i.test(navigator.userAgent);
 
@@ -103,17 +104,17 @@ export function TherapistPushCard({ token }: { token: string }) {
 
   if (!status) return null;
 
-  // 設定完了：もう出さない（この端末で通知がオンで、テスト済み・またはホーム画面のアプリで設定済み）
-  if (status.thisDevice && status.thisDeviceTestConfirmed) return null;
-  if (status.setupComplete && !status.thisDevice) return null;
+  // 別端末の完了状態では隠さない。未登録・通知許可を取り消した端末は設定からやり直す。
+  const setupStep = therapistPushSetupStep(status);
+  if (setupStep === "complete") return null;
 
   // 通知はオンだが、テスト通知が届いたことをまだ確かめていない
-  if (status.thisDevice && !status.thisDeviceTestConfirmed) {
+  if (setupStep === "confirm") {
     return (
       <div className="rounded-xl border-2 border-amber-500/60 bg-amber-500/5 p-4 space-y-2">
-        <p className="flex items-center gap-2 text-sm font-bold"><BellRing size={16} className="text-amber-600" />テスト通知が届いたか確かめてください</p>
+        <p className="flex items-center gap-2 text-sm font-bold"><BellRing size={16} className="text-amber-600" />このスマホにテスト通知が届いたか確かめてください</p>
         <p className="text-xs text-muted-foreground">
-          「テスト通知を送る」を押して、通知が届いたら、その通知をタップするか「届いた」を押してください。これで設定完了です。
+          「テスト通知を送る」を押して、このスマホに通知が届いたら、その通知をタップするか「届いた」を押してください。これでこのスマホの設定は完了です。
         </p>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="flex-1" onClick={test} disabled={busy !== null}>
@@ -131,13 +132,13 @@ export function TherapistPushCard({ token }: { token: string }) {
     <div className="rounded-xl border-2 border-amber-500/60 bg-amber-500/5 overflow-hidden">
       <div className="px-4 pt-3 pb-1 flex items-center gap-2">
         <BellRing size={18} className="text-amber-600" />
-        <span className="font-bold text-sm">予約の通知をオンにしてください</span>
+        <span className="font-bold text-sm">このスマホの予約通知をオンにしてください</span>
       </div>
       <div className="px-4 pb-4 space-y-3">
         <p className="text-xs text-muted-foreground leading-relaxed">
           新しい予約・予約の変更・キャンセルは、このマイページの<b className="text-foreground">スマホ通知</b>でお知らせします。
           {status.devices > 0
-            ? `（ほかの端末${status.devices}台では受け取る設定になっています）`
+            ? `ほかの端末${status.devices}台は登録済みですが、このスマホでも設定が必要です。同じマイページを2人で使う場合も、1台ずつ通知をオンにしてください。`
             : "設定していないと予約のお知らせが届きません。"}
         </p>
 
