@@ -105,6 +105,8 @@
 - **企画のタスクの自動チェック**：投稿の記録から、終わった投稿タスクに自動で✓を付ける（pg_cron `promotion-task-autocheck` 15分ごと → `private.auto_check_promotion_tasks()`、画面の「投稿を確認」は RPC `run_promotion_task_autocheck`）。見る記録は、本人のO2＝マイページの同時投稿（`cast_posts`）、店舗のO2＝`manager_posts`・`o2_store_availability_posts`、店舗のX＝`x_daily_posts`、HPニュース・エスたまニュース＝`hp_articles`（その投稿日の営業日・企画のセラピストの名前入り）。根拠は `auto_source` / `auto_url`。本人のX・O2ストーリー・バナー・LINE公式は手でチェック。手で外したタスクは `auto_skip` で付け直さない。投稿日から3日過ぎて終わっていないものは `expired_at`（期限切れ。残りの数に入れない）
 - タスクの種類はラベルの「：」より前で見分ける（`private.promotion_task_kind` と `src/lib/promotionTaskDraft.ts` の `promotionTaskKind`、テスト `npm run test:promotion-task`）
 - **投稿文を作る**：各投稿タスクの「投稿文を作る」で、AI（`generate-cast-content` の `x_post`）がその日の出勤（休憩）・セラピストの紹介・予約URLを入れて下書きを作る。手直しして `promotion_plan_tasks.draft_text` に保存・コピー（`PromotionTaskDraftDialog`）
+- **本人の投稿報告**：マイページの「投稿宣伝スケジュール」（`?view=promotion`、`TherapistPromotionSchedule`）に、お店が本人へ割り当てた計画・日別の予定・宣伝先を表示する。RPC `get_therapist_promotion_schedule` は本人のトークンと店舗・対象者を照合し、`complete_therapist_promotion_task` で「投稿しました」を保存する。本人のチェックは `therapist_promotion_task_completions` のセラピスト×タスクごとに記録し、店舗側のタスク完了状態とは混ぜない。準備物は「準備できました」。チェックだけでSNSへの投稿はしない
+- **投稿報告の通知**：投稿タスクを未完了→完了にしたときだけ管理画面へ通知（push topic `promotion_task`、`push-notify`）。同じ状態での再送・確認済み操作・準備物は通知しない。ヘッダーのベルと投稿宣伝スケジュールの「セラピストからの投稿報告」に誰が・何を・いつ報告したか表示し、「確認済みにする」で `admin_seen_at` を保存する。管理画面内は30秒ごと・画面フォーカス時に再取得。通知からは `?tab=plans&plan=<id>` で対象計画を開く。テスト `npm run test:therapist-promotion`
 
 ## X運用表「今日の投稿」（/hp/x-operations）
 

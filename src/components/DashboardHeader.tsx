@@ -11,6 +11,7 @@ import { CtiCallPopup } from "@/components/CtiCallPopup";
 import { O2ControlAlert } from "@/components/sns/O2ControlPanel";
 import { EstamaPendingAlert } from "@/components/EstamaPendingAlert";
 import { TherapistNotifyAlert } from "@/components/TherapistNotifyAlert";
+import { TherapistPromotionReportAlert } from "@/components/promotion/TherapistPromotionReports";
 import caskanLogo from "@/assets/caskan-logo.png";
 import { STORE_DEFS, otherStore, switchToStore, ZENRYOKU_STORE_ID } from "@/lib/storeSwitch";
 import {
@@ -114,6 +115,7 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
           </div>
 
           <O2ControlAlert />
+          {user && <TherapistPromotionReportAlert storeId={adminStore?.id} />}
 
           {canSwitch ? (
             <button

@@ -1,5 +1,5 @@
 // 管理画面を「ホーム画面に追加」したアプリへのプッシュ通知（LINE通知と並行して送る試験運用）。
-//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout" | "estama_login" | "daily_sales" | "settlement_transfer" | "line_inbox" | "line_inbox_failed" | "estama_reserve" | "subscription", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
+//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout" | "estama_login" | "daily_sales" | "settlement_transfer" | "line_inbox" | "line_inbox_failed" | "estama_reserve" | "subscription" | "promotion_task", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
 //  - { action: "test" } … ログイン中のスタッフが自分の端末にテスト通知を送る（JWT）
 // 購読（push_subscriptions）の topics に含まれる通知だけを、その店舗の端末へ送る。SMS残高は全店舗の購読へ。
 // 送れなくなった購読（アプリ削除・通知オフ）は消す。VAPIDの鍵は Vault（RPC get_web_push_vapid）。
@@ -12,6 +12,7 @@ import {
   estamaScoutMessage,
   lineInboxFailedMessage,
   lineInboxMessage,
+  promotionTaskMessage,
   settlementTransferMessage,
   smsBalanceMessage,
   smsReplyMessage,
@@ -178,6 +179,30 @@ async function buildEvent(event: string, id: string, resubmitted = false): Promi
     if (!alert) return null;
     const [watch] = await sb(`subscription_watches?id=eq.${alert.watch_id}&select=name`);
     return { message: subscriptionAlertMessage(alert, watch?.name ?? "サブスク"), storeId: alert.store_id };
+  }
+  if (event === "promotion_task") {
+    // The payload supplies only a completion ID, never trusted names/store IDs.
+    // Re-read state: an unchecked report waiting in the HTTP queue must not notify.
+    const [completion] = await sb(
+      `therapist_promotion_task_completions?id=eq.${id}&select=id,store_id,cast_id,task_id,is_completed&limit=1`,
+    );
+    if (!completion || completion.is_completed !== true || !completion.store_id) return null;
+    const storeId = completion.store_id;
+    const [[cast], [task]] = await Promise.all([
+      sb(`casts?id=eq.${completion.cast_id}&store_id=eq.${storeId}&select=id,name&limit=1`),
+      sb(`promotion_plan_tasks?id=eq.${completion.task_id}&store_id=eq.${storeId}&task_type=eq.posting&select=id,plan_id,task_type,scheduled_on,label&limit=1`),
+    ]);
+    if (!cast || !task || task.task_type !== "posting") return null;
+    const [plan] = await sb(`promotion_plans?id=eq.${task.plan_id}&store_id=eq.${storeId}&select=id,title&limit=1`);
+    if (!plan) return null;
+    return {
+      message: promotionTaskMessage({
+        id: completion.id, plan_id: plan.id, scheduled_on: task.scheduled_on,
+        task_label: task.label, plan_title: plan.title,
+      }, cast.name ?? null),
+      storeId,
+      topic: "promotion_task",
+    };
   }
   if (event === "sms_balance") {
     const [alert] = await sb(`sms_balance_alerts?id=eq.${id}&select=effective_balance`);
