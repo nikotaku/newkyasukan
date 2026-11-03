@@ -9,6 +9,7 @@ import { useAdminStore } from "@/hooks/useAdminStore";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getCustomDomainBaseUrl } from "@/lib/bookingUrl";
 import { Search, KeyRound, Copy, ExternalLink, RefreshCw } from "lucide-react";
 
 interface Therapist {
@@ -85,9 +86,9 @@ export default function TherapistMyPage() {
   };
 
   // 店舗の独自ドメインがあればそれを優先（艶華なら enka-salon.jp、無ければ従来の全社URL）
-  const portalBase = adminStore?.custom_domain
-    ? `https://${adminStore.custom_domain}`
-    : (import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin);
+  const portalBase = getCustomDomainBaseUrl(adminStore?.custom_domain)
+    || import.meta.env.VITE_PUBLIC_SITE_URL
+    || window.location.origin;
   const portalLink = (token: string) => `${portalBase}/therapist/${token}`;
 
   const copyLink = (token: string) => {
