@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CalendarDays,
@@ -47,6 +47,11 @@ import { PromotionTaskDraftDialog } from "@/components/promotion/PromotionTaskDr
 import { getCustomDomainBaseUrl } from "@/lib/bookingUrl";
 import { AUTO_CHECKABLE, promotionTaskKind } from "@/lib/promotionTaskDraft";
 import { promotionCreationErrorMessage } from "@/lib/promotionCreationError";
+import {
+  buildStandardPromotionSchedule,
+  type GeneratedPromotionSchedule as GeneratedSchedule,
+  type PromotionChannelKey,
+} from "@/lib/standardPromotionSchedule";
 
 type PromotionPlan = Database["public"]["Tables"]["promotion_plans"]["Row"];
 type PromotionTask = Database["public"]["Tables"]["promotion_plan_tasks"]["Row"] & {
@@ -58,13 +63,6 @@ type PromotionTask = Database["public"]["Tables"]["promotion_plan_tasks"]["Row"]
   draft_text?: string | null;
 };
 type PromotionChannel = Database["public"]["Tables"]["promotion_plan_channels"]["Row"];
-type PromotionChannelKey =
-  | "hp_top_banner"
-  | "estama_top_banner"
-  | "x_post"
-  | "o2_post"
-  | "o2_story"
-  | "line_official";
 
 type PromotionChannelDraft = {
   key: PromotionChannelKey;
@@ -73,20 +71,6 @@ type PromotionChannelDraft = {
   count: number;
   sizeSpec: string;
   sortOrder: number;
-};
-
-type GeneratedSchedule = {
-  title: string;
-  description: string;
-  preparation: Array<{ label: string }>;
-  posting: Array<{
-    scheduled_on: string;
-    group_label: string;
-    items: Array<{
-      channel_key: PromotionChannelKey;
-      label: string;
-    }>;
-  }>;
 };
 
 const CHANNEL_DEFINITIONS: Array<Pick<PromotionChannelDraft, "key" | "label" | "sortOrder">> = [
@@ -100,8 +84,9 @@ const CHANNEL_DEFINITIONS: Array<Pick<PromotionChannelDraft, "key" | "label" | "
 
 const STANDARD_PREPARATION = [
   { name: "ショート動画", quantity: "3本", description: "各5秒。ティザー・中盤・最終で使い分け" },
-  { name: "2ショット宣材写真", quantity: "3パターン", description: "投稿期間内で分散して使用" },
+  { name: "告知用宣材写真", quantity: "3パターン", description: "合同企画では2ショット。投稿期間内で分散して使用" },
   { name: "告知バナー", quantity: "1点", description: "横長。X・エステ魂ヘッダー想定" },
+  { name: "告知用ニュース文", quantity: "3本", description: "HP・エステ魂用の告知文①・②・③" },
 ];
 
 const createDefaultChannelDrafts = (): PromotionChannelDraft[] =>
@@ -182,7 +167,9 @@ export default function PromotionSchedule() {
   const [channelEditorPlan, setChannelEditorPlan] = useState<PromotionPlan | null>(null);
   const [editChannels, setEditChannels] = useState<PromotionChannelDraft[]>([]);
   const [savingChannels, setSavingChannels] = useState(false);
-  const [generating, setGenerating] = useState(false);
+  const [creationMode, setCreationMode] = useState<"standard" | "ai" | null>(null);
+  const generating = creationMode !== null;
+  const createBusy = useRef(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [draftTask, setDraftTask] = useState<PromotionTask | null>(null);
@@ -305,9 +292,13 @@ export default function PromotionSchedule() {
     setCreateChannels(createDefaultChannelDrafts());
   };
 
-  const createAiSchedule = async () => {
-    if (generating || loading || storeLoading || authLoading) return;
+  const createSchedule = async (mode: "standard" | "ai") => {
+    if (createBusy.current || generating || loading || storeLoading || authLoading) return;
     setCreateError("");
+    if (!user || !storeId) {
+      toast.error("ログインと店舗情報を確認してからお試しください");
+      return;
+    }
     const selectedCasts = castOptions.filter((cast) => selectedCastIds.includes(cast.id));
     if (selectedCasts.length === 0) {
       toast.error("セラピストを1名以上選んでください");
@@ -319,6 +310,17 @@ export default function PromotionSchedule() {
     }
     if (startsOn > endsOn) {
       toast.error("終了日は開始日以降にしてください");
+      return;
+    }
+    const firstDay = new Date(`${startsOn}T00:00:00Z`);
+    const lastDay = new Date(`${endsOn}T00:00:00Z`);
+    if (!Number.isFinite(firstDay.getTime()) || !Number.isFinite(lastDay.getTime()) ||
+      firstDay.toISOString().slice(0, 10) !== startsOn || lastDay.toISOString().slice(0, 10) !== endsOn) {
+      toast.error("有効な開始日と終了日を入力してください");
+      return;
+    }
+    if ((lastDay.getTime() - firstDay.getTime()) / 86_400_000 + 1 > 60) {
+      toast.error("作成期間は60日以内にしてください");
       return;
     }
     const enabledChannels = createChannels.filter((channel) => channel.enabled);
@@ -335,41 +337,52 @@ export default function PromotionSchedule() {
       return;
     }
 
-    setGenerating(true);
+    createBusy.current = true;
+    setCreationMode(mode);
     let createdPlanId: string | null = null;
 
     try {
-      const { data, error } = await supabase.functions.invoke("generate-promotion-schedule", {
-        body: {
-          storeId,
-          therapists: selectedCasts.map((cast) => ({
-            name: cast.name,
-            profile: cast.profile,
-            message: cast.message,
-            tags: cast.tags,
-            hasX: Boolean(cast.x_account),
-            hasO2: Boolean(cast.o2_url),
-          })),
+      let schedule: GeneratedSchedule;
+      if (mode === "standard") {
+        schedule = buildStandardPromotionSchedule({
+          therapistNames: selectedCasts.map((cast) => cast.name),
           startsOn,
           endsOn,
-          goal: promotionGoal.trim() || undefined,
-          channels: enabledChannels.map((channel) => ({
-            channelKey: channel.key,
-            count: channel.count,
-            sizeSpec: channel.sizeSpec.trim() || undefined,
-          })),
-        },
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      if (!isGeneratedSchedule(data?.schedule)) {
-        throw new Error("AIの生成結果を読み取れませんでした。もう一度お試しください。");
+          goal: promotionGoal.trim(),
+          channels: enabledChannels,
+        });
+      } else {
+        const { data, error } = await supabase.functions.invoke("generate-promotion-schedule", {
+          body: {
+            storeId,
+            therapists: selectedCasts.map((cast) => ({
+              name: cast.name,
+              profile: cast.profile,
+              message: cast.message,
+              tags: cast.tags,
+              hasX: Boolean(cast.x_account),
+              hasO2: Boolean(cast.o2_url),
+            })),
+            startsOn,
+            endsOn,
+            goal: promotionGoal.trim() || undefined,
+            channels: enabledChannels.map((channel) => ({
+              channelKey: channel.key,
+              count: channel.count,
+              sizeSpec: channel.sizeSpec.trim() || undefined,
+            })),
+          },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        if (!isGeneratedSchedule(data?.schedule)) {
+          throw new Error("AIの生成結果を読み取れませんでした。もう一度お試しください。");
+        }
+        schedule = data.schedule;
       }
 
-      const schedule = data.schedule;
       const therapistLabel = selectedCasts.map((cast) => cast.name).join("&");
-      const planKey = `ai-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+      const planKey = `${mode}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
       const { data: createdPlan, error: planError } = await supabase
         .from("promotion_plans")
         .insert({
@@ -423,7 +436,7 @@ export default function PromotionSchedule() {
           group_label: group.group_label,
           label: item.label,
           channel_key: item.channel_key,
-          sort_order: 1000 + (groupIndex + 1) * 100 + (itemIndex + 1) * 10,
+          sort_order: 1000 + (groupIndex + 1) * 1000 + (itemIndex + 1) * 10,
         }))
       );
 
@@ -437,7 +450,7 @@ export default function PromotionSchedule() {
       setCreateOpen(false);
       resetCreateForm();
       changeTab("plans");
-      toast.success("AIが宣伝スケジュールを作成しました");
+      toast.success(mode === "standard" ? "標準スケジュールを作成しました（AI未使用）" : "AIが宣伝スケジュールを作成しました");
     } catch (error) {
       if (createdPlanId) {
         await supabase.from("promotion_plans").delete().eq("id", createdPlanId).eq("store_id", storeId);
@@ -447,7 +460,8 @@ export default function PromotionSchedule() {
       setCreateError(message);
       toast.error(message);
     } finally {
-      setGenerating(false);
+      createBusy.current = false;
+      setCreationMode(null);
     }
   };
 
@@ -807,11 +821,11 @@ export default function PromotionSchedule() {
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles size={19} className="text-primary" />
-              AIで宣伝スケジュールを作成
+              <CalendarDays size={19} className="text-primary" />
+              宣伝スケジュールを作成
             </DialogTitle>
             <DialogDescription>
-              セラピストと期間を選ぶと、共通の準備物を使った日別の投稿計画をAIが作成します。
+              標準作成はAIを使わず、選んだ期間・宣伝先・回数から日別の投稿計画を作ります。AIの残高がなくても利用できます。
             </DialogDescription>
           </DialogHeader>
 
@@ -837,6 +851,7 @@ export default function PromotionSchedule() {
                     >
                       <Checkbox
                         checked={checked}
+                        disabled={generating}
                         onCheckedChange={(value) => toggleSelectedCast(cast.id, value === true)}
                       />
                       {cast.photo ? (
@@ -857,13 +872,14 @@ export default function PromotionSchedule() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="promotion-starts-on">開始日</Label>
-                <Input id="promotion-starts-on" type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} />
+                <Input id="promotion-starts-on" type="date" value={startsOn} disabled={generating} onChange={(event) => setStartsOn(event.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="promotion-ends-on">終了日</Label>
-                <Input id="promotion-ends-on" type="date" value={endsOn} min={startsOn} onChange={(event) => setEndsOn(event.target.value)} />
+                <Input id="promotion-ends-on" type="date" value={endsOn} min={startsOn} disabled={generating} onChange={(event) => setEndsOn(event.target.value)} />
               </div>
             </div>
+            <p className="text-xs text-muted-foreground">作成期間は1〜60日。選んだ回数を期間内に分散します。回数が日数を超える場合は、同じ日に複数回の予定が入ります。</p>
 
             <div className="space-y-2">
               <div>
@@ -892,16 +908,18 @@ export default function PromotionSchedule() {
                 value={promotionGoal}
                 onChange={(event) => setPromotionGoal(event.target.value)}
                 maxLength={500}
+                disabled={generating}
                 rows={4}
                 placeholder="例：新人の初出勤に向けて予約を増やしたい。動画を中心に、02・X・店舗HPで告知したい。"
               />
+              <p className="text-xs text-muted-foreground">標準作成ではメモとして保存します。内容の自動分析は行いません。</p>
             </div>
 
             <div className="space-y-2">
               <div>
                 <Label>宣伝先・掲載量・サイズ</Label>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  AIは選択した宣伝先と回数に合わせて投稿日程を作成します。
+                  選択した宣伝先だけを使い、指定の掲載回数と画像仕様を予定に反映します。各1〜30回、合計100回まで。
                 </p>
               </div>
               <ChannelSettingsEditor channels={createChannels} onChange={setCreateChannels} disabled={generating} />
@@ -913,14 +931,20 @@ export default function PromotionSchedule() {
               <p className="font-semibold">スケジュールを作成できませんでした</p>
               <p className="mt-1 break-words">{createError}</p>
               <p className="mt-2 text-xs">入力内容は残っています。原因を確認して、もう一度お試しください。</p>
+              <p className="mt-1 text-xs">AIのエラーの場合は「標準スケジュールで作成」を選ぶと、AIを使わずに作成できます。</p>
             </div>
           )}
 
+          <p className="text-xs text-muted-foreground">標準作成にAI利用料はかかりません。「AIで作成する」は外部AIサービスの有効な残高が必要です。予定を作成するだけで、SNSへの自動投稿は行いません。</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={generating}>キャンセル</Button>
-            <Button onClick={() => void createAiSchedule()} disabled={generating || loading || storeLoading || authLoading || castOptions.length === 0}>
-              {generating ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : <Sparkles size={16} className="mr-1.5" />}
-              {generating ? "AIが作成中..." : "AIで作成する"}
+            <Button variant="outline" onClick={() => void createSchedule("ai")} disabled={generating || loading || storeLoading || authLoading || castOptions.length === 0}>
+              {creationMode === "ai" ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : <Sparkles size={16} className="mr-1.5" />}
+              {creationMode === "ai" ? "AIが作成中..." : "AIで作成する"}
+            </Button>
+            <Button onClick={() => void createSchedule("standard")} disabled={generating || loading || storeLoading || authLoading || castOptions.length === 0}>
+              {creationMode === "standard" ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : <CalendarDays size={16} className="mr-1.5" />}
+              {creationMode === "standard" ? "標準スケジュールを保存中..." : "標準スケジュールで作成"}
             </Button>
           </DialogFooter>
         </DialogContent>
