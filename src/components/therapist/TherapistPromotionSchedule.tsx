@@ -16,9 +16,11 @@ import {
 } from "@/hooks/useTherapistPromotion";
 import {
   groupPromotionPostings,
+  isTherapistPromotionTask,
   promotionDate,
   promotionPostingProgress,
   promotionReportedAt,
+  therapistOnlyPromotionPlans,
   type TherapistPromotionTask,
 } from "@/lib/therapistPromotion";
 
@@ -29,7 +31,8 @@ export function TherapistPromotionSummary({
   token: string;
   onOpen: () => void;
 }) {
-  const { data: plans = [] } = useTherapistPromotion(token);
+  const { data: allPlans = [] } = useTherapistPromotion(token);
+  const plans = therapistOnlyPromotionPlans(allPlans);
   if (!plans.length) return null;
   const progress = promotionPostingProgress(plans);
   return (
@@ -44,7 +47,7 @@ export function TherapistPromotionSummary({
         <ChevronRight size={16} className="ml-auto" />
       </p>
       <p className="mt-1 text-xs text-muted-foreground">
-        お店からの予定を確認して、投稿したらチェックしてください。
+        あなたが投稿する予定です。投稿したらチェックしてください。
       </p>
       <p className="mt-2 text-sm font-semibold text-primary">
         投稿報告 {progress.completed}/{progress.total}件 完了
@@ -55,17 +58,19 @@ export function TherapistPromotionSummary({
 
 export function TherapistPromotionSchedule({ token }: { token: string }) {
   const {
-    data: plans = [],
+    data: allPlans = [],
     isPending,
     error,
     refetch,
     isFetching,
   } = useTherapistPromotion(token);
+  const plans = therapistOnlyPromotionPlans(allPlans);
   const queryClient = useQueryClient();
   const busyIds = useRef(new Set<string>());
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
 
   const report = async (task: TherapistPromotionTask, completed: boolean) => {
+    if (!isTherapistPromotionTask(task)) return;
     if (busyIds.current.has(task.id)) return;
     busyIds.current.add(task.id);
     setSavingIds(new Set(busyIds.current));
@@ -84,9 +89,7 @@ export function TherapistPromotionSchedule({ token }: { token: string }) {
       });
       toast.success(
         completed
-          ? task.taskType === "posting"
-            ? "投稿しました。お店に報告しました"
-            : "準備完了を保存しました"
+          ? "投稿しました。お店に報告しました"
           : "チェックを取り消しました",
       );
     } catch (cause) {
@@ -120,17 +123,12 @@ export function TherapistPromotionSchedule({ token }: { token: string }) {
         <span
           className={`mt-1 block text-xs font-semibold ${task.isCompleted ? "text-emerald-700 dark:text-emerald-400" : "text-primary"}`}
         >
-          {task.taskType === "posting" ? "投稿しました" : "準備できました"}
+          投稿しました
           {task.isCompleted && "（報告済み）"}
         </span>
         {task.completedAt && (
           <span className="mt-1 block text-[11px] text-muted-foreground">
             報告日時 {promotionReportedAt(task.completedAt)}
-          </span>
-        )}
-        {task.storeCompleted && !task.isCompleted && (
-          <span className="mt-1 block text-[11px] text-muted-foreground">
-            店舗側の作業は完了しています。ご自身の投稿後にチェックしてください。
           </span>
         )}
       </span>
@@ -163,7 +161,7 @@ export function TherapistPromotionSchedule({ token }: { token: string }) {
           </Button>
         </div>
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          お店が設定した予定です。SNSなどへ投稿できたら「投稿しました」にチェックしてください。お店の管理画面に報告と通知が届きます。チェックだけではSNSへの投稿は行われません。
+          あなた自身のX・O2投稿・O2ストーリーの予定だけを表示しています。投稿できたら「投稿しました」にチェックしてください。お店の管理画面に報告と通知が届きます。バナーやお店の作業は管理画面で管理します。チェックだけではSNSへの投稿は行われません。
         </p>
       </section>
 
@@ -197,9 +195,6 @@ export function TherapistPromotionSchedule({ token }: { token: string }) {
         </div>
       ) : (
         plans.map((plan) => {
-          const preparation = plan.tasks.filter(
-            (task) => task.taskType === "preparation",
-          );
           const groups = groupPromotionPostings(plan.tasks);
           const progress = promotionPostingProgress([plan]);
           return (
@@ -248,14 +243,6 @@ export function TherapistPromotionSchedule({ token }: { token: string }) {
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
-                {preparation.length > 0 && (
-                  <div>
-                    <h4 className="mb-2 text-xs font-bold text-muted-foreground">
-                      準備物
-                    </h4>
-                    <div className="space-y-2">{preparation.map(taskRow)}</div>
                   </div>
                 )}
                 {groups.map((group) => (

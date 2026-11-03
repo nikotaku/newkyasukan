@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { therapistOnlyPromotionPlans } from "@/lib/therapistPromotion";
 import type {
   TherapistPromotionPlan,
   TherapistPromotionReport,
@@ -20,10 +21,10 @@ export function useTherapistPromotion(token: string) {
     queryKey: ["therapist-promotion", token],
     enabled: Boolean(token),
     queryFn: async () =>
-      (await promotionRpc<TherapistPromotionPlan[]>(
+      therapistOnlyPromotionPlans((await promotionRpc<TherapistPromotionPlan[]>(
         "get_therapist_promotion_schedule",
         { p_token: token },
-      )) ?? [],
+      )) ?? []),
     staleTime: 15_000,
     refetchInterval: 30_000,
   });

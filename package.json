@@ -18,7 +18,7 @@
     "test:promotion-create": "node --experimental-strip-types --test tests/promotionCreationError.test.ts tests/promotionScheduleCasts.test.ts tests/standardPromotionSchedule.test.ts",
     "test:therapist-notification": "node --experimental-strip-types --test tests/therapistBookingNotification.test.ts",
     "test:therapist-notify": "node --experimental-strip-types --test tests/therapistNotify.test.ts tests/therapistPushSetup.test.ts",
-    "test:therapist-promotion": "node --experimental-strip-types --test tests/therapistPromotion.test.ts tests/therapistPromotionNotify.test.ts",
+    "test:therapist-promotion": "node --experimental-strip-types --test tests/therapistPromotion.test.ts tests/therapistPromotionNotify.test.ts tests/promotionTaskOwner.test.ts tests/promotionTaskOwnersSql.test.ts",
     "test:booking-notification": "node --experimental-strip-types --test tests/lineBookingNotification.test.ts",
     "test:sms-notification": "node --experimental-strip-types --test tests/smsReplyLineNotification.test.ts",
     "test:push-notify": "node --experimental-strip-types --test tests/pushNotify.test.ts",

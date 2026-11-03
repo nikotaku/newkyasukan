@@ -47,6 +47,7 @@ import { PromotionTaskDraftDialog } from "@/components/promotion/PromotionTaskDr
 import { getCustomDomainBaseUrl } from "@/lib/bookingUrl";
 import { AUTO_CHECKABLE, promotionTaskKind } from "@/lib/promotionTaskDraft";
 import { promotionCreationErrorMessage } from "@/lib/promotionCreationError";
+import { promotionTaskOwner } from "@/lib/promotionTaskOwner";
 import {
   buildStandardPromotionSchedule,
   type GeneratedPromotionSchedule as GeneratedSchedule,
@@ -112,10 +113,25 @@ const formatPeriod = (startsOn: string | null, endsOn: string | null) => {
   return `${formatDate(startsOn)}〜${formatDate(endsOn)}`;
 };
 
-const taskProgress = (tasks: PromotionTask[]) => ({
-  completed: tasks.filter((task) => task.is_completed).length,
-  total: tasks.length,
-});
+const isStoreTask = (task: PromotionTask) =>
+  promotionTaskOwner(task.task_type, task.label, task.channel_key) === "store";
+
+const taskProgress = (tasks: PromotionTask[]) => {
+  const storeTasks = tasks.filter(isStoreTask);
+  return {
+    completed: storeTasks.filter((task) => task.is_completed).length,
+    total: storeTasks.length,
+  };
+};
+
+const groupPostingTasks = (tasks: PromotionTask[]) =>
+  tasks.reduce<Array<{ key: string; date: string | null; label: string; tasks: PromotionTask[] }>>((groups, task) => {
+    const key = `${task.scheduled_on || "none"}:${task.group_label}`;
+    const existing = groups.find((group) => group.key === key);
+    if (existing) existing.tasks.push(task);
+    else groups.push({ key, date: task.scheduled_on, label: task.group_label, tasks: [task] });
+    return groups;
+  }, []);
 
 const toLocalDateString = (offsetDays = 0) => {
   const date = new Date();
@@ -257,17 +273,21 @@ export default function PromotionSchedule() {
   }, [plans, searchParams]);
 
   const summary = useMemo(() => {
-    const completed = tasks.filter((task) => task.is_completed).length;
-    const postingTasks = tasks.filter((task) => task.task_type === "posting");
+    const activePlanIds = new Set(plans.map((plan) => plan.id));
+    const activeTasks = tasks.filter((task) => activePlanIds.has(task.plan_id));
+    const storeTasks = activeTasks.filter(isStoreTask);
+    const completed = storeTasks.filter((task) => task.is_completed).length;
+    const postingTasks = storeTasks.filter((task) => task.task_type === "posting");
     return {
       plans: plans.length,
       completed,
-      expired: tasks.filter((task) => !task.is_completed && task.expired_at).length,
-      total: tasks.length,
+      expired: storeTasks.filter((task) => !task.is_completed && task.expired_at).length,
+      total: storeTasks.length,
       postingCompleted: postingTasks.filter((task) => task.is_completed).length,
       postingTotal: postingTasks.length,
+      therapistPostingTotal: activeTasks.filter((task) => !isStoreTask(task)).length,
     };
-  }, [plans.length, tasks]);
+  }, [plans, tasks]);
 
   const togglePlan = (planId: string) => {
     setExpandedPlanIds((previous) => {
@@ -536,6 +556,10 @@ export default function PromotionSchedule() {
   };
 
   const toggleTask = async (task: PromotionTask, nextValue: boolean) => {
+    if (!isStoreTask(task)) {
+      toast.error("本人の投稿はセラピストのポータルでチェックしてください");
+      return;
+    }
     if (savingTaskIds.has(task.id)) return;
     const changedAt = new Date().toISOString();
     const optimisticTask: PromotionTask = {
@@ -594,7 +618,7 @@ export default function PromotionSchedule() {
                 投稿宣伝スケジュール
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                {store?.name || "店舗"}のセラピストごとの露出ノルマ（月の出勤日数で決まる最低回数）と、企画の準備・投稿の進捗
+                {store?.name || "店舗"}のセラピストごとの露出ノルマ（月の出勤日数で決まる最低回数）と、店舗側の準備・告知の進捗、本人の投稿予定
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -627,23 +651,28 @@ export default function PromotionSchedule() {
             </TabsContent>
             <TabsContent value="plans" className="mt-0 space-y-5">
               <TherapistPromotionReports storeId={storeLoading ? undefined : storeId} />
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
                 <div className="rounded-xl border bg-card p-4">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground"><UsersRound size={15} />計画</div>
                   <p className="mt-1 text-2xl font-bold">{summary.plans}</p>
                 </div>
                 <div className="rounded-xl border bg-card p-4">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><CheckCircle2 size={15} />全体完了</div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><CheckCircle2 size={15} className="shrink-0" />店舗作業 完了</div>
                   <p className="mt-1 text-2xl font-bold">{summary.completed}<span className="ml-1 text-sm font-normal text-muted-foreground">/ {summary.total}</span></p>
                 </div>
                 <div className="rounded-xl border bg-card p-4">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><Megaphone size={15} />告知完了</div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><Megaphone size={15} className="shrink-0" />店舗作業 告知完了</div>
                   <p className="mt-1 text-2xl font-bold">{summary.postingCompleted}<span className="ml-1 text-sm font-normal text-muted-foreground">/ {summary.postingTotal}</span></p>
                 </div>
                 <div className="rounded-xl border bg-card p-4">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock3 size={15} />残り</div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock3 size={15} className="shrink-0" />店舗作業 残り</div>
                   <p className="mt-1 text-2xl font-bold text-amber-600">{Math.max(summary.total - summary.completed - summary.expired, 0)}</p>
                   {summary.expired > 0 && <p className="text-[11px] text-muted-foreground">ほかに期限切れ {summary.expired}</p>}
+                </div>
+                <div className="rounded-xl border bg-card p-4">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><UsersRound size={15} className="shrink-0" />本人の投稿予定</div>
+                  <p className="mt-1 text-2xl font-bold">{summary.therapistPostingTotal}<span className="ml-1 text-sm font-normal text-muted-foreground">件</span></p>
+                  <p className="text-[11px] text-muted-foreground">投稿報告は上で確認</p>
                 </div>
               </div>
 
@@ -667,20 +696,17 @@ export default function PromotionSchedule() {
                   {plans.map((plan) => {
                     const planTasks = tasks.filter((task) => task.plan_id === plan.id);
                     const planChannels = channels.filter((channel) => channel.plan_id === plan.id);
-                    const preparationTasks = planTasks.filter((task) => task.task_type === "preparation");
-                    const postingTasks = planTasks.filter((task) => task.task_type === "posting");
-                    const overall = taskProgress(planTasks);
+                    const storeTasks = planTasks.filter(isStoreTask);
+                    const preparationTasks = storeTasks.filter((task) => task.task_type === "preparation");
+                    const postingTasks = storeTasks.filter((task) => task.task_type !== "preparation");
+                    const therapistPostingTasks = planTasks.filter((task) => !isStoreTask(task));
+                    const overall = taskProgress(storeTasks);
                     const preparation = taskProgress(preparationTasks);
                     const posting = taskProgress(postingTasks);
                     const expanded = expandedPlanIds.has(plan.id);
                     const percentage = overall.total ? Math.round((overall.completed / overall.total) * 100) : 0;
-                    const postingGroups = postingTasks.reduce<Array<{ key: string; date: string | null; label: string; tasks: PromotionTask[] }>>((groups, task) => {
-                      const key = `${task.scheduled_on || "none"}:${task.group_label}`;
-                      const existing = groups.find((group) => group.key === key);
-                      if (existing) existing.tasks.push(task);
-                      else groups.push({ key, date: task.scheduled_on, label: task.group_label, tasks: [task] });
-                      return groups;
-                    }, []);
+                    const postingGroups = groupPostingTasks(postingTasks);
+                    const therapistPostingGroups = groupPostingTasks(therapistPostingTasks);
 
                     return (
                       <section key={plan.id} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
@@ -698,10 +724,12 @@ export default function PromotionSchedule() {
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <h2 className="text-lg font-bold">{plan.therapist_label}</h2>
-                                {overall.completed === overall.total && overall.total > 0 ? (
-                                  <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">すべて完了</Badge>
+                                {overall.total === 0 ? (
+                                  <Badge variant="outline">店舗作業なし</Badge>
+                                ) : overall.completed === overall.total ? (
+                                  <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">店舗作業 すべて完了</Badge>
                                 ) : (
-                                  <Badge variant="secondary">進行中</Badge>
+                                  <Badge variant="secondary">店舗作業 進行中</Badge>
                                 )}
                               </div>
                               <p className="mt-0.5 text-sm font-medium">{plan.title}</p>
@@ -712,9 +740,10 @@ export default function PromotionSchedule() {
                                 <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percentage}%` }} />
                               </div>
                               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                                <span>全体 {overall.completed}/{overall.total}</span>
-                                <span>準備物 {preparation.completed}/{preparation.total}</span>
-                                <span>告知 {posting.completed}/{posting.total}</span>
+                                <span>店舗作業 {overall.completed}/{overall.total}</span>
+                                <span>店舗準備物 {preparation.completed}/{preparation.total}</span>
+                                <span>店舗告知 {posting.completed}/{posting.total}</span>
+                                <span>本人の投稿予定 {therapistPostingTasks.length}件</span>
                               </div>
                             </div>
                             {expanded ? <ChevronDown className="mt-2 flex-shrink-0 text-muted-foreground" size={20} /> : <ChevronRight className="mt-2 flex-shrink-0 text-muted-foreground" size={20} />}
@@ -750,8 +779,8 @@ export default function PromotionSchedule() {
                             </div>
 
                             <div>
-                              <div className="mb-3 flex items-center justify-between">
-                                <h3 className="flex items-center gap-2 font-bold"><PackageCheck size={18} className="text-primary" />準備物</h3>
+                              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <h3 className="flex items-center gap-2 font-bold"><PackageCheck size={18} className="shrink-0 text-primary" />店舗側の準備物</h3>
                                 <span className="text-xs font-semibold text-muted-foreground">{preparation.completed}/{preparation.total} 完了</span>
                               </div>
                               <div className="grid gap-2 sm:grid-cols-2">
@@ -762,8 +791,8 @@ export default function PromotionSchedule() {
                             </div>
 
                             <div>
-                              <div className="mb-3 flex items-center justify-between">
-                                <h3 className="flex items-center gap-2 font-bold"><Megaphone size={18} className="text-primary" />告知スケジュール</h3>
+                              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <h3 className="flex items-center gap-2 font-bold"><Megaphone size={18} className="shrink-0 text-primary" />店舗側の告知スケジュール</h3>
                                 <span className="text-xs font-semibold text-muted-foreground">{posting.completed}/{posting.total} 完了</span>
                               </div>
                               <div className="space-y-3">
@@ -790,6 +819,39 @@ export default function PromotionSchedule() {
                                   );
                                 })}
                               </div>
+                              {postingTasks.length === 0 && <p className="text-sm text-muted-foreground">店舗側の告知予定はありません。</p>}
+                            </div>
+
+                            <div>
+                              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <h3 className="flex items-center gap-2 font-bold"><UsersRound size={18} className="shrink-0 text-primary" />セラピスト本人の投稿予定（ポータル表示）</h3>
+                                <span className="text-xs font-semibold text-muted-foreground">予定 {therapistPostingTasks.length}件</span>
+                              </div>
+                              <p className="mb-3 text-xs text-muted-foreground">本人のポータルで投稿後にチェックします。報告は上の「セラピストからの投稿報告」で確認できます。</p>
+                              <div className="space-y-3">
+                                {therapistPostingGroups.map((group) => (
+                                  <div key={group.key} className="overflow-hidden rounded-xl border bg-background">
+                                    <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/35 px-4 py-3">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="font-bold text-primary">{formatDate(group.date)}</span>
+                                        <span className="text-sm font-semibold">{group.label}</span>
+                                      </div>
+                                      <Badge variant="outline">本人投稿の予定 {group.tasks.length}件</Badge>
+                                    </div>
+                                    <div className="grid gap-2 p-3 sm:grid-cols-2">
+                                      {group.tasks.map((task) => (
+                                        <div key={task.id} className="rounded-lg border bg-card px-3 py-2.5 text-sm">
+                                          <div className="flex items-start gap-2">
+                                            <Badge variant="secondary" className="shrink-0 text-[10px]">本人投稿</Badge>
+                                            <span className="min-w-0 break-words font-medium">{task.label}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              {therapistPostingTasks.length === 0 && <p className="text-sm text-muted-foreground">本人の投稿予定はありません。</p>}
                             </div>
                           </div>
                         )}
