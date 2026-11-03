@@ -1204,7 +1204,7 @@ export default function Staff() {
       const baseUrl = getCustomDomainBaseUrl(storeData?.custom_domain)
         || import.meta.env.VITE_PUBLIC_SITE_URL
         || window.location.origin;
-      const link = `${baseUrl.replace(/\\/+$/, "")}/therapist/${encodeURIComponent(token)}`;
+      const link = `${baseUrl.replace(/\/+$/, "")}/therapist/${encodeURIComponent(token)}`;
       await navigator.clipboard.writeText(link);
       toast({
         title: "リンクをコピーしました",
