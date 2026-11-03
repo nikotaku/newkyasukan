@@ -1190,13 +1190,34 @@ export default function Staff() {
     }
   };
 
-  const copyPortalLink = (token: string) => {
-    const link = `${import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin}/therapist/${token}`;
-    navigator.clipboard.writeText(link);
-    toast({
-      title: "リンクをコピーしました",
-      description: "専用ページのリンクがクリップボードにコピーされました",
-    });
+  const copyPortalLink = async (token: string) => {
+    try {
+      // Preview/deployment URLs change. Always prefer the cast's stable store domain.
+      const castStoreId = editingCast?.store_id || storeId;
+      if (!castStoreId) throw new Error("店舗が選択されていません");
+      const { data: storeData, error } = await supabase
+        .from("stores")
+        .select("custom_domain")
+        .eq("id", castStoreId)
+        .maybeSingle();
+      if (error) throw error;
+      const baseUrl = getCustomDomainBaseUrl(storeData?.custom_domain)
+        || import.meta.env.VITE_PUBLIC_SITE_URL
+        || window.location.origin;
+      const link = `${baseUrl.replace(/\\/+$/, "")}/therapist/${encodeURIComponent(token)}`;
+      await navigator.clipboard.writeText(link);
+      toast({
+        title: "リンクをコピーしました",
+        description: "店舗の固定URLをコピーしました",
+      });
+    } catch (error) {
+      console.error("Failed to copy therapist portal URL:", error);
+      toast({
+        title: "コピーに失敗しました",
+        description: "ポータルURLを取得できませんでした",
+        variant: "destructive",
+      });
+    }
   };
 
   // キャスト情報をエステ魂フォームの各フィールド値へマッピング
