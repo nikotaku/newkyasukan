@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { format, addDays } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Heart, Sparkles, Check, Loader2, CalendarDays, Star } from "lucide-react";
+import { Heart, Sparkles, Check, Loader2, CalendarDays, Star, MapPin, UsersRound, ArrowDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/hooks/useStore";
 import { driveImgUrl } from "@/lib/drive";
@@ -16,6 +16,12 @@ import {
   hasKayamaNoaBookingPromotion,
   KAYAMA_NOA_BOOKING_PROMOTION,
 } from "@/lib/castBookingPromotion";
+import {
+  isRirikaMomokaCampaign,
+  RIRIKA_MOMOKA_CAMPAIGN,
+  RIRIKA_MOMOKA_HP_BANNER,
+  ririkaMomokaDate,
+} from "@/lib/ririkaMomokaCampaign";
 
 /**
  * セラピスト専用の予約リクエストフォーム（可愛いデザイン）。
@@ -39,20 +45,22 @@ interface OptionRate {
 
 interface Cast {
   id: string;
+  store_id: string;
   name: string;
   photo: string | null;
 }
 
 interface CastLookup extends Cast {
-  store_id: string;
   stores?: { custom_domain?: string | null } | { custom_domain?: string | null }[] | null;
 }
 
 // 30分刻みの希望時間候補（13:00〜25:00）。深夜は24:00・24:30・25:00表記で表示し、
 // 保存は「翌カレンダー日付＋実時刻（24:00→翌0:00 …）」に変換する（管理タイムラインと整合）。
-const TIME_OPTIONS: { label: string; value: string; dayOffset: number }[] = (() => {
+type TimeOption = { label: string; value: string; dayOffset: number };
+
+const buildTimeOptions = (startMinutes: number, endMinutes: number): TimeOption[] => {
   const out: { label: string; value: string; dayOffset: number }[] = [];
-  for (let m = 13 * 60; m <= 25 * 60; m += 30) {
+  for (let m = startMinutes; m <= endMinutes; m += 30) {
     const dh = Math.floor(m / 60);
     const dm = m % 60;
     const label = `${dh}:${String(dm).padStart(2, "0")}`; // 表示（24:00〜28:00もそのまま）
@@ -63,7 +71,9 @@ const TIME_OPTIONS: { label: string; value: string; dayOffset: number }[] = (() 
     out.push({ label, value, dayOffset });
   }
   return out;
-})();
+};
+
+const TIME_OPTIONS = buildTimeOptions(13 * 60, 25 * 60);
 
 // オプションの内容説明（空文字の間は表示しない）
 const OPTION_DESCRIPTIONS: Record<string, string> = {
@@ -116,7 +126,14 @@ export default function CastBooking() {
 
   // ペア名義（Wセラピスト）のフォームかどうか
   const isPairCast = !!cast?.name && /[&＆]/.test(cast.name);
+  const isRirikaMomoka = isRirikaMomokaCampaign(cast?.id);
   const showsKayamaNoaPromotion = hasKayamaNoaBookingPromotion(cast?.id);
+
+  useEffect(() => {
+    if (!isRirikaMomoka) return;
+    setDate(RIRIKA_MOMOKA_CAMPAIGN.dates[0].date);
+    setTime("");
+  }, [isRirikaMomoka]);
 
   useEffect(() => {
     const routeValue = castId ?? castKey;
@@ -201,7 +218,7 @@ export default function CastBooking() {
           setOptionRates((data || []) as OptionRate[]);
         });
     } else {
-      supabase.rpc("get_public_back_rates", { p_store_id: storeId } as any).then(({ data }) => {
+      supabase.rpc("get_public_back_rates", { p_store_id: storeId }).then(({ data }) => {
         const rates = ((data || []) as BackRate[]).filter((r) => r.course_type !== W_COURSE_TYPE);
         setBackRates(rates);
         // おすすめの全力コース80分を初期選択（誘導）。無ければ先頭コース。
@@ -229,6 +246,10 @@ export default function CastBooking() {
   const courseTypes = [...new Set(backRates.map((r) => r.course_type))];
   const durationsFor = (ct: string) =>
     backRates.filter((r) => r.course_type === ct).sort((a, b) => a.duration - b.duration);
+  const campaignDate = isRirikaMomoka ? ririkaMomokaDate(date) : null;
+  const availableTimeOptions = campaignDate
+    ? buildTimeOptions(campaignDate.startMinutes, campaignDate.endMinutes)
+    : TIME_OPTIONS;
 
   const toggleOption = (name: string) =>
     setSelectedOptions((prev) => prev.includes(name) ? prev.filter((o) => o !== name) : [...prev, name]);
@@ -241,7 +262,7 @@ export default function CastBooking() {
   );
   const total = coursePrice > 0 ? coursePrice + optionsTotal + nominationFee : 0;
 
-  const selectedTime = TIME_OPTIONS.find((t) => t.value === time);
+  const selectedTime = availableTimeOptions.find((t) => t.value === time);
   // 24:00以降は翌カレンダー日付で保存（管理タイムラインの営業日ロジックと整合）
   const resDate = selectedTime
     ? format(addDays(new Date(`${date}T00:00:00`), selectedTime.dayOffset), "yyyy-MM-dd")
@@ -254,7 +275,9 @@ export default function CastBooking() {
     if (!name.trim()) { setError("お名前を入力してね"); return; }
     if (!phone.trim() || phone.replace(/\D/g, "").length < 10) { setError("電話番号を入力してね"); return; }
     if (!date) { setError("希望日を選んでね"); return; }
+    if (isRirikaMomoka && !campaignDate) { setError("11月17日または18日を選んでね"); return; }
     if (!time) { setError("希望時間を選んでね"); return; }
+    if (!selectedTime) { setError("選べる時間の中から希望時間を選んでね"); return; }
     if (!courseType || !duration) { setError("コースを選んでね"); return; }
 
     setSubmitting(true);
@@ -360,43 +383,115 @@ export default function CastBooking() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-pink-100 via-rose-50 to-white pb-10">
-      {/* ヒーロー */}
-      <header className="relative text-center pt-10 pb-6 px-5">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <Sparkles className="absolute top-6 left-6 text-pink-300/60" size={22} />
-          <Heart className="absolute top-12 right-8 text-rose-300/60 fill-rose-200" size={18} />
-          <Heart className="absolute top-24 left-10 text-pink-300/50 fill-pink-200" size={14} />
-        </div>
-        <div className="relative">
-          <div className="mx-auto w-28 h-28 rounded-full p-1 bg-gradient-to-br from-pink-400 to-rose-300 shadow-lg">
-            {photoUrl ? (
-              <img src={photoUrl} alt={cast.name} className="w-full h-full rounded-full object-cover object-top border-2 border-white" />
-            ) : (
-              <div className="w-full h-full rounded-full bg-white flex items-center justify-center border-2 border-white">
-                <Heart className="text-rose-300 fill-rose-200" size={40} />
+      {isRirikaMomoka ? (
+        <header className="pb-7">
+          <a href="#booking-form" className="block bg-[#2b0d20]" aria-label="りりか＆ももか専用予約フォームへ進む">
+            <img
+              src={RIRIKA_MOMOKA_HP_BANNER}
+              alt="りりか＆ももか 11月17日・18日 限定8名様"
+              className="mx-auto w-full max-w-5xl object-contain"
+            />
+          </a>
+
+          <div className="mx-auto max-w-md px-5 pt-7 text-center">
+            <div className="mb-3 flex items-center justify-center gap-2 text-xs font-bold text-rose-600">
+              <span className="rounded-full bg-white px-3 py-1.5 shadow-sm ring-1 ring-pink-100">2日間限定</span>
+              <span className="rounded-full bg-rose-500 px-3 py-1.5 text-white shadow-sm">限定{RIRIKA_MOMOKA_CAMPAIGN.capacity}名様</span>
+            </div>
+            <h1 className="text-3xl font-black tracking-tight text-rose-700">{RIRIKA_MOMOKA_CAMPAIGN.headline}</h1>
+            <p className="mx-auto mt-4 max-w-sm text-sm leading-7 text-gray-700">
+              {RIRIKA_MOMOKA_CAMPAIGN.story}
+            </p>
+
+            <div className="mt-6 grid gap-3 text-left sm:grid-cols-2">
+              {RIRIKA_MOMOKA_CAMPAIGN.members.map((member) => (
+                <section key={member.name} className="rounded-3xl border border-pink-100 bg-white/90 p-4 shadow-sm">
+                  <p className="text-xs font-bold text-rose-400">{member.role}</p>
+                  <h2 className="mt-0.5 text-xl font-black text-rose-600">{member.name}</h2>
+                  <p className="mt-2 text-sm font-bold leading-6 text-gray-800">{member.catchphrase}</p>
+                  <p className="mt-1.5 text-xs leading-6 text-gray-600">{member.description}</p>
+                </section>
+              ))}
+            </div>
+
+            <section className="mt-4 rounded-3xl bg-gradient-to-br from-[#5d1838] to-[#b23e6b] p-5 text-left text-white shadow-lg">
+              <div className="flex items-start gap-3">
+                <UsersRound className="mt-0.5 shrink-0 text-pink-200" size={22} />
+                <div>
+                  <h2 className="font-black">姉妹だから生まれる、特別なW施術</h2>
+                  <p className="mt-1.5 text-xs leading-6 text-pink-50/90">
+                    姉の包容力と、妹のしっかりした施術。息の合ったふたりが同時におもてなしします。
+                  </p>
+                </div>
               </div>
-            )}
+            </section>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              {RIRIKA_MOMOKA_CAMPAIGN.dates.map((item) => (
+                <div key={item.date} className="rounded-2xl border border-rose-200 bg-white px-3 py-3 shadow-sm">
+                  <CalendarDays className="mx-auto text-rose-400" size={19} />
+                  <p className="mt-1.5 text-sm font-black text-rose-600">{item.label}</p>
+                  <p className="mt-1 text-xs font-bold text-gray-600">{item.hours}</p>
+                </div>
+              ))}
+            </div>
+
+            <a
+              href="#booking-form"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 py-4 text-base font-black text-white shadow-lg transition-transform active:scale-[0.98]"
+            >
+              空き枠を申し込む <ArrowDown size={18} />
+            </a>
+            <p className="mt-2 flex items-center justify-center gap-1 text-[11px] text-gray-500">
+              <MapPin size={12} /> 艶華・仙台限定
+            </p>
           </div>
-          <h1 className="mt-4 text-2xl font-bold text-rose-500 tracking-wide">
-            {cast.name}<span className="text-base font-medium text-pink-400"> 専用予約ページ</span>
-          </h1>
-          {isPairCast && (
-            <span className="inline-block mt-2 text-[11px] font-bold text-white bg-gradient-to-r from-pink-400 to-rose-400 px-3 py-1 rounded-full shadow-sm">
-              👯‍♀️ 2人同時のWセラピストコース
-            </span>
-          )}
-          <p className="mt-1.5 text-sm text-pink-500/80">
-            {isPairCast ? (
-              <>ふたりで全力でおもてなし♡<br />下のフォームから予約してね💕</>
-            ) : (
-              <>会いに来てくれて嬉しいな♡<br />下のフォームから予約してね💕</>
+        </header>
+      ) : (
+        <header className="relative text-center pt-10 pb-6 px-5">
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <Sparkles className="absolute top-6 left-6 text-pink-300/60" size={22} />
+            <Heart className="absolute top-12 right-8 text-rose-300/60 fill-rose-200" size={18} />
+            <Heart className="absolute top-24 left-10 text-pink-300/50 fill-pink-200" size={14} />
+          </div>
+          <div className="relative">
+            <div className="mx-auto w-28 h-28 rounded-full p-1 bg-gradient-to-br from-pink-400 to-rose-300 shadow-lg">
+              {photoUrl ? (
+                <img src={photoUrl} alt={cast.name} className="w-full h-full rounded-full object-cover object-top border-2 border-white" />
+              ) : (
+                <div className="w-full h-full rounded-full bg-white flex items-center justify-center border-2 border-white">
+                  <Heart className="text-rose-300 fill-rose-200" size={40} />
+                </div>
+              )}
+            </div>
+            <h1 className="mt-4 text-2xl font-bold text-rose-500 tracking-wide">
+              {cast.name}<span className="text-base font-medium text-pink-400"> 専用予約ページ</span>
+            </h1>
+            {isPairCast && (
+              <span className="inline-block mt-2 text-[11px] font-bold text-white bg-gradient-to-r from-pink-400 to-rose-400 px-3 py-1 rounded-full shadow-sm">
+                👯‍♀️ 2人同時のWセラピストコース
+              </span>
             )}
-          </p>
-        </div>
-      </header>
+            <p className="mt-1.5 text-sm text-pink-500/80">
+              {isPairCast ? (
+                <>ふたりで全力でおもてなし♡<br />下のフォームから予約してね💕</>
+              ) : (
+                <>会いに来てくれて嬉しいな♡<br />下のフォームから予約してね💕</>
+              )}
+            </p>
+          </div>
+        </header>
+      )}
 
       <main className="max-w-md mx-auto px-5">
-        <form onSubmit={handleSubmit} className="bg-white/95 backdrop-blur rounded-[2rem] shadow-lg border border-pink-100 p-6 space-y-6">
+        <form id="booking-form" onSubmit={handleSubmit} className="scroll-mt-4 bg-white/95 backdrop-blur rounded-[2rem] shadow-lg border border-pink-100 p-6 space-y-6">
+          {isRirikaMomoka && (
+            <div className="text-center">
+              <p className="text-xs font-bold tracking-widest text-rose-400">SPECIAL BOOKING</p>
+              <h2 className="mt-1 text-xl font-black text-rose-600">りりか&ももか 専用予約フォーム</h2>
+              <p className="mt-1 text-xs leading-5 text-gray-500">限定枠のため、希望日時を選んでお早めにお申し込みください。</p>
+            </div>
+          )}
           {showsKayamaNoaPromotion && (
             <section
               aria-label="香山のあ限定特典"
@@ -418,17 +513,42 @@ export default function CastBooking() {
             <label className="flex items-center gap-1.5 text-sm font-bold text-rose-500 mb-2">
               <Heart size={14} className="fill-rose-300 text-rose-300" />希望日
             </label>
-            <div className="relative w-full">
-              <CalendarDays size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-400 pointer-events-none z-10" />
-              <input
-                type="date"
-                value={date}
-                min={format(new Date(), "yyyy-MM-dd")}
-                onChange={(e) => setDate(e.target.value)}
-                className="block w-full min-w-0 max-w-full box-border appearance-none rounded-2xl border-2 border-pink-100 focus:border-pink-300 bg-pink-50/50 pl-11 pr-4 py-3 text-sm font-medium text-left focus:outline-none [color-scheme:light]"
-              />
-            </div>
-            <p className="text-[11px] text-gray-400 mt-1.5">📅 タップして日にちを選んでね</p>
+            {isRirikaMomoka ? (
+              <div className="grid grid-cols-2 gap-2">
+                {RIRIKA_MOMOKA_CAMPAIGN.dates.map((item) => {
+                  const on = date === item.date;
+                  return (
+                    <button
+                      key={item.date}
+                      type="button"
+                      onClick={() => { setDate(item.date); setTime(""); }}
+                      className={`rounded-2xl border-2 px-2 py-3 text-center transition-all ${
+                        on
+                          ? "border-rose-400 bg-gradient-to-br from-pink-400 to-rose-400 text-white shadow-md"
+                          : "border-pink-100 bg-pink-50/60 text-rose-500"
+                      }`}
+                    >
+                      <span className="block text-sm font-black">{item.label}</span>
+                      <span className={`mt-1 block text-[11px] font-bold ${on ? "text-white/90" : "text-gray-500"}`}>{item.hours}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <>
+                <div className="relative w-full">
+                  <CalendarDays size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-400 pointer-events-none z-10" />
+                  <input
+                    type="date"
+                    value={date}
+                    min={format(new Date(), "yyyy-MM-dd")}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="block w-full min-w-0 max-w-full box-border appearance-none rounded-2xl border-2 border-pink-100 focus:border-pink-300 bg-pink-50/50 pl-11 pr-4 py-3 text-sm font-medium text-left focus:outline-none [color-scheme:light]"
+                  />
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1.5">📅 タップして日にちを選んでね</p>
+              </>
+            )}
           </div>
 
           {/* 希望時間 */}
@@ -437,7 +557,7 @@ export default function CastBooking() {
               <Heart size={14} className="fill-rose-300 text-rose-300" />希望時間
             </label>
             <div className="grid grid-cols-4 gap-2">
-              {TIME_OPTIONS.map((t) => (
+              {availableTimeOptions.map((t) => (
                 <button
                   key={t.label}
                   type="button"

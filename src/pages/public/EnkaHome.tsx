@@ -22,6 +22,7 @@ import { ENKA_FALLBACK_HERO_BANNER, normalizeHeroBanners } from "@/lib/heroBanne
 import { selectCastHeroBanners, type CastHeroBanner } from "@/lib/castHeroBanners";
 import { CastHeroBannerSlide } from "@/components/public/CastHeroBannerSlide";
 import { shiftBreaks } from "@/lib/shiftBreak";
+import { heroBannerDestination } from "@/lib/ririkaMomokaCampaign";
 
 /**
  * 艶華専用トップページ（デフォルト店舗以外で "/" に表示）。
@@ -417,16 +418,22 @@ export default function EnkaHome() {
                   </Link>
                 );
               }
+              const destination = heroBannerDestination(item.url);
+              const isRirikaMomokaBanner = destination !== "/schedule";
               return (
                 <Link
                   key={item.key}
-                  to="/schedule"
-                  aria-label="本日の出勤・空き状況を見る"
+                  to={destination}
+                  aria-label={isRirikaMomokaBanner ? "りりか＆ももかの専用予約フォームを見る" : "本日の出勤・空き状況を見る"}
                   aria-hidden={!active}
                   tabIndex={active ? 0 : -1}
                   className={common}
                   style={{ opacity: active ? 1 : 0, pointerEvents: active ? "auto" : "none" }}
-                  onClick={() => trackPublicEvent("availability_cta_click", { placement: "home_hero", date: format(new Date(), "yyyy-MM-dd") })}
+                  onClick={() => trackPublicEvent(isRirikaMomokaBanner ? "booking_cta_click" : "availability_cta_click", {
+                    placement: "home_hero",
+                    date: format(new Date(), "yyyy-MM-dd"),
+                    ...(isRirikaMomokaBanner ? { cast_id: "3155fd7c-8b35-48ea-a6f8-12d3eb7dd0c2", is_pair_cast: true } : {}),
+                  })}
                 >
                   <img
                     src={item.url}
