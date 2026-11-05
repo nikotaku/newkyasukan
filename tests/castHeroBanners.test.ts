@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { bannerImageFor, castHeroBannersForDay, isNewcomer, selectCastHeroBanners } from "../src/lib/castHeroBanners.ts";
+import { normalizeBannerText, resolveBannerText, bannerImageFor, castHeroBannersForDay, isNewcomer, selectCastHeroBanners } from "../src/lib/castHeroBanners.ts";
 
 const casts = [
   { id: "a", name: "あい", banner_images: ["https://x/a1.jpg", "https://x/a2.jpg"], banner_copy: "笑顔", join_date: "2026-01-01" },
@@ -53,4 +53,35 @@ test("その日の出勤から：辞めた・非表示の人を除き、1人1つ
   const banners = castHeroBannersForDay(rows, "2026-10-14");
   assert.deepEqual(banners.map((banner) => banner.castId), ["a"]);
   assert.equal(banners[0].start, "12:00");
+});
+
+test("バナー内の文言を個別に変更し、自動の名前・時刻を差し込む", () => {
+  const banners = selectCastHeroBanners([{ ...casts[0], banner_text: {
+    badge: "限定2日間", name: "りりか＆ももか", age: "", shift: "限定イベント {start}〜{end}",
+    available: "ご予約は {next} から", booking: "特別コースを予約", store: "{store} 仙台",
+  }}], shifts, "2026-11-05");
+  const text = resolveBannerText(banners[0], "艶華", "15:00");
+  assert.equal(text.badge, "限定2日間");
+  assert.equal(text.name, "りりか＆ももか");
+  assert.equal(text.age, "");
+  assert.equal(text.shift, "限定イベント 13:00〜22:00");
+  assert.equal(text.availability, "ご予約は 15:00 から");
+  assert.equal(text.booking, "特別コースを予約");
+  assert.equal(text.store, "艶華 仙台");
+  assert.equal(resolveBannerText(banners[0], "艶華").availability, "");
+  assert.equal(resolveBannerText({ ...banners[0], isNewcomer: true, text: { newcomerBadge: "新人限定" } }, "艶華").badge, "新人限定");
+});
+
+test("空欄は非表示、未設定は従来の文言、受付終了は別の文言", () => {
+  const banner = selectCastHeroBanners(casts, shifts, "2026-11-05").find((item) => item.castId === "a")!;
+  assert.equal(resolveBannerText(banner, "艶華", "16:00").booking, "あいさんを予約する");
+  assert.equal(resolveBannerText(banner, "艶華", "16:00").availability, "最短 16:00〜 ご案内できます");
+  assert.equal(resolveBannerText({ ...banner, text: { badge: "", shift: "", booking: "", store: "", closed: "受付完了" } }, "艶華", null).availability, "受付完了");
+  const hidden = resolveBannerText({ ...banner, text: { badge: "", shift: "", booking: "", store: "" } }, "艶華");
+  assert.equal(hidden.badge, "");
+  assert.equal(hidden.shift, "");
+  assert.equal(hidden.booking, "");
+  assert.equal(hidden.store, "");
+  assert.deepEqual(normalizeBannerText({ badge: 1, booking: null, store: "", unknown: "ignored" }), { store: "" });
+  assert.deepEqual(normalizeBannerText(null), {});
 });

@@ -5,6 +5,49 @@
 //   写真：日ごとに順番に替わる
 // テスト: npm run test:cast-hero-banners
 
+// 文字の未設定は従来の自動表示、空文字は非表示。個別のバナーだけに適用する。
+export const BANNER_TEXT_DEFAULTS = {
+  badge: "TODAY",
+  newcomerBadge: "NEW FACE",
+  name: "{name}",
+  age: "（{age}）",
+  shift: "本日出勤 {start}〜{end}",
+  available: "最短 {next}〜 ご案内できます",
+  closed: "本日の受付は終了しました",
+  booking: "{name}さんを予約する",
+  store: "{store}",
+};
+export type BannerText = Partial<Record<keyof typeof BANNER_TEXT_DEFAULTS, string>>;
+export const BANNER_TEXT_LABELS: Record<keyof BannerText, string> = {
+  badge: "通常の見出し（TODAY）", newcomerBadge: "新人の見出し（NEW FACE）",
+  name: "表示名", age: "年齢", shift: "出勤時間の行", available: "最短案内の行",
+  closed: "受付終了時の行", booking: "予約ボタン", store: "店舗名",
+};
+export function normalizeBannerText(value: unknown): BannerText {
+  const result: BannerText = {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return result;
+  for (const key of Object.keys(BANNER_TEXT_DEFAULTS) as (keyof BannerText)[]) {
+    const text = (value as Record<string, unknown>)[key];
+    if (typeof text === "string") result[key] = text.slice(0, 160);
+  }
+  return result;
+}
+export function resolveBannerText(banner: CastHeroBanner, storeName: string, nextAvailable?: string | null) {
+  const templates = { ...BANNER_TEXT_DEFAULTS, ...normalizeBannerText(banner.text) };
+  const variables: Record<string, string> = {
+    name: banner.name, age: banner.age == null ? "" : String(banner.age),
+    start: banner.start, end: banner.end, next: nextAvailable ?? "", store: storeName,
+  };
+  const fill = (value: string) => value.replace(/\{(name|age|start|end|next|store)\}/g, (_, key: string) => variables[key]);
+  return {
+    badge: fill(banner.isNewcomer ? templates.newcomerBadge : templates.badge),
+    name: fill(templates.name), age: banner.age == null && templates.age.includes("{age}") ? "" : fill(templates.age),
+    shift: fill(templates.shift),
+    availability: nextAvailable === undefined ? "" : fill(nextAvailable ? templates.available : templates.closed),
+    booking: fill(templates.booking), store: fill(templates.store),
+  };
+}
+
 export interface BannerCast {
   id: string;
   name: string;
@@ -12,6 +55,7 @@ export interface BannerCast {
   join_date?: string | null;
   banner_images?: string[] | null;
   banner_copy?: string | null;
+  banner_text?: unknown;
   banner_enabled?: boolean | null;
 }
 
@@ -30,6 +74,7 @@ export interface CastHeroBanner {
   start: string;
   end: string;
   isNewcomer: boolean;
+  text?: BannerText;
 }
 
 export const NEWCOMER_DAYS = 30;
@@ -72,6 +117,7 @@ export function selectCastHeroBanners(casts: BannerCast[], shifts: BannerShift[]
       age: cast.age ?? null,
       image,
       copy: (cast.banner_copy ?? "").trim(),
+      text: normalizeBannerText(cast.banner_text),
       start: shift.start_time.slice(0, 5),
       end: shift.end_time.slice(0, 5),
       isNewcomer: isNewcomer(cast.join_date, date),

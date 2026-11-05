@@ -46,7 +46,7 @@ interface ShiftRow {
   break_end?: string | null;
   casts: {
     id: string; name: string; photo: string | null; age: number | null; is_active: boolean; is_visible: boolean;
-    join_date?: string | null; banner_images?: string[] | null; banner_copy?: string | null; banner_enabled?: boolean | null;
+    join_date?: string | null; banner_images?: string[] | null; banner_copy?: string | null; banner_text?: unknown; banner_enabled?: boolean | null;
   } | null;
 }
 
@@ -212,7 +212,7 @@ export default function EnkaHome() {
     Promise.all([
       supabase
         .from("shifts")
-        .select("id, cast_id, start_time, end_time, break_start, break_end, casts (id, name, photo, age, is_active, is_visible, join_date, banner_images, banner_copy, banner_enabled)")
+        .select("id, cast_id, start_time, end_time, break_start, break_end, casts (id, name, photo, age, is_active, is_visible, join_date, banner_images, banner_copy, banner_enabled, banner_text)")
         .eq("shift_date", today)
         .eq("store_id", storeId)
         .order("start_time"),

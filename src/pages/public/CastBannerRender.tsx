@@ -39,7 +39,7 @@ export default function CastBannerRender() {
     Promise.all([
       supabase
         .from("shifts")
-        .select("cast_id, start_time, end_time, casts (id, name, age, is_active, is_visible, join_date, banner_images, banner_copy, banner_enabled)")
+        .select("cast_id, start_time, end_time, casts (id, name, age, is_active, is_visible, join_date, banner_images, banner_copy, banner_enabled, banner_text)")
         .eq("shift_date", date)
         .eq("store_id", storeId)
         .order("start_time"),
