@@ -147,6 +147,7 @@ interface Cast {
   new_customer_max_minutes?: number | null;
   banner_images?: string[] | null;
   banner_copy?: string | null;
+  banner_text?: unknown;
   banner_enabled?: boolean | null;
   bust_size: string | null;
   shop_comment: string | null;
@@ -2168,7 +2169,6 @@ export default function Staff() {
                       {/* トップバナーの素材（出勤日にHPのトップバナーへ自動で出す） */}
                       {editingCast.id && (
                         <CastBannerAssetsEditor
-                          storeId={editingCast.store_id}
                           castId={editingCast.id}
                           castName={editingCast.name}
                           age={editingCast.age}
