@@ -148,6 +148,7 @@ interface Cast {
   banner_images?: string[] | null;
   banner_copy?: string | null;
   banner_text?: unknown;
+  bannerDraftDirty?: boolean;
   banner_enabled?: boolean | null;
   bust_size: string | null;
   shop_comment: string | null;
@@ -217,6 +218,7 @@ export default function Staff() {
   const [isEstamaImportOpen, setIsEstamaImportOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingCast, setEditingCast] = useState<Cast | null>(null);
+  const [bannerBusy, setBannerBusy] = useState(false);
   const [mgmtProps, setMgmtProps] = useState<{ key: string; value: string }[]>([]);
   const [categoryTab, setCategoryTab] = useState<CategoryTag>("ノーステータス");
   const [archiveView, setArchiveView] = useState<"active" | "archived">("active");
@@ -786,6 +788,12 @@ export default function Staff() {
         hp_notice: editingCast.hp_notice || null,
         therapist_years: editingCast.therapist_years || null,
         new_customer_max_minutes: editingCast.new_customer_max_minutes || null,
+        ...(editingCast.bannerDraftDirty ? {
+          banner_images: editingCast.banner_images ?? [],
+          banner_copy: editingCast.banner_copy?.trim() || null,
+          banner_enabled: editingCast.banner_enabled !== false,
+          banner_text: editingCast.banner_text ?? {},
+        } : {}),
         favorite_techniques: editingCast.favorite_techniques || null,
         favorite_food: editingCast.favorite_food || null,
         ideal_partner: editingCast.ideal_partner || null,
@@ -2173,6 +2181,13 @@ export default function Staff() {
                           castName={editingCast.name}
                           age={editingCast.age}
                           initial={editingCast}
+                          initialDirty={editingCast.bannerDraftDirty}
+                          onBusyChange={setBannerBusy}
+                          onDraftChange={(patch, dirty) => {
+                            const castId = editingCast.id;
+                            setEditingCast((current) => current?.id === castId ? { ...current, ...patch, bannerDraftDirty: dirty } : current);
+                            if (!dirty) setCasts((current) => current.map((cast) => cast.id === castId ? { ...cast, ...patch } : cast));
+                          }}
                         />
                       )}
                     </TabsContent>
@@ -2361,8 +2376,8 @@ export default function Staff() {
 
                   {/* 保存はどのタブからでも押せるよう下に固定 */}
                   <div className="sticky bottom-0 -mx-6 -mb-6 mt-4 border-t bg-background/95 px-6 py-3 backdrop-blur">
-                    <Button onClick={handleUpdateCast} className="w-full">
-                      保存する
+                    <Button onClick={handleUpdateCast} disabled={bannerBusy} className="w-full">
+                      {bannerBusy ? "バナーの処理中…" : "保存する"}
                     </Button>
                   </div>
                 </DialogContent>

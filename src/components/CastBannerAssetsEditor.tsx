@@ -14,12 +14,22 @@ import { CastHeroBannerSlide } from "@/components/public/CastHeroBannerSlide";
 // 出勤日にトップページのトップバナーへ自動で作って出す（src/lib/castHeroBanners.ts）。
 // この欄だけで保存する（プロフィールの保存とは別。エスたまへの同期も動かない）。
 
+export interface BannerAssetsDraft {
+  banner_images: string[];
+  banner_copy: string | null;
+  banner_enabled: boolean;
+  banner_text: BannerText;
+}
+
 interface Props {
   castId: string;
   castName: string;
   age?: number | null;
   initial: { banner_images?: string[] | null; banner_copy?: string | null; banner_enabled?: boolean | null; banner_text?: unknown };
   storeName?: string;
+  initialDirty?: boolean;
+  onDraftChange?: (patch: Partial<BannerAssetsDraft>, dirty: boolean) => void;
+  onBusyChange?: (busy: boolean) => void;
 }
 
 const COPY_MAX = 120;
@@ -27,7 +37,7 @@ const COPY_MAX = 120;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const untyped = (table: string) => (supabase as any).from(table);
 
-export function CastBannerAssetsEditor({ castId, castName, age, initial, storeName }: Props) {
+export function CastBannerAssetsEditor({ castId, castName, age, initial, storeName, initialDirty = false, onDraftChange, onBusyChange }: Props) {
   const [images, setImages] = useState<string[]>(initial.banner_images ?? []);
   const [copy, setCopy] = useState(initial.banner_copy ?? "");
   const [texts, setTexts] = useState<BannerText>(() => normalizeBannerText(initial.banner_text));
@@ -35,7 +45,17 @@ export function CastBannerAssetsEditor({ castId, castName, age, initial, storeNa
   const [preview, setPreview] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const [dirty, setDirty] = useState(initialDirty);
+  const [saveError, setSaveError] = useState("");
+  const changeDraft = (patch: Partial<BannerAssetsDraft>) => {
+    setDirty(true);
+    setSaveError("");
+    onDraftChange?.(patch, true);
+  };
+  useEffect(() => {
+    onBusyChange?.(saving || uploading);
+    return () => onBusyChange?.(false);
+  }, [saving, uploading, onBusyChange]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -43,7 +63,8 @@ export function CastBannerAssetsEditor({ castId, castName, age, initial, storeNa
     setCopy(initial.banner_copy ?? "");
     setTexts(normalizeBannerText(initial.banner_text));
     setEnabled(initial.banner_enabled !== false);
-    setDirty(false);
+    setDirty(initialDirty);
+    setSaveError("");
     setPreview(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [castId]);
@@ -63,7 +84,7 @@ export function CastBannerAssetsEditor({ castId, castName, age, initial, storeNa
       }
       if (uploaded.length) {
         setImages((current) => [...current, ...uploaded]);
-        setDirty(true);
+        changeDraft({ banner_images: [...images, ...uploaded] });
       }
     } catch (error) {
       console.error("banner asset upload failed", error);
@@ -76,14 +97,21 @@ export function CastBannerAssetsEditor({ castId, castName, age, initial, storeNa
 
   const save = async () => {
     setSaving(true);
+    setSaveError("");
     try {
       const { data, error } = await untyped("casts")
         .update({ banner_images: images, banner_copy: copy.trim() || null, banner_enabled: enabled, banner_text: texts })
-        .eq("id", castId).select("banner_text, banner_copy").single();
+        .eq("id", castId).select("banner_images, banner_enabled, banner_text, banner_copy").single();
       if (error || !data) throw error ?? new Error("保存対象が見つかりません");
+      onDraftChange?.({
+        banner_images: data.banner_images ?? [], banner_copy: data.banner_copy,
+        banner_enabled: data.banner_enabled, banner_text: normalizeBannerText(data.banner_text),
+      }, false);
       setDirty(false);
       toast.success("バナーの写真・文言を保存しました");
-    } catch {
+    } catch (error) {
+      console.error("banner save failed", error);
+      setSaveError("保存できませんでした。入力内容は残っています。もう一度保存してください。");
       toast.error("保存できませんでした。入力内容は残っています");
     } finally {
       setSaving(false);
@@ -93,7 +121,7 @@ export function CastBannerAssetsEditor({ castId, castName, age, initial, storeNa
   const previewImage = images.length ? images[Math.min(preview, images.length - 1)] : null;
 
   return (
-    <div className="space-y-3 rounded-lg border p-4">
+    <fieldset disabled={saving || uploading} className="min-w-0 space-y-3 rounded-lg border p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <Label className="font-semibold">トップバナーの素材</Label>
@@ -103,7 +131,7 @@ export function CastBannerAssetsEditor({ castId, castName, age, initial, storeNa
         </div>
         <div className="flex shrink-0 items-center gap-2 text-xs">
           <span>{enabled ? "出す" : "出さない"}</span>
-          <Switch checked={enabled} onCheckedChange={(value) => { setEnabled(value); setDirty(true); }} />
+          <Switch checked={enabled} onCheckedChange={(value) => { setEnabled(value); changeDraft({ banner_enabled: value }); }} />
         </div>
       </div>
 
@@ -116,7 +144,7 @@ export function CastBannerAssetsEditor({ castId, castName, age, initial, storeNa
             <button
               type="button"
               className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white"
-              onClick={() => { setImages((current) => current.filter((item) => item !== url)); setPreview(0); setDirty(true); }}
+              onClick={() => { setImages((current) => current.filter((item) => item !== url)); setPreview(0); changeDraft({ banner_images: images.filter((item) => item !== url) }); }}
               aria-label={`写真${index + 1}を外す`}
             >
               <X size={12} />
@@ -144,7 +172,7 @@ export function CastBannerAssetsEditor({ castId, castName, age, initial, storeNa
           value={copy}
           maxLength={COPY_MAX}
           placeholder="例：癒しの笑顔と丁寧なオイルで、心までほぐします"
-          onChange={(event) => { setCopy(event.target.value); setDirty(true); }}
+          onChange={(event) => { setCopy(event.target.value); changeDraft({ banner_copy: event.target.value }); }}
         />
       </div>
 
@@ -158,10 +186,10 @@ export function CastBannerAssetsEditor({ castId, castName, age, initial, storeNa
               <Label htmlFor={`banner-text-${castId}-${key}`} className="text-xs">{BANNER_TEXT_LABELS[key]}</Label>
               <Input id={`banner-text-${castId}-${key}`} maxLength={160}
                 value={texts[key] ?? BANNER_TEXT_DEFAULTS[key]}
-                onChange={(event) => { setTexts((current) => ({ ...current, [key]: event.target.value })); setDirty(true); }} />
+                onChange={(event) => { setTexts((current) => ({ ...current, [key]: event.target.value })); changeDraft({ banner_text: { ...texts, [key]: event.target.value } }); }} />
             </div>
           ))}
-          <Button type="button" size="sm" variant="outline" onClick={() => { setTexts({}); setDirty(true); }}>バナーの文言を初期状態に戻す</Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => { setTexts({}); changeDraft({ banner_text: {} }); }}>バナーの文言を初期状態に戻す</Button>
         </fieldset>
       </details>
 
@@ -179,12 +207,16 @@ export function CastBannerAssetsEditor({ castId, castName, age, initial, storeNa
         </div>
       )}
 
-      <div className="flex justify-end">
-        <Button type="button" size="sm" onClick={() => void save()} disabled={saving || uploading || !dirty}>
+      {saveError && <p role="alert" className="text-xs text-destructive">{saveError}</p>}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p role="status" className={`text-xs ${dirty ? "text-amber-700" : "text-emerald-700"}`}>
+          {saving ? "保存中…" : saveError ? "保存に失敗しました" : uploading ? "写真をアップロード中…" : dirty ? "未保存の変更があります" : "保存済み"}
+        </p>
+        <Button type="button" size="sm" onClick={() => void save()} disabled={saving || uploading}>
           {saving ? <Loader2 size={14} className="mr-1.5 animate-spin" /> : <Save size={14} className="mr-1.5" />}
-          バナーの素材を保存
+          {saving ? "保存中…" : "バナーの素材を保存"}
         </Button>
       </div>
-    </div>
+    </fieldset>
   );
 }
