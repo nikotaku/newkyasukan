@@ -20,6 +20,7 @@ import {
   isRirikaMomokaCampaign,
   RIRIKA_MOMOKA_CAMPAIGN,
   RIRIKA_MOMOKA_HP_BANNER,
+  RIRIKA_MOMOKA_ESTAMA_BANNER,
   ririkaMomokaDate,
 } from "@/lib/ririkaMomokaCampaign";
 
@@ -384,67 +385,119 @@ export default function CastBooking() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-pink-100 via-rose-50 to-white pb-10">
       {isRirikaMomoka ? (
-        <header className="pb-7">
-          <a href="#booking-form" className="block bg-[#2b0d20]" aria-label="りりか＆ももか専用予約フォームへ進む">
+        <header className="bg-[#171015] pb-10 text-[#fff7ed]">
+          <div className="relative mx-auto max-w-5xl overflow-hidden">
             <img
               src={RIRIKA_MOMOKA_HP_BANNER}
-              alt="りりか＆ももか 11月17日・18日 限定8名様"
-              className="mx-auto w-full max-w-5xl object-contain"
+              alt="りりか＆ももか Wセラピストイベント 11月17日・18日"
+              className="w-full object-cover"
             />
-          </a>
-
-          <div className="mx-auto max-w-md px-5 pt-7 text-center">
-            <div className="mb-3 flex items-center justify-center gap-2 text-xs font-bold text-rose-600">
-              <span className="rounded-full bg-white px-3 py-1.5 shadow-sm ring-1 ring-pink-100">2日間限定</span>
-              <span className="rounded-full bg-rose-500 px-3 py-1.5 text-white shadow-sm">限定{RIRIKA_MOMOKA_CAMPAIGN.capacity}名様</span>
-            </div>
-            <h1 className="text-3xl font-black tracking-tight text-rose-700">{RIRIKA_MOMOKA_CAMPAIGN.headline}</h1>
-            <p className="mx-auto mt-4 max-w-sm text-sm leading-7 text-gray-700">
-              {RIRIKA_MOMOKA_CAMPAIGN.story}
-            </p>
-
-            <div className="mt-6 grid gap-3 text-left sm:grid-cols-2">
-              {RIRIKA_MOMOKA_CAMPAIGN.members.map((member) => (
-                <section key={member.name} className="rounded-3xl border border-pink-100 bg-white/90 p-4 shadow-sm">
-                  <p className="text-xs font-bold text-rose-400">{member.role}</p>
-                  <h2 className="mt-0.5 text-xl font-black text-rose-600">{member.name}</h2>
-                  <p className="mt-2 text-sm font-bold leading-6 text-gray-800">{member.catchphrase}</p>
-                  <p className="mt-1.5 text-xs leading-6 text-gray-600">{member.description}</p>
-                </section>
-              ))}
+            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#171015] to-transparent" />
+          </div>
+          <div className="mx-auto max-w-2xl px-5">
+            <div className="text-center">
+              <p className="text-[11px] font-semibold tracking-[0.35em] text-[#e3ba82]">ENKA / TWO DAYS SPECIAL EVENT</p>
+              <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-2">
+                <span className="rounded-full border border-[#d7af78]/50 px-4 py-1.5 text-xs font-bold">11/17（火）・11/18（水）</span>
+                <span className="rounded-full bg-[#e6ba78] px-4 py-1.5 text-xs font-black text-[#27131c]">先着8名様限定</span>
+              </div>
+              <h1 className="mt-6 text-3xl font-black leading-tight tracking-wide sm:text-4xl">
+                ふたりだから叶う、<br /><span className="text-[#e9c28c]">特別なひととき。</span>
+              </h1>
+              <p className="mt-4 text-sm leading-8 text-[#f2dfce]">{RIRIKA_MOMOKA_CAMPAIGN.story}</p>
+              <a href="#booking-form" className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-[#e6ba78] px-4 py-4 text-base font-black text-[#2b1720] shadow-lg transition hover:bg-[#f6d29c]">
+                予約のお申し込みへ <ArrowDown size={19} />
+              </a>
+              <p className="mt-2 text-[11px] text-[#c8b8ae]">定員はイベント全体で8名様です。お申し込み時点で確約されるものではありません。</p>
             </div>
 
-            <section className="mt-4 rounded-3xl bg-gradient-to-br from-[#5d1838] to-[#b23e6b] p-5 text-left text-white shadow-lg">
-              <div className="flex items-start gap-3">
-                <UsersRound className="mt-0.5 shrink-0 text-pink-200" size={22} />
-                <div>
-                  <h2 className="font-black">姉妹だから生まれる、特別なW施術</h2>
-                  <p className="mt-1.5 text-xs leading-6 text-pink-50/90">
-                    姉の包容力と、妹のしっかりした施術。息の合ったふたりが同時におもてなしします。
-                  </p>
-                </div>
+            <section className="mt-12" aria-label="姉妹セラピストのご紹介">
+              <div className="text-center">
+                <p className="text-[10px] tracking-[0.35em] text-[#d4aa72]">MEET THE SISTERS</p>
+                <h2 className="mt-2 text-2xl font-black">りりか ＆ ももか</h2>
+                <p className="mt-3 text-sm leading-7 text-[#ddcdc4]">東京から仙台へ。ふたりの個性が重なる、2日間だけの特別なW施術。</p>
+              </div>
+              <div className="mt-5 overflow-hidden rounded-2xl border border-[#d0a56d]/30 bg-[#241820]">
+                {photoUrl ? (
+                  <img src={photoUrl} alt="りりか＆ももかのプロフィール写真" className="mx-auto max-h-[510px] w-full object-contain" loading="lazy" />
+                ) : (
+                  <img src={RIRIKA_MOMOKA_HP_BANNER} alt="りりか＆ももか イベント写真" className="w-full" loading="lazy" />
+                )}
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {RIRIKA_MOMOKA_CAMPAIGN.members.map((member) => (
+                  <article key={member.name} className="rounded-2xl border border-[#c39865]/30 bg-[#281d24] p-5">
+                    <p className="text-xs font-bold text-[#d7b081]">{member.role}</p>
+                    <h3 className="mt-1 text-2xl font-bold">{member.name}</h3>
+                    <p className="mt-2 text-sm font-bold text-[#eed0a7]">{member.catchphrase}</p>
+                    <p className="mt-2 text-xs leading-6 text-[#e3d5cc]">{member.description}</p>
+                  </article>
+                ))}
               </div>
             </section>
 
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              {RIRIKA_MOMOKA_CAMPAIGN.dates.map((item) => (
-                <div key={item.date} className="rounded-2xl border border-rose-200 bg-white px-3 py-3 shadow-sm">
-                  <CalendarDays className="mx-auto text-rose-400" size={19} />
-                  <p className="mt-1.5 text-sm font-black text-rose-600">{item.label}</p>
-                  <p className="mt-1 text-xs font-bold text-gray-600">{item.hours}</p>
-                </div>
-              ))}
-            </div>
+            <section className="mt-12" aria-label="おすすめコースとオプション">
+              <div className="text-center">
+                <p className="text-[10px] tracking-[0.35em] text-[#d4aa72]">RECOMMENDED EXPERIENCE</p>
+                <h2 className="mt-2 text-2xl font-black">おすすめの組み合わせ</h2>
+                <p className="mt-3 text-xs leading-6 text-[#dfcfc3]">Wコースに特別なオプションをプラス。お好みに合わせてお選びください。</p>
+              </div>
+              <div className="mt-5 overflow-hidden rounded-2xl border border-[#d0a56d]/30">
+                <img src={RIRIKA_MOMOKA_ESTAMA_BANNER} alt="Wセラピストイベントの告知写真" className="w-full object-cover" loading="lazy" />
+              </div>
+              <div className="mt-5 space-y-3">
+                {[
+                  { option: "全力PKG1W", title: "双艶 -そうえん-", subtitle: "極液・マイクロ・Wハンドリンパ", caption: "W施術の魅力を存分に味わいたい方へ", recommended: true },
+                  { option: "全力PKG2W", title: "艶結 -えんむすび-", subtitle: "極液・カルバンクライン", caption: "いつもとは違う特別感を求める方へ", recommended: false },
+                ].map((recommendation) => {
+                  const option = optionRates.find((item) => item.option_name === recommendation.option);
+                  const course = backRates.find((item) => item.course_type === W_COURSE_TYPE && item.duration === 100)
+                    ?? backRates.find((item) => item.course_type === W_COURSE_TYPE);
+                  if (!option || !course) return null;
+                  const finalPrice = course.customer_price + option.customer_price + nominationFee;
+                  return (
+                    <article key={recommendation.option} className="rounded-2xl border border-[#d4ac77]/45 bg-[#2b1d25] p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-xl font-black text-[#f0ce9b]">{recommendation.title}</h3>
+                        {recommendation.recommended && <span className="rounded-full bg-[#e6ba78] px-3 py-1 text-[10px] font-black text-[#2b1720]">イチオシ</span>}
+                      </div>
+                      <p className="mt-2 text-sm leading-6">{recommendation.subtitle}</p>
+                      <p className="mt-1 text-xs text-[#dbc9bd]">{recommendation.caption}</p>
+                      <div className="mt-4 border-t border-[#d0a56d]/25 pt-3">
+                        <p className="text-xs text-[#dac4b2]">Wコース {course.duration}分 ＋ オプション ＋ 指名料</p>
+                        <p className="mt-1 text-2xl font-black text-[#f2d2a1]">¥{finalPrice.toLocaleString()}<span className="ml-1 text-xs font-normal">税込表示・料金目安</span></p>
+                      </div>
+                      <a
+                        href="#booking-form"
+                        onClick={() => { setCourseType(W_COURSE_TYPE); setDuration(course.duration); setSelectedOptions([recommendation.option]); }}
+                        className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-[#e4bc84] px-4 py-3 text-sm font-bold text-[#f6d6a8] transition hover:bg-[#47303a]"
+                      >
+                        この組み合わせで予約へ <ArrowDown size={16} />
+                      </a>
+                    </article>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-center text-[11px] leading-5 text-[#c9b7aa]">表示金額は登録済み料金から算出しています。予約欄で内容を変更できます。</p>
+            </section>
 
-            <a
-              href="#booking-form"
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 py-4 text-base font-black text-white shadow-lg transition-transform active:scale-[0.98]"
-            >
-              空き枠を申し込む <ArrowDown size={18} />
-            </a>
-            <p className="mt-2 flex items-center justify-center gap-1 text-[11px] text-gray-500">
-              <MapPin size={12} /> 艶華・仙台限定
-            </p>
+            <section className="mt-12 text-center" aria-label="イベント日程">
+              <p className="text-[10px] tracking-[0.35em] text-[#d4aa72]">EVENT SCHEDULE</p>
+              <h2 className="mt-2 text-2xl font-black">2日間だけの限定開催</h2>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                {RIRIKA_MOMOKA_CAMPAIGN.dates.map((item) => (
+                  <div key={item.date} className="rounded-xl border border-[#d0a56d]/40 bg-[#2a1d25] p-4">
+                    <CalendarDays className="mx-auto mb-2 text-[#e7bf88]" size={19} />
+                    <p className="text-sm font-black">{item.label}</p>
+                    <p className="mt-1 text-xs text-[#dec8b5]">{item.hours}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 flex items-center justify-center gap-1 text-xs text-[#dcc5b7]"><MapPin size={14} /> 艶華・仙台</p>
+              <a href="#booking-form" className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-[#e6ba78] px-4 py-4 text-base font-black text-[#2b1720] shadow-lg">
+                予約を申し込む <ArrowDown size={19} />
+              </a>
+            </section>
           </div>
         </header>
       ) : (
