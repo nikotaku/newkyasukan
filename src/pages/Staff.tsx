@@ -2168,6 +2168,7 @@ export default function Staff() {
                       {/* トップバナーの素材（出勤日にHPのトップバナーへ自動で出す） */}
                       {editingCast.id && (
                         <CastBannerAssetsEditor
+                          storeId={editingCast.store_id}
                           castId={editingCast.id}
                           castName={editingCast.name}
                           age={editingCast.age}
