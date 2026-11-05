@@ -29,6 +29,7 @@ import { getCastBookingUrl, getCustomDomainBaseUrl } from "@/lib/bookingUrl";
 import { ESTHE_RANKING_ACTIVE } from "@/lib/mediaRegistration";
 import { CastBannerAssetsEditor } from "@/components/CastBannerAssetsEditor";
 import { CAST_PROFILE_ITEMS, castAdminLabel, castProfileCompletion, isStageNamePending, PENDING_STAGE_NAME } from "@/lib/castProfileCompletion";
+import { estamaFingerprint, estamaProfileCompletion, type EstamaConfirmation, type EstamaFingerprint } from "@/lib/estamaProfileCompletion";
 import { ENKA_ROOMS } from "@/lib/storeRooms";
 import { CastMissingFields } from "@/components/staff/CastMissingFields";
 import { CastProfileSubmissions } from "@/components/staff/CastProfileSubmissions";
@@ -84,6 +85,8 @@ const BLOOD_TYPES = ["A", "B", "O", "AB"];
 const BUST_SIZES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
 interface Cast {
+  estamaConfirmation?: EstamaConfirmation | null;
+  estamaFingerprint?: EstamaFingerprint | null;
   id: string;
   store_id: string;
   name: string;
@@ -318,6 +321,7 @@ export default function Staff() {
   // AIメモ登録は普段は隠し、「⋯」のメニューから開く
   const [aiMemoOpen, setAiMemoOpen] = useState(false);
   const [memoTargetCastId, setMemoTargetCastId] = useState("");
+  const castsFetchSequence = useRef(0);
   const dragCastId = useRef<string | null>(null);
   const dragPhotoIdxRef = useRef<number | null>(null);
   const addPhotoInputRef = useRef<HTMLInputElement>(null);
@@ -360,9 +364,19 @@ export default function Staff() {
           fetchCasts();
         }
       )
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'external_cast_profiles', filter: `store_id=eq.${storeId}`,
+      }, () => { void fetchCasts(); })
       .subscribe();
 
+    // 同期の終了時にcasts自体が変わらない場合や、リアルタイム接続の切断中も更新する。
+    const refresh = () => { if (document.visibilityState === "visible") void fetchCasts(); };
+    const timer = window.setInterval(refresh, 15_000);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
+      castsFetchSequence.current += 1;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
       supabase.removeChannel(channel);
     };
   }, [storeId, storeLoading, user?.id]);
@@ -375,8 +389,9 @@ export default function Staff() {
   }, []);
 
   const fetchCasts = async () => {
+    const sequence = ++castsFetchSequence.current;
     try {
-      const [{ data, error }, tokensResult] = await Promise.all([
+      const [{ data, error }, tokensResult, profilesResult] = await Promise.all([
         supabase
           .from('casts_admin_safe')
           .select('*')
@@ -384,6 +399,9 @@ export default function Staff() {
           .order('display_order', { ascending: true })
           .order('created_at', { ascending: false }),
         supabase.rpc('get_cast_access_tokens'),
+        supabase.from("external_cast_profiles")
+          .select("cast_id,sync_status,last_profile_hash,last_photo_hash,last_profile_sync_at,last_error")
+          .eq("store_id", storeId).eq("provider", "estama"),
       ]);
 
       if (error) throw error;
@@ -392,15 +410,22 @@ export default function Staff() {
       const tokenMap = new Map(
         (tokensResult.data || []).map((row) => [row.cast_id, row.access_token]),
       );
-      const nextCasts = (data || []).map((cast: Cast) => ({
+      // 確認結果を読めなかった場合も入力率だけで100%にはしない。
+      if (profilesResult.error) console.error("Error fetching Estama confirmation:", profilesResult.error);
+      const profiles = new Map((profilesResult.data || []).map((row) => [row.cast_id, row]));
+      const nextCasts = await Promise.all((data || []).map(async (cast: Cast) => ({
         ...cast,
         access_token: tokenMap.get(cast.id) || null,
-      })) as Cast[];
+        estamaConfirmation: profiles.get(cast.id) || null,
+        estamaFingerprint: await estamaFingerprint(cast).catch(() => null),
+      }))) as Cast[];
+      if (sequence !== castsFetchSequence.current) return;
       setCasts(nextCasts);
       setMemoTargetCastId((current) => current && !nextCasts.some((cast) => cast.id === current && cast.is_active)
         ? ""
         : current);
     } catch (error) {
+      if (sequence !== castsFetchSequence.current) return;
       console.error('Error fetching casts:', error);
       toast({
         title: "エラー",
@@ -408,7 +433,7 @@ export default function Staff() {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      if (sequence === castsFetchSequence.current) setLoading(false);
     }
   };
 
@@ -2449,7 +2474,7 @@ export default function Staff() {
               {categoryFilteredCasts.map((cast) => {
                 const checklistExpanded = expandedChecklistIds.has(cast.id);
                 const completedChecklistCount = CAST_CHECKLIST_ITEMS.filter(item => !!cast[item.field]).length;
-                const profileCompletion = castProfileCompletion(cast);
+                const profileCompletion = estamaProfileCompletion(cast, cast.estamaConfirmation, cast.estamaFingerprint);
                 const stageNamePending = isStageNamePending(cast.name);
                 return (
                   <div
@@ -2512,10 +2537,10 @@ export default function Staff() {
                           </Badge>
                         )}
                       </div>
-                      {/* プロフィールの入力状況 */}
+                      {/* 最新内容のエステ魂への反映確認を含む達成率 */}
                       <div
                         className="mt-1 flex items-center gap-2"
-                        title={profileCompletion.missing.length ? `未入力：${profileCompletion.missing.join("・")}` : "プロフィールはすべて入力済み"}
+                        title={profileCompletion.message}
                       >
                         <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
                           <div
@@ -2532,14 +2557,12 @@ export default function Staff() {
                           />
                         </div>
                         <span className={`text-[11px] font-semibold tabular-nums ${profileCompletion.percent >= 100 ? "text-emerald-700" : "text-muted-foreground"}`}>
-                          プロフィール {profileCompletion.percent}%
+                          登録・反映 {profileCompletion.percent}%
                         </span>
-                        {profileCompletion.missing.length > 0 && (
-                          <span className="hidden sm:inline truncate text-[10px] text-muted-foreground">
-                            未入力：{profileCompletion.missing.slice(0, 3).join("・")}{profileCompletion.missing.length > 3 ? ` ほか${profileCompletion.missing.length - 3}` : ""}
-                          </span>
-                        )}
                       </div>
+                      <p className={`mt-0.5 text-[10px] ${profileCompletion.confirmed ? "text-emerald-700" : "text-muted-foreground"}`}>
+                        {profileCompletion.confirmed ? "エスたま反映確認済み" : "エスたま反映確認待ち"}
+                      </p>
                     </div>
 
                     {/* 詳細へ */}
