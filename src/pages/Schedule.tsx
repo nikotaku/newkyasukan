@@ -3,12 +3,11 @@ import { ReservationCashReturns } from "@/components/ReservationCashReturns";
 import { format, addDays, subDays, addMonths, subMonths, parse, addMinutes, startOfMonth, endOfMonth, startOfWeek, eachDayOfInterval } from "date-fns";
 import { toExtTime, toStoredTime, RESERVATION_DAY_START } from "@/lib/timeFormat";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Heart, Zap, Trash2, Share2, Loader2, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, TrendingUp, Calendar as CalendarIcon, X, Pencil, Heart, Zap, Trash2, Loader2, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
 import paypayGuideUrl from "@/assets/paypay-guide.jpeg";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { TabMenu } from "@/components/TabMenu";
-import { DailyReservationTimeline } from "@/components/DailyReservationTimeline";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -37,7 +36,6 @@ import { ReservationResendDialog } from "@/components/ReservationResendDialog";
 import { therapistPortalUrl } from "@/lib/therapistNotifications";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { PaymentReminderPopup } from "@/components/PaymentReminderPopup";
-import { loadReceptionEndGuide, shareReceptionEndContent } from "@/lib/receptionEndShare";
 import { ENKA_STORE_ID } from "@/lib/storeSwitch";
 import { phoneFromCallParam } from "@/lib/incomingCall";
 import { catalogPrefill, prefillFromRequest, requestIdFromSearch, type EstamaReservationRequest, ESTAMA_REQUEST_COLUMNS } from "@/lib/estamaReservationRequests";
@@ -382,16 +380,12 @@ function StatusBox({
 export default function Schedule() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedView, setSelectedView] = useState<"cast" | "room">("cast");
   const [shifts, setShifts] = useState<(Shift & { cast: Cast })[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [monthlyTotal, setMonthlyTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [castAccessTokens, setCastAccessTokens] = useState<Record<string, string>>({});
-  const [receptionEndGuideFile, setReceptionEndGuideFile] = useState<File | null>(null);
-  const [receptionEndGuideError, setReceptionEndGuideError] = useState(false);
-  const [sharingReceptionEndCastId, setSharingReceptionEndCastId] = useState<string | null>(null);
   const [retryingNotificationId, setRetryingNotificationId] = useState<string | null>(null);
 
   // Detail/Edit sheet
@@ -485,20 +479,6 @@ export default function Schedule() {
   const enkaOptionRates = useMemo(() => forStore(optionRates, ENKA_STORE_ID), [optionRates]);
   const enkaNominationRates = useMemo(() => forStore(nominationRates, ENKA_STORE_ID), [nominationRates]);
   const enkaDiscounts = useMemo(() => forStore(discounts, ENKA_STORE_ID), [discounts]);
-
-  // iPhoneではボタン操作直後に共有画面を開く必要があるため、画像を先にFile化しておく。
-  useEffect(() => {
-    const controller = new AbortController();
-    setReceptionEndGuideError(false);
-    loadReceptionEndGuide(controller.signal)
-      .then(setReceptionEndGuideFile)
-      .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error("追加オプション入力マニュアルの読み込みに失敗しました:", error);
-        setReceptionEndGuideError(true);
-      });
-    return () => controller.abort();
-  }, []);
 
   // useShopSettings は先頭1件を返すため、営業日の境界だけは管理中の店舗を明示して取得する。
   useEffect(() => {
@@ -696,57 +676,6 @@ export default function Schedule() {
     }
     setMonthlyTotal(monthTotal);
     setLoading(false);
-  };
-
-  const shareReceptionEnd = async (castId: string) => {
-    const accessToken = castAccessTokens[castId];
-    if (!accessToken) {
-      toast({
-        title: "マイページが未発行です",
-        description: "セラピストマイページからアクセスリンクを発行してください。",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!receptionEndGuideFile) {
-      toast({
-        title: "画像マニュアルを準備できませんでした",
-        description: "画面を再読み込みして、もう一度お試しください。",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (sharingReceptionEndCastId) return;
-
-    const portalBase = adminStore?.custom_domain
-      ? `https://${adminStore.custom_domain}`
-      : (import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin);
-    const portalUrl = `${portalBase}/therapist/${encodeURIComponent(accessToken)}`;
-
-    setSharingReceptionEndCastId(castId);
-    try {
-      const result = await shareReceptionEndContent(portalUrl, receptionEndGuideFile);
-      if (result.status === "shared") {
-        toast({ title: "共有内容を送信先へ渡しました" });
-      } else if (result.status === "fallback") {
-        toast({
-          title: result.urlCopied
-            ? "ポータルURLをコピーしました"
-            : "画像マニュアルを保存しました",
-          description: result.urlCopied
-            ? "画像マニュアルも保存したので、2つを送信先へ共有してください。"
-            : "ポータルURLはコピーできなかったため、画面からコピーしてください。",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "共有画面を開けませんでした",
-        description: error instanceof Error ? error.message : "もう一度お試しください。",
-        variant: "destructive",
-      });
-    } finally {
-      setSharingReceptionEndCastId(null);
-    }
   };
 
   const dailyTotal = useMemo(() => reservations.reduce((sum, r) => sum + (r.price || 0), 0), [reservations]);
@@ -1256,12 +1185,8 @@ export default function Schedule() {
               </Button>
               <Button variant="outline" size="sm" onClick={() => setSelectedDate(new Date())}>今日</Button>
             </div>
-            {/* Row 2: view toggle + add */}
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-1">
-                <Button size="sm" variant={selectedView === "cast" ? "default" : "outline"} onClick={() => setSelectedView("cast")}>キャスト別</Button>
-                <Button size="sm" variant={selectedView === "room" ? "default" : "outline"} onClick={() => setSelectedView("room")}>ルーム別</Button>
-              </div>
+            {/* Row 2: add reservation */}
+            <div className="flex items-center justify-end gap-2 flex-wrap">
               <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
                 <SheetTrigger asChild>
                   <Button size="sm" className="bg-[#c49480] hover:bg-[#a87b65]">
@@ -1303,12 +1228,7 @@ export default function Schedule() {
             onDateChange={(dateStr) => setSelectedDate(new Date(dateStr))}
           />
 
-          {selectedView === "room" && (
-            <div className="mb-4"><DailyReservationTimeline /></div>
-          )}
-
-          {selectedView === "cast" && (
-            <>
+          <>
               {/* Sales summary */}
               <div className="grid grid-cols-2 gap-2 mb-3">
                 <Card className="p-3 flex items-center gap-2">
@@ -1328,91 +1248,6 @@ export default function Schedule() {
                   </div>
                 </Card>
               </div>
-
-              {/* セラピストへの受付終了連絡 */}
-              {isAdmin && (
-                <Card className="p-3 mb-3">
-                  <div className="flex items-start gap-2 mb-3">
-                    <Share2 size={16} className="text-primary mt-0.5 shrink-0" />
-                    <div>
-                      <h2 className="text-sm font-bold">受付終了連絡</h2>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        iPhoneの共有画面から送信先を選び、ポータルURLと画像マニュアルを共有します。
-                      </p>
-                      {receptionEndGuideError && (
-                        <p className="text-[11px] text-rose-700 mt-1">
-                          画像マニュアルを読み込めませんでした。画面を再読み込みしてください。
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {loading ? (
-                    <div className="py-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                      <Loader2 size={14} className="animate-spin" />読み込み中...
-                    </div>
-                  ) : castRows.length === 0 ? (
-                    <p className="py-3 text-center text-xs text-muted-foreground">この日の出勤セラピストはいません</p>
-                  ) : (
-                    <div className="divide-y rounded-lg border">
-                      {castRows.map(({ cast, shift }) => {
-                        const hasPortal = !!castAccessTokens[cast.id];
-                        const isSharing = sharingReceptionEndCastId === cast.id;
-                        const isGuidePreparing = !receptionEndGuideFile && !receptionEndGuideError;
-                        return (
-                          <div key={cast.id} className="p-2.5 flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-                            {cast.photo ? (
-                              <img src={cast.photo} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
-                            ) : (
-                              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold shrink-0">
-                                {cast.name.charAt(0)}
-                              </div>
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <p className="text-sm font-semibold truncate">{cast.name}</p>
-                                <RoomBadges rooms={castRoomMap.get(cast.id) ?? []} />
-                              </div>
-                              <p className="text-[11px] text-muted-foreground">
-                                {shift
-                                  ? `${toExtTime(shift.start_time)}〜${toExtTime(shift.end_time)}`
-                                  : "シフト未登録（予約あり）"}
-                              </p>
-                              {shift && formatShiftBreak(shift) && (
-                                <p className="text-[11px] text-amber-700">☕ {formatShiftBreak(shift)}</p>
-                              )}
-                              {!hasPortal && (
-                                <p className="text-[11px] text-amber-700 mt-0.5">
-                                  マイページ未発行
-                                </p>
-                              )}
-                            </div>
-                            <Button
-                              type="button"
-                              size="sm"
-                              className="h-8 text-xs shrink-0"
-                              disabled={
-                                !hasPortal
-                                || !receptionEndGuideFile
-                                || !!sharingReceptionEndCastId
-                              }
-                              onClick={() => shareReceptionEnd(cast.id)}
-                            >
-                              {isSharing ? (
-                                <><Loader2 size={13} className="mr-1.5 animate-spin" />共有中...</>
-                              ) : isGuidePreparing ? (
-                                <><Loader2 size={13} className="mr-1.5 animate-spin" />準備中...</>
-                              ) : (
-                                <><Share2 size={13} className="mr-1.5" />受付終了連絡</>
-                              )}
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </Card>
-              )}
 
               {/* 最短ご案内時間 */}
               {earliestSlots.length > 0 && (
@@ -1727,8 +1562,7 @@ export default function Schedule() {
                   </div>
                 ))}
               </div>
-            </>
-          )}
+          </>
         </div>
 
         <footer className="py-4 px-4">
