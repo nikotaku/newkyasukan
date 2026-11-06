@@ -244,7 +244,7 @@ function PasswordControl({
 }
 
 // 教育パネル（/education?tab=sns）のタブとして表示する。以前の /marketing/o2 はそこへ転送する
-export default function O2Management() {
+export default function O2Management({ castId, onSaved }: { castId?: string; onSaved?: () => void } = {}) {
   const [rows, setRows] = useState<O2Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -285,9 +285,9 @@ export default function O2Management() {
     if (error) toast.error(error.message);
     if (activeCastsError) toast.error(activeCastsError.message);
     const activeCastIds = new Set((activeCasts || []).map((cast) => cast.id));
-    setRows(((data || []) as O2Row[]).filter((row) => activeCastIds.has(row.cast_id)));
+    setRows(((data || []) as O2Row[]).filter((row) => castId ? row.cast_id === castId : activeCastIds.has(row.cast_id)));
     setLoading(false);
-  }, [storeId, storeLoading, user]);
+  }, [storeId, storeLoading, user, castId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -596,6 +596,7 @@ export default function O2Management() {
         action: { label: "セラピストに通知", onClick: () => void notifySnsReady(savedRow) },
       } : undefined);
       await load();
+      onSaved?.();
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -609,6 +610,7 @@ export default function O2Management() {
     <div>
       <div className="overflow-x-hidden">
         <div className="max-w-6xl mx-auto space-y-5">
+          {!castId && <>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div><h2 className="text-lg font-bold">O2・X・魂セラピスト連携管理</h2><p className="text-sm text-muted-foreground">{store?.name || "店舗"}のセラピスト別アカウントと公開プロフィールを管理</p></div>
             <div className="flex flex-wrap gap-2">
@@ -634,7 +636,9 @@ export default function O2Management() {
 
           <O2StoreAvailabilitySettings />
 
-          <div className="grid gap-3 md:hidden">
+          </>}
+
+          <div className={castId ? "grid gap-3" : "grid gap-3 md:hidden"}>
             {loading ? <div className="rounded-xl border bg-card py-16 text-center"><Loader2 className="inline-block animate-spin text-primary" /></div> : rows.length === 0 ? <div className="rounded-xl border bg-card py-12 text-center text-muted-foreground">セラピストがいません</div> : rows.map((row) => (
               <div key={row.cast_id} className="rounded-xl border bg-card p-4 space-y-3">
                 <div className="flex items-center justify-between gap-3">
@@ -671,7 +675,7 @@ export default function O2Management() {
             ))}
           </div>
 
-          <div className="hidden md:block border rounded-xl bg-card overflow-hidden">
+          <div className={castId ? "hidden" : "hidden md:block border rounded-xl bg-card overflow-hidden"}>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1080px] text-sm">
                 <thead className="bg-muted/60 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">セラピスト</th><th className="px-3 py-3">媒体連携</th><th className="px-3 py-3">O2作成</th><th className="px-3 py-3">店舗連携</th><th className="px-3 py-3">直近投稿</th><th className="px-3 py-3">エラー</th><th className="px-4 py-3 text-right">操作</th></tr></thead>
