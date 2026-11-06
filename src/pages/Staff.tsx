@@ -26,7 +26,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getEstamaJobStatus, runEstamaCastAutomation, startEstamaCastAutomation, startEstamaProfileSync, type EstamaJobStatus } from "@/lib/estamaAutomation";
 import { getCastBookingUrl, getCustomDomainBaseUrl } from "@/lib/bookingUrl";
-import { ESTHE_RANKING_ACTIVE } from "@/lib/mediaRegistration";
+import O2Management from "@/pages/O2Management";
 import { CastBannerAssetsEditor } from "@/components/CastBannerAssetsEditor";
 import { CAST_PROFILE_ITEMS, castAdminLabel, castProfileCompletion, isStageNamePending, PENDING_STAGE_NAME } from "@/lib/castProfileCompletion";
 import { estamaFingerprint, estamaProfileCompletion, type EstamaConfirmation, type EstamaFingerprint } from "@/lib/estamaProfileCompletion";
@@ -182,30 +182,6 @@ interface Cast {
   management_photos: string[] | null;
 }
 
-type CastChecklistField =
-  | "estama_listed"
-  | "esuran_listed"
-  | "o2_created"
-  | "o2_linkage_requested"
-  | "x_created"
-  | "x_list_added"
-  | "x_ff_completed"
-  | "self_intro_tweeted";
-
-const ALL_CAST_CHECKLIST_ITEMS: readonly { field: CastChecklistField; label: string }[] = [
-  { field: "estama_listed", label: "エスたまに登録" },
-  { field: "esuran_listed", label: "エスランに登録" },
-  { field: "o2_created", label: "02の作成" },
-  { field: "o2_linkage_requested", label: "02の連携申請" },
-  { field: "x_created", label: "Xの作成" },
-  { field: "x_list_added", label: "Xのリスト入り" },
-  { field: "x_ff_completed", label: "XのFF" },
-  { field: "self_intro_tweeted", label: "自己紹介ツイート" },
-];
-
-// エスランは掲載していない間は出さない（ESTHE_RANKING_ACTIVE）
-const CAST_CHECKLIST_ITEMS = ALL_CAST_CHECKLIST_ITEMS.filter((item) => ESTHE_RANKING_ACTIVE || item.field !== "esuran_listed");
-
 interface ReferralReward {
   id: string;
   name: string;
@@ -293,7 +269,6 @@ export default function Staff() {
   // フォーム用の状態
   const [formData, setFormData] = useState({ ...emptyForm });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [expandedChecklistIds, setExpandedChecklistIds] = useState<Set<string>>(new Set());
   const [estamaDialogOpen, setEstamaDialogOpen] = useState(false);
   const [estamaScript, setEstamaScript] = useState("");
   const [estamaData, setEstamaData] = useState("");
@@ -465,15 +440,6 @@ export default function Staff() {
 
   const isSbLinked = (cast: Cast) => Boolean(cast.referral_reward_id);
 
-  const toggleChecklistSection = (castId: string) => {
-    setExpandedChecklistIds(prev => {
-      const next = new Set(prev);
-      if (next.has(castId)) next.delete(castId);
-      else next.add(castId);
-      return next;
-    });
-  };
-
   const handleSetLevelTag = async (castId: string, level: LevelTag | "") => {
     const cast = casts.find(c => c.id === castId);
     if (!cast) return;
@@ -484,17 +450,6 @@ export default function Staff() {
     const { error } = await supabase.from('casts').update({ tags: newTags }).eq('id', castId);
     if (error) {
       toast({ title: "エラー", description: "レベルの更新に失敗しました", variant: "destructive" });
-      fetchCasts();
-    }
-  };
-
-  // セラピスト登録・SNS準備のチェック状況を一覧から即切り替え。
-  const toggleChecklist = async (castId: string, field: CastChecklistField, next: boolean) => {
-    setCasts(prev => prev.map(c => c.id === castId ? { ...c, [field]: next } : c));
-    setEditingCast(prev => prev && prev.id === castId ? { ...prev, [field]: next } : prev);
-    const { error } = await supabase.from("casts").update({ [field]: next } as any).eq("id", castId);
-    if (error) {
-      toast({ title: "エラー", description: "チェック状況の更新に失敗しました", variant: "destructive" });
       fetchCasts();
     }
   };
@@ -802,14 +757,9 @@ export default function Staff() {
         profile: editingCast.therapist_comment || editingCast.profile || null,
         photo: photos.length > 0 ? photos[0] : null,
         photos: photos.length > 0 ? photos : null,
-        x_account: editingCast.x_account || null,
         message: editingCast.message || null,
         line_url: editingCast.line_url || null,
         litlink_url: editingCast.litlink_url || null,
-        o2_url: editingCast.o2_url || null,
-        o2_login_url: editingCast.o2_login_url || 'https://m-sns.net/cast/login/',
-        o2_login_email: editingCast.o2_login_email || null,
-        o2_login_id: editingCast.o2_login_id || null,
         hp_notice: editingCast.hp_notice || null,
         therapist_years: editingCast.therapist_years || null,
         new_customer_max_minutes: editingCast.new_customer_max_minutes || null,
@@ -879,7 +829,6 @@ export default function Staff() {
         celebrity_like: editingCast.celebrity_like || null,
         uses_sns: editingCast.uses_sns || false,
         blog_url: editingCast.blog_url || null,
-        estama_profile_url: editingCast.estama_profile_url || null,
         skebiy_url: editingCast.skebiy_url || null,
         instagram_url: editingCast.instagram_url || null,
         profile_format: editingCast.profile_format || null,
@@ -1921,6 +1870,7 @@ export default function Staff() {
                       <TabsTrigger value="interview" className="flex-1">インタビュー</TabsTrigger>
                       <TabsTrigger value="photos" className="flex-1">写真</TabsTrigger>
                       <TabsTrigger value="comments" className="flex-1">コメント</TabsTrigger>
+                      <TabsTrigger value="sns" className="flex-1">02・X・魂セラピスト</TabsTrigger>
                       <TabsTrigger value="mgmt" className="flex-1">管理</TabsTrigger>
                     </TabsList>
 
@@ -2014,7 +1964,7 @@ export default function Staff() {
                       </div>
 
 
-                      {/* ブログ・SNSは別メニュー(SNS連携管理)に統合済みのため、この画面には表示しない */}
+                      {/* 02・X・魂セラピストは同じ詳細画面の専用タブで設定する */}
                     </TabsContent>
 
                     <TabsContent value="interview" className="space-y-5 pb-4">
@@ -2241,6 +2191,10 @@ export default function Staff() {
                       </div>
                     </TabsContent>
 
+                    <TabsContent value="sns" className="pb-4">
+                      <O2Management castId={editingCast.id} onSaved={() => { void fetchCasts(); }} />
+                    </TabsContent>
+
                     <TabsContent value="mgmt" className="space-y-4 pb-4">
                       {/* ステータス・リンク・アーカイブ・削除 */}
                       {isAdmin && (
@@ -2315,7 +2269,7 @@ export default function Staff() {
                         </Button>
                       </div>
 
-                      {/* 口コミ(O2)URL・エステ魂写メ日記・02アカウント案内は別メニュー(SNS連携管理等)に統合済みのため、この画面には表示しない */}
+                      {/* 媒体のログイン情報は02・X・魂セラピストタブで設定する */}
 
                       <div className="border rounded-lg p-4 space-y-3">
                         <Label className="font-semibold">管理情報</Label>
@@ -2400,11 +2354,11 @@ export default function Staff() {
                   </Tabs>
 
                   {/* 保存はどのタブからでも押せるよう下に固定 */}
-                  <div className="sticky bottom-0 -mx-6 -mb-6 mt-4 border-t bg-background/95 px-6 py-3 backdrop-blur">
+                  {editTab !== "sns" && <div className="sticky bottom-0 -mx-6 -mb-6 mt-4 border-t bg-background/95 px-6 py-3 backdrop-blur">
                     <Button onClick={handleUpdateCast} disabled={bannerBusy} className="w-full">
                       {bannerBusy ? "バナーの処理中…" : "保存する"}
                     </Button>
-                  </div>
+                  </div>}
                 </DialogContent>
               </Dialog>
             )}
@@ -2472,8 +2426,6 @@ export default function Staff() {
             {/* Cast List */}
             <div className="space-y-1">
               {categoryFilteredCasts.map((cast) => {
-                const checklistExpanded = expandedChecklistIds.has(cast.id);
-                const completedChecklistCount = CAST_CHECKLIST_ITEMS.filter(item => !!cast[item.field]).length;
                 const profileCompletion = estamaProfileCompletion(cast, cast.estamaConfirmation, cast.estamaFingerprint);
                 const stageNamePending = isStageNamePending(cast.name);
                 return (
@@ -2569,49 +2521,7 @@ export default function Staff() {
                     <ChevronRight size={16} className="flex-shrink-0 text-muted-foreground" />
                   </div>
 
-                  {/* 登録・SNS準備チェック（開閉式） */}
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between border-t px-3 py-2 text-left text-xs text-muted-foreground hover:bg-muted/40"
-                    onClick={(e) => { e.stopPropagation(); toggleChecklistSection(cast.id); }}
-                    aria-expanded={checklistExpanded}
-                    aria-controls={`cast-checklist-${cast.id}`}
-                  >
-                    <span className="font-semibold">登録・SNS準備 {completedChecklistCount}/{CAST_CHECKLIST_ITEMS.length}</span>
-                    {checklistExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-                  </button>
 
-                  {checklistExpanded && (
-                    <div id={`cast-checklist-${cast.id}`} className="flex flex-wrap gap-1.5 px-3 pb-3">
-                      {CAST_CHECKLIST_ITEMS.map((item) => {
-                        const on = !!cast[item.field];
-                        return (
-                          <button
-                            key={item.field}
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); toggleChecklist(cast.id, item.field, !on); }}
-                            title={on ? `${item.label}済み（タップで解除）` : `${item.label}未完了（タップで完了）`}
-                            aria-pressed={on}
-                            className={`inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border font-semibold transition-colors ${
-                              on
-                            ? "bg-emerald-100 text-emerald-700 border-emerald-300"
-                            : "bg-muted text-muted-foreground border-transparent hover:border-border"
-                            }`}
-                          >
-                            <span className={on ? "" : "opacity-40"}>{on ? "✅" : "⬜️"}</span>
-                            <span>{item.label}</span>
-                          </button>
-                        );
-                      })}
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); navigate("/education?tab=media"); }}
-                        className="text-[10px] px-2 py-1 text-primary underline-offset-2 hover:underline"
-                      >
-                        全員の登録状況を一覧で見る →
-                      </button>
-                    </div>
-                  )}
                 </div>
                 );
               })}
