@@ -131,7 +131,12 @@ const groupPostingTasks = (tasks: PromotionTask[]) =>
     if (existing) existing.tasks.push(task);
     else groups.push({ key, date: task.scheduled_on, label: task.group_label, tasks: [task] });
     return groups;
-  }, []);
+  }, []).sort((a, b) => {
+    // 掲載順や完了状態より告知日を優先し、日付未定は末尾へ。
+    if (!a.date) return b.date ? 1 : 0;
+    if (!b.date) return -1;
+    return a.date.localeCompare(b.date);
+  });
 
 const toLocalDateString = (offsetDays = 0) => {
   const date = new Date();
