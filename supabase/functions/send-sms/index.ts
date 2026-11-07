@@ -2,6 +2,7 @@
 // リクエスト(JSON):
 //   { reservation_id } / { reservation_id, template_id } / { to, body, store_id? }
 //   { reservation_id, to, preview_only? } … 予約内容で本文を作り、別の宛先へ送る（予約は送信済みにしない）
+//   { action: "reservation_reminder", reminder_reservation_id } … 前日リマインド（内部専用）
 //   { action: "numbers" }   … 番号一覧
 //   { action: "configure" } … SMS対応番号の受信Webhookをsms-webhookに設定
 // テンプレ変数は template.ts を参照（{guide_url} は予約ごとの案内ページ /g/:token）。
@@ -145,6 +146,8 @@ async function buildVars(r: Record<string, any>) {
   } as Record<string, string>;
 }
 
+const ENKA_STORE_ID = "404499ab-5350-490f-9608-5814faffda6f";
+const REMINDER_TPL = "艶華です。明日{date_long} {time}からご予約を承っています。変更の際はお早めにご連絡ください。";
 const DEFAULT_TPL = "{name}様\nご予約を承りました。\n{date} {time}〜 {course}\nご来店をお待ちしております。";
 
 Deno.serve(async (req) => {
@@ -170,10 +173,17 @@ Deno.serve(async (req) => {
       return json({ results });
     }
 
+    const isReminder = input.action === "reservation_reminder";
+    if (isReminder && caller.kind !== "internal") return json({ error: "権限がありません" }, 403);
+    if (isReminder && !/^[0-9a-f-]{36}$/i.test(input.reminder_reservation_id || "")) {
+      return json({ error: "invalid reservation id" }, 400);
+    }
+
+    let reminderKey: string | null = null;
     let to: string = input.to || "";
     let body: string = input.body || "";
     let storeId: string | null = input.store_id || null;
-    const reservationId: string | null = input.reservation_id || null;
+    const reservationId: string | null = (isReminder ? input.reminder_reservation_id : input.reservation_id) || null;
     let templateId: string | null = input.template_id || null;
     let customerId: string | null = input.customer_id || null;
     const redirected = !!(reservationId && input.to);
@@ -183,7 +193,16 @@ Deno.serve(async (req) => {
       if (!r) return json({ error: "reservation not found" }, 404);
       storeId = r.store_id;
       to = to || r.customer_phone;
-      if (!body) {
+      if (isReminder) {
+        const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+        if (storeId !== ENKA_STORE_ID || r.status !== "confirmed" || r.reservation_date !== tomorrow ||
+            !r.start_time || !toE164(r.customer_phone)) return json({ ok: true, skipped: true });
+        to = r.customer_phone;
+        templateId = null;
+        customerId = null;
+        reminderKey = `${r.id}/${r.reservation_date}/${r.start_time}`;
+        body = fillTemplate(REMINDER_TPL, await buildVars(r));
+      } else if (!body) {
         let tpl = DEFAULT_TPL;
         const q = templateId
           ? `sms_auto_templates?id=eq.${templateId}&store_id=eq.${r.store_id}&select=id,message`
@@ -209,13 +228,18 @@ Deno.serve(async (req) => {
     }
 
     const fromNum = TW_MSID ? null : await resolveFrom();
-    const [log] = await sb("sms_logs", {
+    // リマインドは確定SMSの送信状態と分けて記録する。
+    const [log] = await sb(isReminder ? "sms_logs?on_conflict=reservation_reminder_key" : "sms_logs", {
       method: "POST",
+      ...(isReminder ? { headers: { Prefer: "resolution=ignore-duplicates,return=representation" } } : {}),
       body: JSON.stringify({
-        store_id: storeId, reservation_id: redirected ? null : reservationId, template_id: templateId,
+        store_id: storeId, reservation_id: redirected || isReminder ? null : reservationId, template_id: templateId,
+        ...(isReminder ? { reservation_reminder_key: reminderKey } : {}),
         to_number: toE, from_number: fromNum, body, direction: "outbound", customer_id: customerId,
       }),
     });
+
+    if (isReminder && !log) return json({ ok: true, skipped: true });
 
     const form = new URLSearchParams({ To: toE, Body: body, StatusCallback: WEBHOOK_URL });
     if (TW_MSID) form.set("MessagingServiceSid", TW_MSID); else form.set("From", fromNum!);
@@ -236,7 +260,7 @@ Deno.serve(async (req) => {
         error_code: ok ? null : String(res.code ?? ""), error_message: ok ? null : res.message ?? null, updated_at: now,
       }),
     });
-    if (reservationId && !redirected) {
+    if (reservationId && !redirected && !isReminder) {
       await sb(`reservations?id=eq.${reservationId}`, {
         method: "PATCH",
         body: JSON.stringify({ sms_notification_status: ok ? "sent" : "failed", sms_notification_sent_at: ok ? now : null }),
