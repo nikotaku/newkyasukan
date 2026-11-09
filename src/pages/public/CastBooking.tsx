@@ -1,3 +1,7 @@
+import {
+  DOUBLE_COURSE_TYPE, DOUBLE_NOMINATION_TYPE, DOUBLE_OPTION_LABELS, DOUBLE_OPTION_NAMES,
+  isDoubleBookingCourse,
+} from "@/lib/doubleBookingMenu";
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { format, addDays } from "date-fns";
@@ -79,7 +83,9 @@ const TIME_OPTIONS = buildTimeOptions(13 * 60, 25 * 60);
 // オプションの内容説明（空文字の間は表示しない）
 const OPTION_DESCRIPTIONS: Record<string, string> = {
   "全力PKG": "極液・DR30分・マイクロビキニが全てセットになったお得なパッケージ。\n迷ったらこれを入れておけば間違いナシです‼︎",
+  "オプションパック-双艶-": "極液・マイクロ・Wハンドリンパ",
   "全力PKG1W": "極液・マイクロ・Wハンドリンパ",
+  "オプションパック-艶結-": "極液・カルバンクライン",
   "全力PKG2W": "極液・カルバンクライン",
 };
 
@@ -88,7 +94,7 @@ const W_OPTION_DISPLAY_NAMES: Record<string, string> = {
   "全力PKG2W": "艶結 -えんむすび-",
 };
 
-const getOptionDisplayName = (name: string) => W_OPTION_DISPLAY_NAMES[name] ?? name;
+const getOptionDisplayName = (name: string) => DOUBLE_OPTION_LABELS[name] ?? W_OPTION_DISPLAY_NAMES[name] ?? name;
 
 // Wセラピスト（2人同時施術）専用の料金体系。
 // ペア名義のキャスト（名前に「&」を含む）の専用フォームだけに表示し、
@@ -126,8 +132,11 @@ export default function CastBooking() {
   const [error, setError] = useState("");
 
   // ペア名義（Wセラピスト）のフォームかどうか
-  const isPairCast = !!cast?.name && /[&＆]/.test(cast.name);
   const isRirikaMomoka = isRirikaMomokaCampaign(cast?.id);
+  const isPairCast = isRirikaMomoka || (!!cast?.name && /[&＆]/.test(cast.name));
+  const pairCourseType = isRirikaMomoka ? DOUBLE_COURSE_TYPE : W_COURSE_TYPE;
+  const pairOptionNames = isRirikaMomoka ? DOUBLE_OPTION_NAMES : W_OPTION_NAMES;
+  const nominationType = isRirikaMomoka ? DOUBLE_NOMINATION_TYPE : "本指名";
   const showsKayamaNoaPromotion = hasKayamaNoaBookingPromotion(cast?.id);
 
   useEffect(() => {
@@ -202,47 +211,42 @@ export default function CastBooking() {
   // 料金データはキャスト判明後に取得（ペア名義はWコースのみ／通常キャストは既存コースのみ）
   useEffect(() => {
     if (!cast || storeLoading) return;
-    const pair = /[&＆]/.test(cast.name);
-    if (pair) {
-      // Wコースは is_visible=false のため RPC には載らず、直接参照する
-      supabase.from("back_rates").select("course_type, duration, customer_price")
-        .eq("course_type", W_COURSE_TYPE).eq("store_id", storeId).order("duration").then(({ data }) => {
-          const rates = (data || []) as BackRate[];
-          setBackRates(rates);
-          if (rates[0]) {
-            setCourseType(W_COURSE_TYPE);
-            setDuration(rates[0].duration);
-          }
-        });
-      supabase.from("option_rates").select("option_name, customer_price, display_order")
-        .in("option_name", W_OPTION_NAMES).eq("store_id", storeId).order("display_order").then(({ data }) => {
-          setOptionRates((data || []) as OptionRate[]);
-        });
-    } else {
-      supabase.rpc("get_public_back_rates", { p_store_id: storeId }).then(({ data }) => {
-        const rates = ((data || []) as BackRate[]).filter((r) => r.course_type !== W_COURSE_TYPE);
-        setBackRates(rates);
-        // おすすめの全力コース80分を初期選択（誘導）。無ければ先頭コース。
-        const zenryoku80 = rates.find((r) => r.course_type === "全力" && r.duration === 80);
-        if (zenryoku80) {
-          setCourseType("全力");
-          setDuration(80);
-        } else if (rates[0]) {
-          setCourseType(rates[0].course_type);
-          setDuration(rates[0].duration);
-        }
-      });
-      supabase.from("option_rates").select("option_name, customer_price, display_order")
-        .eq("store_id", storeId).order("display_order").then(({ data }) => {
-          setOptionRates(((data || []) as OptionRate[]).filter((o) => !W_OPTION_NAMES.includes(o.option_name)));
-        });
-    }
-    supabase.from("nomination_rates").select("nomination_type, customer_price").eq("store_id", storeId).then(({ data }) => {
-      // 専用予約ページは指名前提のため、本指名料（2,000円）を最初から含める
-      const hon = (data || []).find((n) => n.nomination_type === "本指名");
-      if (hon) setNominationFee(hon.customer_price ?? 0);
+    let cancelled = false;
+    setBackRates([]);
+    setOptionRates([]);
+    setSelectedOptions([]);
+    setNominationFee(0);
+
+    const courseRequest = isPairCast
+      ? supabase.from("back_rates").select("course_type, duration, customer_price")
+        .eq("course_type", pairCourseType).eq("store_id", cast.store_id).order("duration")
+      : supabase.rpc("get_public_back_rates", { p_store_id: cast.store_id });
+
+    const storeOptions = supabase.from("option_rates").select("option_name, customer_price, display_order")
+      .eq("store_id", cast.store_id).order("display_order");
+
+    void Promise.all([
+      courseRequest,
+      isPairCast ? storeOptions.in("option_name", pairOptionNames) : storeOptions,
+      supabase.from("nomination_rates").select("nomination_type, customer_price")
+        .eq("store_id", cast.store_id).eq("nomination_type", nominationType).maybeSingle(),
+    ]).then(([courses, options, nomination]) => {
+      if (cancelled) return;
+      const rates = ((courses.data ?? []) as BackRate[]).filter((rate) =>
+        isRirikaMomoka ? isDoubleBookingCourse(rate)
+          : isPairCast || ![W_COURSE_TYPE, DOUBLE_COURSE_TYPE].includes(rate.course_type),
+      );
+      const preferredRate = rates.find((rate) => rate.course_type === "全力" && rate.duration === 80) ?? rates[0];
+      setBackRates(rates);
+      setCourseType(preferredRate?.course_type ?? "");
+      setDuration(preferredRate?.duration ?? 0);
+      setOptionRates((options.data ?? []).filter(({ option_name }) =>
+        isPairCast || ![...W_OPTION_NAMES, ...DOUBLE_OPTION_NAMES].includes(option_name),
+      ));
+      setNominationFee(nomination.data?.customer_price ?? 0);
     });
-  }, [cast, storeId, storeLoading]);
+    return () => { cancelled = true; };
+  }, [cast, storeLoading, isPairCast, isRirikaMomoka, pairCourseType, pairOptionNames, nominationType]);
 
   const courseTypes = [...new Set(backRates.map((r) => r.course_type))];
   const durationsFor = (ct: string) =>
@@ -279,7 +283,11 @@ export default function CastBooking() {
     if (isRirikaMomoka && !campaignDate) { setError("11月17日または18日を選んでね"); return; }
     if (!time) { setError("希望時間を選んでね"); return; }
     if (!selectedTime) { setError("選べる時間の中から希望時間を選んでね"); return; }
-    if (!courseType || !duration) { setError("コースを選んでね"); return; }
+    if (coursePrice <= 0 || (isRirikaMomoka && courseType !== DOUBLE_COURSE_TYPE) ||
+      selectedOptions.some((name) => !optionRates.some((rate) => rate.option_name === name))) {
+      setError("コースとオプションを選び直してね");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -307,7 +315,7 @@ export default function CastBooking() {
         course_type: courseType,
         course_name: courseName,
         options: selectedOptions.length > 0 ? selectedOptions : null,
-        nomination_type: "本指名",
+        nomination_type: nominationType,
         price: total,
         payment_method: "cash",
         notes: notes.trim() || null,
@@ -447,12 +455,12 @@ export default function CastBooking() {
               </div>
               <div className="mt-5 space-y-3">
                 {[
-                  { option: "全力PKG1W", title: "双艶 -そうえん-", subtitle: "極液・マイクロ・Wハンドリンパ", caption: "W施術の魅力を存分に味わいたい方へ", recommended: true },
-                  { option: "全力PKG2W", title: "艶結 -えんむすび-", subtitle: "極液・カルバンクライン", caption: "いつもとは違う特別感を求める方へ", recommended: false },
+                  { option: DOUBLE_OPTION_NAMES[0], title: "双艶（そうえん）", subtitle: "極液・マイクロ・Wハンドリンパ", caption: "W施術の魅力を存分に味わいたい方へ", recommended: true },
+                  { option: DOUBLE_OPTION_NAMES[1], title: "艶結（ゆいえん）", subtitle: "極液・カルバンクライン", caption: "いつもとは違う特別感を求める方へ", recommended: false },
                 ].map((recommendation) => {
                   const option = optionRates.find((item) => item.option_name === recommendation.option);
-                  const course = backRates.find((item) => item.course_type === W_COURSE_TYPE && item.duration === 100)
-                    ?? backRates.find((item) => item.course_type === W_COURSE_TYPE);
+                  const course = backRates.find((item) => item.course_type === pairCourseType && item.duration === 100)
+                    ?? backRates.find((item) => item.course_type === pairCourseType);
                   if (!option || !course) return null;
                   const finalPrice = course.customer_price + option.customer_price + nominationFee;
                   return (
@@ -469,7 +477,7 @@ export default function CastBooking() {
                       </div>
                       <a
                         href="#booking-form"
-                        onClick={() => { setCourseType(W_COURSE_TYPE); setDuration(course.duration); setSelectedOptions([recommendation.option]); }}
+                        onClick={() => { setCourseType(pairCourseType); setDuration(course.duration); setSelectedOptions([recommendation.option]); }}
                         className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-[#e4bc84] px-4 py-3 text-sm font-bold text-[#f6d6a8] transition hover:bg-[#47303a]"
                       >
                         この組み合わせで予約へ <ArrowDown size={16} />
@@ -706,7 +714,7 @@ export default function CastBooking() {
 
               {/* 目玉パッケージ：おすすめとして最上部に大きく表示（Wフォームは全力PKG1W） */}
               {(() => {
-                const featuredNames = isPairCast ? W_OPTION_NAMES : ["全力PKG"];
+                const featuredNames = isPairCast ? pairOptionNames : ["全力PKG"];
                 return featuredNames.map((fname, i) => {
                   const pkg = optionRates.find((o) => o.option_name === fname);
                   if (!pkg) return null;
@@ -747,7 +755,7 @@ export default function CastBooking() {
               {/* その他オプション */}
               <div className="flex flex-wrap gap-2">
                 {[...optionRates]
-                  .filter((o) => o.option_name !== "全力PKG" && !(isPairCast && W_OPTION_NAMES.includes(o.option_name)))
+                  .filter((o) => o.option_name !== "全力PKG" && !(isPairCast && pairOptionNames.includes(o.option_name)))
                   .sort((a, b) => optionSortKey(a.option_name) - optionSortKey(b.option_name) || a.display_order - b.display_order)
                   .map((o) => {
                   const on = selectedOptions.includes(o.option_name);
