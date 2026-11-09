@@ -1,3 +1,8 @@
+import {
+  DOUBLE_COURSE_TYPE, DOUBLE_NOMINATION_TYPE, DOUBLE_OPTION_LABELS, DOUBLE_OPTION_NAMES,
+  isDoubleBookingCourse,
+} from "@/lib/doubleBookingMenu";
+import { isRirikaMomokaCampaign } from "@/lib/ririkaMomokaCampaign";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { addDays, format } from "date-fns";
@@ -142,8 +147,9 @@ const BookingReservation = () => {
   const [bottomTab, setBottomTab] = useState<BottomTab>("select");
   const [banners, setBanners] = useState<Banner[]>([]);
   const [casts, setCasts] = useState<Cast[]>([]);
-  const [backRates, setBackRates] = useState<BackRate[]>([]);
-  const [optionRates, setOptionRates] = useState<OptionRate[]>([]);
+  const [regularBackRates, setBackRates] = useState<BackRate[]>([]);
+  const [doubleBackRates, setDoubleBackRates] = useState<BackRate[]>([]);
+  const [allOptionRates, setOptionRates] = useState<OptionRate[]>([]);
   const [nominationRates, setNominationRates] = useState<NominationRate[]>([]);
   const [publicCoupons, setPublicCoupons] = useState<PublicCoupon[]>([]);
   const [selectedCouponId, setSelectedCouponId] = useState<string>("");
@@ -180,7 +186,7 @@ const BookingReservation = () => {
   const [duration, setDuration] = useState<number>(80);
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [selectedDROption, setSelectedDROption] = useState<string>("none");
-  const [nominationType, setNominationType] = useState<string>("none");
+  const [regularNominationType, setNominationType] = useState<string>("none");
   const [customerName, setCustomerName] = useState<string>("");
   const [customerFurigana, setCustomerFurigana] = useState<string>("");
   const [customerPhone, setCustomerPhone] = useState<string>("");
@@ -309,6 +315,31 @@ const BookingReservation = () => {
     }
   }, [casts]);
 
+  const isDoubleBooking = isRirikaMomokaCampaign(selectedCastId);
+  const backRates = isDoubleBooking ? doubleBackRates : regularBackRates;
+  const optionRates = allOptionRates.filter(({ option_name }) =>
+    isDoubleBooking ? DOUBLE_OPTION_NAMES.includes(option_name)
+      : !DOUBLE_OPTION_NAMES.includes(option_name) && !["全力PKG1W", "全力PKG2W"].includes(option_name),
+  );
+  const nominationType = isDoubleBooking ? DOUBLE_NOMINATION_TYPE : regularNominationType;
+  const selectedCourse = backRates.find((rate) => rate.course_type === courseType && rate.duration === duration);
+  const unassignedCast = casts.find((cast) => !isRirikaMomokaCampaign(cast.id));
+
+  useEffect(() => {
+    const preferredRate = backRates.find((rate) => rate.course_type === "艶華" && rate.duration === 80)
+      ?? backRates.find((rate) => rate.course_type === "全力" && rate.duration === 80)
+      ?? backRates.find((rate) => rate.duration === 80)
+      ?? backRates[0];
+    setCourseType(preferredRate?.course_type ?? "");
+    setDuration(preferredRate?.duration ?? 80);
+  }, [backRates]);
+
+  useEffect(() => {
+    setSelectedOptions([]);
+    setSelectedDROption("none");
+    setSelectedCouponId("");
+  }, [isDoubleBooking]);
+
   // Fetch shifts and reservations when date or cast changes
   useEffect(() => {
     if (selectedDate && selectedCastId) {
@@ -330,12 +361,7 @@ const BookingReservation = () => {
     let price = 0;
 
     // Base course price
-    const matchingRate = backRates.find(
-      rate => rate.course_type === courseType && rate.duration === duration
-    );
-    if (matchingRate) {
-      price += matchingRate.customer_price;
-    }
+    price += selectedCourse?.customer_price ?? 0;
 
     // Add options
     selectedOptions.forEach(optionName => {
@@ -370,7 +396,7 @@ const BookingReservation = () => {
   const selectedCoupon = publicCoupons.find((coupon) => coupon.id === selectedCouponId) ?? null;
 
   const isAdvanceCouponEligible = (coupon: PublicCoupon | null = selectedCoupon) => {
-    if (!coupon) return false;
+    if (!coupon || isDoubleBooking) return false;
     const today = Date.parse(`${tokyoToday()}T00:00:00Z`);
     const reservationDay = Date.parse(`${format(selectedDate, "yyyy-MM-dd")}T00:00:00Z`);
     const advanceDays = Math.floor((reservationDay - today) / 86_400_000);
@@ -409,6 +435,7 @@ const BookingReservation = () => {
 
   // 顧客DBを参照して本指名/ネット指名を判定（電話番号＋セラピストで過去予約があれば本指名）
   const resolveNominationType = async (phone: string): Promise<string> => {
+    if (isDoubleBooking) return DOUBLE_NOMINATION_TYPE;
     if (selectedCastId === "none" || selectedCastId === "") return "none";
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 10) return "ネット指名";
@@ -426,6 +453,7 @@ const BookingReservation = () => {
 
   // 電話番号が確定したら指名種別を更新（表示価格に反映）
   const handlePhoneBlur = async () => {
+    if (isDoubleBooking) return;
     const nom = await resolveNominationType(customerPhone);
     setNominationType(nom);
   };
@@ -543,7 +571,11 @@ const BookingReservation = () => {
 
   const fetchRates = async () => {
     try {
-      const { data: backData } = await supabase.rpc('get_public_back_rates', { p_store_id: storeId } as any);
+      const [{ data: backData }, { data: doubleData }] = await Promise.all([
+        supabase.rpc("get_public_back_rates", { p_store_id: storeId }),
+        supabase.from("back_rates").select("id, course_type, duration, customer_price")
+          .eq("store_id", storeId).eq("course_type", DOUBLE_COURSE_TYPE).order("duration"),
+      ]);
 
       const { data: optionData } = await supabase
         .from('option_rates')
@@ -569,19 +601,11 @@ const BookingReservation = () => {
         .eq('public_booking_enabled', true)
         .order('display_order', { ascending: true });
 
-      // Wセラピスト専用コース・オプションは専用フォーム（/book/ペアキャスト）のみで販売
-      if (backData) {
-        const publicRates = (backData as BackRate[]).filter((rate) => rate.course_type !== "全力W");
-        setBackRates(publicRates);
-        const preferredRate = publicRates.find((rate) => rate.course_type === "艶華" && rate.duration === 80)
-          || publicRates.find((rate) => rate.course_type === "全力" && rate.duration === 80)
-          || publicRates[0];
-        if (preferredRate && !publicRates.some((rate) => rate.course_type === courseType && rate.duration === duration)) {
-          setCourseType(preferredRate.course_type);
-          setDuration(preferredRate.duration);
-        }
-      }
-      if (optionData) setOptionRates(optionData.filter((o: any) => !["全力PKG1W", "全力PKG2W"].includes(o.option_name)));
+      setBackRates(((backData ?? []) as BackRate[]).filter((rate) =>
+        !["全力W", DOUBLE_COURSE_TYPE].includes(rate.course_type),
+      ));
+      setDoubleBackRates((doubleData ?? []).filter(isDoubleBookingCourse));
+      setOptionRates(optionData ?? []);
       if (nominationData) setNominationRates(nominationData);
       if (paymentData) setPaymentSettings(paymentData as PaymentSetting[]);
       if (discountData) setPublicCoupons(discountData as PublicCoupon[]);
@@ -743,7 +767,8 @@ const BookingReservation = () => {
       }
     }
 
-    if (!selectedDate || !selectedCastId || !courseType || !startTime) {
+    if (!selectedDate || !selectedCastId || !selectedCourse || !startTime ||
+      selectedOptions.some((name) => !optionRates.some((rate) => rate.option_name === name))) {
       toast({
         title: "入力エラー",
         description: "必須項目をすべて入力してください",
@@ -773,7 +798,7 @@ const BookingReservation = () => {
       const courseName = `${courseType} ${duration}分`;
       
       // 指名なしの場合、最初の出勤キャストを割り当て
-      const actualCastId = selectedCastId === "none" ? (casts[0]?.id || "") : selectedCastId;
+      const actualCastId = selectedCastId === "none" ? (unassignedCast?.id || "") : selectedCastId;
       if (!actualCastId) {
         toast({ title: "エラー", description: "割り当て可能なセラピストがいません", variant: "destructive" });
         setSubmitting(false);
@@ -811,7 +836,7 @@ const BookingReservation = () => {
       const finalPaymentFee = calcPaymentFee(finalPrice, paymentSettings, paymentMethod);
       const finalGrandTotal = finalPrice + finalPaymentFee;
       // 表示にも反映
-      setNominationType(finalNominationType);
+      if (!isDoubleBooking) setNominationType(finalNominationType);
 
       const reservationId = crypto.randomUUID();
       const { error } = await supabase
@@ -1156,7 +1181,7 @@ const BookingReservation = () => {
                       <p className="text-xs text-muted-foreground mb-2 md:hidden">← 左右にスワイプしてセラピストを見る →</p>
                       <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-3 -mx-1 px-1">
                         {/* 指名なしカード */}
-                        <Card
+                        {unassignedCast && <Card
                           className={cn(
                             "cursor-pointer transition-all hover:shadow-lg shrink-0 w-56 snap-start",
                             selectedCastId === "none"
@@ -1184,7 +1209,7 @@ const BookingReservation = () => {
                               </Button>
                             </div>
                           </CardContent>
-                        </Card>
+                        </Card>}
                         {casts.map((cast) => (
                           <Card
                             key={cast.id}
@@ -1383,7 +1408,7 @@ const BookingReservation = () => {
                             }}
                           >
                             <h3 className="text-lg font-bold mb-2 flex items-center gap-2 flex-wrap">
-                              {type}コース
+                              {type === DOUBLE_COURSE_TYPE ? type : `${type}コース`}
                               {type === "全力" && (
                                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 text-white shadow-sm">
                                   ⭐ おすすめ
@@ -1415,7 +1440,7 @@ const BookingReservation = () => {
                     })()}
 
                     {/* 前日までの艶華80分限定クーポン（併用不可のため単一選択） */}
-                    {publicCoupons.length > 0 && (
+                    {!isDoubleBooking && publicCoupons.length > 0 && (
                       <div className="rounded-lg border-2 border-rose-200 bg-rose-50/50 p-4">
                         <h3 className="font-semibold mb-1">事前予約クーポン</h3>
                         <p className="text-xs text-muted-foreground mb-3">
@@ -1529,7 +1554,7 @@ const BookingReservation = () => {
                                 }
                               }}
                             >
-                              <div className="font-semibold">{option.option_name}</div>
+                              <div className="font-semibold">{DOUBLE_OPTION_LABELS[option.option_name] ?? option.option_name}</div>
                               <div className="text-sm">+¥{option.customer_price.toLocaleString()}</div>
                             </div>
                           ))}
@@ -1582,7 +1607,7 @@ const BookingReservation = () => {
                     <Button variant="outline" onClick={() => setCurrentStep(2)}>
                       戻る
                     </Button>
-                    <Button onClick={() => setCurrentStep(4)} size="lg">
+                    <Button onClick={() => setCurrentStep(4)} disabled={!selectedCourse} size="lg">
                       次へ
                     </Button>
                   </div>
@@ -1649,7 +1674,7 @@ const BookingReservation = () => {
                       />
                       {selectedCastId !== "none" && selectedCastId !== "" && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          ※セラピストご指名のため指名料が加算されます{nominationType === "本指名" ? "（本指名）" : "（ネット指名）"}
+                          ※{nominationType === DOUBLE_NOMINATION_TYPE ? "特別指名料" : `指名料（${nominationType}）`}が加算されます
                         </p>
                       )}
                     </div>
