@@ -1,0 +1,44 @@
+name: Browserbase-free Estama Playwright POC
+
+on:
+  pull_request:
+    paths:
+      - "server/estama-automation.ts"
+      - "scripts/estama-direct-chromium-smoke.mjs"
+      - "tests/estamaBrowserbaseFreePoc.test.ts"
+      - ".github/workflows/estama-playwright-poc.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  page-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+      - name: Verify existing Soul diary flow supports a local Page
+        run: node --experimental-strip-types --test tests/estamaBrowserbaseFreePoc.test.ts
+
+  chromium-no-browserbase:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+      - name: Install project dependencies
+        run: npm ci --ignore-scripts --no-audit
+      - name: Install headless Chromium on the free GitHub runner
+        run: npx --no-install playwright-core install --with-deps chromium
+      - name: Launch Chromium and inspect the Soul login page (no credentials and no posting)
+        run: node scripts/estama-direct-chromium-smoke.mjs
