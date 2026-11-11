@@ -8,7 +8,7 @@ import { assertFormPhotoCount, assertUploadedPhotoCount, fetchEstamaPhoto, uploa
 import { assertEstamaDiaryPhotoReady, completeEstamaDiaryPhotoCrop } from "./estama-diary-photo.js";
 import { assertEstamaDiarySlotPhotoReady, attachEstamaDiarySlotPhoto, hasEstamaDiaryPhotoSlots } from "./estama-diary-photo-slots.js";
 import { describeError } from "./estama-error.js";
-import { castToEstama, ESTAMA_FEATURE_MAP, type EstamaCastRecord as CastRecord } from "../src/lib/estamaProfileData.ts";
+import { castToEstama, ESTAMA_FEATURE_MAP, type EstamaCastRecord as CastRecord } from "./estama-profile-data.js";
 import {
   estamaAdminCastLinks,
   estamaCastEditLinks,
