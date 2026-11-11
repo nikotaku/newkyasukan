@@ -4,18 +4,23 @@
 // 返事はしない（LINE公式アカウントの管理画面のチャット・自動応答はそのまま使える）。5分たっても返事が無ければ line-customer-reply が一次対応する。
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { messageToText, verifyLineSignature } from "../_shared/lineCustomerReply.ts";
-import { getLineProfile, issueLineToken } from "../_shared/lineCustomerApi.ts";
+import { getLineProfile, issueLineToken, isHarnessRelay } from "../_shared/lineCustomerApi.ts";
 
 interface LineEvent {
   type?: string;
   mode?: string;
   webhookEventId?: string;
+  unsend?: { messageId?: string };
   deliveryContext?: { isRedelivery?: boolean };
   source?: { type?: string; userId?: string };
   message?: { id?: string; type?: string; text?: string; fileName?: string };
 }
 
-type Channel = { storeId: string; enabled: boolean; channelId: string | null; channelSecret: string | null };
+import { fetchLineImage, LINE_MEDIA_BUCKET } from "../_shared/lineCustomerMedia.ts";
+
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
+
+type Channel = { storeId: string; enabled: boolean; channelId: string | null; channelSecret: string | null; forwardWebhook?: string | null };
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("ok");
@@ -38,11 +43,35 @@ Deno.serve(async (req) => {
   } catch {
     return new Response("bad request", { status: 400 });
   }
+  // 現在のLハーネスにも同じ署名付きWebhookを届ける。転送先は既存の固定ホストだけ。
+  const relay = channel.forwardWebhook && isHarnessRelay(channel.forwardWebhook)
+    ? fetch(channel.forwardWebhook, { method: "POST", headers: { "Content-Type": "application/json", "x-line-signature": req.headers.get("x-line-signature")! },
+        body: raw, signal: AbortSignal.timeout(10_000), redirect: "error" })
+      .then((r) => { if (!r.ok) throw new Error(`relay ${r.status}`); return true; })
+      .catch((err) => { console.error("Lハーネスへの転送失敗", err instanceof Error ? err.message : "failed"); return false; })
+    : Promise.resolve(true);
   // 見張りをオフにしている間は受け取るだけ（LINEの「検証」ボタンも 200 で通す）
-  if (!channel.enabled) return new Response("ok");
+  if (!channel.enabled) return new Response(await relay ? "ok" : "retry", { status: await relay ? 200 : 503 });
 
   let token: string | null = null;
+  let failed = false;
   for (const ev of events) {
+    if (ev.type === "unsend" && ev.unsend?.messageId && ev.source?.userId) {
+      const { data: thread } = await sb.from("line_customer_threads").select("id")
+        .eq("store_id", channel.storeId).eq("line_user_id", ev.source.userId).maybeSingle();
+      if (thread) {
+        const { data: message } = await sb.from("line_customer_messages").select("id,media_path,text")
+          .eq("thread_id", thread.id).eq("line_message_id", ev.unsend.messageId).maybeSingle();
+        if (message) {
+          const { error } = await sb.from("line_customer_messages").update({ text: "[送信が取り消されました]", message_type: "unsent", media_path: null }).eq("id", message.id);
+          if (error) failed = true;
+          else if (message.media_path) await sb.storage.from(LINE_MEDIA_BUCKET).remove([message.media_path]);
+          await sb.from("line_customer_threads").update({ last_message_text: "[送信が取り消されました]" })
+            .eq("id", thread.id).eq("last_message_text", message.text?.slice(0, 500) ?? "");
+        }
+      }
+      continue;
+    }
     if (ev.type !== "message" || ev.mode === "standby" || ev.source?.type !== "user" || !ev.source.userId) continue;
     const text = messageToText(ev.message);
     if (text === null) continue;
@@ -62,7 +91,31 @@ Deno.serve(async (req) => {
       p_text: text.slice(0, 5000),
       p_line_message_id: ev.message?.id ?? ev.webhookEventId ?? null,
     });
-    if (recordError) console.error("line-customer-webhook record", recordError.message);
+    if (recordError) {
+      console.error("line-customer-webhook record", recordError.message);
+      failed = true;
+      continue;
+    }
+    if (ev.message?.type === "image" && ev.message.id && token) {
+      const messageId = ev.message.id;
+      const imageToken = token;
+      const saveImage = async () => {
+        const { data: message } = await sb.from("line_customer_messages").select("id,thread_id,media_path,message_type")
+          .eq("store_id", channel.storeId).eq("line_message_id", messageId).maybeSingle();
+        if (!message || message.media_path || message.message_type !== "image") return;
+        const image = await fetchLineImage(imageToken, messageId);
+        const path = `${channel.storeId}/${message.thread_id}/in-${messageId}.${image.extension}`;
+        const { error } = await sb.storage.from(LINE_MEDIA_BUCKET).upload(path, image.bytes, { contentType: image.contentType, upsert: true });
+        if (error) throw error;
+        const { data: updated, error: updateError } = await sb.from("line_customer_messages").update({ media_path: path })
+          .eq("id", message.id).eq("message_type", "image").select("id").maybeSingle();
+        if (updateError || !updated) await sb.storage.from(LINE_MEDIA_BUCKET).remove([path]);
+      };
+      const task = saveImage().catch((err) => console.error("LINE画像保存", err instanceof Error ? err.message : "failed"));
+      if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(task);
+      else await task;
+    }
   }
-  return new Response("ok");
+  if (!(await relay)) failed = true;
+  return new Response(failed ? "retry" : "ok", { status: failed ? 503 : 200 });
 });

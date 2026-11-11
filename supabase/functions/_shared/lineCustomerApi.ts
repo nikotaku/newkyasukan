@@ -56,11 +56,13 @@ export async function getLineWebhookEndpoint(token: string) {
 }
 
 // retryKey はUUID。同じキーの再送はLINE側で1回に畳まれる
-export async function pushLineMessage(token: string, to: string, text: string, retryKey: string) {
+export type LineOutgoingMessage = { type: "text"; text: string } | { type: "image"; originalContentUrl: string; previewImageUrl: string };
+
+export async function pushLineMessages(token: string, to: string, messages: LineOutgoingMessage[], retryKey: string) {
   const r = await fetch("https://api.line.me/v2/bot/message/push", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "X-Line-Retry-Key": retryKey },
-    body: JSON.stringify({ to, messages: [{ type: "text", text }] }),
+    body: JSON.stringify({ to, messages }),
     signal: AbortSignal.timeout(10_000),
   });
   if (r.ok || (r.status === 409 && r.headers.get("x-line-accepted-request-id"))) return { ok: true as const };
@@ -71,4 +73,20 @@ export async function pushLineMessage(token: string, to: string, text: string, r
       ? "このお客様に送れません（ブロックされている・友だちでない など）"
       : `LINEに送れませんでした（${r.status}）`;
   return { ok: false as const, error: `${reason}${detail ? ` ${detail.slice(0, 200)}` : ""}` };
+}
+
+export const pushLineMessage = (token: string, to: string, text: string, retryKey: string) =>
+  pushLineMessages(token, to, [{ type: "text", text }], retryKey);
+
+export async function setLineWebhookEndpoint(token: string, endpoint: string) {
+  const r = await fetch("https://api.line.me/v2/bot/channel/webhook/endpoint", {
+    method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ endpoint }), signal: AbortSignal.timeout(10_000),
+  });
+  if (!r.ok) throw new Error(`LINEの受信先を更新できません（${r.status}）`);
+}
+
+export function isHarnessRelay(endpoint: string) {
+  try { const u = new URL(endpoint); return u.protocol === "https:" && u.hostname === "line-harness.saito-crow.workers.dev" && !u.username && !u.password && (!u.port || u.port === "443"); }
+  catch { return false; }
 }

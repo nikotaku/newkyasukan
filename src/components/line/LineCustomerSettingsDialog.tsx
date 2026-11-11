@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Copy, Loader2, RefreshCw, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -34,9 +34,14 @@ const rpc = (name: string, args: Record<string, unknown>) =>
 export function useLineCustomerSettings(storeId: string | null) {
   const [settings, setSettings] = useState<LineCustomerSettings | null>(null);
   const [canManage, setCanManage] = useState(false);
+  const scopeRef = useRef(storeId);
+  scopeRef.current = storeId;
   const load = useCallback(async () => {
+    setSettings(null);
+    setCanManage(false);
     if (!storeId) return;
     const { data, error } = await rpc("get_line_customer_settings", { p_store_id: storeId });
+    if (scopeRef.current !== storeId) return;
     if (error) {
       setCanManage(false);
       return;
@@ -51,7 +56,7 @@ export function useLineCustomerSettings(storeId: string | null) {
 export function LineCustomerSettingsDialog({ storeId, settings, onSaved }: { storeId: string; settings: LineCustomerSettings | null; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ enabled: false, autoReply: true, waitMinutes: "5", instructions: "", channelId: "", channelSecret: "" });
-  const [busy, setBusy] = useState<"save" | "verify" | null>(null);
+  const [busy, setBusy] = useState<"save" | "verify" | "connect" | null>(null);
   const [verify, setVerify] = useState<VerifyResult | null>(null);
 
   useEffect(() => {
@@ -81,6 +86,19 @@ export function LineCustomerSettingsDialog({ storeId, settings, onSaved }: { sto
     } finally {
       setBusy(null);
     }
+  };
+
+  const connect = async () => {
+    setBusy("connect");
+    try {
+      const { data, error } = await supabase.functions.invoke("line-customer-reply", { body: { action: "connect", storeId } });
+      if (error) throw error;
+      if (data?.ok) toast.success("HPでの受信を開始しました");
+      else toast.info("LINE DevelopersでWebhookの利用をオンにしてください");
+      onSaved();
+      setVerify(null);
+    } catch (err) { toast.error(err instanceof Error ? err.message : String(err)); }
+    finally { setBusy(null); }
   };
 
   const save = async () => {
@@ -119,11 +137,12 @@ export function LineCustomerSettingsDialog({ storeId, settings, onSaved }: { sto
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>公式LINEの見張り・自動応答</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>公式LINEの接続・自動応答</DialogTitle></DialogHeader>
           <div className="space-y-4 text-sm">
             <div className="rounded-md bg-muted/50 p-3 text-xs space-y-1">
               <p className="font-semibold">つなぎ方（最初の1回だけ）</p>
               <p>1. LINE Developers（developers.line.biz）でお客様用の公式アカウントの Messaging API チャネルを開き、「チャネル基本設定」の <b>チャネルID</b> と <b>チャネルシークレット</b> を下に貼って保存</p>
+              <p>登録済みのLハーネスは、下の「HPで受信を開始」から接続すると転送を維持できます。URLを手動で変更する場合は既存の受信先に注意してください。</p>
               <p>2. 「Messaging API設定」の Webhook URL に下のURLを貼り、「Webhookの利用」をオン</p>
               <p>3. LINE Official Account Manager の「応答設定」で <b>チャット：オン</b>・<b>Webhook：オン</b>（今まで通りスマホのアプリで手で返信できます）</p>
             </div>
@@ -150,7 +169,7 @@ export function LineCustomerSettingsDialog({ storeId, settings, onSaved }: { sto
             )}
 
             <label className="flex items-center justify-between gap-3">
-              <span>見張る（届いたらスマホに通知）</span>
+              <span>受信・会話を保存する（新着通知）</span>
               <Switch checked={form.enabled} onCheckedChange={(on) => setForm({ ...form, enabled: on })} />
             </label>
             <label className="flex items-center justify-between gap-3">
@@ -182,6 +201,10 @@ export function LineCustomerSettingsDialog({ storeId, settings, onSaved }: { sto
               </div>
             )}
 
+            <Button variant="secondary" className="w-full" disabled={busy !== null || !settings?.configured} onClick={() => void connect()}>
+              {busy === "connect" && <Loader2 size={14} className="mr-1 animate-spin" />}HPで受信を開始（Lハーネスにも転送）
+            </Button>
+            <p className="text-[11px] text-muted-foreground">初めて受信を開始するとき、自動返信はオフで開始します。HPからの返信はLINEの配信通数に含まれます。</p>
             <div className="flex justify-between gap-2">
               <Button variant="outline" onClick={() => void runVerify()} disabled={busy !== null || !settings?.configured}>
                 {busy === "verify" ? <Loader2 size={14} className="mr-1 animate-spin" /> : <RefreshCw size={14} className="mr-1" />}接続を確認
