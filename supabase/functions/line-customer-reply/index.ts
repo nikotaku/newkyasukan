@@ -12,7 +12,9 @@ import {
   type StoreFacts,
   tokyoClock,
 } from "../_shared/lineCustomerReply.ts";
-import { getLineBotInfo, getLineWebhookEndpoint, issueLineToken, pushLineMessage } from "../_shared/lineCustomerApi.ts";
+import { getLineBotInfo, getLineWebhookEndpoint, setLineWebhookEndpoint, isHarnessRelay, issueLineToken, pushLineMessage, pushLineMessages, type LineOutgoingMessage } from "../_shared/lineCustomerApi.ts";
+
+import { decodeLineImage, fetchLineImage, LINE_MEDIA_BUCKET } from "../_shared/lineCustomerMedia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +24,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const sb = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
 const MODEL = "claude-sonnet-5-5";
 
-type Channel = { storeId: string; enabled: boolean; autoReply: boolean; instructions: string | null; channelId: string | null; channelSecret: string | null };
+type Channel = { storeId: string; enabled: boolean; autoReply: boolean; instructions: string | null; forwardWebhook?: string | null; channelId: string | null; channelSecret: string | null };
 type Thread = { id: string; store_id: string; line_user_id: string; display_name: string | null; status: string };
 
 const json = (body: unknown, status = 200) =>
@@ -34,6 +36,32 @@ async function loadChannel(storeId: string) {
   const channel = data as Channel | null;
   if (!channel?.channelId || !channel.channelSecret) throw new Error("お客様用LINEの Channel ID・Channel secret が未登録です");
   return channel;
+}
+
+async function connectInbox(storeId: string) {
+  const channel = await loadChannel(storeId);
+  const token = await issueLineToken(channel.channelId!, channel.channelSecret!);
+  const { data: settings, error } = await sb.from("line_customer_settings").select("webhook_key").eq("store_id", storeId).single();
+  if (error || !settings?.webhook_key) throw new Error("LINE設定を読み込めません");
+  const expected = `${SUPABASE_URL}/functions/v1/line-customer-webhook?k=${settings.webhook_key}`;
+  const endpoint = await getLineWebhookEndpoint(token);
+  if (!endpoint) throw new Error("現在のLINE受信先を確認できません");
+  if (endpoint.endpoint && endpoint.endpoint !== expected) {
+    if (!isHarnessRelay(endpoint.endpoint)) throw new Error("既存の受信先を維持する設定が必要です。設定を確認してください");
+    const { error } = await sb.rpc("set_line_customer_relay", { p_store_id: storeId, p_endpoint: endpoint.endpoint });
+    if (error) throw new Error("既存の受信先を保存できません");
+  }
+  // LINEの検証リクエストを受ける前に有効化する。既に有効な自動応答の設定は維持する。
+  const { error: enableError } = await sb.from("line_customer_settings").update({ enabled: true,
+    auto_reply: channel.enabled ? channel.autoReply : false, updated_at: new Date().toISOString() }).eq("store_id", storeId);
+  if (enableError) throw new Error("受信保存を有効にできません");
+  if (endpoint.endpoint !== expected) await setLineWebhookEndpoint(token, expected);
+  const [info, after] = await Promise.all([getLineBotInfo(token), getLineWebhookEndpoint(token)]);
+  await sb.rpc("set_line_customer_verified", { p_store_id: storeId, p_basic_id: info.basicId ?? null, p_name: info.displayName ?? null,
+    p_error: after?.endpoint === expected && after.active ? null : "LINE DevelopersでWebhookの利用をオンにしてください" });
+  return { ok: after?.endpoint === expected && after.active === true, name: info.displayName,
+    webhookSet: after?.endpoint === expected, webhookActive: after?.active,
+    relayPreserved: Boolean(channel.forwardWebhook || (endpoint.endpoint && isHarnessRelay(endpoint.endpoint))) };
 }
 
 async function loadFacts(storeId: string, instructions: string | null): Promise<StoreFacts> {
@@ -176,17 +204,112 @@ Deno.serve(async (req) => {
       return json({ results: await autoReply(ids) });
     }
 
+    // 配備時の接続診断専用。認証情報やWebhookの鍵は返さない。
+    if (body.action === "connection_status" || body.action === "connect_inbox") {
+      const secret = req.headers.get("x-line-customer-secret");
+      const { data: ok } = secret ? await sb.rpc("verify_line_customer_secret", { candidate: secret }) : { data: false };
+      if (!ok) return json({ error: "Unauthorized" }, 401);
+      const storeId = String(body.storeId ?? "");
+      if (body.action === "connect_inbox") return json(await connectInbox(storeId));
+      const channel = await loadChannel(storeId);
+      const token = await issueLineToken(channel.channelId!, channel.channelSecret!);
+      const [info, endpoint, { data: settings }] = await Promise.all([
+        getLineBotInfo(token), getLineWebhookEndpoint(token),
+        sb.from("line_customer_settings").select("webhook_key").eq("store_id", storeId).single(),
+      ]);
+      const expected = `${SUPABASE_URL}/functions/v1/line-customer-webhook?k=${settings?.webhook_key}`;
+      return json({ name: info.displayName, enabled: channel.enabled, autoReply: channel.autoReply,
+        webhookSet: endpoint?.endpoint === expected, webhookActive: endpoint?.active,
+        relayPreserved: Boolean(channel.forwardWebhook), webhookHost: endpoint?.endpoint ? new URL(endpoint.endpoint).hostname : null });
+    }
     const user = await staffUser(req);
+    if (body.action === "connect") {
+      const storeId = String(body.storeId ?? "");
+      if (!["owner", "manager"].includes((await storeRole(user.id, storeId)) ?? "")) return json({ error: "管理者だけが接続できます" }, 403);
+      return json(await connectInbox(storeId));
+    }
+    if (body.action === "media") {
+      const { data: message } = await sb.from("line_customer_messages").select("id,thread_id,store_id,message_type,line_message_id,media_path,direction")
+        .eq("id", String(body.messageId ?? "")).maybeSingle();
+      if (!message) return json({ error: "画像が見つかりません" }, 404);
+      await threadForStaff(user.id, message.thread_id);
+      if (message.message_type !== "image") return json({ error: "画像ではありません" }, 400);
+      let path = message.media_path;
+      if (!path && message.direction === "in" && message.line_message_id) {
+        const channel = await loadChannel(message.store_id);
+        const token = await issueLineToken(channel.channelId!, channel.channelSecret!);
+        const image = await fetchLineImage(token, message.line_message_id);
+        path = `${message.store_id}/${message.thread_id}/in-${message.line_message_id}.${image.extension}`;
+        const { error } = await sb.storage.from(LINE_MEDIA_BUCKET).upload(path, image.bytes, { contentType: image.contentType, upsert: true });
+        if (error) throw new Error("画像を保存できません");
+        const { error: updateError } = await sb.from("line_customer_messages").update({ media_path: path }).eq("id", message.id).eq("message_type", "image");
+        if (updateError) throw new Error("画像の記録を更新できません");
+      }
+      if (!path) return json({ error: "画像を読み込めません" }, 404);
+      const { data, error } = await sb.storage.from(LINE_MEDIA_BUCKET).createSignedUrl(path, 3600);
+      if (error) throw new Error("画像を表示できません");
+      return json({ url: data.signedUrl });
+    }
     if (body.action === "send") {
       const text = typeof body.text === "string" ? body.text.trim() : "";
-      if (!text) return json({ error: "本文を入れてください" }, 400);
       if (text.length > 4000) return json({ error: "本文が長すぎます（4000文字まで）" }, 400);
+      let image: ReturnType<typeof decodeLineImage> | null = null;
+      try { if (body.image != null) image = decodeLineImage(body.image); }
+      catch (err) { return json({ error: (err as Error).message }, 400); }
+      if (!text && !image) return json({ error: "本文か画像を入れてください" }, 400);
+      const requestId = typeof body.retryKey === "string" ? body.retryKey : "";
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
+        return json({ error: "送信IDが不正です" }, 400);
+      }
       const thread = await threadForStaff(user.id, String(body.threadId ?? ""));
       const channel = await loadChannel(thread.store_id);
       const token = await issueLineToken(channel.channelId!, channel.channelSecret!);
-      const sent = await pushLineMessage(token, thread.line_user_id, text, typeof body.retryKey === "string" ? body.retryKey : crypto.randomUUID());
-      if (!sent.ok) return json({ error: sent.error }, 502);
-      await sb.rpc("finish_line_customer_reply", { p_thread_id: thread.id, p_direction: "staff", p_ok: true, p_text: text, p_error: null, p_user_id: user.id });
+      const hashInput = new TextEncoder().encode(`${text}\n${typeof body.image === "string" ? body.image : ""}`);
+      const payloadHash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", hashInput)), (b) => b.toString(16).padStart(2, "0")).join("");
+      const preview = text || "[画像]";
+      const path = image ? `${thread.store_id}/${thread.id}/${requestId}.${image.extension}` : null;
+      // LINEへの送信前に履歴を確保する。再試行時も同じID・同じ画像URLで送る。
+      const { data: existing } = await sb.from("line_customer_messages").select("id,thread_id,text,media_path,delivery_status,updated_at,payload_hash").eq("id", requestId).maybeSingle();
+      if (existing && (existing.thread_id !== thread.id || existing.text !== preview || existing.media_path !== path || existing.payload_hash !== payloadHash)) {
+        return json({ error: "送信内容が変わっています。新しい送信として操作してください" }, 409);
+      }
+      if (existing?.delivery_status === "sent") return json({ ok: true });
+      const attemptAt = new Date().toISOString();
+      if (existing) {
+        if (existing.delivery_status === "sending" && Date.now() - Date.parse(existing.updated_at) < 30_000) {
+          return json({ error: "送信処理中です。少し待ってから再試行してください" }, 409);
+        }
+        const { data: claimed, error } = await sb.from("line_customer_messages")
+          .update({ delivery_status: "sending", updated_at: attemptAt }).eq("id", requestId)
+          .eq("updated_at", existing.updated_at).select("id").maybeSingle();
+        if (error || !claimed) return json({ error: "ほかの送信処理が進行中です" }, 409);
+      } else {
+        const { error } = await sb.from("line_customer_messages").insert({ id: requestId, store_id: thread.store_id,
+          thread_id: thread.id, direction: "staff", message_type: image ? "image" : "text", text: preview,
+          media_path: path, payload_hash: payloadHash, sent_by: user.id, delivery_status: "sending", updated_at: attemptAt });
+        if (error) return json({ error: "送信履歴を確保できませんでした。再試行してください" }, 409);
+      }
+      try {
+        const outgoing: LineOutgoingMessage[] = [];
+        if (image && path) {
+          // 内容のハッシュを照合済み。同じパスに同じ画像を保存する。
+          {
+            const { error } = await sb.storage.from(LINE_MEDIA_BUCKET).upload(path, image.bytes, { contentType: image.contentType, upsert: true });
+            if (error) throw new Error("画像を保存できませんでした");
+          }
+          const { data: signed, error } = await sb.storage.from(LINE_MEDIA_BUCKET).createSignedUrl(path, 3600);
+          if (error || !signed) throw new Error("画像を送信できませんでした");
+          outgoing.push({ type: "image", originalContentUrl: signed.signedUrl, previewImageUrl: signed.signedUrl });
+        }
+        if (text) outgoing.push({ type: "text", text });
+        const sent = await pushLineMessages(token, thread.line_user_id, outgoing, requestId);
+        if (!sent.ok) throw new Error(sent.error);
+      } catch (err) {
+        await sb.from("line_customer_messages").update({ delivery_status: "failed", updated_at: new Date().toISOString() }).eq("id", requestId);
+        return json({ error: err instanceof Error ? err.message : String(err) }, 502);
+      }
+      const { error: finishError } = await sb.rpc("complete_line_staff_message", { p_message_id: requestId, p_started_at: attemptAt });
+      if (finishError) return json({ error: "LINEに送信しましたが履歴の確定に失敗しました。同じ内容で再試行してください" }, 503);
       return json({ ok: true });
     }
     if (body.action === "draft") {

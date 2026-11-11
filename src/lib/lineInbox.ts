@@ -25,6 +25,9 @@ export interface LineMessage {
   message_type: string;
   text: string | null;
   created_at: string;
+  media_path: string | null;
+  updated_at?: string;
+  delivery_status: "sending" | "sent" | "failed";
 }
 
 export const LINE_THREAD_COLUMNS =
@@ -69,3 +72,24 @@ export function sortThreads<T extends Pick<LineThread, "status" | "waiting_since
 /** LINE Developers に設定する Webhook URL */
 export const lineWebhookUrl = (supabaseUrl: string, webhookKey: string) =>
   `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/line-customer-webhook?k=${webhookKey}`;
+
+export const LINE_MESSAGE_COLUMNS = "id,thread_id,direction,message_type,text,created_at,updated_at,media_path,delivery_status";
+export const LINE_MEDIA_BUCKET = "line-customer-media";
+export const MAX_LINE_IMAGE_BYTES = 5 * 1024 * 1024;
+
+/** 読み込み直しても重複せず、同時刻でも安定して並ぶ。 */
+export function mergeLineMessages(previous: LineMessage[], incoming: LineMessage[]) {
+  const byId = new Map(previous.map((m) => [m.id, m]));
+  for (const m of incoming) {
+    const previousMessage = byId.get(m.id);
+    if (previousMessage?.updated_at && m.updated_at && previousMessage.updated_at > m.updated_at) continue;
+    byId.set(m.id, m);
+  }
+  return [...byId.values()].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+}
+
+export function filterLineThreads(threads: LineThread[], query: string, pendingOnly: boolean) {
+  const q = query.trim().toLocaleLowerCase();
+  return sortThreads(threads.filter((t) => (!pendingOnly || needsStaff(t)) &&
+    (!q || `${t.display_name ?? ""} ${t.last_message_text ?? ""}`.toLocaleLowerCase().includes(q))));
+}
