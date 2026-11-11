@@ -215,7 +215,7 @@ const menuItems: MenuItem[] = [
     label: "セラピスト",
     icon: UserCircle,
     children: [
-      { href: "/staff", label: "新規登録" },
+      { href: "/staff", label: "セラピスト一覧" },
       { href: "/therapist-notices", label: "お知らせ（マイページ掲示板）" },
       { href: "/promotion-schedule", label: "投稿宣伝スケジュール" },
       { href: "/education", label: "教育・媒体登録・SNS連携" },
