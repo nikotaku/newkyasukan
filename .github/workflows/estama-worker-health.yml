@@ -1,0 +1,56 @@
+name: Estama worker startup guard
+
+on:
+  pull_request:
+    paths:
+      - "server/estama-automation.ts"
+      - "server/estama-profile-data.ts"
+      - "src/lib/estamaProfileData.ts"
+      - "api/automations/estama-portal-worker.ts"
+      - "tests/estamaProfileRuntime.test.ts"
+      - ".github/workflows/estama-worker-health.yml"
+  push:
+    branches: [main]
+    paths:
+      - "server/estama-automation.ts"
+      - "server/estama-profile-data.ts"
+      - "src/lib/estamaProfileData.ts"
+      - "api/automations/estama-portal-worker.ts"
+      - "tests/estamaProfileRuntime.test.ts"
+      - ".github/workflows/estama-worker-health.yml"
+  schedule:
+    - cron: "13 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  import-guard:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+      - name: Detect runtime-unsafe TypeScript imports
+        run: node --experimental-strip-types --test tests/estamaProfileRuntime.test.ts
+
+  production-startup:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check worker startup without publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          # GET never creates a post. A functioning POST-only worker returns 405.
+          status=$(curl --silent --show-error --max-time 25 --output /tmp/estama-health-body --write-out '%{http_code}' 'https://enka-salon.jp/api/automations/estama-portal-worker')
+          if [[ "$status" != "405" ]]; then
+            echo "Estama worker startup failure: expected HTTP 405 for GET, received HTTP $status"
+            exit 1
+          fi
+          echo "Estama worker startup OK (HTTP 405)"
