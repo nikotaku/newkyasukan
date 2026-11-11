@@ -18,6 +18,8 @@ try {
   assert.ok(response, "No HTTP response from login page");
   const status = response.status();
   const resolved = new URL(page.url());
+  const visiblePasswordInputs = await page.locator('input[type="password"]:visible').count();
+  assert.ok(visiblePasswordInputs > 0, "Soul login password input is not visible");
   assert.equal(resolved.hostname, "estama.jp", "Unexpected destination after navigation");
   console.log(JSON.stringify({
     event: "estama_direct_chromium_smoke",
@@ -25,6 +27,7 @@ try {
     browser: browser.version(),
     httpStatus: status,
     hostname: resolved.hostname,
+    loginFormVisible: visiblePasswordInputs > 0,
     elapsedMs: Date.now() - started,
   }));
   assert.ok(status >= 200 && status < 400, `Estama returned HTTP ${status}; access restrictions may apply`);
