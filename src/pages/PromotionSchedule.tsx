@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { PromotionQuotaBoard } from "@/components/promotion/PromotionQuotaBoard";
+import { TherapistPostingStatus } from "@/components/promotion/TherapistPostingStatus";
 import { TherapistPromotionReports } from "@/components/promotion/TherapistPromotionReports";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { useAuth } from "@/hooks/useAuth";
@@ -827,37 +828,13 @@ export default function PromotionSchedule() {
                               {postingTasks.length === 0 && <p className="text-sm text-muted-foreground">店舗側の告知予定はありません。</p>}
                             </div>
 
-                            <div>
-                              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                                <h3 className="flex items-center gap-2 font-bold"><UsersRound size={18} className="shrink-0 text-primary" />セラピスト本人の投稿予定（ポータル表示）</h3>
-                                <span className="text-xs font-semibold text-muted-foreground">予定 {therapistPostingTasks.length}件</span>
-                              </div>
-                              <p className="mb-3 text-xs text-muted-foreground">本人のポータルで投稿後にチェックします。報告は上の「セラピストからの投稿報告」で確認できます。</p>
-                              <div className="space-y-3">
-                                {therapistPostingGroups.map((group) => (
-                                  <div key={group.key} className="overflow-hidden rounded-xl border bg-background">
-                                    <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/35 px-4 py-3">
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <span className="font-bold text-primary">{formatDate(group.date)}</span>
-                                        <span className="text-sm font-semibold">{group.label}</span>
-                                      </div>
-                                      <Badge variant="outline">本人投稿の予定 {group.tasks.length}件</Badge>
-                                    </div>
-                                    <div className="grid gap-2 p-3 sm:grid-cols-2">
-                                      {group.tasks.map((task) => (
-                                        <div key={task.id} className="rounded-lg border bg-card px-3 py-2.5 text-sm">
-                                          <div className="flex items-start gap-2">
-                                            <Badge variant="secondary" className="shrink-0 text-[10px]">本人投稿</Badge>
-                                            <span className="min-w-0 break-words font-medium">{task.label}</span>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                              {therapistPostingTasks.length === 0 && <p className="text-sm text-muted-foreground">本人の投稿予定はありません。</p>}
-                            </div>
+                            <TherapistPostingStatus
+                              storeId={storeId}
+                              planId={plan.id}
+                              castIds={plan.cast_ids ?? []}
+                              therapistLabel={plan.therapist_label}
+                              groups={therapistPostingGroups}
+                            />
                           </div>
                         )}
                       </section>
