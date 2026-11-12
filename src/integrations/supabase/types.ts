@@ -3402,6 +3402,8 @@ export type Database = {
           is_published: boolean
           is_featured: boolean
           action_url: string | null
+          is_featured: boolean
+          action_url: string | null
           slug: string | null
           store_id: string
           title: string
@@ -3421,6 +3423,8 @@ export type Database = {
           is_published?: boolean
           is_featured?: boolean
           action_url?: string | null
+          is_featured?: boolean
+          action_url?: string | null
           slug?: string | null
           store_id?: string
           title: string
@@ -3438,6 +3442,8 @@ export type Database = {
           id?: string
           image_urls?: string[]
           is_published?: boolean
+          is_featured?: boolean
+          action_url?: string | null
           is_featured?: boolean
           action_url?: string | null
           slug?: string | null
