@@ -452,6 +452,8 @@ export default function ArticleCreation() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="important">重要なお知らせ</SelectItem>
+                      <SelectItem value="event">期間限定イベント</SelectItem>
                       <SelectItem value="coupon">クーポン案内</SelectItem>
                       <SelectItem value="schedule">出勤情報</SelectItem>
                       <SelectItem value="newstaff">新人入店情報</SelectItem>
