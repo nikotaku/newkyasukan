@@ -1,8 +1,7 @@
-import { getAdminClient, authenticateUser, assertStoreManager, requireSingleDiaryImageUrls } from '../../server/estama-automation.js';
-import { verifyActionsIdentity } from '../../server/github-actions-identity.js';
-import { summarizeAutomation } from '../../server/automation-runner-summary.js';
+import { getAdminClient, authenticateUser, assertStoreManager, requireSingleDiaryImageUrls } from './estama-automation.js';
+import { verifyActionsIdentity } from './github-actions-identity.js';
+import { summarizeAutomation } from './automation-runner-summary.js';
 
-export const config = { maxDuration: 60 };
 const STORE_ID = '404499ab-5350-490f-9608-5814faffda6f';
 type Request = { method?: string; headers?: Record<string, string | string[] | undefined>; body?: Record<string, unknown>; query?: Record<string, string | string[] | undefined> };
 type Response = { status(code: number): Response; json(body: unknown): void; setHeader(name: string, value: string): void };

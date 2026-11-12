@@ -12,7 +12,7 @@ on:
     paths:
       - '.github/workflows/estama-direct-runner.yml'
       - 'scripts/estama-direct-runner.ts'
-      - 'api/automations/estama-direct-runner.ts'
+      - 'server/estama-direct-runner-handler.ts'
       - 'server/github-actions-identity.ts'
 permissions:
   contents: read

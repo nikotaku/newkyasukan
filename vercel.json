@@ -59,6 +59,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/automations/estama-direct-runner",
+      "destination": "/api/automations/estama-portal-worker?direct_runner=1"
+    },
+    {
       "source": "/api/automations/o2-store-availability",
       "destination": "/api/automations/estama?action=o2-store-availability"
     },

@@ -4,7 +4,7 @@ on:
     paths:
       - 'server/*'
       - 'scripts/estama-direct-*'
-      - 'api/automations/estama-direct-runner.ts'
+      - 'server/estama-direct-runner-handler.ts'
       - 'tests/estamaDirectRunner.test.ts'
       - 'supabase/migrations/*estama_direct_runner*'
       - '.github/workflows/estama-direct-*.yml'
