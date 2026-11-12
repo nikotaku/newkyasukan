@@ -42,8 +42,9 @@ try {
       if(leaseLost) throw new Error('lease_lost');
       const context=await browser.newContext({locale:'ja-JP',timezoneId:'Asia/Tokyo',viewport:{width:1440,height:1000}});
       const page=await context.newPage(); page.setDefaultTimeout(15000); page.setDefaultNavigationTimeout(35000);
-      try { await auditPreparedEstamaDiaryOnPage(item,page); verifiedAccounts++; }
-      catch { failedAccounts++; ok=false; }
+      let stage="browser_ready";
+      try { await auditPreparedEstamaDiaryOnPage(item,page,value=>{stage=value;}); verifiedAccounts++; }
+      catch { console.log(JSON.stringify({event:"account_audit_failed",stage})); failedAccounts++; ok=false; }
       finally { await context.close(); }
     }
   } else {

@@ -2129,10 +2129,13 @@ export async function assertSoulAccount(page: Page, cast: PreparedEstamaDiary["c
   })) throw new SoulLoginRequiredError("ログイン中のセラピストと投稿先の一致を確認できません。投稿を停止しました");
 }
 
-export async function auditPreparedEstamaDiaryOnPage(input: PreparedEstamaDiary, accountPage: Page) {
+export async function auditPreparedEstamaDiaryOnPage(input: PreparedEstamaDiary, accountPage: Page, onStage?: (stage: string) => void) {
   if (!input.soulCredentials) throw new LoginRequiredError("魂セラピストのID・パスワードが未設定です");
+  onStage?.("login");
   await loginSoulTherapist(accountPage, input.soulCredentials);
+  onStage?.("diary_page");
   await gotoSoulDiary(accountPage);
+  onStage?.("account_identity");
   await assertSoulAccount(accountPage, input.cast);
   return { loginVerified: true, accountVerified: true };
 }
