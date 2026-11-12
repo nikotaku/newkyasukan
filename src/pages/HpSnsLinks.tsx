@@ -50,12 +50,12 @@ export default function HpSnsLinks() {
   };
 
   const handleSave = async () => {
-    setSaving(true);
     const listUrl = (values.store_sns_therapist_list_x ?? "").trim();
     if (listUrl && !/^https:\/\/(x\.com|twitter\.com)\/[A-Za-z0-9_]{1,15}\/?(?:\?.*)?$/.test(listUrl)) {
       toast.error("セラピストリストにはXアカウントURLを設定してください");
       return;
     }
+    setSaving(true);
     const rows = FIELDS.map((f) => ({ store_id: storeId, key: f.key, value: values[f.key] ?? "", updated_at: new Date().toISOString() }));
     const { error } = await supabase.from("site_content").upsert(rows, { onConflict: "store_id,key" });
     setSaving(false);
