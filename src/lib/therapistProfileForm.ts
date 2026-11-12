@@ -45,6 +45,10 @@ export const THERAPIST_PROFILE_FIELDS: TherapistProfileField[] = [
   { key: "therapist_comment", label: "お客様へのひとこと", kind: "textarea", placeholder: "ご予約お待ちしています♡ など" },
 ];
 
+/** Unicodeコードポイント単位で数える。PostgreSQLのchar_length(text)と同じ基準。 */
+export const PROFILE_TEXT_MAX_LENGTH = 20;
+export const profileTextLength = (value: string) => Array.from(value).length;
+
 export type TherapistProfileValues = Partial<Record<TherapistProfileFieldKey, string | number | null>>;
 
 const NUMBER_KEYS = new Set(THERAPIST_PROFILE_FIELDS.filter((f) => f.kind === "number").map((f) => f.key));
@@ -66,7 +70,7 @@ export function cleanProfileValues(values: TherapistProfileValues): TherapistPro
       if (n !== null) out[field.key] = n;
     } else {
       const text = String(raw ?? "").trim();
-      if (text) out[field.key] = text.slice(0, 300);
+      if (text) out[field.key] = text;
     }
   }
   return out;

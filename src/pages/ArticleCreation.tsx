@@ -30,6 +30,8 @@ interface Article {
   category: string;
   created_at: string;
   is_published: boolean;
+  is_featured: boolean;
+  action_url: string | null;
   image_urls: string[] | null;
   estama_status: string;
   estama_error: string | null;
@@ -47,6 +49,8 @@ export default function ArticleCreation() {
     content: "",
     category: "coupon",
     is_published: false,
+    is_featured: false,
+    action_url: "",
     image_urls: [] as string[],
   });
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -245,7 +249,7 @@ export default function ArticleCreation() {
   };
 
   const resetForm = () => {
-    setFormData({ title: "", slug: "", content: "", category: "news", is_published: false, image_urls: [] });
+    setFormData({ title: "", slug: "", content: "", category: "news", is_published: false, is_featured: false, action_url: "", image_urls: [] });
     setNewImageUrl("");
   };
 
@@ -255,6 +259,10 @@ export default function ArticleCreation() {
       return;
     }
 
+    if (!validArticleUrl(formData.action_url.trim())) {
+      toast.error("リンクはHTTPS URLか / から始まるサイト内パスを設定してください");
+      return;
+    }
     const slug = formData.slug || formData.title.toLowerCase().replace(/\s+/g, "-");
 
     try {
@@ -267,8 +275,10 @@ export default function ArticleCreation() {
           category: formData.category,
           is_published: formData.is_published,
           image_urls: formData.image_urls,
+          is_featured: formData.is_featured,
+          action_url: formData.action_url.trim() || null,
         },
-      ]).select("id").single();
+      ] as never).select("id").single();
 
       if (error) throw error;
       toast.success("記事を作成しました");
@@ -280,6 +290,35 @@ export default function ArticleCreation() {
       console.error("Error adding article:", error);
       toast.error("作成に失敗しました");
     }
+  };
+
+  const validArticleUrl = (url: string) => {
+    if (!url) return true;
+    if (url.startsWith("/") && !url.startsWith("//")) return /^[\/][a-zA-Z0-9/_?&=.%#-]*$/.test(url);
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === "https:" && Boolean(parsed.hostname) && !parsed.username && !parsed.password;
+    } catch { return false; }
+  };
+
+  const toggleFeatured = async (article: Article) => {
+    const { error } = await supabase.from("hp_articles").update({ is_featured: !article.is_featured } as never)
+      .eq("id", article.id).eq("store_id", storeId);
+    if (error) { toast.error(error.message); return; }
+    toast.success(!article.is_featured ? "注目ニュースに設定しました" : "注目指定を解除しました");
+    void fetchArticles();
+  };
+
+  const saveActionUrl = async (article: Article) => {
+    const url = window.prompt("ニュースの予約・詳細リンク（空欄で解除）", article.action_url ?? "");
+    if (url === null) return;
+    const trimmed = url.trim();
+    if (!validArticleUrl(trimmed)) { toast.error("HTTPSのURLまたは / から始まるサイト内パスを入力してください"); return; }
+    const { error } = await supabase.from("hp_articles").update({ action_url: trimmed || null } as never)
+      .eq("id", article.id).eq("store_id", storeId);
+    if (error) { toast.error(error.message); return; }
+    toast.success("誘導先を保存しました");
+    void fetchArticles();
   };
 
   const handleDelete = async (id: string) => {
@@ -413,6 +452,8 @@ export default function ArticleCreation() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="important">重要なお知らせ</SelectItem>
+                      <SelectItem value="event">期間限定イベント</SelectItem>
                       <SelectItem value="coupon">クーポン案内</SelectItem>
                       <SelectItem value="schedule">出勤情報</SelectItem>
                       <SelectItem value="newstaff">新人入店情報</SelectItem>
@@ -422,6 +463,17 @@ export default function ArticleCreation() {
                       <SelectItem value="other">その他</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="rounded-lg border p-3 space-y-3">
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    <input type="checkbox" checked={formData.is_featured} onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })} />
+                    注目ニュースとして上部に表示
+                  </label>
+                  <div>
+                    <Label htmlFor="action_url">予約・詳細ページへのリンク（任意）</Label>
+                    <Input id="action_url" placeholder="/booking または https://..." value={formData.action_url} onChange={(e) => setFormData({ ...formData, action_url: e.target.value })} />
+                  </div>
                 </div>
 
                 {/* AI生成フォーム */}
@@ -663,6 +715,8 @@ export default function ArticleCreation() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => void toggleFeatured(article)} title={article.is_featured ? "注目指定を解除" : "注目ニュースに設定"} className={article.is_featured ? "text-pink-600 font-bold" : "text-muted-foreground"}>★</button>
+                        <button type="button" onClick={() => void saveActionUrl(article)} title="予約・詳細リンクを設定" className="rounded border px-2 py-1 text-xs">リンク</button>
                         {article.is_published
                           && article.estama_status !== "posted"
                           && !article.estama_error?.startsWith("【要確認・再送停止】") && (

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Check, Copy, ExternalLink, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/hooks/useStore";
 import {
   SNS_SETUP_GUIDE_IMAGES,
   bioLength,
@@ -96,13 +98,32 @@ export function TherapistSnsAccount({
     });
   }, [account, token, onSeen]);
 
+  const { storeId } = useStore();
+  const [guide, setGuide] = useState<{ listUrl: string; bioTemplate: string }>({ listUrl: "", bioTemplate: "" });
+  const [checkedList, setCheckedList] = useState(false);
+  const [checkedBio, setCheckedBio] = useState(false);
+  useEffect(() => {
+    if (!storeId) return;
+    let active = true;
+    void supabase.from("site_content").select("key, value").eq("store_id", storeId)
+      .in("key", ["store_sns_therapist_list_x", "store_sns_therapist_bio"])
+      .then(({ data }) => {
+        if (!active) return;
+        const map = Object.fromEntries((data ?? []).map((row) => [row.key, row.value]));
+        setGuide({ listUrl: map.store_sns_therapist_list_x || "", bioTemplate: map.store_sns_therapist_bio || "" });
+      });
+    return () => { active = false; };
+  }, [storeId]);
+
   if (loading && !account) {
     return <div className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>;
   }
 
   const x = account?.x;
   const o2 = account?.o2;
-  const bio = buildSnsBio(castName, bookingUrl);
+  const bio = guide.bioTemplate
+    ? guide.bioTemplate.replace(/\{name\}/g, castName).replace(/\{booking_url\}/g, bookingUrl)
+    : buildSnsBio(castName, bookingUrl);
   const firstPost = buildSnsFirstPost(castName);
 
   return (
@@ -153,6 +174,31 @@ export function TherapistSnsAccount({
       <p className="text-[11px] text-muted-foreground px-1">
         ログイン情報は他の人に教えないでください。パスワードを変えたときは、お店にも知らせてください。
       </p>
+
+      {x && (
+        <div className="rounded-xl border-2 border-primary/30 bg-card p-4 space-y-3">
+          <p className="text-sm font-bold">SNS設定が完了したら、続けて以下をお願いします</p>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={checkedList} onChange={(e) => setCheckedList(e.target.checked)} />
+            Xのセラピストリスト用アカウントをフォローしてください
+          </label>
+          {guide.listUrl ? (
+            <Button size="sm" variant="outline" asChild><a href={guide.listUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} className="mr-1" />Xアカウントを開く</a></Button>
+          ) : <p className="text-xs text-muted-foreground">フォロー先は店舗で設定中です</p>}
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={checkedBio} onChange={(e) => setCheckedBio(e.target.checked)} />
+            Xのbio（自己紹介文）を編集してください
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={async () => {
+              try { await navigator.clipboard.writeText(bio); toast.success("指定文章をコピーしました"); }
+              catch { toast.error("コピーできませんでした"); }
+            }}><Copy size={14} className="mr-1" />指定文章をコピー</Button>
+            <Button size="sm" variant="outline" asChild><a href="https://x.com/settings/profile" target="_blank" rel="noopener noreferrer"><ExternalLink size={14} className="mr-1" />Xを開く</a></Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">チェックは本人の作業確認用です。X上での完了を自動判定するものではありません。</p>
+        </div>
+      )}
 
       <div className="space-y-3">
         <p className="font-bold text-sm px-1">設定マニュアル</p>

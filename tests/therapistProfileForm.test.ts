@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  PROFILE_TEXT_MAX_LENGTH,
+  profileTextLength,
   castPatchFromProfile,
   cleanProfileValues,
   currentProfileValues,
@@ -47,4 +49,14 @@ test("変わる項目だけ比べる", () => {
 
 test("本人に送るURL", () => {
   assert.equal(therapistProfileFormUrl("https://example.com", "tok123"), "https://example.com/therapist/tok123?view=profile");
+});
+
+
+test("プロフィール文字数はPostgreSQLと同じUnicodeコードポイント単位", () => {
+  assert.equal(PROFILE_TEXT_MAX_LENGTH, 20);
+  assert.equal(profileTextLength("あ".repeat(20)), 20);
+  assert.equal(profileTextLength("あ".repeat(21)), 21);
+  assert.equal(profileTextLength("🎀".repeat(20)), 20);
+  assert.equal(profileTextLength("👩‍💻"), 3);
+  assert.equal(cleanProfileValues({ hobbies: "あ".repeat(21) }).hobbies, "あ".repeat(21));
 });

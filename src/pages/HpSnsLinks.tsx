@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminStore } from "@/hooks/useAdminStore";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -17,6 +18,8 @@ const FIELDS: { key: string; label: string }[] = [
   { key: "store_sns_o2", label: "O2 (ゼロツー) URL" },
   { key: "store_sns_instagram", label: "Instagram URL" },
   { key: "store_sns_bluesky", label: "Bluesky URL" },
+  { key: "store_sns_therapist_list_x", label: "セラピストリスト用XアカウントURL" },
+  { key: "store_sns_therapist_bio", label: "セラピスト向けX指定bio（{name}と{booking_url}を使用可）" },
 ];
 
 export default function HpSnsLinks() {
@@ -26,6 +29,7 @@ export default function HpSnsLinks() {
   const [saving, setSaving] = useState(false);
 
   const { user, loading: authLoading } = useAuth();
+  const { storeId } = useAdminStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -33,12 +37,12 @@ export default function HpSnsLinks() {
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (user) fetchContent();
-  }, [user]);
+    if (user && storeId) fetchContent();
+  }, [user, storeId]);
 
   const fetchContent = async () => {
     setLoading(true);
-    const { data } = await supabase.from("site_content").select("key, value").like("key", "store_sns_%");
+    const { data } = await supabase.from("site_content").select("key, value").eq("store_id", storeId).like("key", "store_sns_%");
     const map: Record<string, string> = {};
     (data || []).forEach((r: { key: string; value: string }) => { map[r.key] = r.value; });
     setValues(map);
@@ -46,8 +50,13 @@ export default function HpSnsLinks() {
   };
 
   const handleSave = async () => {
+    const listUrl = (values.store_sns_therapist_list_x ?? "").trim();
+    if (listUrl && !/^https:\/\/(x\.com|twitter\.com)\/[A-Za-z0-9_]{1,15}\/?(?:\?.*)?$/.test(listUrl)) {
+      toast.error("セラピストリストにはXアカウントURLを設定してください");
+      return;
+    }
     setSaving(true);
-    const rows = FIELDS.map((f) => ({ key: f.key, value: values[f.key] ?? "", updated_at: new Date().toISOString() }));
+    const rows = FIELDS.map((f) => ({ store_id: storeId, key: f.key, value: values[f.key] ?? "", updated_at: new Date().toISOString() }));
     const { error } = await supabase.from("site_content").upsert(rows, { onConflict: "store_id,key" });
     setSaving(false);
     if (error) { toast.error(`保存に失敗しました: ${error.message}`); return; }
