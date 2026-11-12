@@ -263,7 +263,7 @@ export default function ArticleCreation() {
       toast.error("リンクはHTTPS URLか / から始まるサイト内パスを設定してください");
       return;
     }
-    const slug = formData.slug || formData.title.toLowerCase().replace(/\\s+/g, "-");
+    const slug = formData.slug || formData.title.toLowerCase().replace(/\s+/g, "-");
 
     try {
       const { data: insertedArticle, error } = await supabase.from("hp_articles").insert([
@@ -294,7 +294,7 @@ export default function ArticleCreation() {
 
   const validArticleUrl = (url: string) => {
     if (!url) return true;
-    if (url.startsWith("/") && !url.startsWith("//")) return /^\\/[a-zA-Z0-9/_?&=.%#-]*$/.test(url);
+    if (url.startsWith("/") && !url.startsWith("//")) return /^[\/][a-zA-Z0-9/_?&=.%#-]*$/.test(url);
     try {
       const parsed = new URL(url);
       return parsed.protocol === "https:" && Boolean(parsed.hostname) && !parsed.username && !parsed.password;
