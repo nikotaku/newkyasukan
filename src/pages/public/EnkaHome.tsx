@@ -266,9 +266,10 @@ export default function EnkaHome() {
       .select("id, title, content, category, created_at, image_urls, is_featured, action_url")
       .eq("store_id", storeId)
       .eq("is_published", true)
+      .order("is_featured", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(30)
-      .then(({ data }) => setArticles(((data ?? []) as HpArticle[]).sort((a, b) => Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured)) || new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10)));
+      .limit(10)
+      .then(({ data }) => setArticles((data ?? []) as HpArticle[]));
 
     supabase
       .from("discounts")
