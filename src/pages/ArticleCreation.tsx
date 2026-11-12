@@ -249,7 +249,7 @@ export default function ArticleCreation() {
   };
 
   const resetForm = () => {
-    setFormData({ title: "", slug: "", content: "", category: "news", is_published: false, image_urls: [] });
+    setFormData({ title: "", slug: "", content: "", category: "news", is_published: false, is_featured: false, action_url: "", image_urls: [] });
     setNewImageUrl("");
   };
 
@@ -278,7 +278,7 @@ export default function ArticleCreation() {
           is_featured: formData.is_featured,
           action_url: formData.action_url.trim() || null,
         },
-      ]).select("id").single();
+      ] as never).select("id").single();
 
       if (error) throw error;
       toast.success("記事を作成しました");
