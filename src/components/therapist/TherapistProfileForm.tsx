@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   THERAPIST_PROFILE_FIELDS,
   cleanProfileValues,
+  PROFILE_TEXT_MAX_LENGTH,
+  profileTextLength,
   type TherapistProfileValues,
 } from "@/lib/therapistProfileForm";
 
@@ -51,6 +53,13 @@ export function TherapistProfileForm({ token }: { token: string }) {
     const fields = cleanProfileValues(values);
     if (Object.keys(fields).length === 0) {
       toast.error("どれか1つ以上入れてください");
+      return;
+    }
+    const tooLong = THERAPIST_PROFILE_FIELDS.find((field) =>
+      field.kind !== "number" && profileTextLength(String(fields[field.key] ?? "")) > PROFILE_TEXT_MAX_LENGTH,
+    );
+    if (tooLong) {
+      toast.error(`${tooLong.label}は20文字以内にしてください`);
       return;
     }
     setSaving(true);
@@ -123,7 +132,12 @@ export function TherapistProfileForm({ token }: { token: string }) {
           </div>
           {THERAPIST_PROFILE_FIELDS.filter((f) => !["age", "height", "cup_size", "bust", "waist", "hip"].includes(f.key)).map((field) => (
             <div key={field.key}>
-              <Label className="text-xs">{field.label}</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs">{field.label}</Label>
+                <span className={`text-xs ${profileTextLength(values[field.key] ?? "") > PROFILE_TEXT_MAX_LENGTH ? "text-destructive" : "text-muted-foreground"}`}>
+                  {profileTextLength(values[field.key] ?? "")} / {PROFILE_TEXT_MAX_LENGTH}文字
+                </span>
+              </div>
               {field.kind === "textarea" ? (
                 <Textarea
                   rows={3}
