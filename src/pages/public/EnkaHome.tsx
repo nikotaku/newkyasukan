@@ -63,6 +63,8 @@ interface HpArticle {
   category: string;
   created_at: string;
   image_urls: string[] | null;
+  is_featured?: boolean | null;
+  action_url?: string | null;
 }
 
 interface ActiveDiscount {
@@ -80,6 +82,8 @@ const CATEGORY_LABEL: Record<string, string> = {
   campaign: "キャンペーン",
   tips: "ノウハウ",
   other: "お知らせ",
+  important: "重要なお知らせ",
+  event: "期間限定イベント",
 };
 
 const hhmm = (t: string) => t?.slice(0, 5) ?? "";
@@ -259,12 +263,12 @@ export default function EnkaHome() {
 
     supabase
       .from("hp_articles")
-      .select("id, title, content, category, created_at, image_urls")
+      .select("id, title, content, category, created_at, image_urls, is_featured, action_url")
       .eq("store_id", storeId)
       .eq("is_published", true)
       .order("created_at", { ascending: false })
-      .limit(10)
-      .then(({ data }) => setArticles((data ?? []) as HpArticle[]));
+      .limit(30)
+      .then(({ data }) => setArticles(((data ?? []) as HpArticle[]).sort((a, b) => Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured)) || new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10)));
 
     supabase
       .from("discounts")
@@ -554,27 +558,33 @@ export default function EnkaHome() {
                 </Link>
               </div>
             )}
-            <div className="divide-y overflow-hidden rounded-xl border" style={{ borderColor: "var(--pub-border,#4a2740)", backgroundColor: "var(--pub-bg,#150a11)" }}>
+            <div className="space-y-3">
               {articles.map((article) => {
                 const expanded = expandedArticle === article.id;
                 const mediaUrls = article.image_urls ?? [];
                 const videoUrls = mediaUrls.filter(isVideoUrl);
                 const imageUrls = mediaUrls.filter((url) => !isVideoUrl(url));
                 return (
-                  <article key={article.id} className="px-4 py-3" style={{ borderColor: "var(--pub-border,#4a2740)" }}>
+                  <article key={article.id} className="overflow-hidden rounded-2xl border px-4 py-4 shadow-sm sm:px-5" style={{ borderColor: article.is_featured ? "var(--pub-accent,#d4547a)" : "var(--pub-border,#4a2740)", backgroundColor: "var(--pub-card,#211320)" }}>
                     <button
                       type="button"
                       className="flex w-full items-start gap-3 text-left"
                       onClick={() => setExpandedArticle(expanded ? null : article.id)}
                       aria-expanded={expanded}
                     >
-                      <time className="shrink-0 pt-0.5 text-xs" style={{ color: "var(--pub-text-muted,#a98496)" }} dateTime={article.created_at}>
+                      <time className="shrink-0 pt-1 text-[11px]" style={{ color: "var(--pub-text-muted,#a98496)" }} dateTime={article.created_at}>
                         {new Date(article.created_at).toLocaleDateString("ja-JP", { month: "2-digit", day: "2-digit" })}
                       </time>
                       <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px]" style={{ backgroundColor: "var(--pub-accent-a10,#d4547a1a)", color: "var(--pub-accent-light,#f2a0bc)" }}>
                         {CATEGORY_LABEL[article.category] ?? "お知らせ"}
                       </span>
-                      <span className="min-w-0 flex-1 text-sm font-medium">{article.title}</span>
+                      <span className="min-w-0 flex-1 space-y-1.5">
+                        {article.is_featured && <span className="block text-[11px] font-bold" style={{ color: "var(--pub-accent-light,#f2a0bc)" }}>注目ニュース</span>}
+                        <span className="block text-base font-bold leading-relaxed sm:text-lg" style={{ color: "var(--pub-text,#f7e9f0)" }}>{article.title}</span>
+                        {!expanded && article.content && <span className="block text-xs leading-relaxed line-clamp-2" style={{ color: "var(--pub-text-muted,#a98496)" }}>{article.content.replace(/[#*]/g, "").slice(0, 110)}</span>}
+                        {!expanded && imageUrls.length > 0 && <img loading="lazy" src={imageUrls[0]} alt="" className="mt-2 aspect-[16/9] w-full rounded-lg object-cover" />}
+                        <span className="block text-xs font-semibold" style={{ color: "var(--pub-accent-light,#f2a0bc)" }}>{expanded ? "閉じる" : "詳しく見る"}</span>
+                      </span>
                       <ChevronDown size={16} className={`mt-0.5 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} style={{ color: "var(--pub-text-muted,#a98496)" }} />
                     </button>
                     {expanded && (
@@ -602,6 +612,9 @@ export default function EnkaHome() {
                               <img key={url} src={url} alt={`${article.title} ${index + 1}`} loading="lazy" className="h-36 w-auto shrink-0 rounded-lg object-cover" />
                             ))}
                           </div>
+                        )}
+                        {article.action_url && (
+                          <a href={article.action_url} target={article.action_url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" className="mb-4 block rounded-lg px-4 py-3 text-center text-sm font-bold text-white" style={{ backgroundColor: "var(--pub-accent,#d4547a)" }} onClick={() => trackPublicEvent("booking_cta_click", { placement: "home_news_article", article_id: article.id })}>詳細・予約はこちら</a>
                         )}
                         {article.content && (
                           <div className="space-y-2 text-sm leading-relaxed" style={{ color: "var(--pub-text-mid,#dfc0cf)" }}>
