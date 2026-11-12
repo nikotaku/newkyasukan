@@ -2119,66 +2119,89 @@ export type PreparedEstamaDiary = {
   };
 };
 
-export async function runPreparedEstamaDiary(input: PreparedEstamaDiary) {
+// Reused from PR #712, rebased on the current production verification flow.
+export async function assertSoulAccount(page: Page, cast: PreparedEstamaDiary["cast"]) {
+  const hrefs = await page.locator('a[href]').evaluateAll(nodes => nodes.map(node => (node as HTMLAnchorElement).href));
+  const expectedId = cast.externalId;
+  if (!expectedId || !hrefs.some(href => {
+    try { const url = new URL(href); return url.hostname === "estama.jp" && estamaCastIdFromUrl(url.href) === expectedId; }
+    catch { return false; }
+  })) throw new SoulLoginRequiredError("ログイン中のセラピストと投稿先の一致を確認できません。投稿を停止しました");
+}
+
+export async function auditPreparedEstamaDiaryOnPage(input: PreparedEstamaDiary, accountPage: Page, onStage?: (stage: string) => void) {
+  if (!input.soulCredentials) throw new LoginRequiredError("魂セラピストのID・パスワードが未設定です");
+  onStage?.("login");
+  await loginSoulTherapist(accountPage, input.soulCredentials);
+  onStage?.("diary_page");
+  await gotoSoulDiary(accountPage);
+  onStage?.("account_identity");
+  await assertSoulAccount(accountPage, input.cast);
+  return { loginVerified: true, accountVerified: true };
+}
+
+export async function runPreparedEstamaDiaryOnPage(input: PreparedEstamaDiary, accountPage: Page, beforeSubmit?: () => Promise<void>, verifyAccount = true) {
   const imageUrls = requireSingleDiaryImageUrls(input.post.imageUrls);
-  const created = await createBrowserSession(null, false, {
-    action: "portal-diary",
-    jobId: input.jobId,
-  });
+  if (!input.soulCredentials) {
+    throw new LoginRequiredError("魂セラピストのID・パスワードが未設定です");
+  }
+  await loginSoulTherapist(accountPage, input.soulCredentials);
+  await gotoSoulDiary(accountPage);
+  if (verifyAccount) await assertSoulAccount(accountPage, input.cast);
+  await openSoulDiaryPostForm(accountPage);
+
+  const diaryTitle = await estamaDiaryTitle(accountPage, input.post.title);
+  await setField(accountPage, ESTAMA_DIARY_TITLE_FIELD, diaryTitle);
+  await setField(accountPage, ESTAMA_DIARY_BODY_FIELD, input.post.body);
+  const bodyField = accountPage.locator(ESTAMA_DIARY_BODY_FIELD).first();
+  if (!await bodyField.count()) throw new Error("エステ魂の写メ日記本文欄が見つかりません");
+  const diaryForm = bodyField.locator("xpath=ancestor::form[1]");
+  if (!await diaryForm.count()) throw new Error("エステ魂の写メ日記投稿フォームが見つかりません");
+  await ensureEstamaDiaryCategory(diaryForm);
+  const { uploadedPhotos, assertReady } = await attachEstamaDiaryPhoto(accountPage, diaryForm, imageUrls);
+  const publishedDiaryInput: PublishedDiaryInput = {
+    publicProfileUrl: input.cast.publicUrl,
+    shopId: input.cast.shopId,
+    externalId: input.cast.externalId,
+    title: diaryTitle,
+    body: input.post.body,
+    expectedPhotos: imageUrls.length,
+  };
+  const publishedDiaryBaseline = await capturePublishedDiaryBaseline(accountPage, publishedDiaryInput);
+  const submittedBody = await bodyField.inputValue();
+  const baselineSuccessMessages = await visibleEstamaSuccessMessages(accountPage);
+  await assertReady();
+  await beforeSubmit?.();
+  const submission = await clickSave(accountPage, { diary: true, root: diaryForm });
+  if (!submission) throw new EstamaSubmissionUncertainError();
+  await verifyEstamaDiarySubmission(
+    accountPage,
+    bodyField,
+    diaryForm,
+    submittedBody,
+    submission.initialUrl,
+    baselineSuccessMessages,
+  );
+  const publicDiaryUrl = await verifyPublishedEstamaDiary(
+    accountPage,
+    publishedDiaryInput,
+    publishedDiaryBaseline,
+  );
+  return {
+    posted: true,
+    uploadedPhotos,
+    url: publicDiaryUrl,
+    soul: { status: "configured", loginUrl: ESTAMA_SOUL_LOGIN_URL },
+  };
+}
+
+export async function runPreparedEstamaDiary(input: PreparedEstamaDiary) {
+  const created = await createBrowserSession(null, false, { action: "portal-diary", jobId: input.jobId });
   let browser: Browser | null = null;
   try {
     const connected = await connectSession(created.session.connectUrl);
     browser = connected.browser;
-    const accountPage = connected.page;
-    if (!input.soulCredentials) {
-      throw new LoginRequiredError("魂セラピストのID・パスワードが未設定です");
-    }
-    await loginSoulTherapist(accountPage, input.soulCredentials);
-    await gotoSoulDiary(accountPage);
-    await openSoulDiaryPostForm(accountPage);
-
-    const diaryTitle = await estamaDiaryTitle(accountPage, input.post.title);
-    await setField(accountPage, ESTAMA_DIARY_TITLE_FIELD, diaryTitle);
-    await setField(accountPage, ESTAMA_DIARY_BODY_FIELD, input.post.body);
-    const bodyField = accountPage.locator(ESTAMA_DIARY_BODY_FIELD).first();
-    if (!await bodyField.count()) throw new Error("エステ魂の写メ日記本文欄が見つかりません");
-    const diaryForm = bodyField.locator("xpath=ancestor::form[1]");
-    if (!await diaryForm.count()) throw new Error("エステ魂の写メ日記投稿フォームが見つかりません");
-    await ensureEstamaDiaryCategory(diaryForm);
-    const { uploadedPhotos, assertReady } = await attachEstamaDiaryPhoto(accountPage, diaryForm, imageUrls);
-    const publishedDiaryInput: PublishedDiaryInput = {
-      publicProfileUrl: input.cast.publicUrl,
-      shopId: input.cast.shopId,
-      externalId: input.cast.externalId,
-      title: diaryTitle,
-      body: input.post.body,
-      expectedPhotos: imageUrls.length,
-    };
-    const publishedDiaryBaseline = await capturePublishedDiaryBaseline(accountPage, publishedDiaryInput);
-    const submittedBody = await bodyField.inputValue();
-    const baselineSuccessMessages = await visibleEstamaSuccessMessages(accountPage);
-    await assertReady();
-    const submission = await clickSave(accountPage, { diary: true, root: diaryForm });
-    if (!submission) throw new EstamaSubmissionUncertainError();
-    await verifyEstamaDiarySubmission(
-      accountPage,
-      bodyField,
-      diaryForm,
-      submittedBody,
-      submission.initialUrl,
-      baselineSuccessMessages,
-    );
-    const publicDiaryUrl = await verifyPublishedEstamaDiary(
-      accountPage,
-      publishedDiaryInput,
-      publishedDiaryBaseline,
-    );
-    return {
-      posted: true,
-      uploadedPhotos,
-      url: publicDiaryUrl,
-      soul: { status: "configured", loginUrl: ESTAMA_SOUL_LOGIN_URL },
-    };
+    return await runPreparedEstamaDiaryOnPage(input, connected.page, undefined, false);
   } finally {
     if (browser) await disconnect(browser);
     await releaseSession(created.bb, created.session.id);
@@ -2187,7 +2210,7 @@ export async function runPreparedEstamaDiary(input: PreparedEstamaDiary) {
 
 async function claimNextJob(admin: AdminClient, storeId?: string, castId?: string, jobId?: string, jobType?: AutomationJob["job_type"]) {
   let query = admin.from("automation_jobs").select("*")
-    .eq("provider", "estama").eq("status", "queued").lte("available_at", new Date().toISOString())
+    .eq("provider", "estama").eq("runner", "browserbase").eq("status", "queued").lte("available_at", new Date().toISOString())
     .order("created_at", { ascending: true }).limit(1);
   if (storeId) query = query.eq("store_id", storeId);
   if (castId) query = query.eq("cast_id", castId);

@@ -252,6 +252,15 @@ async function dispatchEstamaDiary(req: Request, admin: ReturnType<typeof create
     return json(req, { status: "failed", error: message, safeToRetry: false }, 422);
   }
 
+  const { data: runnerSettings, error: runnerSettingsError } = await admin.from("automation_runner_settings")
+    .select("diary_enabled").eq("store_id", post.store_id).maybeSingle();
+  if (runnerSettingsError) throw new Error("実行環境の設定を確認できません");
+  if (runnerSettings?.diary_enabled) {
+    const { data: jobId, error: queueError } = await admin.rpc("enqueue_estama_direct_diary", { p_post_id: post.id });
+    if (queueError) throw new Error("魂セラピストの投稿を受け付けられませんでした");
+    return json(req, { jobId, status: "posting", queued: true, runner: "github_actions" });
+  }
+
   const [{ data: connection }, { data: external }] = await Promise.all([
     admin.from("automation_connections").select("status,browserbase_context_id").eq("store_id", post.store_id).eq("provider", "estama").maybeSingle(),
     admin.from("external_cast_profiles").select("sync_status,soul_status").eq("cast_id", post.cast_id).eq("provider", "estama").maybeSingle(),

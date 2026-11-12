@@ -1,3 +1,4 @@
+import directRunnerHandler from "../../server/estama-direct-runner-handler.js";
 import { chromium } from "playwright-core";
 import {
   EstamaSubmissionUncertainError,
@@ -15,6 +16,8 @@ export const config = { maxDuration: 300 };
 
 type RequestLike = {
   method?: string;
+  headers?: Record<string, string | string[] | undefined>;
+  query?: Record<string, string | string[] | undefined>;
   body?: Record<string, unknown>;
 };
 
@@ -218,6 +221,7 @@ async function importMembers(contextId: string, importToken: string) {
 }
 
 export default async function handler(req: RequestLike, res: ResponseLike) {
+  if (req.query?.direct_runner === "1") return directRunnerHandler(req, res);
   res.setHeader("Cache-Control", "private, no-store");
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
