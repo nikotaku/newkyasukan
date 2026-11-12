@@ -1,3 +1,4 @@
+import { AutomationRunnerStatus } from "@/components/AutomationRunnerStatus";
 import { useCallback, useEffect, useState } from "react";
 import { Bot, CheckCircle2, ExternalLink, Loader2, Play, RefreshCw, ShieldAlert } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -115,12 +116,13 @@ export function EstamaAutomationModal({ open, onOpenChange }: Props) {
   const ready = connection?.status === "ready";
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto">
         <DialogHeader><DialogTitle className="flex items-center gap-2"><Bot className="h-5 w-5" />エスたま自動化</DialogTitle></DialogHeader>
         {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
         ) : (
           <div className="space-y-4">
+            <AutomationRunnerStatus storeId={storeId} />
             <div className="rounded-lg border p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">

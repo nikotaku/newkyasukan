@@ -1,0 +1,48 @@
+name: Estama direct Chromium runner
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: audit validates logins without posting; work consumes only explicitly routed jobs
+        type: choice
+        options: [audit, work]
+        default: audit
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/estama-direct-runner.yml'
+      - 'scripts/estama-direct-runner.ts'
+      - 'api/automations/estama-direct-runner.ts'
+      - 'server/github-actions-identity.ts'
+permissions:
+  contents: read
+concurrency:
+  group: estama-direct-runner
+  cancel-in-progress: false
+jobs:
+  chromium:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Record complete setup and execution duration
+        run: echo "RUN_STARTED_MS=$(date +%s%3N)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx --no-install playwright-core install --with-deps chromium
+      - run: npx --no-install esbuild scripts/estama-direct-runner.ts --bundle --platform=node --format=esm --packages=external --outfile=.runner/runner.mjs
+      - name: Execute without Browserbase or AI
+        env:
+          ESTAMA_RUN_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'audit' }}
+        run: node .runner/runner.mjs
+      - name: Remove ephemeral executable
+        if: always()
+        run: rm -rf .runner

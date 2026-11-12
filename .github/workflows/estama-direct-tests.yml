@@ -1,0 +1,27 @@
+name: Estama direct runner checks
+on:
+  pull_request:
+    paths:
+      - 'server/*'
+      - 'scripts/estama-direct-*'
+      - 'api/automations/estama-direct-runner.ts'
+      - 'tests/estamaDirectRunner.test.ts'
+      - 'supabase/migrations/*estama_direct_runner*'
+      - '.github/workflows/estama-direct-*.yml'
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run test:estama && npm run test:o2
+      - run: npx --no-install playwright-core install --with-deps chromium
+      - run: node scripts/estama-direct-chromium-smoke.mjs
