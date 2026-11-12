@@ -98,10 +98,6 @@ export function TherapistSnsAccount({
     });
   }, [account, token, onSeen]);
 
-  if (loading && !account) {
-    return <div className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>;
-  }
-
   const { storeId } = useStore();
   const [guide, setGuide] = useState<{ listUrl: string; bioTemplate: string }>({ listUrl: "", bioTemplate: "" });
   const [checkedList, setCheckedList] = useState(false);
@@ -118,6 +114,10 @@ export function TherapistSnsAccount({
       });
     return () => { active = false; };
   }, [storeId]);
+
+  if (loading && !account) {
+    return <div className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>;
+  }
 
   const x = account?.x;
   const o2 = account?.o2;
