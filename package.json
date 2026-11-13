@@ -50,7 +50,8 @@
     "test:shift-break": "node --experimental-strip-types --test tests/shiftBreak.test.ts",
     "test:promotion-task": "node --experimental-strip-types --test tests/promotionTaskDraft.test.ts",
     "test:subscription-watch": "node --experimental-strip-types --test tests/subscriptionWatch.test.ts",
-    "test:cast-hero-banners": "node --experimental-strip-types --test tests/castHeroBanners.test.ts"
+    "test:cast-hero-banners": "node --experimental-strip-types --test tests/castHeroBanners.test.ts",
+    "test:course-limit": "node --experimental-strip-types --test tests/courseLimitDatabase.test.mjs tests/courseLimitError.test.ts"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.16.0",
@@ -119,6 +120,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
     "@eslint/js": "^9.32.0",
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22.16.5",

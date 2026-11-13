@@ -1,3 +1,4 @@
+import { courseLimitErrorMessage } from "@/lib/courseLimitError";
 import { useState, useEffect, useMemo } from "react";
 import { ReservationCashReturns } from "@/components/ReservationCashReturns";
 import { format, addDays, subDays, addMonths, subMonths, parse, addMinutes, startOfMonth, endOfMonth, startOfWeek, eachDayOfInterval } from "date-fns";
@@ -929,8 +930,8 @@ export default function Schedule() {
       toast({ title: "予約追加", description: "新しい予約が追加されました" });
       setIsAddOpen(false);
       fetchData();
-    } catch {
-      toast({ title: "エラー", description: "予約の追加に失敗しました", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "エラー", description: courseLimitErrorMessage(error) ?? "予約の追加に失敗しました", variant: "destructive" });
     }
   };
 
@@ -1097,8 +1098,8 @@ export default function Schedule() {
       setEditMode(false);
       setDetailRes(null);
       fetchData();
-    } catch {
-      toast({ title: "エラー", description: "更新に失敗しました", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "エラー", description: courseLimitErrorMessage(error) ?? "更新に失敗しました", variant: "destructive" });
     }
   };
 
@@ -1107,7 +1108,7 @@ export default function Schedule() {
     setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r)));
     const { error } = await supabase.from("reservations").update({ status: newStatus }).eq("id", id);
     if (error) {
-      toast({ title: "エラー", description: "ステータスの更新に失敗しました", variant: "destructive" });
+      toast({ title: "エラー", description: courseLimitErrorMessage(error) ?? "ステータスの更新に失敗しました", variant: "destructive" });
       fetchData();
     }
   };
