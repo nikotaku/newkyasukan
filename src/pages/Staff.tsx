@@ -1919,7 +1919,7 @@ export default function Staff() {
                         <div>
                           <Label htmlFor="e-new-customer-max">新規のお客様のコース上限（分）</Label>
                           <Input id="e-new-customer-max" type="number" min={1} step={10} placeholder="制限なし" value={editingCast.new_customer_max_minutes || ""} onChange={(e) => setEditingCast({...editingCast, new_customer_max_minutes: parseInt(e.target.value) || null})} />
-                          <p className="text-[10px] text-muted-foreground mt-0.5">新規のお客様がこれより長いコースで予約したら知らせます（予約は止めません）。公開されません</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">当店で施術済み履歴がないお客様は、この分数を超える予約を登録できません。エステ魂の上限超え申込は要確認にし、自動登録を止めます。</p>
                         </div>
                         <div>
                           <Label htmlFor="e-body-size">3サイズ (B/W/H)</Label>

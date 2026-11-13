@@ -1,3 +1,4 @@
+import { courseLimitErrorMessage } from "@/lib/courseLimitError";
 import { useState, useEffect } from "react";
 import { toExtTime, toStoredTime } from "@/lib/timeFormat";
 import { DashboardHeader } from "@/components/DashboardHeader";
@@ -262,7 +263,7 @@ export default function ReservationsList() {
       fetchReservations();
     } catch (error) {
       console.error("Error adding reservation:", error);
-      toast({ title: "エラー", description: "予約の追加に失敗しました", variant: "destructive" });
+      toast({ title: "エラー", description: courseLimitErrorMessage(error) ?? "予約の追加に失敗しました", variant: "destructive" });
     }
   };
 
@@ -357,7 +358,7 @@ export default function ReservationsList() {
       fetchReservations();
     } catch (error) {
       console.error("Error updating reservation:", error);
-      toast({ title: "エラー", description: "予約の更新に失敗しました", variant: "destructive" });
+      toast({ title: "エラー", description: courseLimitErrorMessage(error) ?? "予約の更新に失敗しました", variant: "destructive" });
     }
   };
 

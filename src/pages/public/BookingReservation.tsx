@@ -1,3 +1,4 @@
+import { courseLimitErrorMessage } from "@/lib/courseLimitError";
 import {
   DOUBLE_COURSE_TYPE, DOUBLE_NOMINATION_TYPE, DOUBLE_OPTION_LABELS, DOUBLE_OPTION_NAMES,
   isDoubleBookingCourse,
@@ -920,7 +921,7 @@ const BookingReservation = () => {
       console.error("Error creating reservation:", error);
       toast({
         title: "エラー",
-        description: "予約の登録に失敗しました。もう一度お試しください。",
+        description: courseLimitErrorMessage(error) ?? "予約の登録に失敗しました。もう一度お試しください。",
         variant: "destructive",
       });
     } finally {

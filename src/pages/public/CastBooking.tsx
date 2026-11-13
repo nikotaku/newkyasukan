@@ -1,3 +1,4 @@
+import { courseLimitErrorMessage } from "@/lib/courseLimitError";
 import {
   DOUBLE_COURSE_TYPE, DOUBLE_NOMINATION_TYPE, DOUBLE_OPTION_LABELS, DOUBLE_OPTION_NAMES,
   isDoubleBookingCourse,
@@ -342,7 +343,7 @@ export default function CastBooking() {
       setDone(true);
     } catch (err) {
       console.error(err);
-      setError("送信に失敗しました。お手数ですが、もう一度お試しください。");
+      setError(courseLimitErrorMessage(err) ?? "送信に失敗しました。お手数ですが、もう一度お試しください。");
     } finally {
       setSubmitting(false);
     }
