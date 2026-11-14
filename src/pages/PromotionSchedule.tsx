@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
+  Archive,
+  ArchiveRestore,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -174,6 +176,9 @@ const isGeneratedSchedule = (value: unknown): value is GeneratedSchedule => {
 
 export default function PromotionSchedule() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const archiveLocks = useRef(new Set<string>());
+  const [savingPlanIds, setSavingPlanIds] = useState<Set<string>>(new Set());
   const [plans, setPlans] = useState<PromotionPlan[]>([]);
   const [tasks, setTasks] = useState<PromotionTask[]>([]);
   const [channels, setChannels] = useState<PromotionChannel[]>([]);
@@ -227,7 +232,6 @@ export default function PromotionSchedule() {
         .from("promotion_plans")
         .select("*")
         .eq("store_id", storeId)
-        .eq("is_active", true)
         .order("starts_on", { ascending: false }),
       supabase
         .from("promotion_plan_tasks")
@@ -279,13 +283,14 @@ export default function PromotionSchedule() {
   }, [plans, searchParams]);
 
   const summary = useMemo(() => {
-    const activePlanIds = new Set(plans.map((plan) => plan.id));
+    const activePlans = plans.filter((plan) => plan.is_active);
+    const activePlanIds = new Set(activePlans.map((plan) => plan.id));
     const activeTasks = tasks.filter((task) => activePlanIds.has(task.plan_id));
     const storeTasks = activeTasks.filter(isStoreTask);
     const completed = storeTasks.filter((task) => task.is_completed).length;
     const postingTasks = storeTasks.filter((task) => task.task_type === "posting");
     return {
-      plans: plans.length,
+      plans: activePlans.length,
       completed,
       expired: storeTasks.filter((task) => !task.is_completed && task.expired_at).length,
       total: storeTasks.length,
@@ -294,6 +299,29 @@ export default function PromotionSchedule() {
       therapistPostingTotal: activeTasks.filter((task) => !isStoreTask(task)).length,
     };
   }, [plans, tasks]);
+
+  const visiblePlans = plans.filter((plan) => showArchived ? !plan.is_active : plan.is_active);
+
+  const setPlanArchived = async (plan: PromotionPlan) => {
+    if (archiveLocks.current.has(plan.id)) return;
+    archiveLocks.current.add(plan.id);
+    setSavingPlanIds(new Set(archiveLocks.current));
+    try {
+      const { data, error } = await supabase.from("promotion_plans")
+        .update({ is_active: !plan.is_active, updated_at: new Date().toISOString() })
+        .eq("id", plan.id).eq("store_id", storeId)
+        .select("*").single();
+      if (error) throw error;
+      if (!data) throw new Error("企画を更新できませんでした");
+      setPlans((previous) => previous.map((item) => item.id === plan.id ? data : item));
+      toast.success(plan.is_active ? "企画をアーカイブしました" : "企画を通常の一覧に戻しました");
+    } catch {
+      toast.error("企画の状態を保存できませんでした。再度お試しください");
+    } finally {
+      archiveLocks.current.delete(plan.id);
+      setSavingPlanIds(new Set(archiveLocks.current));
+    }
+  };
 
   const togglePlan = (planId: string) => {
     setExpandedPlanIds((previous) => {
@@ -682,6 +710,15 @@ export default function PromotionSchedule() {
                 </div>
               </div>
 
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex gap-2" role="group" aria-label="企画の表示切り替え">
+                  <Button variant={!showArchived ? "default" : "outline"} size="sm" aria-pressed={!showArchived} onClick={() => setShowArchived(false)}>通常の企画</Button>
+                  <Button variant={showArchived ? "default" : "outline"} size="sm" aria-pressed={showArchived} onClick={() => setShowArchived(true)}>
+                    <Archive size={14} className="mr-1.5" />アーカイブ（{plans.filter((plan) => !plan.is_active).length}）
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">アーカイブしても作業履歴は残り、元に戻せます。</p>
+              </div>
               {loading ? (
                 <div className="rounded-xl border bg-card py-20 text-center">
                   <Loader2 className="inline-block animate-spin text-primary" size={28} />
@@ -693,13 +730,13 @@ export default function PromotionSchedule() {
                   <p className="mt-1 break-all text-xs text-muted-foreground">{errorMessage}</p>
                   <Button className="mt-4" variant="outline" onClick={() => void load()}>再試行</Button>
                 </div>
-              ) : plans.length === 0 ? (
+              ) : visiblePlans.length === 0 ? (
                 <div className="rounded-xl border bg-card py-16 text-center text-muted-foreground">
-                  投稿宣伝スケジュールはまだ登録されていません
+                  {showArchived ? "アーカイブした企画はありません" : "表示する企画はありません"}
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {plans.map((plan) => {
+                  {visiblePlans.map((plan) => {
                     const planTasks = tasks.filter((task) => task.plan_id === plan.id);
                     const planChannels = channels.filter((channel) => channel.plan_id === plan.id);
                     const storeTasks = planTasks.filter(isStoreTask);
@@ -730,7 +767,9 @@ export default function PromotionSchedule() {
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <h2 className="text-lg font-bold">{plan.therapist_label}</h2>
-                                {overall.total === 0 ? (
+                                {!plan.is_active ? (
+                                  <Badge variant="outline">アーカイブ済み</Badge>
+                                ) : overall.total === 0 ? (
                                   <Badge variant="outline">店舗作業なし</Badge>
                                 ) : overall.completed === overall.total ? (
                                   <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">店舗作業 すべて完了</Badge>
@@ -756,6 +795,12 @@ export default function PromotionSchedule() {
                           </div>
                         </button>
 
+                        <div className="flex justify-end border-t px-4 py-2">
+                          <Button type="button" variant="ghost" size="sm" disabled={savingPlanIds.has(plan.id)} onClick={() => void setPlanArchived(plan)} aria-label={`${plan.title}を${plan.is_active ? "アーカイブ" : "復元"}`}>
+                            {savingPlanIds.has(plan.id) ? <Loader2 size={14} className="mr-1.5 animate-spin" /> : plan.is_active ? <Archive size={14} className="mr-1.5" /> : <ArchiveRestore size={14} className="mr-1.5" />}
+                            {plan.is_active ? "アーカイブ" : "通常の一覧に戻す"}
+                          </Button>
+                        </div>
                         {expanded && (
                           <div id={`promotion-plan-${plan.id}`} className="space-y-6 border-t bg-muted/10 p-4 sm:p-5">
                             {plan.description && <p className="text-sm text-muted-foreground">{plan.description}</p>}
