@@ -61,9 +61,7 @@ export default async function handler(req: Request, res: Response) {
     if (action === 'start') {
       const mode = req.body?.mode === 'work' ? 'work' : 'audit';
       if ((mode==='work' && (!settings.diary_enabled || identity.event_name!=='workflow_dispatch')) || (mode==='audit' && !settings.audit_enabled)) { res.status(409).json({ error:'runner_disabled' }); return; }
-      const usage = checked(await admin.from('automation_runner_runs').select('duration_ms').gte('started_at',new Date().toISOString().slice(0,7)+'-01T00:00:00Z')) as any[];
-      const used = usage.reduce((sum,r)=>sum+Math.ceil((r.duration_ms??1200000)/60000),0);
-      if (used+20>settings.monthly_limit_minutes) { res.status(429).json({ error:'monthly_limit_reached' }); return; }
+      // Usage is advisory for the public repository's standard hosted runner.
       // Unique run key rejects duplicate workers and replayed start requests.
       const result = await admin.from('automation_runner_runs').insert({ run_id:runId,store_id:STORE_ID,mode });
       if (result.error) { res.status(409).json({error:'run_already_started'}); return; }
