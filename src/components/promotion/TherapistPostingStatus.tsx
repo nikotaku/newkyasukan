@@ -1,4 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Clock3, Loader2, RefreshCw, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +28,9 @@ export function TherapistPostingStatus({ storeId, planId, castIds, therapistLabe
   groups: PostingGroup[];
 }) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const locks = useRef(new Set<string>());
+  const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
   const taskIds = groups.flatMap((group) => group.tasks.map((task) => task.id)).sort();
   const { data, isPending, error, isFetching, refetch } = useQuery({
     queryKey: ["promotion-posting-status", storeId, user?.id, planId, castIds, therapistLabel, taskIds],
@@ -66,6 +72,32 @@ export function TherapistPostingStatus({ storeId, planId, castIds, therapistLabe
   const progress = therapistPostingProgress(taskIds, participantIds, index);
   const ready = !isPending && !error && participants.length > 0;
 
+  const setCompleted = async (castId: string, taskId: string, completed: boolean) => {
+    const key = postingCompletionKey(castId, taskId);
+    if (locks.current.has(key)) return;
+    locks.current.add(key);
+    setSavingKeys(new Set(locks.current));
+    try {
+      const { data: saved, error: saveError } = await supabase.rpc(
+        "admin_complete_therapist_promotion_task" as never,
+        { p_store_id: storeId, p_cast_id: castId, p_task_id: taskId, p_completed: completed } as never,
+      );
+      if (saveError) throw saveError;
+      if (saved !== completed) throw new Error("完了状態を保存できませんでした");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["promotion-posting-status", storeId] }),
+        queryClient.invalidateQueries({ queryKey: ["promotion-reports", storeId] }),
+        queryClient.invalidateQueries({ queryKey: ["therapist-promotion"] }),
+      ]);
+      toast.success(completed ? "投稿完了にしました" : "未完了に戻しました");
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "チェック状況を保存できませんでした");
+    } finally {
+      locks.current.delete(key);
+      setSavingKeys(new Set(locks.current));
+    }
+  };
+
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -77,7 +109,7 @@ export function TherapistPostingStatus({ storeId, planId, castIds, therapistLabe
           </Button>
         </div>
       </div>
-      <p className="mb-3 text-xs text-muted-foreground">本人がポータルで報告した完了状況です。30秒ごとに更新します。未報告は投稿の有無を確認できていない状態です。</p>
+      <p className="mb-3 text-xs text-muted-foreground">管理画面でもセラピストごとに完了チェックを付け外しできます。本人のマイページと共通の完了状況です。30秒ごとに更新します。</p>
       {taskIds.length > 0 && (isPending ? (
         <p role="status" className="mb-3 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 size={16} className="animate-spin" />投稿状況を読み込んでいます</p>
       ) : error ? (
@@ -108,13 +140,25 @@ export function TherapistPostingStatus({ storeId, planId, castIds, therapistLabe
                     {ready && <div className="mt-3 space-y-2 border-t pt-2">
                       {participants.map((cast) => {
                         const completion = index.get(postingCompletionKey(cast.id, task.id));
+                        const key = postingCompletionKey(cast.id, task.id);
+                        const saving = savingKeys.has(key);
                         return <div key={cast.id} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs">
-                          <span className="min-w-0 break-words font-medium">{cast.name}</span>
+                          <label className="flex min-h-10 min-w-0 cursor-pointer items-center gap-2" htmlFor={`therapist-posting-${key}`}>
+                            <Checkbox
+                              id={`therapist-posting-${key}`}
+                              checked={Boolean(completion)}
+                              disabled={saving}
+                              onCheckedChange={(checked) => void setCompleted(cast.id, task.id, checked === true)}
+                              aria-label={`${cast.name}：${task.label}の完了状態`}
+                            />
+                            <span className="min-w-0 break-words font-medium">{cast.name}</span>
+                            {saving && <Loader2 size={14} className="animate-spin" aria-label="保存中" />}
+                          </label>
                           <span className={`flex items-center gap-1 ${completion ? "text-emerald-700" : "text-muted-foreground"}`}>
                             {completion ? <CheckCircle2 size={14} /> : <Clock3 size={14} />}
-                            {completion ? "投稿完了" : "未報告"}
+                            {completion ? "投稿完了" : "未完了"}
                           </span>
-                          {completion?.completed_at && <span className="w-full text-[11px] text-muted-foreground">報告 {promotionReportedAt(completion.completed_at)}</span>}
+                          {completion?.completed_at && <span className="w-full text-[11px] text-muted-foreground">完了 {promotionReportedAt(completion.completed_at)}</span>}
                         </div>;
                       })}
                     </div>}
