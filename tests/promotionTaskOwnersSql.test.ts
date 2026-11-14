@@ -468,6 +468,55 @@ test("actual PGlite: classifier, filtered portal, per-cast progress, security, r
         assert.deepEqual(await scalar("select jsonb_agg(to_jsonb(tc) order by id) from public.therapist_promotion_task_completions tc"), finalHistory);
         assert.equal(await calls(), originalPushCount + 7);
         assert.equal(await scalar("select count(*)::integer from public.therapist_promotion_task_completions where id=any($1::uuid[])", [[400, 401, 402, 403, 404].map(u)]), 5, "historic store/preparation records remain stored");
+        // Managers edit the same per-cast state without impersonating a portal
+        // token, changing store tasks, or generating a therapist-report alert.
+        const adminMigration = readFileSync(new URL("../supabase/migrations/20261114104449_admin_therapist_promotion_completion.sql", import.meta.url), "utf8");
+        await db.exec(adminMigration);
+        await db.exec(adminMigration);
+        const adminComplete = (cast: number, task: number, done: boolean) => scalar<boolean>(
+          "select public.admin_complete_therapist_promotion_task($1,$2,$3,$4)", [u(1), u(cast), u(task), done]);
+        await db.exec("set role anon");
+        await denied("select public.admin_complete_therapist_promotion_task($1,$2,$3,true)", [u(1), u(3), u(30)]);
+        await db.exec("reset role; set role authenticated; set test.uid=''");
+        await denied("select public.admin_complete_therapist_promotion_task($1,$2,$3,true)", [u(1), u(3), u(30)]);
+        await manager();
+        await db.exec(`set test.store='${u(2)}'`);
+        await denied("select public.admin_complete_therapist_promotion_task($1,$2,$3,true)", [u(1), u(3), u(30)]);
+        await manager();
+        for (const [cast, task] of [[5, 30], [7, 30], [3, 31], [3, 32], [3, 34], [3, 35], [3, 36], [3, 37], [3, 38], [3, 39], [3, 44]]) {
+          await denied("select public.admin_complete_therapist_promotion_task($1,$2,$3,true)", [u(1), u(cast), u(task)]);
+        }
+        await denied("select public.admin_complete_therapist_promotion_task($1,$2,$3,null)", [u(1), u(3), u(30)], "22023");
+        await db.exec("reset role");
+        const beforeAdminCalls = await calls();
+        const partnerBefore = await row(4);
+        const storeState = await scalar("select is_completed from public.promotion_plan_tasks where id=$1", [u(30)]);
+        await manager();
+        assert.equal(await adminComplete(3, 30, false), false);
+        assert.equal(await adminComplete(3, 30, true), true);
+        await db.exec("reset role");
+        const adminState = await row();
+        assert.ok(adminState.admin_seen_at);
+        assert.equal(await calls(), beforeAdminCalls, "manager edit must not send a new therapist report");
+        assert.deepEqual(await row(4), partnerBefore, "other pair member is unchanged");
+        assert.equal(await scalar("select is_completed from public.promotion_plan_tasks where id=$1", [u(30)]), storeState);
+        await manager();
+        assert.equal(await adminComplete(3, 30, true), true);
+        await db.exec("reset role");
+        assert.deepEqual(await row(), adminState, "duplicate admin completion preserves timestamps");
+        await db.exec("set role anon");
+        assert.equal((await schedule("token-a")).find(p => p.id === u(10)).tasks.find(task => task.id === u(30)).isCompleted, true);
+        await complete("token-a", 30, false);
+        await complete("token-a", 30, true);
+        await db.exec("reset role");
+        assert.equal(await calls(), beforeAdminCalls + 1, "a subsequent real portal report still notifies");
+        await manager();
+        assert.equal(await adminComplete(3, 30, false), false);
+        assert.equal(await adminComplete(3, 33, false), false);
+        assert.equal(await adminComplete(3, 33, true), true);
+        await db.exec("reset role; set role anon");
+        assert.equal((await schedule("token-a")).find(p => p.id === u(10)).tasks.find(task => task.id === u(30)).isCompleted, false);
+        await db.exec("reset role");
       } finally {
         await db.close();
       }
