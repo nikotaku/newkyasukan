@@ -186,6 +186,11 @@ export function settlementTransferMessage(approval: {
 }
 
 export function estamaLoginMessage(alert: { kind: string; message: string | null }): PushMessage {
+  if (alert.kind === "automation_stopped") return {
+    title: "⚠️ エステ魂の自動処理に確認が必要です",
+    body: clip(alert.message ?? "自動化の稼働状況を確認してください", 160),
+    url: "/staff", tag: "estama-automation",
+  };
   const noCredentials = alert.kind === "no_credentials";
   return {
     title: noCredentials ? "⚠️ エステ魂のログインが切れています" : "⚠️ エステ魂に自動でログインし直せません",
