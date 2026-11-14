@@ -189,7 +189,7 @@ export function estamaLoginMessage(alert: { kind: string; message: string | null
   if (alert.kind === "automation_stopped") return {
     title: "⚠️ エステ魂の自動処理に確認が必要です",
     body: clip(alert.message ?? "自動化の稼働状況を確認してください", 160),
-    url: "/staff", tag: "estama-automation",
+    url: "/staff", tag: "ZXN0YW1hLWF1dG9tYXRpb24",
   };
   const noCredentials = alert.kind === "no_credentials";
   return {
