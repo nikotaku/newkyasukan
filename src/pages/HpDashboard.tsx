@@ -11,7 +11,7 @@ import ArticleCreation from "./ArticleCreation";
 // 以前の個別のページ（/hp/store-info など）はここのタブへ転送する。
 const TABS = [
   { value: "store", label: "店舗情報", icon: Store },
-  { value: "sns", label: "店舗SNS", icon: Share2 },
+  { value: "sns", label: "SNS", icon: Share2 },
   { value: "banners", label: "バナー", icon: Image },
   { value: "news", label: "ニュース", icon: Newspaper },
 ] as const;
@@ -30,9 +30,9 @@ export default function HpDashboard() {
         <Tabs value={tab} onValueChange={(value) => setSearchParams({ tab: value }, { replace: true })}>
           <TabsList className="mb-4 grid h-auto w-full grid-cols-4">
             {TABS.map(({ value, label, icon: Icon }) => (
-              <TabsTrigger key={value} value={value} className="flex items-center gap-1.5 py-2 text-xs sm:text-sm">
+              <TabsTrigger key={value} value={value} className="flex flex-col items-center gap-0.5 px-1 py-1.5 text-[11px] sm:flex-row sm:gap-1.5 sm:py-2 sm:text-sm">
                 <Icon size={15} className="shrink-0" />
-                <span className="truncate">{label}</span>
+                <span className="whitespace-nowrap">{label}</span>
               </TabsTrigger>
             ))}
           </TabsList>

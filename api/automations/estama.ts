@@ -14,6 +14,7 @@ import { waitUntil } from "@vercel/functions";
 import { describeError } from "../../server/estama-error.js";
 import { processO2StoreAvailabilityPost } from "../../server/o2-store-availability.js";
 import { postEstamaStoreNews } from "../../server/estama-store-news.js";
+import { publishStoreNewsToO2 } from "../../server/o2-store-news.js";
 import { runCrossPostWorker } from "../../server/cross-post-worker.js";
 import { inspectMenesnow } from "../../server/menesnow-inspect.js";
 
@@ -47,7 +48,7 @@ export async function publishStoreNews(
   try {
     const { data: article, error } = await admin
       .from("hp_articles")
-      .select("id,store_id,title,content,image_urls,is_published,estama_status,estama_error,estama_attempts,estama_news_url")
+      .select("id,store_id,title,content,image_urls,is_published,post_to_estama,estama_status,estama_error,estama_attempts,estama_news_url")
       .eq("id", articleId)
       .eq("store_id", storeId)
       .maybeSingle();
@@ -55,6 +56,13 @@ export async function publishStoreNews(
     if (!article) return { statusCode: 404, body: { error: "記事が見つかりません" } };
     if (!article.is_published) {
       return { statusCode: 422, body: { error: "公開済みの記事だけエステ魂へ投稿できます" } };
+    }
+    // 記事の「エステ魂にも出す」を外したものは送らない
+    if (article.post_to_estama === false) {
+      if (article.estama_status === "pending" || article.estama_status === "failed") {
+        await admin.from("hp_articles").update({ estama_status: "skipped", estama_error: null }).eq("id", article.id);
+      }
+      return { statusCode: 200, body: { status: "skipped", skipped: true } };
     }
     if (article.estama_status === "posted") {
       return { statusCode: 200, body: { status: "posted", skipped: true, url: article.estama_news_url } };
@@ -205,6 +213,18 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
         return;
       }
       const result = await publishStoreNews(admin, storeId, stringValue(source.articleId).trim());
+      res.status(result.statusCode).json(result.body);
+      return;
+    }
+
+    if (action === "store-news-o2") {
+      // HPのニュースをO2の店舗アカウントへも出す
+      if (req.method !== "POST") {
+        res.setHeader("Allow", "POST");
+        res.status(405).json({ error: "Method not allowed" });
+        return;
+      }
+      const result = await publishStoreNewsToO2(getAdminClient(), storeId, stringValue(source.articleId).trim());
       res.status(result.statusCode).json(result.body);
       return;
     }
