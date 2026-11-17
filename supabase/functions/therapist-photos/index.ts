@@ -1,5 +1,7 @@
 // セラピストのマイページ「画像アップロード」：本人のトークンで写真を上げる・一覧・削除する。
 // 上げた写真は casts.management_photos（非公開のストック）に入り、HPに出すかはお店が編集画面の「HP表示」で決める。
+// マイページは写真を 357×556（HP・エステ魂のパネル）に切り抜いて image で送る。元の写真（original、長い辺2000pxまで）は
+// 念のため therapist-uploads/<cast_id>/originals/ に同じファイル名で残す（一覧には出さない・写真を消すと一緒に消える）。
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -67,10 +69,20 @@ serve(async (req) => {
       const mine = [...shown, ...stock].filter(own).length;
       if (mine >= MAX_PHOTOS_PER_CAST) return json({ error: `アップロードできるのは${MAX_PHOTOS_PER_CAST}枚までです。いらない写真を消してください` }, 400);
       const { bytes, type } = decodeImage(body.image);
-      const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
-      const path = `${prefix}${crypto.randomUUID()}.${ext}`;
+      const original = body.original ? decodeImage(body.original) : null;
+      const ext = (t: string) => (t === "image/png" ? "png" : t === "image/webp" ? "webp" : "jpg");
+      const id = crypto.randomUUID();
+      const path = `${prefix}${id}.${ext(type)}`;
+      const originalPath = original ? `${prefix}originals/${id}.${ext(original.type)}` : null;
+      if (original && originalPath) {
+        const { error: originalError } = await admin.storage.from(BUCKET).upload(originalPath, original.bytes, { contentType: original.type, upsert: false, cacheControl: "3600" });
+        if (originalError) throw new Error("画像をアップロードできませんでした");
+      }
       const { error: uploadError } = await admin.storage.from(BUCKET).upload(path, bytes, { contentType: type, upsert: false, cacheControl: "3600" });
-      if (uploadError) throw new Error("画像をアップロードできませんでした");
+      if (uploadError) {
+        if (originalPath) await admin.storage.from(BUCKET).remove([originalPath]);
+        throw new Error("画像をアップロードできませんでした");
+      }
       const url = admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
       const nextStock = [...stock, url];
       const { error: updateError } = await admin.from("casts").update({ management_photos: nextStock }).eq("id", cast.id);
@@ -86,7 +98,10 @@ serve(async (req) => {
       const { error: updateError } = await admin.from("casts").update({ management_photos: nextStock }).eq("id", cast.id);
       if (updateError) throw updateError;
       const path = url.slice(url.indexOf(`/${BUCKET}/`) + BUCKET.length + 2);
-      await admin.storage.from(BUCKET).remove([path]);
+      // 元の写真（マイページはどちらも JPEG で送るので同じファイル名）も一緒に消す。無ければ何もしない
+      const name = path.slice(prefix.length).split("?")[0];
+      const originals = name && !name.includes("/") ? [`${prefix}originals/${name}`] : [];
+      await admin.storage.from(BUCKET).remove([path, ...originals]);
       return json(listResult(shown, nextStock));
     }
 

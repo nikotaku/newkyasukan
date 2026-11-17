@@ -4,35 +4,17 @@ import { Camera, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { preparePanelPhoto } from "@/lib/panelPhotoAutoCrop";
+import { PANEL_PHOTO_HEIGHT, PANEL_PHOTO_WIDTH } from "@/lib/panelPhotoCrop";
 
 type PortalPhoto = { url: string; shown: boolean };
 
-const MAX_EDGE = 2000;
+const PANEL_STYLE = { aspectRatio: `${PANEL_PHOTO_WIDTH} / ${PANEL_PHOTO_HEIGHT}` } as const;
 
-/** 端末の写真を長い辺2000pxまでのJPEGにして送る（iPhoneの大きな写真・HEICもブラウザが読める形に） */
-const toJpegDataUrl = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, MAX_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(img.naturalWidth * scale);
-      canvas.height = Math.round(img.naturalHeight * scale);
-      const ctx = canvas.getContext("2d");
-      URL.revokeObjectURL(objectUrl);
-      if (!ctx) return reject(new Error("画像を読み込めませんでした"));
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", 0.88));
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error("画像を読み込めませんでした"));
-    };
-    img.src = objectUrl;
-  });
-
-/** マイページ「画像アップロード」：本人が写真を上げてお店に渡す（HPに出すかはお店が選ぶ） */
+/**
+ * マイページ「画像アップロード」：本人が写真を上げてお店に渡す（HPに出すかはお店が選ぶ）。
+ * 送る写真は端末の中で 357×556（HP・エステ魂のパネル）に自動で切り抜く。元の写真も念のためお店側に残す。
+ */
 export function TherapistPhotoUpload({ token }: { token: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [photos, setPhotos] = useState<PortalPhoto[]>([]);
@@ -65,8 +47,8 @@ export function TherapistPhotoUpload({ token }: { token: string }) {
     setUploading({ done: 0, total: list.length });
     for (const file of list) {
       try {
-        const image = await toJpegDataUrl(file);
-        await call({ action: "upload", image });
+        const { panel, original } = await preparePanelPhoto(file);
+        await call({ action: "upload", image: panel, original });
         ok++;
       } catch (error) {
         toast.error(`${file.name}：${error instanceof Error ? error.message : "送れませんでした"}`);
@@ -96,6 +78,9 @@ export function TherapistPhotoUpload({ token }: { token: string }) {
             <p className="font-semibold">写真をお店に送る</p>
             <p className="mt-1 text-xs text-muted-foreground">
               プロフィール・宣伝に使う写真を送ってください（何枚でもOK）。HPに載せる写真はお店が選びます。
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              写真は自動で {PANEL_PHOTO_WIDTH}×{PANEL_PHOTO_HEIGHT}（HP・エステ魂の写真の大きさ）に切り抜いて送ります。人が写っている位置に合わせて切るので、そのまま選ぶだけでOKです。
             </p>
           </div>
           <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => void upload(e.target.files)} />
@@ -127,7 +112,7 @@ export function TherapistPhotoUpload({ token }: { token: string }) {
           ) : (
             <div className="grid grid-cols-3 gap-2">
               {photos.map((photo) => (
-                <div key={photo.url} className="relative aspect-square overflow-hidden rounded-md border bg-muted/30">
+                <div key={photo.url} className="relative overflow-hidden rounded-md border bg-muted/30" style={PANEL_STYLE}>
                   <img src={photo.url} alt="送った写真" loading="lazy" className="h-full w-full object-cover" onClick={() => window.open(photo.url, "_blank")} />
                   {photo.shown ? (
                     <span className="absolute bottom-1 left-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">HP掲載中</span>

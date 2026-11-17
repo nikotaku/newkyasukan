@@ -143,12 +143,13 @@ export default function HpTopBanners({ embedded = false }: { embedded?: boolean 
     try {
       const extension = file.name.split(".").pop()?.toLowerCase() || "png";
       const path = `hero-banners/${storeId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+      // 本番に「banners」バケットは無い（作られていない）ので、ログイン中のスタッフが上げられる banner-images に置く
       const { error: uploadError } = await supabase.storage
-        .from("banners")
+        .from("banner-images")
         .upload(path, file, { cacheControl: "31536000", upsert: false });
       if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage.from("banners").getPublicUrl(path);
+      const { data } = supabase.storage.from("banner-images").getPublicUrl(path);
       setBanners((current) => [...current, data.publicUrl]);
       toast.success("バナーを追加しました。保存するとトップページへ反映されます");
     } catch (error) {
