@@ -1,5 +1,5 @@
-import { chromium, type Browser } from 'playwright-core';
-import { auditPreparedEstamaDiaryOnPage, runPreparedEstamaDiaryOnPage, type PreparedEstamaDiary } from '../server/estama-automation.js';
+import { chromium, type Browser, type BrowserContext, type Page } from 'playwright-core';
+import { auditPreparedEstamaDiaryOnPage, runPreparedEstamaDiaryOnPage, runShiftJobOnPage, type PreparedEstamaDiary } from '../server/estama-automation.js';
 import { assertUploadedPhotoCount } from '../server/estama-photo-upload.js';
 import { loginEstamaAdmin, scrubSecrets } from '../server/estama-relogin.js';
 
@@ -73,11 +73,34 @@ try {
       if(adminLogin!=='ok') ok=false;
     }
   } else {
-    // 10 jobs / 12 minutes, one browser and a fresh isolated context for each therapist.
-    while(processed<10 && Date.now()-started<12*60000 && !leaseLost) {
+    // 写メ日記は10件まで（セラピストごとに新しい画面）。出勤同期は店舗の管理画面に1回ログインして続けて処理する（12分まで）
+    let adminContext: BrowserContext | undefined, adminPage: Page | undefined;
+    while(processed<80 && Date.now()-started<12*60000 && !leaseLost) {
       const {work}=await request({action:'claim'});
       if(!work) break;
       current={jobId:work.jobId,lease:work.lease};
+      if(work.type==='shift') {
+        const secrets=[work.adminLogin?.mail,work.adminLogin?.password];
+        try {
+          browser ||= await chromium.launch({headless:true});
+          if(!adminPage) {
+            adminContext=await browser.newContext({locale:'ja-JP',timezoneId:'Asia/Tokyo',viewport:{width:1440,height:1000}});
+            adminPage=await adminContext.newPage(); adminPage.setDefaultTimeout(15000); adminPage.setDefaultNavigationTimeout(35000);
+            const login=await loginEstamaAdmin(adminPage,work.adminLogin.mail,work.adminLogin.password);
+            if(!login.ok) throw new Error(login.error);
+          }
+          const outcome=await runShiftJobOnPage(adminPage,work.plan);
+          await request({action:'finish_shift',...current,outcome});
+        } catch(error) {
+          ok=false;
+          const message=scrubSecrets(error instanceof Error?error.message.split('\n')[0]:String(error),secrets).slice(0,300);
+          await request({action:'finish_shift',...current,error:message}).catch(()=>{leaseLost=true;});
+          // ログインに失敗した・画面が壊れたときは、次の作業のために開き直す
+          await adminContext?.close().catch(()=>{}); adminContext=undefined; adminPage=undefined;
+        } finally { current=undefined; }
+        processed++;
+        continue;
+      }
       let submitting=false;
       let context;
       try {
