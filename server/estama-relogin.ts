@@ -130,6 +130,8 @@ export async function loginEstamaAdmin(page: Page, mail: string, password: strin
     last = result as typeof last;
     // 入力の確認で止められた（パスワード違いなど）ときは何度やっても同じなので、やり直さない
     if (/受け付けませんでした/.test(result.error)) break;
+    // エステ魂がこの接続元（IPアドレス）を断っている（403）ときも、同じ接続元では何度やっても同じ
+    if (/403 Forbidden/.test(result.error)) break;
     await page.waitForTimeout(3_000 * (attempt + 1));
   }
   return last;
