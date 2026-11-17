@@ -16,8 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -69,12 +68,11 @@ const INITIAL_FORM: BlogForm = {
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
-export default function HpBlogManagement() {
+export default function HpBlogManagement({ embedded = false }: { embedded?: boolean } = {}) {
   const { user, loading: authLoading } = useAuth();
   const { store, storeId, loading: storeLoading } = useAdminStore();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [articles, setArticles] = useState<PublicBlogArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -272,10 +270,7 @@ export default function HpBlogManagement() {
   const descriptionLength = form.seo_description.trim().length;
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen((open) => !open)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="p-4 pt-[76px] md:ml-[240px] md:p-7 md:pt-[84px]">
+    <AdminPageShell embedded={embedded} mainClassName="p-4 md:p-7">
         <div className="mx-auto max-w-6xl space-y-6">
           <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
@@ -318,7 +313,6 @@ export default function HpBlogManagement() {
             {loading ? <div className="py-16 text-center text-sm text-muted-foreground"><Loader2 className="mx-auto mb-2 animate-spin" size={20} />読み込み中…</div> : filteredArticles.length === 0 ? <Card><CardContent className="py-14 text-center text-sm text-muted-foreground"><CircleAlert className="mx-auto mb-3" size={24} />該当する記事はありません。</CardContent></Card> : <div className="space-y-3">{filteredArticles.map((article) => { const cover = article.image_urls?.find((url) => !isVideoUrl(url)); return <Card key={article.id}><CardContent className="flex gap-4 p-4"><div className="hidden h-20 w-28 shrink-0 overflow-hidden rounded-lg bg-muted sm:block">{cover ? <img src={cover} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-muted-foreground"><ImagePlus size={20} /></div>}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2 text-xs"><span className="rounded-full bg-muted px-2 py-0.5">{blogCategoryLabel(article.category)}</span><span className={article.is_published ? "text-emerald-600" : "text-muted-foreground"}>{article.is_published ? "公開中" : "下書き"}</span><time className="text-muted-foreground">{formatBlogDate(article.published_at || article.created_at)}</time></div><h3 className="mt-2 truncate font-bold">{article.title}</h3><p className="mt-1 truncate text-xs text-muted-foreground">/blog/{article.slug}</p><p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{blogExcerpt(article.content, article.excerpt, 145)}</p></div><div className="flex shrink-0 flex-col gap-2"><Button size="sm" variant="outline" onClick={() => openEdit(article)}>編集</Button><Button size="sm" variant="outline" onClick={() => togglePublish(article)}>{article.is_published ? "非公開" : "公開"}</Button>{article.is_published && article.slug && <a href={`/blog/${encodeURIComponent(article.slug)}`} target="_blank" rel="noreferrer"><Button size="sm" variant="outline" className="w-full"><Eye size={14} /></Button></a>}<Button size="sm" variant="ghost" onClick={() => deleteArticle(article)} className="text-destructive hover:text-destructive"><Trash2 size={15} /></Button></div></CardContent></Card>; })}</div>}
           </section>
         </div>
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

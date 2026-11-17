@@ -5,6 +5,8 @@ import { summarizeAutomation } from './automation-runner-summary.js';
 const STORE_ID = '404499ab-5350-490f-9608-5814faffda6f';
 type Request = { method?: string; headers?: Record<string, string | string[] | undefined>; body?: Record<string, unknown>; query?: Record<string, string | string[] | undefined> };
 type Response = { status(code: number): Response; json(body: unknown): void; setHeader(name: string, value: string): void };
+// 送信前の準備で止まった理由。管理画面にそのまま出す（認証情報・本文は含めない）。
+class PrepareError extends Error {}
 const checked = <T extends { data: unknown; error: unknown }>(value: T): T['data'] => { if (value.error) throw new Error('database_operation_failed'); return value.data; };
 
 async function prepare(admin: ReturnType<typeof getAdminClient>, castId: string, postId?: string) {
@@ -16,9 +18,14 @@ async function prepare(admin: ReturnType<typeof getAdminClient>, castId: string,
     postId ? admin.from('cast_posts').select('title,body,image_urls,esutama_status').eq('store_id', STORE_ID).eq('cast_id', castId).eq('id',postId).maybeSingle() : Promise.resolve({ data: null, error: null }),
   ]);
   [cast,external,credentials,connection,post].forEach(checked);
-  if (!cast.data || !external.data || !credentials.data?.login_id || !credentials.data.password) throw new Error('account_configuration_missing');
-  if (postId && (!post.data || post.data.esutama_status !== 'posting')) throw new Error('post_not_locked');
-  if (post.data) requireSingleDiaryImageUrls(post.data.image_urls);
+  if (!cast.data) throw new PrepareError('セラピストが在籍中ではありません');
+  if (!external.data) throw new PrepareError('エステ魂のセラピストと紐付いていません。エスたま自動化で連携してください');
+  if (!credentials.data?.login_id || !credentials.data.password) throw new PrepareError('魂セラピストのログイン情報が未登録です');
+  if (postId && (!post.data || post.data.esutama_status !== 'posting')) throw new PrepareError('投稿が送信待ちの状態ではありません');
+  if (post.data) {
+    try { requireSingleDiaryImageUrls(post.data.image_urls); }
+    catch { throw new PrepareError('写真は1枚だけ付けてください'); }
+  }
   return {
     browserbaseContextId: '',
     soulCredentials: { loginId: credentials.data.login_id, email: credentials.data.login_id, password: credentials.data.password },
@@ -88,8 +95,9 @@ export default async function handler(req: Request, res: Response) {
       try {
         const prepared=await prepare(admin,job.cast_id,job.payload.post_id);
         res.status(200).json({work:{...prepared,jobId:job.id,lease:job.runner_lease}}); return;
-      } catch {
-        checked(await admin.rpc('finish_estama_direct_job',{p_job_id:job.id,p_lease:job.runner_lease,p_run_id:runId,p_status:'failed',p_result:{},p_error:'投稿データ・認証設定を確認してください（送信前に停止）'}));
+      } catch (error) {
+        const reason = error instanceof PrepareError ? error.message : '投稿データ・認証設定を確認してください';
+        checked(await admin.rpc('finish_estama_direct_job',{p_job_id:job.id,p_lease:job.runner_lease,p_run_id:runId,p_status:'failed',p_result:{},p_error:`${reason}（送信前に停止）`}));
         throw new Error('job_preparation_failed');
       }
     }

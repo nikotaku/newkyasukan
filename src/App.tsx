@@ -65,7 +65,6 @@ import MonthlyShift from "./pages/MonthlyShift";
 import ReservationsList from "./pages/ReservationsList";
 import WebBookings from "./pages/WebBookings";
 import AvailableSlots from "./pages/AvailableSlots";
-import HpBlogManagement from "./pages/HpBlogManagement";
 import BusinessFlow from "./pages/BusinessFlow";
 import HpDashboard from "./pages/HpDashboard";
 import HpXOperations from "./pages/HpXOperations";
@@ -226,7 +225,7 @@ const App = () => {
           <Route path="/agreement" element={<Agreement />} />
           <Route path="/rooms" element={<RoomSettings />} />
           <Route path="/design" element={<Design />} />
-          <Route path="/hp/blog" element={<HpBlogManagement />} />
+          <Route path="/hp/blog" element={<Navigate to="/hp/dashboard?tab=blog" replace />} />
           <Route path="/hp/dashboard" element={<HpDashboard />} />
           <Route path="/hp/article-creation" element={<Navigate to="/hp/dashboard?tab=news" replace />} />
           <Route path="/hp/business-flow" element={<BusinessFlow />} />

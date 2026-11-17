@@ -435,6 +435,8 @@
 - マイページの同時投稿（HP・O2・魂）の魂分は Edge Function `post-to-sites`（`target: "esutama"`）→ Vercel `/api/automations/estama-portal-worker` → `runPreparedEstamaDiary`（`server/estama-automation.ts`）。失敗した分はマイページの「再送」で送り直す
 - 2026年10月にエステ魂の投稿画面（`/tamathera/diary/post/`）が新しくなった：写真の選択欄 `#diary-photo-files` がフォームの外、写真枠3つ（`photos[n][data]` の hidden）、選ぶと切り抜き画面（`#photo-crop-modal`、714×1112）が開き「追加する」で枠に入る。カテゴリ（必須・既定は日常）とタイトル30文字までが増えた。処理は `server/estama-diary-photo-slots.ts`（以前の画面の処理 `estama-diary-photo.ts` も残して両対応）
 - 600×600 の投稿画像は、魂側では縦長（714×1112）に中央で切り抜かれる
+- GitHub Actions の直接実行（`estama-direct-runner`）で送信前に止まったときは、理由（紐付けなし・魂のログイン情報なし・写真の枚数など）を `automation_jobs.error_message` に出す。紐付け（`external_cast_profiles`）が無い人は投稿できない（源氏名未定で登録して手でエステ魂に載せた人は紐付けを足す）
+- 送信待ちのまま48時間すぎた写メ日記は自動で取り消す（pg_cron `estama-diary-stale-expire` 毎時17分 → `private.expire_stale_estama_diary_jobs()`。日付に依存する内容のため。送信を始めたものは触らない）
 - テスト: `npm run test:estama`
 
 ## エステ魂スカウト求人の自動化（/recruit/estama-scout）
@@ -471,3 +473,4 @@
 - 流すのは2つ：①毎分の `estama-profile-sync-every-minute` → `private.dispatch_estama_profile_sync()` → Vercel `estama-profile-worker`（プロフィール同期の次に、待っているシフト同期も10件まで流す。毎時27〜42分は動かさない）②毎晩23時の `estama-shift-sync-daily` → `private.dispatch_estama_sync()` → Edge Function `estama-reconcile-dispatch`（14日分を全部送り直す）
 - 2026-10-22 まで①はプロフィールだけで、ログインが切れていた間に直したシフトが翌23時まで反映されなかった（`20261022110000_estama_shift_jobs_background.sql` で直した）。ログインが切れていると、どちらも再ログイン（`estama-relogin`）まで止まる
 - 結果は「エスたま自動化履歴」（`/schedule/estama-sync-history`）
+- 出勤が1件も無い人の公開ページには出勤表（table）が無く「今週のスケジュール」の見出しだけになる。この場合、削除の同期は成功・追加の同期は「公開ページに出勤が1件も表示されていません」で失敗とする（`hasEmptyPublicSchedule`。2026-11 まで退店した人の削除が毎晩「公開出勤表が見つかりません」で失敗していた）
