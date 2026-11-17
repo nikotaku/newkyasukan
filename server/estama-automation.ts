@@ -1749,8 +1749,19 @@ export type ShiftJobPlan = {
 } | { kind: "skip"; result: Json; dummyShiftId: string };
 
 export type ShiftPageOutcome =
-  | { kind: "done" }
+  | { kind: "done"; publicVerified?: boolean }
   | { kind: "skip"; result: Json };
+
+/** 出勤を入れたあと、エステ魂の公開ページにその出勤が出ているかを見る（出ていなければ失敗にして間をあけて送り直す） */
+async function confirmShiftOnPublicPage(page: Page, plan: Extract<ShiftJobPlan, { kind: "run" }>): Promise<ShiftPageOutcome> {
+  if (plan.item.action !== "upsert" || !plan.shopId || !plan.item.externalId) return { kind: "done" };
+  const evidence = await verifyPublicShiftGroup(page, plan.shopId, [plan.item]);
+  const failed = evidence.flatMap((entry) => entry.expected).find((expected) => !expected.verified);
+  if (failed || evidence.length === 0) {
+    throw new Error(`エステ魂の管理画面には入れましたが、公開ページで${shiftDateLabel(plan.item.shiftDate)}の出勤を確認できませんでした（${failed?.error || "公開ページを読めませんでした"}）`);
+  }
+  return { kind: "done", publicVerified: true };
+}
 
 export async function prepareShiftJob(admin: AdminClient, job: AutomationJob, connection: Pick<Connection, "shop_id" | "configuration">): Promise<ShiftJobPlan> {
   const payload = job.payload || {};
@@ -1858,7 +1869,7 @@ export async function runShiftJobOnPage(page: Page, plan: Extract<ShiftJobPlan, 
     if (!await syncEstamaIndividualScheduleForm(page, item)) {
       throw new Error(`エステ魂の${date}の出退勤欄が見つかりません`);
     }
-    return { kind: "done" };
+    return confirmShiftOnPublicPage(page, plan);
   }
   const shiftUrl = await discoverShiftAdminUrl(page, plan.configuration);
   await page.goto(shiftUrl, { waitUntil: "domcontentloaded" });
@@ -1887,7 +1898,7 @@ export async function runShiftJobOnPage(page: Page, plan: Extract<ShiftJobPlan, 
     await setTimeInRow(row, "end", item.endTime);
   }
   await clickSave(page);
-  return { kind: "done" };
+  return confirmShiftOnPublicPage(page, plan);
 }
 
 /** 画面の結果をDBに書く。戻り値はジョブの結果（result） */
@@ -1908,6 +1919,10 @@ export async function finishShiftJob(admin: AdminClient, job: Pick<AutomationJob
     return outcome.result;
   }
   await markRegistered(plan.item.action !== "delete");
+  // 公開ページで確かめられた出勤には印を付ける（月別シフトの赤い✓。シフトを直すとDBトリガーで消える）
+  if (outcome.publicVerified && job.shift_id) {
+    await admin.from("shifts").update({ estama_public_verified_at: new Date().toISOString() }).eq("id", job.shift_id);
+  }
   await admin.from("external_cast_profiles").update({
     last_shift_sync_at: new Date().toISOString(), last_error: null,
   }).eq("id", plan.externalProfileId);

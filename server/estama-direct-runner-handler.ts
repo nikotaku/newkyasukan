@@ -125,7 +125,7 @@ export default async function handler(req: Request, res: Response) {
       if (raw?.kind === 'done' || (raw?.kind === 'skip' && ['outside_estama_window','not_listed_on_estama'].includes(raw?.result?.reason))) {
         try {
           const plan = await prepareShiftJob(admin, job, await shiftConnection());
-          const outcome: ShiftPageOutcome = raw.kind === 'done' ? { kind:'done' } : { kind:'skip', result: {
+          const outcome: ShiftPageOutcome = raw.kind === 'done' ? { kind:'done', publicVerified: raw.publicVerified === true } : { kind:'skip', result: {
             skipped: true, reason: raw.result.reason, message: String(raw.result.message || '').slice(0, 200),
             date: String(raw.result.date || '').slice(0, 10),
             ...(raw.result.range ? { range: { startDate: String(raw.result.range.startDate||'').slice(0,10), endDate: String(raw.result.range.endDate||'').slice(0,10) } } : {}),

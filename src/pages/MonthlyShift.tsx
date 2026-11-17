@@ -37,6 +37,8 @@ interface Shift {
   estama_human_confirmed: boolean;
   estama_confirmed_at: string | null;
   estama_confirmed_by: string | null;
+  /** エステ魂の公開ページで、この出勤が表示されているのを自動で確かめた日時（シフトを直すと消える） */
+  estama_public_verified_at?: string | null;
   esran_registered: boolean;
   break_start?: string | null;
   break_end?: string | null;
@@ -572,6 +574,10 @@ export default function MonthlyShift() {
                   <span className="w-2.5 h-2.5 rounded-full bg-primary/30" />
                   ルーム未設定
                 </span>
+                <span className="flex items-center gap-1">
+                  <span className="flex h-3 w-3 items-center justify-center rounded-full bg-red-500 text-white"><Check className="h-2 w-2 stroke-[3]" /></span>
+                  エステ魂の公開ページで確認済み
+                </span>
               </div>
             )}
             {viewMode === "calendar" && (
@@ -708,8 +714,12 @@ export default function MonthlyShift() {
                           onClick={e => { e.stopPropagation(); openEdit(s); }}
                           title="クリックで編集"
                         >
-                          {s.estama_human_confirmed && (
-                            <span className="absolute -top-1 -left-1 z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm" title="エスたま公開表示を確認済み" aria-label="エスたま公開表示を確認済み"><Check className="h-2.5 w-2.5 stroke-[3]" /></span>
+                          {(s.estama_human_confirmed || s.estama_public_verified_at) && (
+                            <span
+                              className="absolute -top-1 -left-1 z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm"
+                              title={s.estama_public_verified_at ? "自動同期のあと、エステ魂の公開ページで表示を確認済み" : "エスたま公開表示を確認済み"}
+                              aria-label="エスたま公開表示を確認済み"
+                            ><Check className="h-2.5 w-2.5 stroke-[3]" /></span>
                           )}
                           {ESTHE_RANKING_ACTIVE && s.esran_registered && (
                             <span className="absolute -top-0.5 left-2 w-2 h-2 bg-blue-500 rounded-full z-10" title="エスラン登録済み" />
