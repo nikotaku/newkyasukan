@@ -33,7 +33,6 @@ import Staff from "./pages/Staff";
 import Shift from "./pages/Shift";
 import ShiftSubmission from "./pages/ShiftSubmission";
 import Customers from "./pages/Customers";
-import Design from "./pages/Design";
 import Report from "./pages/Report";
 import Salary from "./pages/Salary";
 import Settings from "./pages/Settings";
@@ -125,7 +124,6 @@ import CtiCalls from "./pages/CtiCalls";
 import CustomerDetail from "./pages/CustomerDetail";
 import CastPostManagement from "./pages/CastPostManagement";
 import TherapistPostPage from "./pages/TherapistPostPage";
-import RecommendedMenu from "./pages/RecommendedMenu";
 import BusinessContinuity from "./pages/BusinessContinuity";
 import SalesDashboard from "./pages/SalesDashboard";
 import SalesData from "./pages/SalesData";
@@ -226,7 +224,7 @@ const App = () => {
           <Route path="/customers" element={<Customers />} />
           <Route path="/agreement" element={<Agreement />} />
           <Route path="/rooms" element={<RoomSettings />} />
-          <Route path="/design" element={<Design />} />
+          <Route path="/design" element={<Navigate to="/hp/dashboard?tab=banners" replace />} />
           <Route path="/hp/blog" element={<Navigate to="/hp/dashboard?tab=blog" replace />} />
           <Route path="/hp/dashboard" element={<HpDashboard />} />
           <Route path="/hp/article-creation" element={<Navigate to="/hp/dashboard?tab=news" replace />} />
@@ -236,7 +234,7 @@ const App = () => {
           <Route path="/hp/store-info" element={<Navigate to="/hp/dashboard?tab=store" replace />} />
           <Route path="/hp/sns-links" element={<Navigate to="/hp/dashboard?tab=sns" replace />} />
           <Route path="/hp/x-operations" element={<HpXOperations />} />
-          <Route path="/hp/recommended-menu" element={<RecommendedMenu />} />
+          <Route path="/hp/recommended-menu" element={<Navigate to="/hp/dashboard?tab=banners" replace />} />
           <Route path="/report" element={<Report />} />
           <Route path="/salary" element={<Salary />} />
           <Route path="/pricing-management" element={<Pricing />} />
