@@ -1,7 +1,8 @@
 // HPの「リンク一覧」（/links）に出す他社のリンクバナー。
 // 保存先は stores.settings.link_banners（並び順のまま表示）と stores.settings.link_own_banner（当店の相互リンク用バナーの画像URL）。
 // 管理画面はホームページダッシュボードの「リンク」タブ（src/pages/HpLinkBanners.tsx）、公開ページは src/pages/public/Links.tsx。
-// 他社のHTMLコードはそのまま貼らない（他社のスクリプトがHPで動くため）。画像とリンク先だけを持ち、こちらで <a><img></a> を作る。
+// 他社のHTMLコードは貼り付けで受け取るが、そのままHPに入れない（他社のスクリプトがHPで動くため）。
+// コードから リンク先・画像・名前 だけを取り出し（parseLinkBannerCode）、こちらで <a><img></a> を作る。
 
 export type LinkBanner = {
   id: string;
@@ -97,4 +98,52 @@ export function ownLinkBannerHtml(input: { siteUrl: string; imageUrl: string; na
   return image
     ? `<a href="${site}" target="_blank"><img src="${image}" alt="${name}" border="0"></a>`
     : `<a href="${site}" target="_blank">${name}</a>`;
+}
+
+const decodeEntities = (value: string) => value
+  .replace(/&amp;/gi, "&")
+  .replace(/&quot;/gi, '"')
+  .replace(/&#0?39;|&apos;/gi, "'")
+  .replace(/&lt;/gi, "<")
+  .replace(/&gt;/gi, ">")
+  .replace(/&nbsp;/gi, " ");
+
+const attrOf = (tag: string, name: string) => {
+  const match = tag.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
+  const raw = match ? (match[1] ?? match[2] ?? match[3] ?? "") : "";
+  return decodeEntities(raw).trim();
+};
+
+/** // から始まるURLは https: を付ける */
+const absoluteUrl = (value: string) => safeHttpUrl(value.startsWith("//") ? `https:${value}` : value);
+
+const plainText = (html: string) =>
+  decodeEntities(html.replace(/<script\b[\s\S]*?<\/script>/gi, " ").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+
+/**
+ * 相手のサイトにある「リンク用のHTMLコード」をそのまま貼ったものから、バナーを取り出す（何個でも）。
+ * <a href="…"><img src="…" alt="…"></a> の形のほか、URLだけの行も1件にする。
+ * <script> などはHPに入れない（取り出すのはリンク先・画像・名前だけ）。
+ */
+export function parseLinkBannerCode(code: string): Array<Omit<LinkBanner, "id" | "enabled">> {
+  const found: Array<Omit<LinkBanner, "id" | "enabled">> = [];
+  const seen = new Set<string>();
+  const push = (url: string, image_url: string, name: string) => {
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    found.push({ url, image_url, name: (name || hostLabel(url)).slice(0, LINK_BANNER_NAME_MAX) });
+  };
+  const withoutScripts = code.replace(/<script\b[\s\S]*?<\/script>/gi, " ").replace(/<style\b[\s\S]*?<\/style>/gi, " ");
+  for (const match of withoutScripts.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi)) {
+    const url = absoluteUrl(attrOf(match[1], "href"));
+    if (!url) continue;
+    const img = match[2].match(/<img\b[^>]*>/i)?.[0] ?? "";
+    const image_url = img ? absoluteUrl(attrOf(img, "src")) : "";
+    const name = (img && (attrOf(img, "alt") || attrOf(img, "title"))) || attrOf(match[1], "title") || plainText(match[2]);
+    push(url, image_url, name);
+  }
+  if (!found.length) {
+    for (const line of withoutScripts.split(/\s+/)) push(absoluteUrl(line), "", "");
+  }
+  return found;
 }
