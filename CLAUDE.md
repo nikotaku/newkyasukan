@@ -431,6 +431,7 @@
 - 600×600 の投稿画像は、魂側では縦長（714×1112）に中央で切り抜かれる
 - GitHub Actions の直接実行（`estama-direct-runner`）で送信前に止まったときは、理由（紐付けなし・魂のログイン情報なし・写真の枚数など）を `automation_jobs.error_message` に出す。紐付け（`external_cast_profiles`）が無い人は投稿できない（源氏名未定で登録して手でエステ魂に載せた人は紐付けを足す）
 - 送信待ちのまま48時間すぎた写メ日記は自動で取り消す（pg_cron `estama-diary-stale-expire` 毎時17分 → `private.expire_stale_estama_diary_jobs()`。日付に依存する内容のため。送信を始めたものは触らない）
+- **Browserbase をやめる準備（段階0）**：直接実行の audit（main への push と手動実行で動く、読むだけ）で、店舗管理画面に新しいブラウザでログインできるかも確かめる。ログイン情報は RPC `get_estama_admin_login_for_runner`（service_role のみ、Vault の `estama_admin_login:<store_id>`）から受け口が渡し、結果は `automation_runner_settings.last_audit_result.adminLogin`（ok / failed / unavailable と止まった段階 `adminLoginStage`）だけ残す
 - テスト: `npm run test:estama`
 
 ## エステ魂スカウト求人の自動化（/recruit/estama-scout）

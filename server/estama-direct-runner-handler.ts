@@ -86,7 +86,10 @@ export default async function handler(req: Request, res: Response) {
         if (work.length===2) break;
       }
       if (!work.length) throw new Error('audit_accounts_unavailable');
-      res.status(200).json({ work }); return;
+      // Browserbase をやめる準備：店舗管理画面に毎回ログインできるかも確かめる（読むだけ。ログイン情報は Vault から）
+      const login = checked(await admin.rpc('get_estama_admin_login_for_runner',{p_store_id:STORE_ID})) as {mail?:string;password?:string}|null;
+      const adminLogin = login?.mail && login.password ? { mail: login.mail, password: login.password } : null;
+      res.status(200).json({ work, adminLogin }); return;
     }
     if (action === 'claim') {
       if (run.mode!=='work' || identity.event_name!=='workflow_dispatch') throw new Error('invalid_mode');
@@ -121,7 +124,9 @@ export default async function handler(req: Request, res: Response) {
     }
     if(action==='end') {
       const ok=req.body?.ok===true;
-      const result={ok,verifiedAccounts:Math.max(0,Math.min(2,Number(req.body?.verifiedAccounts)||0)),failedAccounts:Math.max(0,Math.min(2,Number(req.body?.failedAccounts)||0))};
+      const adminLogin=['ok','failed','unavailable'].includes(String(req.body?.adminLogin)) ? String(req.body?.adminLogin) : undefined;
+      const adminLoginStage=typeof req.body?.adminLoginStage==='string' ? req.body.adminLoginStage.replace(/[^a-z_]/g,'').slice(0,40) : undefined;
+      const result={ok,verifiedAccounts:Math.max(0,Math.min(2,Number(req.body?.verifiedAccounts)||0)),failedAccounts:Math.max(0,Math.min(2,Number(req.body?.failedAccounts)||0)),...(adminLogin?{adminLogin}:{}),...(adminLoginStage?{adminLoginStage}:{})};
       // Includes setup time supplied from workflow start; bounded by the job timeout.
       const duration=Math.max(0,Math.min(1200000,Number(req.body?.durationMs)||0));
       checked(await admin.from('automation_runner_runs').update({status:ok?'completed':'failed',finished_at:new Date().toISOString(),duration_ms:duration,result}).eq('run_id',runId).eq('status','running'));

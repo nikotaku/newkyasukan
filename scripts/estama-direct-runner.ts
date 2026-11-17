@@ -1,6 +1,7 @@
 import { chromium, type Browser } from 'playwright-core';
 import { auditPreparedEstamaDiaryOnPage, runPreparedEstamaDiaryOnPage, type PreparedEstamaDiary } from '../server/estama-automation.js';
 import { assertUploadedPhotoCount } from '../server/estama-photo-upload.js';
+import { loginEstamaAdmin } from '../server/estama-relogin.js';
 
 const endpoint='https://enka-salon.jp/api/automations/estama-direct-runner';
 const mode=process.env.ESTAMA_RUN_MODE==='work'?'work':'audit';
@@ -10,6 +11,8 @@ let current: {jobId:string;lease:string} | undefined;
 let heartbeat: ReturnType<typeof setInterval> | undefined;
 let leaseLost=false;
 let verifiedAccounts=0, failedAccounts=0, processed=0, ok=true, runStarted=false;
+// 店舗管理画面のログイン確認（Browserbase をやめる準備）。結果は ok / failed / unavailable と止まった段階だけ
+let adminLogin: 'ok'|'failed'|'unavailable'|undefined, adminLoginStage: string|undefined;
 
 async function request(body: Record<string,unknown>) {
   const url=new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL!);
@@ -36,7 +39,7 @@ try {
     leaseLost=true; void browser?.close().catch(()=>{});
   }); },30000);
   if(mode==='audit') {
-    const {work}=await request({action:'audit'});
+    const {work,adminLogin:adminCredentials}=await request({action:'audit'});
     browser=await chromium.launch({headless:true});
     for(const item of work as PreparedEstamaDiary[]) {
       if(leaseLost) throw new Error('lease_lost');
@@ -46,6 +49,19 @@ try {
       try { await auditPreparedEstamaDiaryOnPage(item,page,value=>{stage=value;}); verifiedAccounts++; }
       catch { console.log(JSON.stringify({event:"account_audit_failed",stage})); failedAccounts++; ok=false; }
       finally { await context.close(); }
+    }
+    // 店舗管理画面に新しいブラウザでログインできるか（読むだけ。保存も投稿もしない）
+    if(!adminCredentials) adminLogin='unavailable';
+    else {
+      const context=await browser.newContext({locale:'ja-JP',timezoneId:'Asia/Tokyo',viewport:{width:1440,height:1000}});
+      const page=await context.newPage(); page.setDefaultTimeout(15000); page.setDefaultNavigationTimeout(35000);
+      try {
+        const result=await loginEstamaAdmin(page,adminCredentials.mail,adminCredentials.password);
+        adminLogin=result.ok?'ok':'failed';
+        if(!result.ok) adminLoginStage=/画面が見つかりません/.test(result.error)?'login_form_missing':/admin/.test(page.url())?'editor_missing':'login_rejected';
+      } catch { adminLogin='failed'; adminLoginStage='browser_error'; }
+      finally { await context.close(); }
+      if(adminLogin!=='ok') ok=false;
     }
   } else {
     // 10 jobs / 12 minutes, one browser and a fresh isolated context for each therapist.
@@ -79,8 +95,8 @@ try {
 finally {
   if(heartbeat) clearInterval(heartbeat);
   await browser?.close().catch(()=>{});
-  if(runStarted) await request({action:'end',ok:ok&&!leaseLost,verifiedAccounts,failedAccounts,durationMs:Date.now()-started}).catch(()=>{ok=false;});
+  if(runStarted) await request({action:'end',ok:ok&&!leaseLost,verifiedAccounts,failedAccounts,adminLogin,adminLoginStage,durationMs:Date.now()-started}).catch(()=>{ok=false;});
   // Only aggregate counts: never credentials, pages, screenshots, traces, payloads or raw errors.
-  console.log(JSON.stringify({event:'estama_direct_runner',mode,ok:ok&&!leaseLost,verifiedAccounts,failedAccounts,processed,elapsedMs:Date.now()-started}));
+  console.log(JSON.stringify({event:'estama_direct_runner',mode,ok:ok&&!leaseLost,verifiedAccounts,failedAccounts,adminLogin,adminLoginStage,processed,elapsedMs:Date.now()-started}));
   if(!ok||leaseLost) process.exitCode=1;
 }
