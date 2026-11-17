@@ -1,6 +1,5 @@
 import { ChangeEvent, DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,8 +46,7 @@ const DEFAULT_HERO_VIDEO: HeroVideoSettings = {
 
 const isImageFile = (file: File) => file.type.startsWith("image/");
 
-export default function HpTopBanners() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default function HpTopBanners({ embedded = false }: { embedded?: boolean } = {}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -223,170 +221,165 @@ export default function HpTopBanners() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen((open) => !open)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <AdminPageShell embedded={embedded} mainClassName="p-4 md:p-6">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">トップバナー管理</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {storeName}のトップページに表示するバナーを管理します。1番上が最初に表示されます。
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <a href={publicUrl} target="_blank" rel="noreferrer">
+                <ExternalLink size={16} className="mr-2" /> 公開HPを確認
+              </a>
+            </Button>
+            <Button onClick={saveSettings} disabled={loading || saving || uploading}>
+              {saving ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Save size={16} className="mr-2" />}
+              保存
+            </Button>
+          </div>
+        </header>
 
-      <main className="pt-[60px] md:ml-[240px] p-4 md:p-6">
-        <div className="mx-auto max-w-5xl space-y-6">
-          <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">トップバナー管理</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {storeName}のトップページに表示するバナーを管理します。1番上が最初に表示されます。
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button asChild variant="outline">
-                <a href={publicUrl} target="_blank" rel="noreferrer">
-                  <ExternalLink size={16} className="mr-2" /> 公開HPを確認
-                </a>
-              </Button>
-              <Button onClick={saveSettings} disabled={loading || saving || uploading}>
-                {saving ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Save size={16} className="mr-2" />}
-                保存
-              </Button>
-            </div>
-          </header>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between gap-3 text-lg">
+              <span className="flex items-center gap-2"><ImagePlus size={20} /> セラピストのバナー（自動）</span>
+              <Switch
+                checked={storeSettings.cast_hero_banners !== false}
+                onCheckedChange={(value) => setStoreSettings((current) => ({ ...current, cast_hero_banners: value }))}
+                aria-label="セラピストのバナーを出す"
+              />
+            </CardTitle>
+            <CardDescription>
+              その日に出勤するセラピストのうち、スタッフ画面の「トップバナーの素材」（写真・キャッチコピー）がある人のバナーを自動で作り、下の画像バナーより先にローテーションします。
+              新人（入店30日）を先頭に、あとは毎日順番と写真が入れ替わります。バナーに出た日は露出ノルマの「HPトップバナー」に自動で記録されます。切り替えたら右上の「保存」で反映されます。
+            </CardDescription>
+          </CardHeader>
+        </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between gap-3 text-lg">
-                <span className="flex items-center gap-2"><ImagePlus size={20} /> セラピストのバナー（自動）</span>
-                <Switch
-                  checked={storeSettings.cast_hero_banners !== false}
-                  onCheckedChange={(value) => setStoreSettings((current) => ({ ...current, cast_hero_banners: value }))}
-                  aria-label="セラピストのバナーを出す"
-                />
-              </CardTitle>
-              <CardDescription>
-                その日に出勤するセラピストのうち、スタッフ画面の「トップバナーの素材」（写真・キャッチコピー）がある人のバナーを自動で作り、下の画像バナーより先にローテーションします。
-                新人（入店30日）を先頭に、あとは毎日順番と写真が入れ替わります。バナーに出た日は露出ノルマの「HPトップバナー」に自動で記録されます。切り替えたら右上の「保存」で反映されます。
-              </CardDescription>
-            </CardHeader>
-          </Card>
+        {storeId && (
+          <EstamaCoverBannersCard
+            storeId={storeId}
+            value={parseEstamaCoverSettings(storeSettings.estama_cover_banners)}
+            savedEnabled={savedCoverEnabled}
+            onChange={(next) => setStoreSettings((current) => ({ ...current, estama_cover_banners: { enabled: next.enabled, slots: next.slots } }))}
+          />
+        )}
 
-          {storeId && (
-            <EstamaCoverBannersCard
-              storeId={storeId}
-              value={parseEstamaCoverSettings(storeSettings.estama_cover_banners)}
-              savedEnabled={savedCoverEnabled}
-              onChange={(next) => setStoreSettings((current) => ({ ...current, estama_cover_banners: { enabled: next.enabled, slots: next.slots } }))}
-            />
-          )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg"><ImagePlus size={20} /> トップページバナー</CardTitle>
-              <CardDescription>
-                推奨サイズは<strong>1774 × 887px（2:1）</strong>です。追加・削除・順番変更後は、右上の「保存」で公開HPへ反映されます。
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid gap-3 rounded-lg border border-dashed p-4 md:grid-cols-[1fr_auto] md:items-end">
-                <div>
-                  <Label htmlFor="hero-banner-url">画像URLから追加</Label>
-                  <Input
-                    id="hero-banner-url"
-                    value={newBannerUrl}
-                    onChange={(event) => setNewBannerUrl(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") addBannerUrl(newBannerUrl);
-                    }}
-                    placeholder="https://.../banner.png"
-                    className="mt-2"
-                  />
-                </div>
-                <Button type="button" variant="secondary" onClick={() => addBannerUrl(newBannerUrl)} disabled={!newBannerUrl.trim()}>
-                  URLを追加
-                </Button>
-              </div>
-
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg"><ImagePlus size={20} /> トップページバナー</CardTitle>
+            <CardDescription>
+              推奨サイズは<strong>1774 × 887px（2:1）</strong>です。追加・削除・順番変更後は、右上の「保存」で公開HPへ反映されます。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-3 rounded-lg border border-dashed p-4 md:grid-cols-[1fr_auto] md:items-end">
               <div>
-                <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={uploadBanner} />
-                <Button type="button" variant="outline" className="w-full" onClick={() => fileRef.current?.click()} disabled={uploading}>
-                  {uploading ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Upload size={16} className="mr-2" />}
-                  {uploading ? "画像をアップロード中..." : "画像ファイルをアップロードして追加"}
-                </Button>
-                <p className="mt-2 text-xs text-muted-foreground">PNG / JPG / WebP / GIF、10MB以下。アップロードしただけでは公開されず、「保存」後に反映されます。</p>
+                <Label htmlFor="hero-banner-url">画像URLから追加</Label>
+                <Input
+                  id="hero-banner-url"
+                  value={newBannerUrl}
+                  onChange={(event) => setNewBannerUrl(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") addBannerUrl(newBannerUrl);
+                  }}
+                  placeholder="https://.../banner.png"
+                  className="mt-2"
+                />
               </div>
+              <Button type="button" variant="secondary" onClick={() => addBannerUrl(newBannerUrl)} disabled={!newBannerUrl.trim()}>
+                URLを追加
+              </Button>
+            </div>
 
-              {loading ? (
-                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-muted-foreground" /></div>
-              ) : banners.length === 0 ? (
-                <div className="rounded-lg border bg-muted/30 px-4 py-10 text-center text-sm text-muted-foreground">
-                  バナーが未登録です。上から画像を追加してください。
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {banners.map((banner, index) => (
-                    <div
-                      key={`${banner}-${index}`}
-                      draggable
-                      onDragStart={() => { dragIndex.current = index; }}
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => handleDrop(event, index)}
-                      className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:flex-row sm:items-center"
-                    >
-                      <GripVertical className="hidden shrink-0 cursor-grab text-muted-foreground sm:block" aria-label="ドラッグして並び替え" />
-                      <div className="w-full overflow-hidden rounded-lg border bg-muted sm:w-48" style={{ aspectRatio: "2 / 1" }}>
-                        <img src={banner} alt={`トップバナー ${index + 1}`} className="h-full w-full object-cover" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium">表示順 {index + 1}</p>
-                        <p className="mt-1 break-all text-xs text-muted-foreground">{banner}</p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
-                        <Button type="button" variant="outline" size="icon" disabled={index === 0} onClick={() => moveBanner(index, -1)} aria-label="上へ移動">
-                          <ArrowUp size={16} />
-                        </Button>
-                        <Button type="button" variant="outline" size="icon" disabled={index === banners.length - 1} onClick={() => moveBanner(index, 1)} aria-label="下へ移動">
-                          <ArrowDown size={16} />
-                        </Button>
-                        <Button type="button" variant="destructive" size="icon" onClick={() => removeBanner(index)} aria-label="バナーを削除">
-                          <Trash2 size={16} />
-                        </Button>
-                      </div>
+            <div>
+              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={uploadBanner} />
+              <Button type="button" variant="outline" className="w-full" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                {uploading ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Upload size={16} className="mr-2" />}
+                {uploading ? "画像をアップロード中..." : "画像ファイルをアップロードして追加"}
+              </Button>
+              <p className="mt-2 text-xs text-muted-foreground">PNG / JPG / WebP / GIF、10MB以下。アップロードしただけでは公開されず、「保存」後に反映されます。</p>
+            </div>
+
+            {loading ? (
+              <div className="flex justify-center py-12"><Loader2 className="animate-spin text-muted-foreground" /></div>
+            ) : banners.length === 0 ? (
+              <div className="rounded-lg border bg-muted/30 px-4 py-10 text-center text-sm text-muted-foreground">
+                バナーが未登録です。上から画像を追加してください。
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {banners.map((banner, index) => (
+                  <div
+                    key={`${banner}-${index}`}
+                    draggable
+                    onDragStart={() => { dragIndex.current = index; }}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => handleDrop(event, index)}
+                    className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:flex-row sm:items-center"
+                  >
+                    <GripVertical className="hidden shrink-0 cursor-grab text-muted-foreground sm:block" aria-label="ドラッグして並び替え" />
+                    <div className="w-full overflow-hidden rounded-lg border bg-muted sm:w-48" style={{ aspectRatio: "2 / 1" }}>
+                      <img src={banner} alt={`トップバナー ${index + 1}`} className="h-full w-full object-cover" />
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">表示順 {index + 1}</p>
+                      <p className="mt-1 break-all text-xs text-muted-foreground">{banner}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
+                      <Button type="button" variant="outline" size="icon" disabled={index === 0} onClick={() => moveBanner(index, -1)} aria-label="上へ移動">
+                        <ArrowUp size={16} />
+                      </Button>
+                      <Button type="button" variant="outline" size="icon" disabled={index === banners.length - 1} onClick={() => moveBanner(index, 1)} aria-label="下へ移動">
+                        <ArrowDown size={16} />
+                      </Button>
+                      <Button type="button" variant="destructive" size="icon" onClick={() => removeBanner(index)} aria-label="バナーを削除">
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg"><Video size={20} /> トップ動画の表示設定</CardTitle>
-              <CardDescription>動画を優先表示している間は、上で設定したバナーがトップの最上部に表示されません。</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg"><Video size={20} /> トップ動画の表示設定</CardTitle>
+            <CardDescription>動画を優先表示している間は、上で設定したバナーがトップの最上部に表示されません。</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+              <div>
+                <Label htmlFor="hero-video-enabled" className="text-sm font-medium">トップ動画を優先表示する</Label>
+                <p className="mt-1 text-xs text-muted-foreground">オフにすると、保存したトップバナーが先頭から表示されます。</p>
+              </div>
+              <Switch id="hero-video-enabled" checked={heroVideo.enabled} onCheckedChange={(enabled) => setHeroVideo((current) => ({ ...current, enabled }))} />
+            </div>
+            {heroVideo.enabled && (
+              <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <Label htmlFor="hero-video-enabled" className="text-sm font-medium">トップ動画を優先表示する</Label>
-                  <p className="mt-1 text-xs text-muted-foreground">オフにすると、保存したトップバナーが先頭から表示されます。</p>
+                  <Label htmlFor="hero-video-url">動画URL</Label>
+                  <Input id="hero-video-url" value={heroVideo.url} onChange={(event) => setHeroVideo((current) => ({ ...current, url: event.target.value }))} className="mt-2" placeholder="https://.../movie.mp4" />
                 </div>
-                <Switch id="hero-video-enabled" checked={heroVideo.enabled} onCheckedChange={(enabled) => setHeroVideo((current) => ({ ...current, enabled }))} />
-              </div>
-              {heroVideo.enabled && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="hero-video-url">動画URL</Label>
-                    <Input id="hero-video-url" value={heroVideo.url} onChange={(event) => setHeroVideo((current) => ({ ...current, url: event.target.value }))} className="mt-2" placeholder="https://.../movie.mp4" />
-                  </div>
-                  <div>
-                    <Label htmlFor="hero-video-poster">ポスター画像URL（任意）</Label>
-                    <Input id="hero-video-poster" value={heroVideo.poster_url} onChange={(event) => setHeroVideo((current) => ({ ...current, poster_url: event.target.value }))} className="mt-2" placeholder="https://.../poster.png" />
-                  </div>
+                <div>
+                  <Label htmlFor="hero-video-poster">ポスター画像URL（任意）</Label>
+                  <Input id="hero-video-poster" value={heroVideo.poster_url} onChange={(event) => setHeroVideo((current) => ({ ...current, poster_url: event.target.value }))} className="mt-2" placeholder="https://.../poster.png" />
                 </div>
-              )}
-              <div className="flex gap-2 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
-                <Info size={16} className="mt-0.5 shrink-0" />
-                <p>動画を残したい場合はオンのままにしてください。入店バナーをトップのメイン表示へ切り替える場合は、動画をオフにして保存します。</p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    </div>
+            )}
+            <div className="flex gap-2 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+              <Info size={16} className="mt-0.5 shrink-0" />
+              <p>動画を残したい場合はオンのままにしてください。入店バナーをトップのメイン表示へ切り替える場合は、動画をオフにして保存します。</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </AdminPageShell>
   );
 }

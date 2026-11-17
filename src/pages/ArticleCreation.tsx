@@ -1,6 +1,5 @@
 import { useCallback, useState, useEffect } from "react";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +20,7 @@ import { ja } from "date-fns/locale";
 import { Plus, Trash2, Edit2, Sparkles, Loader2, Globe, EyeOff, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAdminStore } from "@/hooks/useAdminStore";
+import { AI_GENERATION_ENABLED } from "@/lib/aiFeatures";
 
 interface Article {
   id: string;
@@ -38,8 +38,7 @@ interface Article {
   estama_news_url: string | null;
 }
 
-export default function ArticleCreation() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default function ArticleCreation({ embedded = false }: { embedded?: boolean } = {}) {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -358,402 +357,397 @@ export default function ArticleCreation() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="pt-[60px] md:ml-[240px] p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-2xl font-bold">記事作成</h1>
-              <p className="text-muted-foreground">
-                ホームページの記事を管理
-              </p>
-            </div>
-            <Button onClick={() => setIsAdding(!isAdding)}>
-              <Plus size={16} className="mr-2" />
-              新規作成
-            </Button>
+    <AdminPageShell embedded={embedded} mainClassName="p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">記事作成</h1>
+            <p className="text-muted-foreground">
+              ホームページの記事を管理
+            </p>
           </div>
+          <Button onClick={() => setIsAdding(!isAdding)}>
+            <Plus size={16} className="mr-2" />
+            新規作成
+          </Button>
+        </div>
 
-          {/* ニュース自動投稿（ワンクリック） */}
-          <Card className="mb-6 border-pink-200 bg-gradient-to-br from-pink-50 to-rose-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2 text-pink-700">
-                <Sparkles size={18} />
-                ニュース自動投稿
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                AIで記事を生成し、HPとエステ魂のニュースへ同時投稿します。テーマは任意です。
-              </p>
+        {/* ニュース自動投稿（ワンクリック） */}
+        {AI_GENERATION_ENABLED && <Card className="mb-6 border-pink-200 bg-gradient-to-br from-pink-50 to-rose-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2 text-pink-700">
+              <Sparkles size={18} />
+              ニュース自動投稿
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              AIで記事を生成し、HPとエステ魂のニュースへ同時投稿します。テーマは任意です。
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                value={autoNewsTopic}
+                onChange={(e) => setAutoNewsTopic(e.target.value)}
+                placeholder="テーマ（任意・例：夏の新キャンペーン開始）"
+                className="flex-1 bg-white"
+                onKeyDown={(e) => { if (e.key === "Enter" && !autoNewsLoading) handleAutoNews(); }}
+              />
+              <Button
+                onClick={handleAutoNews}
+                disabled={autoNewsLoading}
+                className="bg-pink-600 hover:bg-pink-700 text-white shrink-0"
+              >
+                {autoNewsLoading ? (
+                  <><Loader2 size={16} className="mr-2 animate-spin" />生成して公開中...</>
+                ) : (
+                  <><Sparkles size={16} className="mr-2" />ニュースを生成して公開</>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>}
+
+        {isAdding && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>新しい記事を作成</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-col sm:flex-row gap-2">
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="title">タイトル</Label>
                 <Input
-                  value={autoNewsTopic}
-                  onChange={(e) => setAutoNewsTopic(e.target.value)}
-                  placeholder="テーマ（任意・例：夏の新キャンペーン開始）"
-                  className="flex-1 bg-white"
-                  onKeyDown={(e) => { if (e.key === "Enter" && !autoNewsLoading) handleAutoNews(); }}
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  placeholder="記事のタイトル"
                 />
-                <Button
-                  onClick={handleAutoNews}
-                  disabled={autoNewsLoading}
-                  className="bg-pink-600 hover:bg-pink-700 text-white shrink-0"
+              </div>
+              <div>
+                <Label htmlFor="slug">スラッグ（URL）</Label>
+                <Input
+                  id="slug"
+                  value={formData.slug}
+                  onChange={(e) =>
+                    setFormData({ ...formData, slug: e.target.value })
+                  }
+                  placeholder="article-title（自動生成も可能）"
+                />
+              </div>
+              <div>
+                <Label htmlFor="category">カテゴリ</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, category: value })
+                  }
                 >
-                  {autoNewsLoading ? (
-                    <><Loader2 size={16} className="mr-2 animate-spin" />生成して公開中...</>
-                  ) : (
-                    <><Sparkles size={16} className="mr-2" />ニュースを生成して公開</>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="important">重要なお知らせ</SelectItem>
+                    <SelectItem value="event">期間限定イベント</SelectItem>
+                    <SelectItem value="coupon">クーポン案内</SelectItem>
+                    <SelectItem value="schedule">出勤情報</SelectItem>
+                    <SelectItem value="newstaff">新人入店情報</SelectItem>
+                    <SelectItem value="news">ニュース</SelectItem>
+                    <SelectItem value="tips">ノウハウ</SelectItem>
+                    <SelectItem value="campaign">キャンペーン</SelectItem>
+                    <SelectItem value="other">その他</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="rounded-lg border p-3 space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" checked={formData.is_featured} onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })} />
+                  注目ニュースとして上部に表示
+                </label>
+                <div>
+                  <Label htmlFor="action_url">予約・詳細ページへのリンク（任意）</Label>
+                  <Input id="action_url" placeholder="/booking または https://..." value={formData.action_url} onChange={(e) => setFormData({ ...formData, action_url: e.target.value })} />
+                </div>
+              </div>
+
+              {/* AI生成フォーム */}
+              {AI_GENERATION_ENABLED && AI_CATEGORIES.includes(formData.category) && (
+                <div className="rounded-lg border border-pink-200 bg-pink-50 p-4 space-y-3">
+                  <p className="text-sm font-medium text-pink-700 flex items-center gap-1">
+                    <Sparkles size={14} /> AI生成 — 情報を入力してください
+                  </p>
+
+                  {formData.category === "coupon" && (
+                    <>
+                      <div>
+                        <Label>クーポン名 *</Label>
+                        <Input
+                          value={aiInputs.couponName}
+                          onChange={(e) => setAiInputs({ ...aiInputs, couponName: e.target.value })}
+                          placeholder="例：初回限定60分コース"
+                        />
+                      </div>
+                      <div>
+                        <Label>割引・特典内容 *</Label>
+                        <Input
+                          value={aiInputs.couponDiscount}
+                          onChange={(e) => setAiInputs({ ...aiInputs, couponDiscount: e.target.value })}
+                          placeholder="例：通常¥12,000 → ¥9,000（25%OFF）"
+                        />
+                      </div>
+                      <div>
+                        <Label>有効期限</Label>
+                        <Input
+                          value={aiInputs.couponExpiry}
+                          onChange={(e) => setAiInputs({ ...aiInputs, couponExpiry: e.target.value })}
+                          placeholder="例：〜2026年6月30日"
+                        />
+                      </div>
+                      <div>
+                        <Label>利用条件</Label>
+                        <Input
+                          value={aiInputs.couponConditions}
+                          onChange={(e) => setAiInputs({ ...aiInputs, couponConditions: e.target.value })}
+                          placeholder="例：初回ご来店限定・1回のみ利用可"
+                        />
+                      </div>
+                    </>
                   )}
+
+                  {formData.category === "schedule" && (
+                    <>
+                      <div>
+                        <Label>キャスト名 *</Label>
+                        <Input
+                          value={aiInputs.castName}
+                          onChange={(e) => setAiInputs({ ...aiInputs, castName: e.target.value })}
+                          placeholder="例：さくら"
+                        />
+                      </div>
+                      <div>
+                        <Label>出勤日時 *</Label>
+                        <Input
+                          value={aiInputs.scheduleDate}
+                          onChange={(e) => setAiInputs({ ...aiInputs, scheduleDate: e.target.value })}
+                          placeholder="例：6/15（日）12:00〜22:00"
+                        />
+                      </div>
+                      <div>
+                        <Label>コメント・備考</Label>
+                        <Input
+                          value={aiInputs.scheduleNote}
+                          onChange={(e) => setAiInputs({ ...aiInputs, scheduleNote: e.target.value })}
+                          placeholder="例：久しぶりの出勤です！お気軽にご予約ください"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {formData.category === "newstaff" && (
+                    <>
+                      <div>
+                        <Label>スタッフ名 *</Label>
+                        <Input
+                          value={aiInputs.staffName}
+                          onChange={(e) => setAiInputs({ ...aiInputs, staffName: e.target.value })}
+                          placeholder="例：あおい"
+                        />
+                      </div>
+                      <div>
+                        <Label>プロフィール（特徴・スペック等）</Label>
+                        <Textarea
+                          value={aiInputs.staffProfile}
+                          onChange={(e) => setAiInputs({ ...aiInputs, staffProfile: e.target.value })}
+                          placeholder="例：20歳・T163・明るく癒し系・マッサージ得意"
+                          rows={2}
+                        />
+                      </div>
+                      <div>
+                        <Label>本人からのメッセージ</Label>
+                        <Input
+                          value={aiInputs.staffMessage}
+                          onChange={(e) => setAiInputs({ ...aiInputs, staffMessage: e.target.value })}
+                          placeholder="例：緊張していますが精一杯頑張ります！"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <Button
+                    type="button"
+                    onClick={handleAiGenerate}
+                    disabled={aiLoading}
+                    className="bg-pink-600 hover:bg-pink-700 text-white"
+                  >
+                    {aiLoading ? (
+                      <><Loader2 size={14} className="mr-2 animate-spin" />生成中...</>
+                    ) : (
+                      <><Sparkles size={14} className="mr-2" />AI生成</>
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="content">内容</Label>
+                <Textarea
+                  id="content"
+                  value={formData.content}
+                  onChange={(e) =>
+                    setFormData({ ...formData, content: e.target.value })
+                  }
+                  placeholder={AI_GENERATION_ENABLED ? "記事の内容（AI生成後に編集できます）" : "記事の内容"}
+                  rows={8}
+                />
+              </div>
+              {/* 画像 */}
+              <div>
+                <Label>画像</Label>
+                <div className="mt-2 space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-dashed cursor-pointer text-sm hover:bg-accent transition-colors">
+                      {uploadingImage ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
+                      {uploadingImage ? "アップロード中..." : "画像をアップロード"}
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
+                    </label>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      value={newImageUrl}
+                      onChange={(e) => setNewImageUrl(e.target.value)}
+                      placeholder="または画像URLを貼り付け"
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addImageUrl(); } }}
+                    />
+                    <Button type="button" variant="outline" onClick={addImageUrl} disabled={!newImageUrl.trim()}>
+                      <Plus size={16} />
+                    </Button>
+                  </div>
+                  {formData.image_urls.length > 0 && (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {formData.image_urls.map((url, idx) => (
+                        <div key={idx} className="relative aspect-square rounded-md overflow-hidden border bg-muted">
+                          <img src={url} alt={`画像${idx + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(idx)}
+                            className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="published"
+                  checked={formData.is_published}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      is_published: e.target.checked,
+                    })
+                  }
+                />
+                <Label htmlFor="published">公開する</Label>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleAdd}>作成</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => { setIsAdding(false); resetForm(); }}
+                >
+                  キャンセル
                 </Button>
               </div>
             </CardContent>
           </Card>
+        )}
 
-          {isAdding && (
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>新しい記事を作成</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="title">タイトル</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    placeholder="記事のタイトル"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="slug">スラッグ（URL）</Label>
-                  <Input
-                    id="slug"
-                    value={formData.slug}
-                    onChange={(e) =>
-                      setFormData({ ...formData, slug: e.target.value })
-                    }
-                    placeholder="article-title（自動生成も可能）"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="category">カテゴリ</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, category: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="important">重要なお知らせ</SelectItem>
-                      <SelectItem value="event">期間限定イベント</SelectItem>
-                      <SelectItem value="coupon">クーポン案内</SelectItem>
-                      <SelectItem value="schedule">出勤情報</SelectItem>
-                      <SelectItem value="newstaff">新人入店情報</SelectItem>
-                      <SelectItem value="news">ニュース</SelectItem>
-                      <SelectItem value="tips">ノウハウ</SelectItem>
-                      <SelectItem value="campaign">キャンペーン</SelectItem>
-                      <SelectItem value="other">その他</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="rounded-lg border p-3 space-y-3">
-                  <label className="flex items-center gap-2 text-sm font-medium">
-                    <input type="checkbox" checked={formData.is_featured} onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })} />
-                    注目ニュースとして上部に表示
-                  </label>
-                  <div>
-                    <Label htmlFor="action_url">予約・詳細ページへのリンク（任意）</Label>
-                    <Input id="action_url" placeholder="/booking または https://..." value={formData.action_url} onChange={(e) => setFormData({ ...formData, action_url: e.target.value })} />
-                  </div>
-                </div>
-
-                {/* AI生成フォーム */}
-                {AI_CATEGORIES.includes(formData.category) && (
-                  <div className="rounded-lg border border-pink-200 bg-pink-50 p-4 space-y-3">
-                    <p className="text-sm font-medium text-pink-700 flex items-center gap-1">
-                      <Sparkles size={14} /> AI生成 — 情報を入力してください
-                    </p>
-
-                    {formData.category === "coupon" && (
-                      <>
-                        <div>
-                          <Label>クーポン名 *</Label>
-                          <Input
-                            value={aiInputs.couponName}
-                            onChange={(e) => setAiInputs({ ...aiInputs, couponName: e.target.value })}
-                            placeholder="例：初回限定60分コース"
-                          />
-                        </div>
-                        <div>
-                          <Label>割引・特典内容 *</Label>
-                          <Input
-                            value={aiInputs.couponDiscount}
-                            onChange={(e) => setAiInputs({ ...aiInputs, couponDiscount: e.target.value })}
-                            placeholder="例：通常¥12,000 → ¥9,000（25%OFF）"
-                          />
-                        </div>
-                        <div>
-                          <Label>有効期限</Label>
-                          <Input
-                            value={aiInputs.couponExpiry}
-                            onChange={(e) => setAiInputs({ ...aiInputs, couponExpiry: e.target.value })}
-                            placeholder="例：〜2026年6月30日"
-                          />
-                        </div>
-                        <div>
-                          <Label>利用条件</Label>
-                          <Input
-                            value={aiInputs.couponConditions}
-                            onChange={(e) => setAiInputs({ ...aiInputs, couponConditions: e.target.value })}
-                            placeholder="例：初回ご来店限定・1回のみ利用可"
-                          />
-                        </div>
-                      </>
-                    )}
-
-                    {formData.category === "schedule" && (
-                      <>
-                        <div>
-                          <Label>キャスト名 *</Label>
-                          <Input
-                            value={aiInputs.castName}
-                            onChange={(e) => setAiInputs({ ...aiInputs, castName: e.target.value })}
-                            placeholder="例：さくら"
-                          />
-                        </div>
-                        <div>
-                          <Label>出勤日時 *</Label>
-                          <Input
-                            value={aiInputs.scheduleDate}
-                            onChange={(e) => setAiInputs({ ...aiInputs, scheduleDate: e.target.value })}
-                            placeholder="例：6/15（日）12:00〜22:00"
-                          />
-                        </div>
-                        <div>
-                          <Label>コメント・備考</Label>
-                          <Input
-                            value={aiInputs.scheduleNote}
-                            onChange={(e) => setAiInputs({ ...aiInputs, scheduleNote: e.target.value })}
-                            placeholder="例：久しぶりの出勤です！お気軽にご予約ください"
-                          />
-                        </div>
-                      </>
-                    )}
-
-                    {formData.category === "newstaff" && (
-                      <>
-                        <div>
-                          <Label>スタッフ名 *</Label>
-                          <Input
-                            value={aiInputs.staffName}
-                            onChange={(e) => setAiInputs({ ...aiInputs, staffName: e.target.value })}
-                            placeholder="例：あおい"
-                          />
-                        </div>
-                        <div>
-                          <Label>プロフィール（特徴・スペック等）</Label>
-                          <Textarea
-                            value={aiInputs.staffProfile}
-                            onChange={(e) => setAiInputs({ ...aiInputs, staffProfile: e.target.value })}
-                            placeholder="例：20歳・T163・明るく癒し系・マッサージ得意"
-                            rows={2}
-                          />
-                        </div>
-                        <div>
-                          <Label>本人からのメッセージ</Label>
-                          <Input
-                            value={aiInputs.staffMessage}
-                            onChange={(e) => setAiInputs({ ...aiInputs, staffMessage: e.target.value })}
-                            placeholder="例：緊張していますが精一杯頑張ります！"
-                          />
-                        </div>
-                      </>
-                    )}
-
-                    <Button
-                      type="button"
-                      onClick={handleAiGenerate}
-                      disabled={aiLoading}
-                      className="bg-pink-600 hover:bg-pink-700 text-white"
-                    >
-                      {aiLoading ? (
-                        <><Loader2 size={14} className="mr-2 animate-spin" />生成中...</>
-                      ) : (
-                        <><Sparkles size={14} className="mr-2" />AI生成</>
-                      )}
-                    </Button>
-                  </div>
-                )}
-
-                <div>
-                  <Label htmlFor="content">内容</Label>
-                  <Textarea
-                    id="content"
-                    value={formData.content}
-                    onChange={(e) =>
-                      setFormData({ ...formData, content: e.target.value })
-                    }
-                    placeholder="記事の内容（AI生成後に編集できます）"
-                    rows={8}
-                  />
-                </div>
-                {/* 画像 */}
-                <div>
-                  <Label>画像</Label>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-dashed cursor-pointer text-sm hover:bg-accent transition-colors">
-                        {uploadingImage ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
-                        {uploadingImage ? "アップロード中..." : "画像をアップロード"}
-                        <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
-                      </label>
-                    </div>
-                    <div className="flex gap-2">
-                      <Input
-                        value={newImageUrl}
-                        onChange={(e) => setNewImageUrl(e.target.value)}
-                        placeholder="または画像URLを貼り付け"
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addImageUrl(); } }}
+        {loading ? (
+          <div className="text-center text-muted-foreground">
+            読み込み中...
+          </div>
+        ) : articles.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            記事がありません
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {articles.map((article) => (
+              <Card key={article.id}>
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-3">
+                    {article.image_urls && article.image_urls.length > 0 && (
+                      <img
+                        src={article.image_urls[0]}
+                        alt={article.title}
+                        className="w-16 h-16 rounded-md object-cover border shrink-0"
                       />
-                      <Button type="button" variant="outline" onClick={addImageUrl} disabled={!newImageUrl.trim()}>
-                        <Plus size={16} />
-                      </Button>
-                    </div>
-                    {formData.image_urls.length > 0 && (
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                        {formData.image_urls.map((url, idx) => (
-                          <div key={idx} className="relative aspect-square rounded-md overflow-hidden border bg-muted">
-                            <img src={url} alt={`画像${idx + 1}`} className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => removeImage(idx)}
-                              className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1"
-                            >
-                              <X size={12} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
                     )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="published"
-                    checked={formData.is_published}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        is_published: e.target.checked,
-                      })
-                    }
-                  />
-                  <Label htmlFor="published">公開する</Label>
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleAdd}>作成</Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => { setIsAdding(false); resetForm(); }}
-                  >
-                    キャンセル
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {loading ? (
-            <div className="text-center text-muted-foreground">
-              読み込み中...
-            </div>
-          ) : articles.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              記事がありません
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {articles.map((article) => (
-                <Card key={article.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-3">
-                      {article.image_urls && article.image_urls.length > 0 && (
-                        <img
-                          src={article.image_urls[0]}
-                          alt={article.title}
-                          className="w-16 h-16 rounded-md object-cover border shrink-0"
-                        />
+                    <div className="flex-1 min-w-0">
+                      <CardTitle>{article.title}</CardTitle>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {article.slug} • {article.category}
+                        {article.image_urls && article.image_urls.length > 0 ? ` • 画像${article.image_urls.length}枚` : ""}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(article.created_at), "yyyy/MM/dd", {
+                          locale: ja,
+                        })}{" "}
+                        {article.is_published ? "（公開中）" : "（下書き）"}
+                      </p>
+                      {article.is_published && (
+                        <p className={`mt-1 text-xs ${article.estama_status === "posted" ? "text-green-600" : article.estama_status === "failed" ? "text-destructive" : "text-amber-600"}`}>
+                          エステ魂：{article.estama_status === "posted" ? "投稿済み" : article.estama_status === "posting" ? "投稿中" : article.estama_error?.startsWith("【要確認・再送停止】") ? "掲載結果の確認が必要" : article.estama_status === "failed" ? "投稿失敗" : "未投稿"}
+                          {article.estama_error ? `（${article.estama_error}）` : ""}
+                        </p>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <CardTitle>{article.title}</CardTitle>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {article.slug} • {article.category}
-                          {article.image_urls && article.image_urls.length > 0 ? ` • 画像${article.image_urls.length}枚` : ""}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(article.created_at), "yyyy/MM/dd", {
-                            locale: ja,
-                          })}{" "}
-                          {article.is_published ? "（公開中）" : "（下書き）"}
-                        </p>
-                        {article.is_published && (
-                          <p className={`mt-1 text-xs ${article.estama_status === "posted" ? "text-green-600" : article.estama_status === "failed" ? "text-destructive" : "text-amber-600"}`}>
-                            エステ魂：{article.estama_status === "posted" ? "投稿済み" : article.estama_status === "posting" ? "投稿中" : article.estama_error?.startsWith("【要確認・再送停止】") ? "掲載結果の確認が必要" : article.estama_status === "failed" ? "投稿失敗" : "未投稿"}
-                            {article.estama_error ? `（${article.estama_error}）` : ""}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => void toggleFeatured(article)} title={article.is_featured ? "注目指定を解除" : "注目ニュースに設定"} className={article.is_featured ? "text-pink-600 font-bold" : "text-muted-foreground"}>★</button>
-                        <button type="button" onClick={() => void saveActionUrl(article)} title="予約・詳細リンクを設定" className="rounded border px-2 py-1 text-xs">リンク</button>
-                        {article.is_published
-                          && article.estama_status !== "posted"
-                          && !article.estama_error?.startsWith("【要確認・再送停止】") && (
-                          <button
-                            onClick={async () => { await publishToEstama(article.id); fetchArticles(); }}
-                            disabled={estamaSyncingId === article.id || article.estama_status === "posting"}
-                            title="エステ魂へ再投稿"
-                            className="text-pink-600 hover:text-pink-700 transition-colors disabled:opacity-50"
-                          >
-                            {estamaSyncingId === article.id ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleTogglePublish(article)}
-                          title={article.is_published ? "非公開にする" : "公開する"}
-                          className={`transition-colors ${article.is_published ? "text-green-600 hover:text-muted-foreground" : "text-muted-foreground hover:text-green-600"}`}
-                        >
-                          {article.is_published ? <Globe size={18} /> : <EyeOff size={18} />}
-                        </button>
-                        <button className="text-muted-foreground hover:text-primary transition-colors">
-                          <Edit2 size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(article.id)}
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
                     </div>
-                  </CardHeader>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
-    </div>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => void toggleFeatured(article)} title={article.is_featured ? "注目指定を解除" : "注目ニュースに設定"} className={article.is_featured ? "text-pink-600 font-bold" : "text-muted-foreground"}>★</button>
+                      <button type="button" onClick={() => void saveActionUrl(article)} title="予約・詳細リンクを設定" className="rounded border px-2 py-1 text-xs">リンク</button>
+                      {article.is_published
+                        && article.estama_status !== "posted"
+                        && !article.estama_error?.startsWith("【要確認・再送停止】") && (
+                        <button
+                          onClick={async () => { await publishToEstama(article.id); fetchArticles(); }}
+                          disabled={estamaSyncingId === article.id || article.estama_status === "posting"}
+                          title="エステ魂へ再投稿"
+                          className="text-pink-600 hover:text-pink-700 transition-colors disabled:opacity-50"
+                        >
+                          {estamaSyncingId === article.id ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleTogglePublish(article)}
+                        title={article.is_published ? "非公開にする" : "公開する"}
+                        className={`transition-colors ${article.is_published ? "text-green-600 hover:text-muted-foreground" : "text-muted-foreground hover:text-green-600"}`}
+                      >
+                        {article.is_published ? <Globe size={18} /> : <EyeOff size={18} />}
+                      </button>
+                      <button className="text-muted-foreground hover:text-primary transition-colors">
+                        <Edit2 size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(article.id)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </AdminPageShell>
   );
 }

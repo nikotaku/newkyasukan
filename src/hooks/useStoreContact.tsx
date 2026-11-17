@@ -5,7 +5,7 @@ import { useStore } from "@/hooks/useStore";
 /**
  * 店舗の連絡先（電話番号・予約用LINE・営業時間）を store_info から取得する共通フック。
  * サブドメインで解決された店舗（useStore）の行を参照するため、店舗ごとに値が切り替わる。
- * 管理画面の「店舗情報」（/hp/store-info）で変更すると公開HP全体に反映される。
+ * 管理画面の「店舗情報」（/hp/dashboard?tab=store）で変更すると公開HP全体に反映される。
  */
 
 const DEFAULT_PHONE = "05017856945";

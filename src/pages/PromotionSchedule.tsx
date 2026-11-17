@@ -56,6 +56,7 @@ import {
   type GeneratedPromotionSchedule as GeneratedSchedule,
   type PromotionChannelKey,
 } from "@/lib/standardPromotionSchedule";
+import { AI_GENERATION_ENABLED } from "@/lib/aiFeatures";
 
 type PromotionPlan = Database["public"]["Tables"]["promotion_plans"]["Row"];
 type PromotionTask = Database["public"]["Tables"]["promotion_plan_tasks"]["Row"] & {
@@ -1020,17 +1021,19 @@ export default function PromotionSchedule() {
               <p className="font-semibold">スケジュールを作成できませんでした</p>
               <p className="mt-1 break-words">{createError}</p>
               <p className="mt-2 text-xs">入力内容は残っています。原因を確認して、もう一度お試しください。</p>
-              <p className="mt-1 text-xs">AIのエラーの場合は「標準スケジュールで作成」を選ぶと、AIを使わずに作成できます。</p>
+              {AI_GENERATION_ENABLED && <p className="mt-1 text-xs">AIのエラーの場合は「標準スケジュールで作成」を選ぶと、AIを使わずに作成できます。</p>}
             </div>
           )}
 
-          <p className="text-xs text-muted-foreground">標準作成にAI利用料はかかりません。「AIで作成する」は外部AIサービスの有効な残高が必要です。予定を作成するだけで、SNSへの自動投稿は行いません。</p>
+          <p className="text-xs text-muted-foreground">{AI_GENERATION_ENABLED ? "標準作成にAI利用料はかかりません。「AIで作成する」は外部AIサービスの有効な残高が必要です。" : ""}予定を作成するだけで、SNSへの自動投稿は行いません。</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={generating}>キャンセル</Button>
-            <Button variant="outline" onClick={() => void createSchedule("ai")} disabled={generating || loading || storeLoading || authLoading || castOptions.length === 0}>
-              {creationMode === "ai" ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : <Sparkles size={16} className="mr-1.5" />}
-              {creationMode === "ai" ? "AIが作成中..." : "AIで作成する"}
-            </Button>
+            {AI_GENERATION_ENABLED && (
+              <Button variant="outline" onClick={() => void createSchedule("ai")} disabled={generating || loading || storeLoading || authLoading || castOptions.length === 0}>
+                {creationMode === "ai" ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : <Sparkles size={16} className="mr-1.5" />}
+                {creationMode === "ai" ? "AIが作成中..." : "AIで作成する"}
+              </Button>
+            )}
             <Button onClick={() => void createSchedule("standard")} disabled={generating || loading || storeLoading || authLoading || castOptions.length === 0}>
               {creationMode === "standard" ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : <CalendarDays size={16} className="mr-1.5" />}
               {creationMode === "standard" ? "標準スケジュールを保存中..." : "標準スケジュールで作成"}
@@ -1168,7 +1171,7 @@ function TaskCheckbox({
           {!task.is_completed && kind && AUTO_CHECKABLE.includes(kind) && !task.auto_skip && (
             <span className="text-muted-foreground">投稿すると自動でチェックが付きます</span>
           )}
-          {!task.is_completed && onDraft && (
+          {!task.is_completed && onDraft && (AI_GENERATION_ENABLED || task.draft_text) && (
             <button type="button" className="inline-flex items-center gap-1 font-medium text-primary underline-offset-2 hover:underline" onClick={() => onDraft(task)}>
               <Sparkles size={12} />{task.draft_text ? "投稿文を見る" : "投稿文を作る"}
             </button>

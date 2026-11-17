@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCastBookingUrl } from "@/lib/bookingUrl";
 import { buildDraftRequest, type DraftFacts } from "@/lib/promotionTaskDraft";
 import { formatShiftBreak } from "@/lib/shiftBreak";
+import { AI_GENERATION_ENABLED } from "@/lib/aiFeatures";
 
 // 企画スケジュールのタスクの「投稿文を作る」。AI（generate-cast-content の x_post）が下書きを作り、手直しして保存・コピーする。
 
@@ -129,17 +130,19 @@ export function PromotionTaskDraftDialog({ task, storeId, storeName, bookingBase
           <DialogDescription>{task?.label}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <Button type="button" variant="outline" className="w-full" onClick={() => void generate()} disabled={generating}>
-            {generating ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : <Sparkles size={16} className="mr-1.5" />}
-            {text ? "AIで作り直す" : "AIで下書きを作る"}
-          </Button>
+          {AI_GENERATION_ENABLED && (
+            <Button type="button" variant="outline" className="w-full" onClick={() => void generate()} disabled={generating}>
+              {generating ? <Loader2 size={16} className="mr-1.5 animate-spin" /> : <Sparkles size={16} className="mr-1.5" />}
+              {text ? "AIで作り直す" : "AIで下書きを作る"}
+            </Button>
+          )}
           <Textarea
             value={text}
             onChange={(event) => setText(event.target.value)}
             rows={8}
             placeholder="ここに投稿文が入ります。手直ししてから保存・コピーできます"
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground" hidden={!AI_GENERATION_ENABLED}>
             この日の出勤・セラピストの紹介・予約URLを入れて作ります。数字や名前は、出勤やプロフィールにあるものだけを使います。【◯◯】の所は埋めてから投稿してください。
           </p>
         </div>

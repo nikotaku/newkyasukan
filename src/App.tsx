@@ -60,19 +60,15 @@ import Agreement from "./pages/Agreement";
 import RoomSettings from "./pages/RoomSettings";
 import SchedulePage from "./pages/Schedule";
 import Expenses from "./pages/Expenses";
-import Board from "./pages/Board";
 import Knowledge from "./pages/Knowledge";
 import MonthlyShift from "./pages/MonthlyShift";
 import ReservationsList from "./pages/ReservationsList";
 import WebBookings from "./pages/WebBookings";
 import AvailableSlots from "./pages/AvailableSlots";
-import ArticleCreation from "./pages/ArticleCreation";
 import HpBlogManagement from "./pages/HpBlogManagement";
 import BusinessFlow from "./pages/BusinessFlow";
-import StoreInfo from "./pages/StoreInfo";
-import HpSnsLinks from "./pages/HpSnsLinks";
+import HpDashboard from "./pages/HpDashboard";
 import HpXOperations from "./pages/HpXOperations";
-import HpTopBanners from "./pages/HpTopBanners";
 import HpKpiGoals from "./pages/HpKpiGoals";
 import SalesCustomerInfo from "./pages/SalesCustomerInfo";
 import SalesTherapistBreakdown from "./pages/SalesTherapistBreakdown";
@@ -231,12 +227,13 @@ const App = () => {
           <Route path="/rooms" element={<RoomSettings />} />
           <Route path="/design" element={<Design />} />
           <Route path="/hp/blog" element={<HpBlogManagement />} />
-          <Route path="/hp/article-creation" element={<ArticleCreation />} />
+          <Route path="/hp/dashboard" element={<HpDashboard />} />
+          <Route path="/hp/article-creation" element={<Navigate to="/hp/dashboard?tab=news" replace />} />
           <Route path="/hp/business-flow" element={<BusinessFlow />} />
-          <Route path="/hp/top-banners" element={<HpTopBanners />} />
+          <Route path="/hp/top-banners" element={<Navigate to="/hp/dashboard?tab=banners" replace />} />
           <Route path="/hp/kpi-goals" element={<HpKpiGoals />} />
-          <Route path="/hp/store-info" element={<StoreInfo />} />
-          <Route path="/hp/sns-links" element={<HpSnsLinks />} />
+          <Route path="/hp/store-info" element={<Navigate to="/hp/dashboard?tab=store" replace />} />
+          <Route path="/hp/sns-links" element={<Navigate to="/hp/dashboard?tab=sns" replace />} />
           <Route path="/hp/x-operations" element={<HpXOperations />} />
           <Route path="/hp/recommended-menu" element={<RecommendedMenu />} />
           <Route path="/report" element={<Report />} />
@@ -244,7 +241,7 @@ const App = () => {
           <Route path="/pricing-management" element={<Pricing />} />
           <Route path="/shop" element={<Settings />} />
           <Route path="/expenses" element={<Expenses />} />
-          <Route path="/board" element={<Board />} />
+          <Route path="/board" element={<Navigate to="/hp/dashboard" replace />} />
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/knowledge/passwords" element={<PasswordDatabase />} />
           <Route path="/templates" element={<TextTemplates />} />
