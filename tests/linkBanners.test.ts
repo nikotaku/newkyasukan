@@ -7,6 +7,7 @@ import {
   ownLinkBannerHtml,
   safeHttpUrl,
   visibleLinkBanners,
+  parseLinkBannerCode,
 } from "../src/lib/linkBanners.ts";
 
 test("http(s) 以外のURLはリンクにしない", () => {
@@ -82,4 +83,23 @@ test("当店のリンク用HTMLは属性をエスケープする", () => {
     ownLinkBannerHtml({ siteUrl: "https://enka-salon.jp/", imageUrl: "", name: "艶華" }),
     '<a href="https://enka-salon.jp/" target="_blank">艶華</a>',
   );
+});
+
+test("貼り付けたリンク用コードからリンク先・画像・名前だけを取り出す", () => {
+  const code = `<!-- 相互リンク -->
+<a href="https://ranking.example.jp/in.php?id=12&amp;x=1" target="_blank"><img src="//img.example.jp/bn.gif" alt="サンプルランキング" width="88" height="31" border="0"></a>
+<script src="https://ranking.example.jp/counter.js"></script>
+<a href='https://portal.example.com/'>サンプルポータル</a>`;
+  assert.deepEqual(parseLinkBannerCode(code), [
+    { url: "https://ranking.example.jp/in.php?id=12&x=1", image_url: "https://img.example.jp/bn.gif", name: "サンプルランキング" },
+    { url: "https://portal.example.com/", image_url: "", name: "サンプルポータル" },
+  ]);
+});
+
+test("javascript: のリンクやURLの無いコードは取り込まない", () => {
+  assert.deepEqual(parseLinkBannerCode(`<a href="javascript:alert(1)"><img src="https://x.example/a.gif"></a>`), []);
+  assert.deepEqual(parseLinkBannerCode("こんにちは"), []);
+  assert.deepEqual(parseLinkBannerCode("https://only-url.example.jp/"), [
+    { url: "https://only-url.example.jp/", image_url: "", name: "only-url.example.jp" },
+  ]);
 });

@@ -15,8 +15,8 @@ import type { Json } from "@/integrations/supabase/types";
 import { copyText } from "@/lib/copyText";
 import {
   LINK_BANNER_NAME_MAX,
-  createLinkBanner,
   normalizeLinkBanners,
+  parseLinkBannerCode,
   ownLinkBannerHtml,
   safeHttpUrl,
   type LinkBanner,
@@ -42,7 +42,7 @@ export default function HpLinkBanners({ embedded = false }: { embedded?: boolean
   const [ownBanner, setOwnBanner] = useState("");
   const [storeName, setStoreName] = useState("艶華");
   const [siteUrl, setSiteUrl] = useState(DEFAULT_STORE_SITE);
-  const [draft, setDraft] = useState({ name: "", url: "", image_url: "" });
+  const [code, setCode] = useState("");
   const [dirty, setDirty] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadTarget = useRef<string | null>(null);
@@ -108,22 +108,7 @@ export default function HpLinkBanners({ embedded = false }: { embedded?: boolean
     change((current) => current.filter((b) => b.id !== id));
   };
 
-  const addDraft = () => {
-    const created = createLinkBanner(draft);
-    if (typeof created === "string") {
-      toast.error(created);
-      return;
-    }
-    if (banners.some((b) => b.url === created.url)) {
-      toast.message("同じリンク先のバナーがすでにあります");
-      return;
-    }
-    change((current) => [...current, created]);
-    setDraft({ name: "", url: "", image_url: "" });
-    toast.success("追加しました。右上の「保存」でHPに出ます");
-  };
-
-  /** "draft" = 追加の入力欄、"own" = 当店のバナー、それ以外 = そのバナーの画像を差し替え */
+  /** "own" = 当店のバナー、それ以外 = そのバナーの画像を差し替え */
   const pickImage = (key: string) => {
     uploadTarget.current = key;
     fileRef.current?.click();
@@ -149,8 +134,7 @@ export default function HpLinkBanners({ embedded = false }: { embedded?: boolean
       const { error } = await supabase.storage.from(BUCKET).upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
       if (error) throw error;
       const url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-      if (key === "draft") setDraft((d) => ({ ...d, image_url: url }));
-      else if (key === "own") {
+      if (key === "own") {
         setOwnBanner(url);
         setDirty(true);
       } else updateBanner(key, { image_url: url });
@@ -163,8 +147,8 @@ export default function HpLinkBanners({ embedded = false }: { embedded?: boolean
     }
   };
 
-  const save = async () => {
-    for (const banner of banners) {
+  const save = async (list: LinkBanner[] = banners) => {
+    for (const banner of list) {
       if (!safeHttpUrl(banner.url)) {
         toast.error(`「${banner.name || "名前なし"}」のリンク先URLを https:// から入れてください`);
         return;
@@ -179,7 +163,7 @@ export default function HpLinkBanners({ embedded = false }: { embedded?: boolean
       // ほかのタブ（トップバナーなど）で変えた設定を消さないよう、保存の直前に読み直してこの2つだけ入れ替える
       const { data: latest, error: readError } = await supabase.from("stores").select("settings").eq("id", storeId).maybeSingle();
       if (readError || !latest) throw readError ?? new Error("保存対象の店舗を確認できませんでした");
-      const cleaned = normalizeLinkBanners(banners);
+      const cleaned = normalizeLinkBanners(list);
       const nextSettings: StoreSettings = {
         ...((latest.settings ?? {}) as StoreSettings),
         link_banners: cleaned as unknown as Json,
@@ -195,11 +179,34 @@ export default function HpLinkBanners({ embedded = false }: { embedded?: boolean
       setBanners(cleaned);
       setDirty(false);
       toast.success("リンク一覧を保存しました");
+      return true;
     } catch (error) {
       console.error("Error saving link banners:", error);
       toast.error(error instanceof Error ? error.message : "保存できませんでした");
+      return false;
     } finally {
       setSaving(false);
+    }
+  };
+
+  /** 貼り付けたコードからバナーを取り出して、そのまま保存する */
+  const saveCode = async () => {
+    const parsed = parseLinkBannerCode(code);
+    if (!parsed.length) {
+      toast.error("コードの中にリンク（https:// から始まるもの）が見つかりませんでした");
+      return;
+    }
+    const known = new Set(banners.map((b) => b.url));
+    const added = parsed.filter((item) => !known.has(item.url));
+    if (!added.length) {
+      toast.message("このリンクはもう載っています");
+      setCode("");
+      return;
+    }
+    const next = [...banners, ...added.map((item) => ({ ...item, id: crypto.randomUUID(), enabled: true }))];
+    if (await save(next)) {
+      setCode("");
+      toast.success(`${added.length}件をHPのリンク一覧に載せました`);
     }
   };
 
@@ -239,56 +246,21 @@ export default function HpLinkBanners({ embedded = false }: { embedded?: boolean
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg"><Plus size={20} /> バナーを追加</CardTitle>
             <CardDescription>
-              相手のサイトから指定されたバナー画像（画像のURL、または保存した画像ファイル）とリンク先を入れます。画像が無いときはサイト名の文字リンクになります。
-              他社のHTMLコードはそのまま貼れません（HPで他社のスクリプトが動かないように、画像とリンク先だけを使います）。
+              相手のサイトの「リンク用のHTMLコード」をそのまま貼って「保存」を押すだけでHPに載ります（何個まとめて貼っても大丈夫です）。
+              コードの中のスクリプトは安全のため動かさず、リンク先とバナー画像だけを使います。
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <Label htmlFor="link-draft-name">サイト名</Label>
-                <Input
-                  id="link-draft-name"
-                  className="mt-1.5"
-                  maxLength={LINK_BANNER_NAME_MAX}
-                  value={draft.name}
-                  onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-                  placeholder="例：メンズエステ情報サイト"
-                />
-              </div>
-              <div>
-                <Label htmlFor="link-draft-url">リンク先URL（必須）</Label>
-                <Input
-                  id="link-draft-url"
-                  className="mt-1.5"
-                  inputMode="url"
-                  value={draft.url}
-                  onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))}
-                  placeholder="https://..."
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="link-draft-image">バナー画像</Label>
-              <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
-                <Input
-                  id="link-draft-image"
-                  inputMode="url"
-                  value={draft.image_url}
-                  onChange={(e) => setDraft((d) => ({ ...d, image_url: e.target.value }))}
-                  placeholder="画像のURL（https://.../banner.gif）"
-                />
-                <Button type="button" variant="outline" className="shrink-0" disabled={busy} onClick={() => pickImage("draft")}>
-                  {uploadingKey === "draft" ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Upload size={16} className="mr-2" />}
-                  画像ファイルを選ぶ
-                </Button>
-              </div>
-              {safeHttpUrl(draft.image_url) && (
-                <img src={draft.image_url} alt="追加するバナー" className="mt-2 max-h-24 max-w-full rounded border bg-muted/30 object-contain" />
-              )}
-            </div>
-            <Button type="button" variant="secondary" className="w-full sm:w-auto" disabled={busy || !draft.url.trim()} onClick={addDraft}>
-              <Plus size={16} className="mr-2" /> 一覧に追加
+            <Textarea
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              rows={5}
+              className="font-mono text-xs"
+              placeholder={'<a href="https://..." target="_blank"><img src="https://.../banner.gif" alt="サイト名"></a>'}
+            />
+            <Button type="button" className="w-full sm:w-auto" disabled={busy || !code.trim()} onClick={() => void saveCode()}>
+              {saving ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Save size={16} className="mr-2" />}
+              保存
             </Button>
           </CardContent>
         </Card>
