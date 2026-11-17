@@ -60,7 +60,6 @@ import Agreement from "./pages/Agreement";
 import RoomSettings from "./pages/RoomSettings";
 import SchedulePage from "./pages/Schedule";
 import Expenses from "./pages/Expenses";
-import Board from "./pages/Board";
 import Knowledge from "./pages/Knowledge";
 import MonthlyShift from "./pages/MonthlyShift";
 import ReservationsList from "./pages/ReservationsList";
@@ -242,7 +241,7 @@ const App = () => {
           <Route path="/pricing-management" element={<Pricing />} />
           <Route path="/shop" element={<Settings />} />
           <Route path="/expenses" element={<Expenses />} />
-          <Route path="/board" element={<Board />} />
+          <Route path="/board" element={<Navigate to="/hp/dashboard" replace />} />
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/knowledge/passwords" element={<PasswordDatabase />} />
           <Route path="/templates" element={<TextTemplates />} />
