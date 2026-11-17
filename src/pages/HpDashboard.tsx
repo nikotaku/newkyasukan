@@ -8,9 +8,11 @@ import HpTopBanners from "./HpTopBanners";
 import ArticleCreation from "./ArticleCreation";
 import HpBlogManagement from "./HpBlogManagement";
 import HpLinkBanners from "./HpLinkBanners";
+import { BannerManagement } from "@/components/BannerManagement";
 
 // ホームページダッシュボード：店舗情報・店舗SNSリンク・トップバナー・ニュース作成・店長ブログ・リンク一覧（他社バナー）をタブでまとめる（?tab=store|sns|banners|news|blog|links）。
 // 以前の個別のページ（/hp/store-info など）はここのタブへ転送する。
+// 「バナー」タブはトップページのバナー（stores.settings）と、キャンペーン・おすすめメニューのバナー（banners 表。以前の「ホームページ管理」/design・「おすすめメニュー」）の両方。
 const TABS = [
   { value: "store", label: "店舗情報", icon: Store },
   { value: "sns", label: "SNS", icon: Share2 },
@@ -42,7 +44,12 @@ export default function HpDashboard() {
           </TabsList>
           <TabsContent value="store"><StoreInfo embedded /></TabsContent>
           <TabsContent value="sns"><HpSnsLinks embedded /></TabsContent>
-          <TabsContent value="banners"><HpTopBanners embedded /></TabsContent>
+          <TabsContent value="banners">
+            <HpTopBanners embedded />
+            <div className="mt-6">
+              <BannerManagement />
+            </div>
+          </TabsContent>
           <TabsContent value="news"><ArticleCreation embedded /></TabsContent>
           <TabsContent value="blog"><HpBlogManagement embedded /></TabsContent>
           <TabsContent value="links"><HpLinkBanners embedded /></TabsContent>
