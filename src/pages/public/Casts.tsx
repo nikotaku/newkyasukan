@@ -39,12 +39,6 @@ interface Cast {
   custom_fields: Record<string, string> | null;
 }
 
-const INTERNAL_TAGS = [
-  "在籍", "出稼ぎ", "入店手続き待ち",
-  "ノーステータス", "入店手続き---面談予定", "入店手続き---講習予定",
-  "ビギナーズ", "スタンダード", "ソルジャー", "マスター",
-];
-
 const Casts = () => {
   const [casts, setCasts] = useState<Cast[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,11 +171,6 @@ const Casts = () => {
                     onClick={() => trackPublicEvent("cast_card_click", { placement: "casts_list", cast_id: cast.id, filter })}
                   >
                     <figure className="bg-[var(--pub-card,#1a150f)] rounded overflow-hidden shadow hover:shadow-lg transition-shadow">
-                      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-                        {cast.tags?.filter((tag) => !INTERNAL_TAGS.includes(tag)).slice(0, 3).map((tag, idx) => (
-                          <span key={idx} className={`text-white text-xs font-bold px-2 py-1 rounded shadow-md ${tag === "人気セラピスト" ? "bg-red-500" : tag === "新人" ? "bg-pink-500" : "bg-blue-500"}`}>{tag}</span>
-                        ))}
-                      </div>
                       <div className="relative">
                         <div className="absolute top-2 right-2 z-10">
                           <CastTitleBadge badge={titleBadgeMap.get(cast.title_badge_id ?? "")} />
