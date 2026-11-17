@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { classifyLoginResult, scrubSecrets } from "../server/estama-relogin-result.ts";
+import { classifyLoginResult, isAdminPath, scrubSecrets } from "../server/estama-relogin-result.ts";
 
 test("ログイン後：セラピスト編集画面が開ければ成功", () => {
   assert.deepEqual(
@@ -34,4 +34,10 @@ test("エラー文からログイン情報を消す", () => {
   assert.equal(scrubSecrets("failed for shop@example.com with pass Secr3t!", ["Secr3t!", "shop@example.com"]), "failed for *** with pass ***");
   assert.equal(scrubSecrets("x".repeat(600), []).length, 500);
   assert.equal(scrubSecrets("ab short", ["ab"]), "ab short");
+});
+
+test("ログイン画面の行き先（?r=/admin/…）は管理画面と見なさない", () => {
+  assert.equal(isAdminPath("https://estama.jp/login/?r=/admin/cast_edit/"), false);
+  assert.equal(isAdminPath("https://estama.jp/admin/cast_edit/"), true);
+  assert.equal(classifyLoginResult({ url: "https://estama.jp/login/?r=/admin/cast_edit/", hasEditor: false, hasPasswordField: false, validation: "" }).ok, false);
 });

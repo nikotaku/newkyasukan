@@ -11,7 +11,7 @@ import {
   ESTAMA_CAST_EDIT_URL,
   releaseSession,
 } from "./estama-automation.js";
-import { classifyLoginResult, scrubSecrets } from "./estama-relogin-result.js";
+import { classifyLoginResult, isAdminPath, scrubSecrets } from "./estama-relogin-result.js";
 
 export { classifyLoginResult, scrubSecrets };
 
@@ -80,13 +80,14 @@ async function loginOnce(page: Page, mail: string, password: string) {
   await email.fill(mail);
   await pass.fill(password);
   await Promise.all([
-    page.waitForURL(/\/admin\//, { timeout: 30_000 }).catch(() => null),
+    // ログイン画面のURLにも行き先（?r=/admin/…）が入っているので、パスで見る
+    page.waitForURL((url) => isAdminPath(url.toString()), { timeout: 30_000 }).catch(() => null),
     page.locator('#form-login_shop a[data-post="login_shop"]').click(),
   ]);
   await page.waitForLoadState("load", { timeout: 15_000 }).catch(() => null);
 
   // 管理画面に移ったら、セラピスト編集画面が開けることまで確かめる
-  if (/\/admin\//.test(page.url()) && !(await onEditor(page))) {
+  if (isAdminPath(page.url()) && !(await onEditor(page))) {
     await openPage(page, ESTAMA_CAST_EDIT_URL);
   }
   const validation = await page.locator("#form-login_shop .validation-error, #form-login_shop .all_vali, .return_vali")
