@@ -27,6 +27,7 @@ import {
   type LineMessage,
   type LineThread,
 } from "@/lib/lineInbox";
+import { AI_GENERATION_ENABLED } from "@/lib/aiFeatures";
 
 // LINE対応：お客様用の公式LINEに届いたメッセージを見て、ここから返信するか「対応済み」にする。
 // LINE公式アカウントのアプリで返信したことはシステムから分からないので、そちらで返したら「対応済み」を押す。
@@ -397,9 +398,11 @@ export default function LineInbox() {
                     className="min-h-[44px] resize-none"
                   />
                   <div className="flex flex-col gap-1 shrink-0">
-                    <Button variant="outline" size="sm" onClick={() => void makeDraft()} disabled={busy !== null} title="AIで下書き" aria-label="AIで下書き">
-                      {busy === "draft" ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                    </Button>
+                    {AI_GENERATION_ENABLED && (
+                      <Button variant="outline" size="sm" onClick={() => void makeDraft()} disabled={busy !== null} title="AIで下書き" aria-label="AIで下書き">
+                        {busy === "draft" ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                      </Button>
+                    )}
                     <Button size="sm" onClick={() => void send()} aria-label="返信を送信" disabled={busy !== null || (!draft.trim() && !image)}>
                       {busy === "send" ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                     </Button>

@@ -27,6 +27,7 @@ import { isValidEmail } from "@/lib/email";
 import { useStore } from "@/hooks/useStore";
 import { runQueuedEstamaAutomation } from "@/lib/estamaAutomation";
 import { ENKA_ROOMS, ROOM_ADDRESS_HINT } from "@/lib/storeRooms";
+import { AI_GENERATION_ENABLED } from "@/lib/aiFeatures";
 
 interface Cast {
   id: string;
@@ -1171,16 +1172,18 @@ const Shift = () => {
                                       <Trash2 size={16} />
                                     </Button>
                                   </div>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleGenerateSMS(reservation)}
-                                    disabled={generatingSMS === reservation.id}
-                                    className="w-full"
-                                  >
-                                    <MessageSquare className="h-4 w-4 mr-1" />
-                                    {generatingSMS === reservation.id ? "生成中..." : "SMS生成"}
-                                  </Button>
+                                  {AI_GENERATION_ENABLED && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleGenerateSMS(reservation)}
+                                      disabled={generatingSMS === reservation.id}
+                                      className="w-full"
+                                    >
+                                      <MessageSquare className="h-4 w-4 mr-1" />
+                                      {generatingSMS === reservation.id ? "生成中..." : "SMS生成"}
+                                    </Button>
+                                  )}
                                 </>
                               )}
                             </div>

@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { lineWebhookUrl } from "@/lib/lineInbox";
+import { AI_GENERATION_ENABLED } from "@/lib/aiFeatures";
 
 // お客様用の公式LINEの見張りの設定（店長・オーナー）。Channel secret は Vault に入り、画面には「登録済み」しか返らない。
 
@@ -107,7 +108,7 @@ export function LineCustomerSettingsDialog({ storeId, settings, onSaved }: { sto
       const { error } = await rpc("save_line_customer_settings", {
         p_store_id: storeId,
         p_enabled: form.enabled,
-        p_auto_reply: form.autoReply,
+        p_auto_reply: AI_GENERATION_ENABLED && form.autoReply,
         p_wait_minutes: Number(form.waitMinutes) || 5,
         p_instructions: form.instructions,
         p_channel_id: form.channelId,
@@ -172,6 +173,7 @@ export function LineCustomerSettingsDialog({ storeId, settings, onSaved }: { sto
               <span>受信・会話を保存する（新着通知）</span>
               <Switch checked={form.enabled} onCheckedChange={(on) => setForm({ ...form, enabled: on })} />
             </label>
+            {AI_GENERATION_ENABLED && (<>
             <label className="flex items-center justify-between gap-3">
               <span>返事が無ければ自動で一次対応する</span>
               <Switch checked={form.autoReply} onCheckedChange={(on) => setForm({ ...form, autoReply: on })} />
@@ -186,6 +188,7 @@ export function LineCustomerSettingsDialog({ storeId, settings, onSaved }: { sto
                 placeholder={"例：駐車場はありません。近くのコインパーキングをご案内\n例：当日予約は電話が確実です"} />
               <p className="text-[11px] text-muted-foreground">料金・営業時間・今日と明日の出勤はシステムから自動で渡します。予約の確定・空きの約束はしません。</p>
             </div>
+            </>)}
 
             {(verify || settings?.verifiedAt || settings?.lastError) && (
               <div className="rounded-md border p-3 text-xs space-y-1">

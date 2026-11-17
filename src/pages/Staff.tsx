@@ -33,6 +33,7 @@ import { estamaFingerprint, estamaProfileCompletion, type EstamaConfirmation, ty
 import { ENKA_ROOMS } from "@/lib/storeRooms";
 import { CastMissingFields } from "@/components/staff/CastMissingFields";
 import { CastProfileSubmissions } from "@/components/staff/CastProfileSubmissions";
+import { AI_GENERATION_ENABLED } from "@/lib/aiFeatures";
 
 const THERAPIST_FEATURES = [
   "新人", "経験豊富", "業界未経験", "施術上手", "上品", "甘えん坊", "おとなしい", "おっとり",
@@ -1635,7 +1636,7 @@ export default function Staff() {
         
         <main className="flex-1 p-4 md:p-6 md:ml-[240px] overflow-x-hidden">
           <div className="max-w-7xl mx-auto">
-            {isAdmin && aiMemoOpen && (
+            {AI_GENERATION_ENABLED && isAdmin && aiMemoOpen && (
               <div className="mb-6 rounded-xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-rose-50 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">🤖</span>
@@ -1810,9 +1811,11 @@ export default function Staff() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={() => setAiMemoOpen(true)}>
-                      <span className="mr-2">🤖</span>AIメモで登録・追記
-                    </DropdownMenuItem>
+                    {AI_GENERATION_ENABLED && (
+                      <DropdownMenuItem onClick={() => setAiMemoOpen(true)}>
+                        <span className="mr-2">🤖</span>AIメモで登録・追記
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => setIsEstamaImportOpen(true)}>
                       <ExternalLink size={14} className="mr-2" />エスたまからインポート
                     </DropdownMenuItem>
@@ -2172,9 +2175,11 @@ export default function Staff() {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <Label htmlFor="e-shop-comment" className="font-semibold">お店からのコメント</Label>
-                          <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateShopComment('edit')} disabled={generatingShopComment} className="h-7 px-2 text-xs text-pink-600 border-pink-300 hover:bg-pink-50">
-                            {generatingShopComment ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Sparkles size={12} className="mr-1" />}AI生成
-                          </Button>
+                          {AI_GENERATION_ENABLED && (
+                            <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateShopComment('edit')} disabled={generatingShopComment} className="h-7 px-2 text-xs text-pink-600 border-pink-300 hover:bg-pink-50">
+                              {generatingShopComment ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Sparkles size={12} className="mr-1" />}AI生成
+                            </Button>
+                          )}
                         </div>
                         <Textarea id="e-shop-comment" rows={3} value={editingCast.shop_comment || ""} onChange={(e) => setEditingCast({...editingCast, shop_comment: e.target.value})} />
                       </div>
@@ -2183,9 +2188,11 @@ export default function Staff() {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <Label htmlFor="e-therapist-comment" className="font-semibold">セラピストコメント</Label>
-                          <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateContent('profile')} disabled={generatingContent}>
-                            <Sparkles className="w-4 h-4 mr-1" />AI生成
-                          </Button>
+                          {AI_GENERATION_ENABLED && (
+                            <Button type="button" variant="outline" size="sm" onClick={() => handleGenerateContent('profile')} disabled={generatingContent}>
+                              <Sparkles className="w-4 h-4 mr-1" />AI生成
+                            </Button>
+                          )}
                         </div>
                         <Textarea id="e-therapist-comment" rows={3} value={editingCast.therapist_comment || editingCast.profile || ""} onChange={(e) => setEditingCast({...editingCast, therapist_comment: e.target.value, profile: e.target.value})} />
                       </div>

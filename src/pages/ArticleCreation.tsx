@@ -21,6 +21,7 @@ import { ja } from "date-fns/locale";
 import { Plus, Trash2, Edit2, Sparkles, Loader2, Globe, EyeOff, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAdminStore } from "@/hooks/useAdminStore";
+import { AI_GENERATION_ENABLED } from "@/lib/aiFeatures";
 
 interface Article {
   id: string;
@@ -378,7 +379,7 @@ export default function ArticleCreation() {
           </div>
 
           {/* ニュース自動投稿（ワンクリック） */}
-          <Card className="mb-6 border-pink-200 bg-gradient-to-br from-pink-50 to-rose-50">
+          {AI_GENERATION_ENABLED && <Card className="mb-6 border-pink-200 bg-gradient-to-br from-pink-50 to-rose-50">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2 text-pink-700">
                 <Sparkles size={18} />
@@ -410,7 +411,7 @@ export default function ArticleCreation() {
                 </Button>
               </div>
             </CardContent>
-          </Card>
+          </Card>}
 
           {isAdding && (
             <Card className="mb-6">
@@ -477,7 +478,7 @@ export default function ArticleCreation() {
                 </div>
 
                 {/* AI生成フォーム */}
-                {AI_CATEGORIES.includes(formData.category) && (
+                {AI_GENERATION_ENABLED && AI_CATEGORIES.includes(formData.category) && (
                   <div className="rounded-lg border border-pink-200 bg-pink-50 p-4 space-y-3">
                     <p className="text-sm font-medium text-pink-700 flex items-center gap-1">
                       <Sparkles size={14} /> AI生成 — 情報を入力してください
@@ -602,7 +603,7 @@ export default function ArticleCreation() {
                     onChange={(e) =>
                       setFormData({ ...formData, content: e.target.value })
                     }
-                    placeholder="記事の内容（AI生成後に編集できます）"
+                    placeholder={AI_GENERATION_ENABLED ? "記事の内容（AI生成後に編集できます）" : "記事の内容"}
                     rows={8}
                   />
                 </div>

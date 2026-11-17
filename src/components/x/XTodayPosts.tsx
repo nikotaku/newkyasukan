@@ -21,6 +21,7 @@ import {
 } from "@/lib/xDailyPosts";
 import { renderEyecatch, shareOrDownloadImage } from "@/lib/xEyecatch";
 import type { XOperationsPlan } from "@/lib/xOperationsPlan";
+import { AI_GENERATION_ENABLED } from "@/lib/aiFeatures";
 
 interface StoreLite {
   id: string;
@@ -121,7 +122,8 @@ export function XTodayPosts({ plan, store }: { plan: XOperationsPlan; store: Sto
     const row = saved[key];
     if (row?.posted_at && row.posted_text) return row.posted_text;
     if (row?.text) return row.text;
-    if (post.kind === "ai") return aiFailed[key] ? example(post) : "";
+    // AIを止めている間は、運用表の例文を出す
+    if (post.kind === "ai") return aiFailed[key] || !AI_GENERATION_ENABLED ? example(post) : "";
     return post.text;
   };
 
@@ -188,7 +190,7 @@ export function XTodayPosts({ plan, store }: { plan: XOperationsPlan; store: Sto
   }, [context, plan, date, store.id, saved]);
 
   useEffect(() => {
-    if (loading || !context || date < todayBusinessDate) return;
+    if (!AI_GENERATION_ENABLED || loading || !context || date < todayBusinessDate) return;
     const pending = posts.filter((post) => {
       const key = keyOf(post.accountKey, post.slotKey);
       return post.kind === "ai" && !saved[key]?.text && !saved[key]?.posted_at && !aiQueue.current.has(key);
@@ -244,7 +246,7 @@ export function XTodayPosts({ plan, store }: { plan: XOperationsPlan; store: Sto
       delete next[key];
       return next;
     });
-    if (post.kind === "ai") {
+    if (post.kind === "ai" && AI_GENERATION_ENABLED) {
       await generateAi(post, true);
     } else if (saved[key]?.text) {
       await upsert(post, { text: null, text_source: null });
@@ -327,7 +329,7 @@ export function XTodayPosts({ plan, store }: { plan: XOperationsPlan; store: Sto
       </div>
 
       <p className="text-xs text-muted-foreground">
-        出勤・空き枠・イベント・口コミは開くたびに最新のデータで作ります（空き枠は「最新にする」で今の時刻の空きに更新）。求人・店長の投稿はその日はじめて開いたときにAIが作り、保存されます。文章はその場で直せます。
+        出勤・空き枠・イベント・口コミは開くたびに最新のデータで作ります（空き枠は「最新にする」で今の時刻の空きに更新）。{AI_GENERATION_ENABLED ? "求人・店長の投稿はその日はじめて開いたときにAIが作り、保存されます。" : "求人・店長の投稿は運用表の例文を出します。"}文章はその場で直せます。
       </p>
 
       {loading && !context ? (
@@ -366,7 +368,7 @@ export function XTodayPosts({ plan, store }: { plan: XOperationsPlan; store: Sto
                       <span className="font-mono text-sm font-semibold">{post.time}</span>
                       <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-semibold", ACCOUNT_COLORS[post.accountKey] ?? "bg-muted")}>{post.accountName}</span>
                       <span className="text-sm font-medium">{post.type}</span>
-                      {post.kind === "ai" && <span className="inline-flex items-center gap-0.5 text-[11px] text-violet-600"><Sparkles size={11} />AI</span>}
+                      {post.kind === "ai" && AI_GENERATION_ENABLED && <span className="inline-flex items-center gap-0.5 text-[11px] text-violet-600"><Sparkles size={11} />AI</span>}
                       {edited && <span className="text-[11px] text-muted-foreground">手直し済み</span>}
                       {posted && row?.posted_at && (
                         <span className="text-[11px] text-green-700">投稿済み {new Date(row.posted_at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</span>
@@ -417,7 +419,7 @@ export function XTodayPosts({ plan, store }: { plan: XOperationsPlan; store: Sto
                       </Button>
                       {!posted && (
                         <Button size="sm" variant="ghost" className="h-9 text-muted-foreground" onClick={() => void resetText(post)} disabled={busy}>
-                          {post.kind === "ai" ? <><Sparkles size={14} className="mr-1" />作り直す</> : <><Undo2 size={14} className="mr-1" />元に戻す</>}
+                          {post.kind === "ai" && AI_GENERATION_ENABLED ? <><Sparkles size={14} className="mr-1" />作り直す</> : <><Undo2 size={14} className="mr-1" />元に戻す</>}
                         </Button>
                       )}
                       <span className={cn("ml-auto text-[11px] tabular-nums", weight > X_MAX_WEIGHT ? "font-semibold text-destructive" : "text-muted-foreground")}>
