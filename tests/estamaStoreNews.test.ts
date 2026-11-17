@@ -5,6 +5,8 @@ import {
   countEstamaNewsTitle,
   isConfirmedEstamaNewsPublication,
   normalizeEstamaNewsText,
+  fitEstamaNewsText,
+  parseEstamaNewsRemaining,
 } from "../server/estama-store-news-utils.ts";
 
 test("店舗ニュース管理を写メ日記より優先して選ぶ", () => {
@@ -37,4 +39,18 @@ test("掲載確認は公開件数の増加または明示的成功だけを採�
   assert.equal(isConfirmedEstamaNewsPublication({ ...base, successVisible: true }), true);
   assert.equal(isConfirmedEstamaNewsPublication({ ...base, currentBody: "" }), true);
   assert.equal(isConfirmedEstamaNewsPublication({ ...base, publicCountAfter: 2, confirmationVisible: true }), false);
+});
+
+test("ニュース一覧の本日の残り回数を読む", () => {
+  assert.equal(parseEstamaNewsRemaining("ニュース一覧 AI広報部 ON 本日の残り回数0回 新しいニュースを書く ※1日10回まで投稿できます。"), 0);
+  assert.equal(parseEstamaNewsRemaining("本日の残り回数 ７ 回"), 7);
+  assert.equal(parseEstamaNewsRemaining("ニュース一覧"), null);
+});
+
+test("タイトル30文字・本文1500文字に合わせて切る", () => {
+  assert.equal(fitEstamaNewsText("りりか&ももか 本日満枠🈵", 30), "りりか&ももか 本日満枠🈵");
+  const long = "事前予約が続々！19歳Gカップの清純派美女が艶華に電撃入店しました";
+  const fitted = fitEstamaNewsText(long, 30);
+  assert.equal([...fitted].length, 30);
+  assert.ok(fitted.endsWith("…"));
 });

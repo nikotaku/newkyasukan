@@ -88,3 +88,21 @@ export function isConfirmedEstamaNewsPublication(evidence: EstamaNewsPublication
     && evidence.submittedBody.trim().length > 0
     && evidence.currentBody.trim() === "";
 }
+
+/** エステ魂のニュースの決まり（2026-11 の「ニュースの新規投稿」画面：/admin/news_edit/） */
+export const ESTAMA_NEWS_TITLE_MAX = 30;
+export const ESTAMA_NEWS_BODY_MAX = 1500;
+
+/** 文字数の上限に合わせて切る（はみ出すときは最後を「…」にする） */
+export function fitEstamaNewsText(value: string, max: number) {
+  const text = value.replace(/\r\n?/g, "\n").trim();
+  const chars = [...text];
+  if (chars.length <= max) return text;
+  return `${chars.slice(0, max - 1).join("").trimEnd()}…`;
+}
+
+/** ニュース一覧の「本日の残り回数N回」を読む（1日10回まで・朝6時にリセット）。見つからなければ null */
+export function parseEstamaNewsRemaining(bodyText: string) {
+  const match = bodyText.normalize("NFKC").match(/本日の残り回数\s*(\d+)\s*回/);
+  return match ? Number(match[1]) : null;
+}
