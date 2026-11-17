@@ -212,7 +212,7 @@ export function buildO2StoreAvailabilityBody(
   return lines.join("\n").slice(0, 1000);
 }
 
-class O2StoreReviewRequiredError extends Error {
+export class O2StoreReviewRequiredError extends Error {
   readonly postId: string | null;
   readonly postUrl: string | null;
 

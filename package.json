@@ -43,6 +43,7 @@
     "test:x-daily-posts": "node --experimental-strip-types --test tests/xDailyPosts.test.ts",
     "test:sms-billing": "node --experimental-strip-types --test tests/smsBilling.test.ts tests/smsSegments.test.ts tests/sendSmsTemplate.test.ts",
     "test:business-time": "node --experimental-strip-types --test tests/businessTime.test.ts",
+    "test:hp-article-o2": "node --experimental-strip-types --test tests/hpArticleO2.test.ts",
     "test:referral-rewards": "node --experimental-strip-types --test tests/referralRewards.test.ts",
     "preview": "vite preview",
     "test:line-customer": "node --experimental-strip-types --test tests/lineCustomerReply.test.ts tests/lineInbox.test.ts tests/lineCustomerMedia.test.ts",
