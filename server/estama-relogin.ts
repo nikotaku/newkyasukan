@@ -54,30 +54,40 @@ async function onEditor(page: Page) {
   return (await page.locator("#Name").count()) > 0;
 }
 
-/** 店舗ログイン画面でメールアドレス・パスワードを入れてログインする */
-export async function loginEstamaAdmin(page: Page, mail: string, password: string) {
-  await page.goto(ESTAMA_CAST_EDIT_URL, { waitUntil: "domcontentloaded" });
+/** 画面を開く。前の画面の移動とぶつかって止められた（ERR_ABORTED）ときは、移動が終わるのを待つ */
+async function openPage(page: Page, url: string) {
+  try {
+    await page.goto(url, { waitUntil: "load", timeout: 35_000 });
+  } catch (error) {
+    if (!/ERR_ABORTED|interrupted by another navigation/i.test(error instanceof Error ? error.message : String(error))) throw error;
+    await page.waitForLoadState("load", { timeout: 20_000 }).catch(() => null);
+  }
+}
+
+async function loginOnce(page: Page, mail: string, password: string) {
+  await openPage(page, ESTAMA_CAST_EDIT_URL);
   if (await onEditor(page)) return { ok: true as const, already: true };
 
-  if (!(await page.locator("#inputEmail").count())) {
-    await page.goto(ESTAMA_SHOP_LOGIN_URL, { waitUntil: "domcontentloaded" });
-  }
   const email = page.locator("#form-login_shop #inputEmail");
   const pass = page.locator("#form-login_shop #inputPassword");
+  if (!(await email.count())) await openPage(page, ESTAMA_SHOP_LOGIN_URL);
+  // ログイン画面の欄とボタンの処理（スクリプト）が用意できるまで待つ
+  await email.waitFor({ state: "visible", timeout: 15_000 }).catch(() => null);
   if (!(await email.count()) || !(await pass.count())) {
-    return { ok: false as const, error: "エステ魂の店舗ログイン画面が見つかりません（画面が変わった可能性があります）" };
+    return { ok: false as const, error: "エステ魂の店舗ログイン画面が見つかりません（画面が変わった可能性があります）", already: false };
   }
+  await page.waitForLoadState("load", { timeout: 15_000 }).catch(() => null);
   await email.fill(mail);
   await pass.fill(password);
   await Promise.all([
-    page.waitForURL(/\/admin\//, { timeout: 25_000 }).catch(() => null),
+    page.waitForURL(/\/admin\//, { timeout: 30_000 }).catch(() => null),
     page.locator('#form-login_shop a[data-post="login_shop"]').click(),
   ]);
-  await page.waitForLoadState("domcontentloaded").catch(() => null);
+  await page.waitForLoadState("load", { timeout: 15_000 }).catch(() => null);
 
   // 管理画面に移ったら、セラピスト編集画面が開けることまで確かめる
-  if (/\/admin\//.test(page.url())) {
-    await page.goto(ESTAMA_CAST_EDIT_URL, { waitUntil: "domcontentloaded" });
+  if (/\/admin\//.test(page.url()) && !(await onEditor(page))) {
+    await openPage(page, ESTAMA_CAST_EDIT_URL);
   }
   const validation = await page.locator("#form-login_shop .validation-error, #form-login_shop .all_vali, .return_vali")
     .allInnerTexts().then((texts) => texts.join(" ")).catch(() => "");
@@ -90,6 +100,28 @@ export async function loginEstamaAdmin(page: Page, mail: string, password: strin
     }),
     already: false,
   };
+}
+
+/**
+ * 店舗ログイン画面でメールアドレス・パスワードを入れてログインする。
+ * 新しいブラウザでは画面の準備が間に合わないことがあるので、パスワード違い以外は3回までやり直す。
+ */
+export async function loginEstamaAdmin(page: Page, mail: string, password: string) {
+  let last: { ok: false; error: string; already: boolean } = { ok: false, error: "エステ魂にログインできませんでした", already: false };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let result;
+    try {
+      result = await loginOnce(page, mail, password);
+    } catch (error) {
+      result = { ok: false as const, error: error instanceof Error ? error.message.split("\n")[0] : String(error), already: false };
+    }
+    if (result.ok) return result;
+    last = result as typeof last;
+    // 入力の確認で止められた（パスワード違いなど）ときは何度やっても同じなので、やり直さない
+    if (/受け付けませんでした/.test(result.error)) break;
+    await page.waitForTimeout(3_000 * (attempt + 1));
+  }
+  return last;
 }
 
 export async function handleEstamaReloginRequest(req: RequestLike, res: ResponseLike) {
