@@ -2836,6 +2836,16 @@ async function findPublicScheduleSection(page: Page) {
   return null;
 }
 
+// 出勤が1件も無いセラピストの公開ページは「今週のスケジュール」の見出しと
+// 出勤リクエストのボタンだけで、表（table）が無い。これを「出勤表が見つからない」
+// と扱うと、退店した人のシフト削除が毎晩失敗し続ける。
+async function hasEmptyPublicSchedule(page: Page) {
+  return page.evaluate(() => {
+    const section = document.querySelector("#TherapistSchedule");
+    return Boolean(section && !section.querySelector("table") && /スケジュール/.test(section.textContent || ""));
+  }).catch(() => false);
+}
+
 async function readPublicScheduleWindow(page: Page, referenceDate: string) {
   const section = await findPublicScheduleSection(page);
   if (!section) throw new Error("エステ魂の公開出勤表が見つかりません");
@@ -2878,6 +2888,41 @@ async function verifyPublicShiftGroup(
     const attemptEvidence: EstamaShiftEvidence[] = [];
     await page.goto(`${publicUrl}?sync_verify=${Date.now()}`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(attempt === 1 ? 2_500 : 5_000);
+
+    if (await hasEmptyPublicSchedule(page)) {
+      // 公開ページに出勤が1件も無い：削除は反映済み、追加は未反映。
+      const screenshotBase64 = await capturePublicScheduleScreenshot(page);
+      const expected = group.map((item) => ({
+        jobId: item.jobId,
+        action: item.action,
+        shiftDate: item.shiftDate,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        ...(item.action === "delete"
+          ? { verified: true }
+          : {
+            verified: false,
+            error: `${shiftDateLabel(item.shiftDate)}の出勤を公開ページで確認できません（公開ページに出勤が1件も表示されていません）`,
+          }),
+      }));
+      const verified = expected.every((item) => item.verified) && Boolean(screenshotBase64);
+      finalEvidence = [{
+        castId: first.castId,
+        castName: first.castName,
+        externalId: first.externalId,
+        weekStart: referenceDate,
+        publicUrl: page.url(),
+        capturedAt: new Date().toISOString(),
+        verified,
+        expected,
+        screenshotBase64,
+        mimeType: "image/jpeg",
+        error: verified ? undefined : expected.find((item) => !item.verified)?.error || "証跡画像を取得できませんでした",
+      }];
+      if (verified) break;
+      if (attempt < 3) await page.waitForTimeout(attempt === 1 ? 15_000 : 30_000);
+      continue;
+    }
 
     // 公開表の先頭日は実ページを正とする。深夜の表示切替や曜日境界を
     // 現在日時から推測すると、画面にある出勤を別画面へ誤配分してしまう。
