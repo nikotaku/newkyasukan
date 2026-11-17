@@ -12,10 +12,12 @@ import {
 } from "./estama-automation.js";
 import { clickWithScopedConfirmation } from "./playwright-actions.js";
 import {
-  chooseEstamaNewsAdminLink,
   countEstamaNewsTitle,
+  ESTAMA_NEWS_BODY_MAX,
+  ESTAMA_NEWS_TITLE_MAX,
+  fitEstamaNewsText,
   isConfirmedEstamaNewsPublication,
-  type EstamaNewsAdminLink,
+  parseEstamaNewsRemaining,
   type EstamaNewsPublicationEvidence,
 } from "./estama-store-news-utils.js";
 
@@ -26,47 +28,11 @@ export {
   normalizeEstamaNewsText,
 } from "./estama-store-news-utils.js";
 
-const ESTAMA_ADMIN_HOME = "https://estama.jp/admin/";
-const ESTAMA_CAST_EDIT = "https://estama.jp/admin/cast_edit/";
+const ESTAMA_NEWS_LIST = "https://estama.jp/admin/news/";
+const ESTAMA_NEWS_EDIT = "https://estama.jp/admin/news_edit/";
 const REVIEW_REQUIRED_PREFIX = "【要確認・再送停止】";
-
-const TITLE_SELECTOR = [
-  'input[name*="title" i]',
-  'input[id*="title" i]',
-  'input[name*="subject" i]',
-  'input[id*="subject" i]',
-  'input[name*="headline" i]',
-].join(",");
-
-const BODY_SELECTOR = [
-  'textarea[name*="body" i]',
-  'textarea[id*="body" i]',
-  'textarea[name*="content" i]',
-  'textarea[id*="content" i]',
-  'textarea[name*="news" i]',
-  'textarea[id*="news" i]',
-  "textarea",
-].join(",");
-
-const linksOnPage = async (page: Page): Promise<EstamaNewsAdminLink[]> => page.locator("a[href]").evaluateAll((nodes) =>
-  nodes.map((node) => ({
-    text: (node.textContent || "").replace(/\s+/g, " ").trim().slice(0, 160),
-    href: (node as HTMLAnchorElement).href,
-  })),
-);
-
-async function discoverNewsAdminUrl(page: Page) {
-  await page.goto(ESTAMA_CAST_EDIT, { waitUntil: "domcontentloaded" });
-  await ensureAdminLogin(page, "#Name");
-  let selected = chooseEstamaNewsAdminLink(await linksOnPage(page));
-  if (selected) return selected.href;
-
-  await page.goto(ESTAMA_ADMIN_HOME, { waitUntil: "domcontentloaded" });
-  await ensureAdminLogin(page);
-  selected = chooseEstamaNewsAdminLink(await linksOnPage(page));
-  if (!selected) throw new Error("エステ魂管理画面の店舗ニュースメニューが見つかりません");
-  return selected.href;
-}
+// 「設置するボタン」は公式HP（main[news_type] = 3）。HPのニュースなので、エステ魂の記事からHPへ案内する
+const NEWS_BUTTON_OFFICIAL_HP = "3";
 
 async function firstVisible(locator: Locator) {
   const count = await locator.count();
@@ -77,52 +43,7 @@ async function firstVisible(locator: Locator) {
   return null;
 }
 
-async function findNewsForm(page: Page) {
-  const bodyField = await firstVisible(page.locator(BODY_SELECTOR));
-  if (!bodyField) return null;
-  const form = bodyField.locator("xpath=ancestor::form[1]");
-  if (!await form.count()) return null;
-  const titleField = await firstVisible(form.locator(TITLE_SELECTOR));
-  return { form, titleField, bodyField };
-}
-
-async function openNewsPostForm(page: Page, newsUrl: string) {
-  await page.goto(newsUrl, { waitUntil: "domcontentloaded" });
-  await ensureAdminLogin(page);
-  let fields = await findNewsForm(page);
-  if (fields) return fields;
-
-  const actions = page.locator('a, button, input[type="button"], input[type="submit"]');
-  const textAction = await firstVisible(actions.filter({
-    hasText: /ニュース.*(?:新規|登録|追加)|(?:新規|登録|追加).*ニュース|新規登録|新規作成|追加する/,
-  }));
-  const inputAction = await firstVisible(page.locator([
-    'input[type="button"][value*="新規"]',
-    'input[type="submit"][value*="新規"]',
-    'input[type="button"][value*="追加"]',
-    'input[type="submit"][value*="追加"]',
-  ].join(",")));
-  const action = textAction || inputAction;
-  if (!action) throw new Error("エステ魂のニュース新規登録ボタンが見つかりません");
-
-  await Promise.all([
-    page.waitForLoadState("domcontentloaded").catch(() => undefined),
-    action.click(),
-  ]);
-  fields = await findNewsForm(page);
-  if (!fields) throw new Error("エステ魂のニュース投稿フォームが見つかりません");
-  return fields;
-}
-
-async function fitInput(locator: Locator, value: string, fallbackMax: number) {
-  const rawMax = Number(await locator.getAttribute("maxlength").catch(() => null));
-  const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : fallbackMax;
-  const normalized = value.trim().slice(0, max);
-  await locator.fill(normalized);
-  return normalized;
-}
-
-async function downloadNewsImage(rawUrl: string, index: number) {
+async function downloadNewsImage(rawUrl: string) {
   const url = new URL(rawUrl);
   const allowed = url.protocol === "https:" && (
     url.hostname.endsWith(".supabase.co")
@@ -131,32 +52,47 @@ async function downloadNewsImage(rawUrl: string, index: number) {
   );
   if (!allowed) return null;
   const response = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(20_000) });
-  if (!response.ok) throw new Error(`エステ魂用画像${index + 1}を取得できません（HTTP ${response.status}）`);
+  if (!response.ok) return null;
   const mimeType = response.headers.get("content-type") || "";
-  if (!/^image\/(?:jpeg|png|webp)$/i.test(mimeType)) return null;
+  if (!/^image\/(?:jpeg|png)$/i.test(mimeType)) return null;
   const buffer = Buffer.from(await response.arrayBuffer());
-  if (buffer.byteLength > 10 * 1024 * 1024) throw new Error(`エステ魂用画像${index + 1}が10MBを超えています`);
-  const extension = mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : "jpg";
-  return { name: `news-${index + 1}.${extension}`, mimeType, buffer };
+  if (!buffer.byteLength || buffer.byteLength > 16 * 1024 * 1024) return null;
+  return { name: `news.${mimeType.includes("png") ? "png" : "jpg"}`, mimeType, buffer };
 }
 
-async function attachNewsImages(form: Locator, imageUrls: string[]) {
-  const fileInputs = form.locator('input[type="file"]');
-  const inputCount = await fileInputs.count();
-  if (!inputCount || !imageUrls.length) return 0;
-
-  const files = (await Promise.all(imageUrls.slice(0, Math.max(1, inputCount)).map(downloadNewsImage)))
-    .filter((file): file is NonNullable<typeof file> => Boolean(file));
-  if (!files.length) return 0;
-
-  const first = fileInputs.first();
-  if (await first.getAttribute("multiple") !== null) {
-    await first.setInputFiles(files);
-    return files.length;
+/**
+ * 画像は1枚目の枠（#news_icon_1）へ。押すとファイル選択 → 切り抜きの小窓（croppic）が開くので「切り抜き」を押す。
+ * 付けられなくても本文だけで投稿する（画像は任意の項目）。
+ */
+async function attachNewsImage(page: Page, imageUrls: string[]) {
+  const file = await (async () => {
+    for (const url of imageUrls.slice(0, 3)) {
+      const downloaded = await downloadNewsImage(url).catch(() => null);
+      if (downloaded) return downloaded;
+    }
+    return null;
+  })();
+  if (!file) return 0;
+  const slot = page.locator("#news_icon_1");
+  if (!await slot.count()) return 0;
+  try {
+    const [chooser] = await Promise.all([
+      page.waitForEvent("filechooser", { timeout: 10_000 }),
+      slot.click(),
+    ]);
+    await chooser.setFiles(file);
+    const crop = page.locator(".cropControlCrop:visible").first();
+    await crop.waitFor({ state: "visible", timeout: 20_000 });
+    await crop.click();
+    await page.locator(".img_upped #news_icon_1, .img_upped:has(#news_icon_1)").first()
+      .waitFor({ state: "attached", timeout: 20_000 });
+    return 1;
+  } catch (error) {
+    console.warn(JSON.stringify({ level: "warn", msg: "estama_news_image_skipped", error: error instanceof Error ? error.message : String(error) }));
+    // 開いたままの切り抜きの小窓は閉じる（投稿ボタンの邪魔をしないように）
+    await page.locator(".cropControlReset:visible, .cropControlRemoveCroppedImage:visible").first().click().catch(() => undefined);
+    return 0;
   }
-  const count = Math.min(files.length, inputCount);
-  for (let index = 0; index < count; index += 1) await fileInputs.nth(index).setInputFiles(files[index]);
-  return count;
 }
 
 async function publicTitleCount(url: string, title: string) {
@@ -217,26 +153,40 @@ export async function postEstamaStoreNews(
     const connected = await connectSession(created.session.connectUrl);
     browser = connected.browser;
     const page = connected.page;
-    const newsAdminUrl = await discoverNewsAdminUrl(page);
-    const { form, titleField, bodyField } = await openNewsPostForm(page, newsAdminUrl);
-    const submittedTitle = titleField
-      ? await fitInput(titleField, article.title, 80)
-      : article.title.trim();
-    const submittedBody = await fitInput(bodyField, body, 5_000);
-    const uploadedImages = await attachNewsImages(form, article.image_urls || []);
+    page.setDefaultTimeout(15_000);
+
+    // 1日10回まで（朝6時にリセット）。エステ魂の「AI広報部」がオンだと自動の投稿で使い切ることがある
+    await page.goto(ESTAMA_NEWS_LIST, { waitUntil: "domcontentloaded" });
+    await ensureAdminLogin(page);
+    const remaining = parseEstamaNewsRemaining(await page.locator("body").innerText().catch(() => ""));
+    if (remaining === 0) {
+      throw new Error("エステ魂の今日のニュース投稿回数（1日10回）を使い切っています（エステ魂の「AI広報部」の自動投稿も回数に入ります）。朝6時を過ぎてから送り直してください。投稿は行っていません");
+    }
+
+    await page.goto(ESTAMA_NEWS_EDIT, { waitUntil: "domcontentloaded" });
+    await ensureAdminLogin(page);
+    const titleField = page.locator("#PostTitle");
+    const bodyField = page.locator("#PostContent");
+    if (!await titleField.count() || !await bodyField.count()) {
+      throw new Error("エステ魂のニュース投稿フォームが見つかりません（画面仕様変更の可能性）。投稿は行っていません");
+    }
+    const submittedTitle = fitEstamaNewsText(article.title, ESTAMA_NEWS_TITLE_MAX);
+    const submittedBody = fitEstamaNewsText(body, ESTAMA_NEWS_BODY_MAX);
+    await titleField.fill(submittedTitle);
+    await bodyField.fill(submittedBody);
+    await page.locator(`input[name="main[news_type]"][value="${NEWS_BUTTON_OFFICIAL_HP}"]`).check({ force: true }).catch(() => undefined);
+    await page.locator("#FuturePostOff").check({ force: true }).catch(() => undefined);
+    const uploadedImages = await attachNewsImage(page, article.image_urls || []);
     const publicCountBefore = await publicTitleCount(publicUrl, submittedTitle);
 
-    const textSubmit = await firstVisible(form.locator('button, a').filter({
-      hasText: /登録する|投稿する|保存する|公開する|登録|投稿|保存|公開/,
+    // 送信ボタンは .l-edit_submit の中（「キャンセルして戻る」以外）。回数が残っていないと出ない
+    const submitArea = page.locator("#form-news_edit .l-edit_submit, .l-edit_submit");
+    const submit = await firstVisible(submitArea.locator("a, button, input[type=submit], input[type=button]").filter({
+      hasNotText: /キャンセル|戻る/,
     }));
-    const inputSubmit = await firstVisible(form.locator([
-      'input[type="submit"][value*="登録"]',
-      'input[type="submit"][value*="投稿"]',
-      'input[type="submit"][value*="保存"]',
-      'input[type="submit"][value*="公開"]',
-    ].join(",")));
-    const submit = textSubmit || inputSubmit;
-    if (!submit) throw new Error("エステ魂のニュース投稿ボタンが見つかりません");
+    if (!submit) {
+      throw new Error("エステ魂のニュース投稿ボタンが見つかりません（今日の投稿回数が残っていない可能性）。投稿は行っていません");
+    }
     await clickWithScopedConfirmation(page, submit);
 
     let publicCountAfter = await publicTitleCount(publicUrl, submittedTitle);
@@ -244,7 +194,7 @@ export async function postEstamaStoreNews(
       await page.waitForTimeout(700 + attempt * 800);
       publicCountAfter = await publicTitleCount(publicUrl, submittedTitle);
     }
-    const currentBodyField = await firstVisible(page.locator(BODY_SELECTOR));
+    const currentBodyField = await firstVisible(page.locator("#PostContent"));
     const evidence: EstamaNewsPublicationEvidence = {
       publicCountBefore,
       publicCountAfter,
