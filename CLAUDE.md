@@ -169,6 +169,17 @@
 - PayPayの個人アカウントへの送金（ID検索）でお店の代金を受け取るのはPayPayの規約で禁止（アカウント停止のおそれ）。受け取るなら PayPay for Business の店舗用QR・決済リンクにする
 - テスト: `npm run test:reservation-guide-payment`
 
+## 予約の日時の表記（深夜は24時・25時）
+
+- 予約は営業日（朝6時切り替え）で書く。DBは暦日＋24時間未満（11/17 24:00 → `reservation_date` 11/18・`start_time` 00:00）なので、6時前は前日の24〜29時に戻して表示する（11/18 0:00 → 「11/17(火) 24:00」）
+- お客様の予約確認SMS・前日リマインド（`send-sms`）、予約案内ページ（`/g/:token`）、管理画面アプリのスマホ通知（`push-notify`）、SMS返信のLINE通知（`sms-webhook`）は `src/lib/businessTime.ts` の `businessDateTime` でそろえる（Edge Function は相対パスで読むので、デプロイ時は `src/lib/businessTime.ts` も一緒に送る）。セラピストへの通知（`reservationLineNotification.ts`）・WEB予約のLINE通知（`notify-line-booking`）・管理画面の予約表（`toExtTime`）は前から同じ表記。テスト `npm run test:business-time`
+- 前日リマインドSMS（pg_cron `enka-reservation-sms-reminders`）の「明日」も営業日で見る（11/17 24:00 の予約は 11/16 の夕方に送る）
+
+## 予約の二重登録防止
+
+- 予約入力（`ReservationForm`）の保存ボタンは保存中は押せない（「保存中…」）。以前は連打・スマホの二重タップで同じ予約が0.01〜1秒差で2件入っていた（予約表から入れた予約）
+- DBでも、同じ店舗・セラピスト・日時・電話番号（キャンセル以外）の予約が2分以内に入っていたら2件目を止める（トリガー `trg_reservations_reject_duplicate`、`20261117090000_reservation_double_submit_guard.sql`）。ペア予約（別のセラピスト）は止めない
+
 ## 無料サービス（10分・20分のサービス）
 
 - 予約ごとに `reservations.free_service_minutes`（5〜60分）。予約表の予約フォームの「無料サービス」で なし / 🎁10分 / 🎁20分 / 🎁30分 を選ぶ。料金は変えず、施術の時間だけ延ばす

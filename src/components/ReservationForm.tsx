@@ -519,7 +519,12 @@ export function ReservationForm({
     }
   };
 
+  // 保存中の2回目のタップを止める（連打・スマホの二重タップで同じ予約が2件入っていた）
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+
   const handleSubmit = async () => {
+    if (submittingRef.current) return;
     if (
       !paymentSettingsLoaded &&
       formData.payment_details?.some((detail) => detail.method !== "cash" && detail.amount > 0)
@@ -530,15 +535,22 @@ export function ReservationForm({
       setEmailError("メールアドレスの形式が正しくありません（例: example@email.com）");
       return;
     }
-    await savePreferences();
-    await onSubmit({
-      ...formData,
-      price: liveTotals.totalPrice,
-      discount: liveTotals.discountAmount,
-      payment_fee: liveTotals.fee,
-      course_name: liveTotals.courseName,
-      payment_details: snapshotPaymentDetailFees(formData.payment_details, paymentSettings),
-    });
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      await savePreferences();
+      await onSubmit({
+        ...formData,
+        price: liveTotals.totalPrice,
+        discount: liveTotals.discountAmount,
+        payment_fee: liveTotals.fee,
+        course_name: liveTotals.courseName,
+        payment_details: snapshotPaymentDetailFees(formData.payment_details, paymentSettings),
+      });
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   };
 
   const handleOptionToggle = useCallback((optionName: string) => {
@@ -1414,11 +1426,12 @@ export function ReservationForm({
           size="lg"
           className="flex-1 h-12 text-base"
           disabled={
-            !paymentSettingsLoaded &&
-            Boolean(formData.payment_details?.some((detail) => detail.method !== "cash" && detail.amount > 0))
+            submitting ||
+            (!paymentSettingsLoaded &&
+              Boolean(formData.payment_details?.some((detail) => detail.method !== "cash" && detail.amount > 0)))
           }
         >
-          {submitLabel}
+          {submitting ? "保存中…" : submitLabel}
         </Button>
       </div>
     </div>

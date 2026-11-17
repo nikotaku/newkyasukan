@@ -1,5 +1,7 @@
 // 管理画面アプリへのプッシュ通知の文面。LINE通知と同じ内容を短くまとめる（ロック画面で読める長さ）。
 
+import { businessDateShort, businessDateTime } from "../../../src/lib/businessTime.ts";
+
 export interface PushMessage {
   title: string;
   body: string;
@@ -13,6 +15,13 @@ function dateLabel(date: string | null) {
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return "";
   const [y, m, d] = date.split("-").map(Number);
   return `${m}/${d}(${WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]})`;
+}
+
+// 予約の日時。深夜（6時前）は前日の24時台・25時台で書く（11/18 0:00 → 11/17(火) 24:00〜）
+function businessWhen(date: string | null, time: string | null) {
+  const when = businessDateTime(date, time);
+  if (!when) return "";
+  return [businessDateShort(when), when.time ? `${when.time}〜` : ""].filter(Boolean).join(" ");
 }
 
 const clip = (text: string, max: number) => {
@@ -31,9 +40,7 @@ export function webBookingMessage(reservation: {
   price: number | null;
   nomination_type: string | null;
 }, castName: string | null, courseLimit: { max_minutes: number } | null = null): PushMessage {
-  const when = [dateLabel(reservation.reservation_date), reservation.start_time ? `${reservation.start_time.slice(0, 5)}〜` : ""]
-    .filter(Boolean)
-    .join(" ");
+  const when = businessWhen(reservation.reservation_date, reservation.start_time);
   const course = [reservation.course_name, reservation.duration ? `${reservation.duration}分` : ""].filter(Boolean).join(" ");
   const who = [
     castName ? `${castName}${reservation.nomination_type && reservation.nomination_type !== "フリー" ? `（${reservation.nomination_type}）` : ""}` : "指名なし",
@@ -241,7 +248,7 @@ export function estamaReserveMessage(request: {
   check_status: string;
   check_note: string | null;
 }): PushMessage {
-  const when = [dateLabel(request.hope_date), request.hope_time ? `${request.hope_time.slice(0, 5)}〜` : ""].filter(Boolean).join(" ");
+  const when = businessWhen(request.hope_date, request.hope_time);
   const what = [request.is_free ? "フリー" : request.nomination_label, request.course_minutes ? `${request.course_minutes}分` : ""].filter(Boolean).join(" ");
   const warn = ESTAMA_CHECK_TITLE[request.check_status];
   return {

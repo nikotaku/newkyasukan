@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPhone } from "@/hooks/useStoreContact";
 import { RouteGuideSteps, type RouteGuideStep } from "@/components/public/RouteGuideSteps";
+import { businessDateLong, businessDateTime } from "@/lib/businessTime";
 import { GUIDE_PAYMENT_LABELS, normalizeGuidePayments, type GuidePayment } from "@/lib/reservationGuidePayment";
 
 // RPC get_reservation_guide の返り値（supabase/migrations/20260928120000_reservation_guide.sql）
@@ -34,11 +35,10 @@ interface ReservationGuideData {
   payments?: unknown;
 }
 
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
-
-const formatDate = (isoDate: string) => {
-  const [y, m, d] = isoDate.split("-").map(Number);
-  return `${m}月${d}日(${WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]})`;
+// 深夜（6時前）は前日の24時台・25時台で書く（11/18 0:00 → 11月17日(火) 24:00〜）
+const formatWhen = (isoDate: string, startTime: string | null) => {
+  const when = businessDateTime(isoDate, startTime);
+  return when ? `${businessDateLong(when)} ${when.time}`.trim() : isoDate;
 };
 
 const cardStyle = {
@@ -237,7 +237,7 @@ export default function ReservationGuide() {
         )}
         <Row
           label="日時"
-          value={`${formatDate(guide.reservation_date)} ${guide.start_time?.slice(0, 5) ?? ""}〜${guide.duration ? `（${guide.duration}分${freeMinutes > 0 ? `＋無料${freeMinutes}分` : ""}）` : ""}`}
+          value={`${formatWhen(guide.reservation_date, guide.start_time)}〜${guide.duration ? `（${guide.duration}分${freeMinutes > 0 ? `＋無料${freeMinutes}分` : ""}）` : ""}`}
         />
         {guide.course_name && <Row label="コース" value={guide.course_name} />}
         {freeMinutes > 0 && <Row label="サービス" value={`${freeMinutes}分 無料延長`} />}
