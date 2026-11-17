@@ -23,8 +23,7 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_route_estama_shift_job on public.automation_jobs;
-create trigger trg_route_estama_shift_job
+create or replace trigger trg_route_estama_shift_job
   before insert on public.automation_jobs
   for each row execute function private.route_estama_shift_job();
 
