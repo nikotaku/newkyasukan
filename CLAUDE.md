@@ -110,6 +110,11 @@
 - **本人の投稿報告**：マイページの「投稿宣伝スケジュール」（`?view=promotion`、`TherapistPromotionSchedule`）に、本人の投稿タスク・日程・本人分の媒体と掲載回数だけを表示する。店舗作業・共通準備物・店舗専用の計画説明・本人投稿がない計画は表示しない。RPC `get_therapist_promotion_schedule` は本人のトークン・店舗・対象者・担当を照合し、`complete_therapist_promotion_task` も店舗作業IDへの完了・取消を拒否する。本人のチェックは `therapist_promotion_task_completions` のセラピスト×タスクごとに記録し、店舗側のタスク完了状態とは混ぜない。チェックだけでSNSへの投稿はしない
 - **投稿報告の通知**：投稿タスクを未完了→完了にしたときだけ管理画面へ通知（push topic `promotion_task`、`push-notify`）。同じ状態での再送・確認済み操作・準備物は通知しない。ヘッダーのベルと投稿宣伝スケジュールの「セラピストからの投稿報告」に誰が・何を・いつ報告したか表示し、「確認済みにする」で `admin_seen_at` を保存する。管理画面内は30秒ごと・画面フォーカス時に再取得。通知からは `?tab=plans&plan=<id>` で対象計画を開く。テスト `npm run test:therapist-promotion`
 
+## ホームページダッシュボード（/hp/dashboard）
+
+- 店舗情報・店舗SNSリンク・トップバナー・ニュース作成を1画面のタブにまとめた（`?tab=store|sns|banners|news`、`src/pages/HpDashboard.tsx`）。中身は今までの各ページ（`StoreInfo` / `HpSnsLinks` / `HpTopBanners` / `ArticleCreation`）を `embedded` で入れている。外枠（ヘッダー・サイドバー）は `src/components/AdminPageShell.tsx`
+- 以前のURL（`/hp/store-info`・`/hp/sns-links`・`/hp/top-banners`・`/hp/article-creation`）はダッシュボードの該当タブへ転送する。サイドバーの HP の一番上に「ホームページダッシュボード」
+
 ## X運用表「今日の投稿」（/hp/x-operations）
 
 - 運用表の「1日の投稿スケジュール」の各行に、その日のデータを流し込んで投稿文を作る（`src/lib/xDailyPosts.ts`）。集客アカウントの 本日の出勤・明日の出勤・空き枠速報・セラピスト紹介・イベント・直前枠／口コミ は shifts・reservations・discounts・customer_reviews から開くたびに作り直す。求人・店長アカウントと、データが無いときは Edge Function `generate-cast-content` の `type: "x_post"`（ログイン必須）でAIが作る
