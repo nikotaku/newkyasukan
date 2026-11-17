@@ -96,3 +96,16 @@ test("payload.fields = sns ならブログ・SNS欄だけを直す", () => {
   assert.equal(estamaSyncFields({ source: "profile_update" }), "all");
   assert.equal(estamaSyncFields(null), "all");
 });
+
+test("源氏名未定の人はエステ魂に新人A・B…の仮の名前で登録する", async () => {
+  const { estamaPlaceholderName, isPendingStageName } = await import("../server/estama-cast-editor.ts");
+  assert.equal(isPendingStageName("源氏名未定"), true);
+  assert.equal(isPendingStageName(" "), true);
+  assert.equal(isPendingStageName("白石もえ"), false);
+  assert.equal(estamaPlaceholderName(null, []), "新人A");
+  assert.equal(estamaPlaceholderName(null, ["新人A", "白石もえ", "新人C"]), "新人B");
+  // 一度付けた仮の名前は変えない
+  assert.equal(estamaPlaceholderName("新人C", ["新人A"]), "新人C");
+  // 源氏名が決まった人の名前は仮の名前として扱わない
+  assert.equal(estamaPlaceholderName("白石もえ", ["新人A"]), "新人B");
+});

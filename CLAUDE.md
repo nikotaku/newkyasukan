@@ -268,12 +268,6 @@
 - 仮予約のメールは件名（「エステ魂」と「予約」）か、送り元が estama.jp で件名に「予約」があるもの（転送でも元の送り元のまま。`classifyReportEmail(subject, from)`）
 - 受け取ったメールと読み取り結果は `report_email_messages`。書式が読めないものは `unparsed` で残るので `parse.ts` を直す（手順: `docs/gmail-report-sync.md`）
 
-## メンエスなうウィジェット
-
-- 店舗トップ（EnkaHome）に、メンエスなう（men-esthe.co.jp）のタイムラインを表示する。設定は `stores.settings.menesthe_now_widget`（`{ store: PUID, type: "timeline", theme: "dark" }`、`enabled: false` で非表示）
-- 公式の `<script src=".../widget-embed.js">` はページに直接置かない。管理画面と同じドメインで他社のJSが動き、ログイン情報（localStorage）に届いてしまうため、公式の iframe 版（`/widget/embed/shop/{PUID}/`）で埋め込む（`src/lib/menestheNowWidget.ts`）
-- 店舗管理画面（`/manage/store/6490/`）への同時投稿は準備中。サイトは日本以外のIPから開けない（404・Cloudflare）ので、Browserbase の日本のプロキシ（`createBrowserSession` の `proxyCountry: "JP"`）で開く。まず SNS連携管理 →「店舗の投稿先 › その他の媒体」にメンエスなう（ログイン画面のURLが men-esthe.co.jp）を登録し、「管理画面を調べる（日本経由）」で画面の構成（メニュー・フォームの項目・スクリーンショット）を読む（`/api/automations/estama` の `action: "menesnow-inspect"`、本体 `server/menesnow-inspect.ts`、読むだけ）。テスト `npm run test:menesnow`
-
 ## スマホ通知（管理画面をホーム画面に追加・Web Push）
 
 - LINE通知はそのまま残し、並行してお試し中。WEB予約（booking_origin が web_form / cast_form）・お客様からのSMS返信・SMS残高不足・セラピストの精算入力（マイページの `/therapist/:token/checkout` → `daily_sales_records` が pending で入った・送り直された、topic `daily_sales`。タップで清算明細を開いて承認、下記「精算の承認」）を、管理画面を「ホーム画面に追加」した端末へプッシュ通知する
@@ -403,7 +397,7 @@
 ## セラピストの登録（源氏名が未定でも本名だけで）・プロフィールの入力率
 
 - スタッフ画面の新規追加は、源氏名か本名のどちらかがあれば登録できる。源氏名が空なら `casts.name = '源氏名未定'`（本名は name に入れない。casts の name は anon から読めるため）
-- 源氏名が未定の間は DBトリガー `trg_casts_pending_stage_name` が `is_visible = false`・`estama_auto_register = false` にそろえる（HPに出さない・エステ魂に登録しない）。源氏名が決まったら名前を入れて、HPの表示とエスたま自動登録をオンにする
+- 源氏名が未定の間は DBトリガー `trg_casts_pending_stage_name` が `is_visible = false` にそろえる（HPに出さない）。エステ魂には**「新人A」「新人B」…の仮の名前で登録してIDで紐付ける**（`registerCast` の `estamaPlaceholderName`。ほかの人が使っていない一番前の文字、一度付けた仮の名前は変えない。名前での自動紐付けはしない）。源氏名が決まったら名前を入れると、そのIDの編集画面で名前が直る（`remote_name` の仮の名前で本人の画面と確かめる）。HPの表示はオンにする（2026-11-17 まではエステ魂にも登録しなかった）
 - スタッフ画面のカードは源氏名未定なら本名＋「源氏名未定」バッジ、名前の下に「プロフィール ◯%」（バーと未入力の項目）。項目と判定は `src/lib/castProfileCompletion.ts`（テスト `npm run test:cast-profile`）
 - 本名・生年月日・メモ・面接シートなどの内部情報の列は anon から読めない（`20261017150000_cast_pending_stage_name.sql` で revoke）。公開ページで casts の列を足すときは anon に grant されているか確かめる
 - **仮登録**：キャスト管理の「＋新規追加」は短い画面（本名・源氏名（任意）・入店日・ルーム）。「仮登録する」か「登録して続きを入力」（そのまま編集の「未入力」タブが開く）。AIメモ・エスたまからの取り込みで入った項目も一緒に保存する
@@ -440,6 +434,7 @@
 - 600×600 の投稿画像は、魂側では縦長（714×1112）に中央で切り抜かれる
 - GitHub Actions の直接実行（`estama-direct-runner`）で送信前に止まったときは、理由（紐付けなし・魂のログイン情報なし・写真の枚数など）を `automation_jobs.error_message` に出す。紐付け（`external_cast_profiles`）が無い人は投稿できない（源氏名未定で登録して手でエステ魂に載せた人は紐付けを足す）
 - 送信待ちのまま48時間すぎた写メ日記は自動で取り消す（pg_cron `estama-diary-stale-expire` 毎時17分 → `private.expire_stale_estama_diary_jobs()`。日付に依存する内容のため。送信を始めたものは触らない）
+- **Browserbase をやめる準備（段階0）**：直接実行の audit（main への push と手動実行で動く、読むだけ）で、店舗管理画面に新しいブラウザでログインできるかも確かめる。ログイン情報は RPC `get_estama_admin_login_for_runner`（service_role のみ、Vault の `estama_admin_login:<store_id>`）から受け口が渡し、結果は `automation_runner_settings.last_audit_result.adminLogin`（ok / failed / unavailable と止まった段階 `adminLoginStage`）だけ残す
 - テスト: `npm run test:estama`
 
 ## エステ魂スカウト求人の自動化（/recruit/estama-scout）

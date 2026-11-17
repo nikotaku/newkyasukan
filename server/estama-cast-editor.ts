@@ -103,3 +103,24 @@ export function estamaSyncFields(payload: unknown): EstamaSyncFields {
   const fields = payload && typeof payload === "object" ? (payload as Record<string, unknown>).fields : null;
   return fields === "sns" ? "sns" : "all";
 }
+
+// 源氏名が決まる前のセラピスト（casts.name が「源氏名未定」など）は、エステ魂には「新人A」「新人B」…の仮の名前で
+// 登録してIDで紐付ける。源氏名が決まったら、そのIDの編集画面で名前を直す（仮の名前でも本人の画面と確かめられる）。
+const PENDING_STAGE_NAMES = new Set(["", "源氏名未定", "名称未設定"]);
+const PLACEHOLDER_PATTERN = /^新人([A-Z])$/;
+
+export function isPendingStageName(name: string | null | undefined) {
+  return PENDING_STAGE_NAMES.has(String(name ?? "").trim());
+}
+
+/** 仮の名前を決める。前に付けた仮の名前があればそのまま、無ければほかの人が使っていない一番前の文字 */
+export function estamaPlaceholderName(current: string | null | undefined, usedByOthers: Array<string | null | undefined>) {
+  const own = String(current ?? "").trim();
+  if (PLACEHOLDER_PATTERN.test(own)) return own;
+  const used = new Set(usedByOthers.map((name) => String(name ?? "").trim().match(PLACEHOLDER_PATTERN)?.[1]).filter(Boolean));
+  for (let code = 65; code <= 90; code++) {
+    const letter = String.fromCharCode(code);
+    if (!used.has(letter)) return `新人${letter}`;
+  }
+  return `新人${used.size + 1}`;
+}
