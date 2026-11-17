@@ -459,9 +459,10 @@
 ## AI生成機能
 
 - **2026-11-17 に、AIで自動で作る機能を一旦すべて止めた**（必要なものから作り直す）。画面のAIボタンは `src/lib/aiFeatures.ts` の `AI_GENERATION_ENABLED = false` で隠している：スタッフ画面のAIメモ登録・コメントのAI生成、タイムラインのAI紹介投稿・スタッフコンシェルジュ、シフトのSMS生成、宣伝スケジュールの「AIで作成する」・投稿文のAI下書き、X運用表の求人・店長の投稿（運用表の例文を出す）、ニュース作成のAI生成・自動投稿、LINE対応のAI下書き・自動応答。公式LINEの自動応答は設定をオフにし、pg_cron `line-customer-auto-reply-every-minute` も止めた（`20261117120000_stop_ai_generation.sql`）。Edge Function は消していない。データから作る文（X運用表の出勤・空き枠など、標準スケジュール）はAIではないのでそのまま
+- **HPのニュースの本文だけはAIで作れる**（2026-11-17〜、`HP_NEWS_AI_ENABLED`）：ニュース作成の「AIで本文を作る」でタイトル・伝えたいこと・今日の出勤と割引から本文を作り、本文欄に入れる（公開はしない）。`generate-cast-content` の `type: "news"`（店長・オーナーのみ、`newsTitle` / `newsMemo` / `newsCategory`）。AIは Edge Function Secret の `GEMINI_API_KEY`（Google AI Studio、モデルは `GEMINI_MODEL`、既定 `gemini-2.5-flash`）があれば Google、無ければ `ANTHROPIC_API_KEY`。エラーは画面に理由を出すため 200 で `{ error }` を返す
 - Edge Function `generate-cast-content` がカテゴリ別のAIコンテンツ生成を担当
   - `type`: profile / announcement / catchphrase / news / coupon / schedule / shop_comment / newstaff
-  - Lovable AI Gateway 経由で `google/gemini-2.5-flash` を使用
+  - AIの呼び先は上の通り（Gemini か Claude）
 
 ## 面談用ページ（/interview）
 

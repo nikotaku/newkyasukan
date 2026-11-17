@@ -92,12 +92,65 @@ async function canManageStore(req: Request, storeId: string) {
   const user = await userResponse.json().catch(() => null);
   if (!user?.id) return false;
 
+  // 管理権限は user_stores.role で見る（このプロジェクトに user_roles は無い）
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
-  const [{ data: membership }, { data: adminRole }] = await Promise.all([
-    sb.from("user_stores").select("role").eq("user_id", user.id).eq("store_id", storeId).maybeSingle(),
-    sb.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle(),
-  ]);
-  return Boolean(adminRole || ["owner", "manager"].includes(membership?.role || ""));
+  const { data: membership } = await sb.from("user_stores").select("role").eq("user_id", user.id).eq("store_id", storeId).maybeSingle();
+  return ["owner", "manager"].includes(membership?.role || "");
+}
+
+class AiHttpError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+/**
+ * 文章を作る。Edge Function の Secret に GEMINI_API_KEY（Google AI Studio の鍵）があれば Google の Gemini、
+ * 無ければ ANTHROPIC_API_KEY の Claude を使う。
+ */
+async function generateText(systemPrompt: string, userPrompt: string): Promise<string> {
+  const geminiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY");
+  if (geminiKey) {
+    const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: "POST",
+      headers: { "x-goog-api-key": geminiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        generationConfig: { maxOutputTokens: 2048, temperature: 0.8, thinkingConfig: { thinkingBudget: 0 } },
+      }),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      console.error("Gemini API error:", response.status, body.slice(0, 500));
+      if (response.status === 429) throw new AiHttpError(429, "Google AIの利用上限に達しました。しばらく待ってから再度お試しください。");
+      if (response.status === 400 || response.status === 403) throw new AiHttpError(response.status, "Google AIのAPIキーが正しくないか、使えない状態です。");
+      throw new AiHttpError(502, "Google AIで文章を作れませんでした");
+    }
+    const data = await response.json();
+    const parts = data?.candidates?.[0]?.content?.parts;
+    const text = Array.isArray(parts) ? parts.map((part: { text?: string }) => part?.text ?? "").join("").trim() : "";
+    if (!text) throw new AiHttpError(502, "Google AIから文章が返ってきませんでした（内容の制限にかかった可能性があります）");
+    return text;
+  }
+
+  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!anthropicKey) throw new AiHttpError(503, "AIのAPIキーが設定されていません");
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1024, system: systemPrompt, messages: [{ role: "user", content: userPrompt }] }),
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    console.error("Anthropic API error:", response.status, body.slice(0, 500));
+    if (response.status === 429) throw new AiHttpError(429, "レート制限に達しました。しばらく待ってから再度お試しください。");
+    if (response.status === 402 || response.status === 400) throw new AiHttpError(response.status, "クレジットが不足しているか、リクエストが不正です。");
+    throw new AiHttpError(502, "AIで文章を作れませんでした");
+  }
+  const data = await response.json();
+  return data.content?.[0]?.text ?? "";
 }
 
 serve(async (req) => {
@@ -107,7 +160,7 @@ serve(async (req) => {
 
   try {
     const {
-      type, castName, castType, existingProfile, newsTitle, features, storeId,
+      type, castName, castType, existingProfile, newsTitle, newsMemo, newsCategory, features, storeId,
       // coupon
       couponName, couponDiscount, couponExpiry, couponConditions,
       // schedule
@@ -119,12 +172,6 @@ serve(async (req) => {
       // x_post（X運用表「今日の投稿」）
       xAccount, xSlot, xTheme, xRules, xFacts,
     } = await req.json();
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-
-    if (!ANTHROPIC_API_KEY) {
-      throw new Error("ANTHROPIC_API_KEY is not configured");
-    }
-
     let systemPrompt = "";
     let userPrompt = "";
     let autoImages: string[] = [];
@@ -148,21 +195,27 @@ serve(async (req) => {
       case "news": {
         const newsStoreId = typeof storeId === "string" ? storeId : "";
         if (!(await canManageStore(req, newsStoreId))) {
-          return new Response(JSON.stringify({ error: "この店舗のニュースを作成する権限がありません" }), {
-            status: 403,
+          return new Response(JSON.stringify({ error: "この店舗のニュースを作成する権限がありません（店長・オーナーだけ使えます）" }), {
+            status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
         const { facts, images } = await buildNewsGrounding(newsStoreId);
         autoImages = images;
-        systemPrompt = "あなたはメンズエステ公式サイトの予約獲得を担当する編集者です。スマートフォンで一読できる短いニュースを日本語で作成してください。料金・割引・出勤などの具体的な情報は、必ず提供された参照データにある事実だけを使用し、創作してはいけません。季節や天気の挨拶、一般論、オプション説明は不要です。参照データに割引があれば割引名と金額を前半で伝え、本日の出勤があれば名前と時間を簡潔に案内してください。最後はWeb予約またはLINE予約を促す一文にしてください。Markdown、絵文字、ハッシュタグ、URLは使わず、通常の文章と改行だけで書いてください。";
+        systemPrompt = "あなたは仙台のメンズエステ店の公式サイトのニュースを書く編集者です。スマートフォンで読みやすい、そのまま公開できるニュース本文を日本語で書いてください。料金・割引・出勤・人数などの具体的な情報は、タイトル・メモ・参照データにある事実だけを使い、創作しないでください。季節の挨拶や一般論は不要です。最後はWeb予約またはLINE予約を促す一文にしてください。本文だけを出力し、タイトル・前置き・Markdown・ハッシュタグ・URLは書かないでください。絵文字は使ってもよいが3つまで。過度な肌露出や誤解を招く表現は書かないでください。";
         const factsBlock = facts
           ? `\n\n===== 参照データ（この事実のみ使用可。創作禁止）=====\n${facts}\n===============================================\n`
           : "";
-        userPrompt = (newsTitle
-          ? `タイトル: ${newsTitle}\n\n上記のタイトルに基づき、結論から始まる90〜180文字の記事を作成してください。`
-          : `クーポンまたは本日の空き状況を結論から伝える、90〜180文字のニュース記事を作成してください。`)
-          + `参照データから予約判断に必要な情報だけを選び、結論、本日の案内、予約の順に2〜3段落でまとめてください。参照データにない具体的な数値や固有名は使わないでください。${factsBlock}`;
+        const title = typeof newsTitle === "string" ? newsTitle.trim().slice(0, 100) : "";
+        const memoText = typeof newsMemo === "string" ? newsMemo.trim().slice(0, 1500) : "";
+        const categoryText = typeof newsCategory === "string" ? newsCategory.trim().slice(0, 30) : "";
+        userPrompt = [
+          title ? `タイトル: ${title}` : "タイトル: （なし。本日の空き状況やお得な情報を伝える）",
+          categoryText ? `種類: ${categoryText}` : "",
+          memoText ? `伝えたいこと（メモ。ここにある事実は使ってよい）:\n${memoText}` : "",
+          "\n上記をもとに、結論から始まる150〜300文字のニュース本文を2〜3段落で書いてください。",
+          factsBlock,
+        ].filter(Boolean).join("\n");
         break;
       }
       
@@ -241,49 +294,8 @@ serve(async (req) => {
         throw new Error("Invalid content type");
     }
 
-    console.log("Calling Anthropic API with type:", type);
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: [
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "レート制限に達しました。しばらく待ってから再度お試しください。" }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402 || response.status === 400) {
-        const errBody = await response.text();
-        console.error("Anthropic API error:", response.status, errBody);
-        return new Response(
-          JSON.stringify({ error: "クレジットが不足しているか、リクエストが不正です。" }),
-          { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await response.text();
-      console.error("Anthropic API error:", response.status, errorText);
-      throw new Error("Anthropic API error");
-    }
-
-    const data = await response.json();
-    const generatedContent = data.content?.[0]?.text ?? "";
-
-    console.log("Generated content:", generatedContent);
+    console.log("Generating content with type:", type);
+    const generatedContent = (await generateText(systemPrompt, userPrompt)).trim();
 
     return new Response(
       JSON.stringify({ content: generatedContent, images: autoImages }),
@@ -291,6 +303,14 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    if (error instanceof AiHttpError) {
+      // 画面に理由を出せるよう 200 で返す（functions.invoke は 2xx 以外だと本文を読まない）
+      console.error("AI error:", error.status, error.message);
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("Error in generate-cast-content:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),

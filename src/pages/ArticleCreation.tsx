@@ -20,7 +20,7 @@ import { ja } from "date-fns/locale";
 import { Plus, Trash2, Sparkles, Loader2, Globe, EyeOff, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAdminStore } from "@/hooks/useAdminStore";
-import { AI_GENERATION_ENABLED } from "@/lib/aiFeatures";
+import { AI_GENERATION_ENABLED, HP_NEWS_AI_ENABLED } from "@/lib/aiFeatures";
 
 interface Article {
   id: string;
@@ -59,6 +59,18 @@ function siteState(status: string | undefined, error: string | null | undefined,
   return { label: "未投稿", tone: "wait", detail: error ?? null, url: null };
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  important: "重要なお知らせ",
+  event: "期間限定イベント",
+  coupon: "クーポン案内",
+  schedule: "出勤情報",
+  newstaff: "新人入店情報",
+  news: "ニュース",
+  tips: "ノウハウ",
+  campaign: "キャンペーン",
+  other: "その他",
+};
+
 const TONE_CLASS: Record<SiteState["tone"], string> = {
   ok: "border-green-200 bg-green-50 text-green-700",
   wait: "border-amber-200 bg-amber-50 text-amber-700",
@@ -90,6 +102,8 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
     staffName: "", staffProfile: "", staffMessage: "",
   });
   const [aiLoading, setAiLoading] = useState(false);
+  const [newsMemo, setNewsMemo] = useState("");
+  const [newsAiLoading, setNewsAiLoading] = useState(false);
   const [autoNewsTopic, setAutoNewsTopic] = useState("");
   const [autoNewsLoading, setAutoNewsLoading] = useState(false);
   const [estamaSyncingId, setEstamaSyncingId] = useState<string | null>(null);
@@ -228,6 +242,36 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
       toast.error(e instanceof Error ? e.message : "AI生成に失敗しました");
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  // タイトルとメモから、ニュースの本文をAIで作る（公開はしない。作った文は手で直せる）
+  const handleNewsAi = async () => {
+    if (!formData.title.trim() && !newsMemo.trim()) {
+      toast.error("タイトルか「伝えたいこと」を入れてください");
+      return;
+    }
+    if (formData.content.trim() && !window.confirm("今の本文をAIが作った文に置き換えますか？")) return;
+    setNewsAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-cast-content", {
+        body: {
+          type: "news",
+          storeId,
+          newsTitle: formData.title.trim() || undefined,
+          newsMemo: newsMemo.trim() || undefined,
+          newsCategory: CATEGORY_LABELS[formData.category] ?? formData.category,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.content) throw new Error("本文を作れませんでした");
+      setFormData((prev) => ({ ...prev, content: data.content }));
+      toast.success("本文を作りました。確認して直してから公開してください");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "AIで本文を作れませんでした");
+    } finally {
+      setNewsAiLoading(false);
     }
   };
 
@@ -651,6 +695,25 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
                     ) : (
                       <><Sparkles size={14} className="mr-2" />AI生成</>
                     )}
+                  </Button>
+                </div>
+              )}
+
+              {HP_NEWS_AI_ENABLED && (
+                <div className="rounded-lg border border-pink-200 bg-pink-50 p-3 space-y-2">
+                  <p className="text-sm font-medium text-pink-700 flex items-center gap-1">
+                    <Sparkles size={14} /> AIで本文を作る
+                  </p>
+                  <Textarea
+                    value={newsMemo}
+                    onChange={(e) => setNewsMemo(e.target.value)}
+                    rows={3}
+                    className="bg-white"
+                    placeholder="伝えたいこと（任意）例：りりか&ももか 本日満枠。明日は残り1名様ご案内可能"
+                  />
+                  <p className="text-xs text-muted-foreground">タイトル・伝えたいこと・今日の出勤と割引をもとに本文を作ります。公開はしないので、確認して直してから保存してください。</p>
+                  <Button type="button" size="sm" onClick={() => void handleNewsAi()} disabled={newsAiLoading} className="bg-pink-600 hover:bg-pink-700 text-white">
+                    {newsAiLoading ? <><Loader2 size={14} className="mr-2 animate-spin" />作成中...</> : <><Sparkles size={14} className="mr-2" />本文を作る</>}
                   </Button>
                 </div>
               )}
