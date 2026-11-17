@@ -53,7 +53,8 @@
     "test:subscription-watch": "node --experimental-strip-types --test tests/subscriptionWatch.test.ts",
     "test:cast-hero-banners": "node --experimental-strip-types --test tests/castHeroBanners.test.ts",
     "test:panel-photo": "node --experimental-strip-types --test tests/panelPhotoCrop.test.ts",
-    "test:link-banners": "node --experimental-strip-types --test tests/linkBanners.test.ts"
+    "test:link-banners": "node --experimental-strip-types --test tests/linkBanners.test.ts",
+    "test:app-version": "node --experimental-strip-types --test tests/appVersion.test.ts"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.16.0",

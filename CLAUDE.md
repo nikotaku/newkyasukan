@@ -326,6 +326,10 @@
 - 実行には環境変数 `TYPESAFE_API_KEY` / `TEXT_MODEL_API_KEY`（OpenRouter）が必要。クラウド環境の設定で入れる。リポジトリ・チャットに書かない
 - キャスカン本体の自動化（エステ魂など）は今まで通り Browserbase。jev はアップロード・iframe 非対応
 
+## 新しい版のお知らせ（ホーム画面のアプリ）
+
+- ホーム画面に追加した管理アプリ・セラピストのマイページ（iPhone）は、アプリを閉じきるまで古い画面のまま動き続ける（mainへマージしても出てこない）。`src/components/AppUpdateNotice.tsx` が画面に戻ったとき・5分ごとに公開中の `index.html` の本体のファイル名（`/assets/index-xxxx.js`）と読み込み済みのものを比べ、違えば上に「新しいバージョンがあります［更新する］」を出す。勝手には読み込み直さない（入力中の内容が消えるため）。置き場所は `DashboardHeader` と `TherapistPortal`。比べ方は `src/lib/appVersion.ts`（テスト `npm run test:app-version`）
+
 ## DB停止時のメンテナンス表示
 
 - Supabase が止まっている（未払いによる一時停止・障害でプロジェクトのドメインが引けない等）と、公開HPの出勤・空き枠が「出勤なし」に見えてしまう。`src/components/BackendDownNotice.tsx`（App全体に1つ）が `/auth/v1/health` を2回確かめ、つながらなければ「メンテナンス中・ご予約はお電話・LINEで」を出す。1分ごとに確かめ直し、戻ったら「再読み込み」を出すので、復旧後の作業は不要

@@ -8,6 +8,7 @@ import { useAdminStore } from "@/hooks/useAdminStore";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminAppManifest } from "@/hooks/useAdminAppManifest";
 import { CtiCallPopup } from "@/components/CtiCallPopup";
+import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { O2ControlAlert } from "@/components/sns/O2ControlPanel";
 import { EstamaPendingAlert } from "@/components/EstamaPendingAlert";
 import { TherapistNotifyAlert } from "@/components/TherapistNotifyAlert";
@@ -200,6 +201,8 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
       </Dialog>
       {/* CTI着信ポップ（全管理画面共通） */}
       <CtiCallPopup />
+      {/* 新しい版が出たら「更新する」（ホーム画面のアプリは閉じきるまで古いままのため） */}
+      <AppUpdateNotice />
       {/* 管理画面の左下のお知らせ（届いていないセラピスト通知・エスたまへの反映待ち） */}
       <div className="pointer-events-none fixed bottom-4 left-4 md:left-[256px] z-50 flex w-[340px] max-w-[calc(100vw-6.5rem)] flex-col gap-2 [&>*]:pointer-events-auto">
         <TherapistNotifyAlert />

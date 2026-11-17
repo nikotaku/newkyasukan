@@ -35,6 +35,7 @@ import { EntryRouteSteps } from "@/components/entry/EntryRouteSteps";
 import { RoomKeySection } from "@/components/entry/RoomKeySection";
 import { WifiConnectCard } from "@/components/entry/WifiConnectCard";
 import { formatShiftBreak } from "@/lib/shiftBreak";
+import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { TherapistPromotionSchedule, TherapistPromotionSummary } from "@/components/therapist/TherapistPromotionSchedule";
 
 
@@ -588,6 +589,7 @@ export default function TherapistPortal() {
 
   return (
     <div className="min-h-screen bg-background">
+      <AppUpdateNotice />
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-3 flex items-center gap-3">
