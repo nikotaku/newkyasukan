@@ -1735,7 +1735,24 @@ async function setTimeInRow(row: ReturnType<Page["locator"]>, kind: "start" | "e
   } else await target.fill(value.slice(0, 5));
 }
 
-async function syncShift(admin: AdminClient, page: Page, job: AutomationJob, connection: Connection) {
+// シフト同期は「DBを読む（prepare）→ エステ魂の画面を操作する（runOnPage）→ DBに書く（finish）」の3つに分ける。
+// Browserbase のワーカーは3つを続けて呼び、GitHub Actions の直接実行は画面の操作だけをランナーで行う
+// （DBの読み書きは Vercel の受け口が持つので、ランナーに管理鍵を渡さない）。
+export type ShiftJobPlan = {
+  kind: "run";
+  item: EstamaShiftBatchItem;
+  castLabel: string;
+  shopId: string | null;
+  configuration: Json | null;
+  externalProfileId: string;
+  dummyShiftId: string;
+} | { kind: "skip"; result: Json; dummyShiftId: string };
+
+export type ShiftPageOutcome =
+  | { kind: "done" }
+  | { kind: "skip"; result: Json };
+
+export async function prepareShiftJob(admin: AdminClient, job: AutomationJob, connection: Pick<Connection, "shop_id" | "configuration">): Promise<ShiftJobPlan> {
   const payload = job.payload || {};
   let shift: ShiftRecord | null = null;
   const dummyShiftId = typeof payload.dummy_shift_id === "string" ? payload.dummy_shift_id : "";
@@ -1763,105 +1780,144 @@ async function syncShift(admin: AdminClient, page: Page, job: AutomationJob, con
     : inferredAction;
   const date = String(desired.shift_date || "").slice(0, 10);
   if (!date) throw new Error("シフト日がありません");
-  const markUnregistered = async () => {
-    if (job.shift_id) await admin.from("shifts").update({ estama_registered: false }).eq("id", job.shift_id);
-    if (dummyShiftId) await admin.from("estama_dummy_shifts").update({ estama_registered: false }).eq("id", dummyShiftId);
-  };
   const window = estamaShiftWindow();
   if (date < window.startDate || date > window.endDate) {
-    await markUnregistered();
     return {
-      skipped: true,
-      reason: "outside_estama_window",
-      message: `エステ魂の同期対象（${window.startDate}〜${window.endDate}）外のため保留しました`,
-      date,
-      range: window,
+      kind: "skip",
+      dummyShiftId,
+      result: {
+        skipped: true,
+        reason: "outside_estama_window",
+        message: `エステ魂の同期対象（${window.startDate}〜${window.endDate}）外のため保留しました`,
+        date,
+        range: window,
+      },
     };
   }
-  const batchItem: EstamaShiftBatchItem = {
-    jobId: job.id,
-    shiftId: String(job.shift_id || dummyShiftId || desired.id || ""),
-    castId,
-    castName: cast.name,
-    externalId: external.external_cast_id || null,
-    remoteName: external.remote_name || null,
-    reportToken: "",
-    action,
-    shiftDate: date,
-    startTime: String(desired.start_time || ""),
-    endTime: String(desired.end_time || ""),
+  return {
+    kind: "run",
+    dummyShiftId,
+    externalProfileId: String(external.id),
+    shopId: connection.shop_id,
+    configuration: connection.configuration,
+    castLabel: external.remote_name || cast.name,
+    item: {
+      jobId: job.id,
+      shiftId: String(job.shift_id || dummyShiftId || desired.id || ""),
+      castId,
+      castName: cast.name,
+      externalId: external.external_cast_id || null,
+      remoteName: external.remote_name || null,
+      reportToken: "",
+      action,
+      shiftDate: date,
+      startTime: String(desired.start_time || ""),
+      endTime: String(desired.end_time || ""),
+    },
   };
-  const individualShiftUrl = estamaIndividualShiftAdminUrl(external.external_cast_id);
-  const castLabel = external.remote_name || cast.name;
+}
+
+/** エステ魂の管理画面でシフトを1件反映する（画面の操作だけ。DBには触らない） */
+export async function runShiftJobOnPage(page: Page, plan: Extract<ShiftJobPlan, { kind: "run" }>): Promise<ShiftPageOutcome> {
+  const { item, castLabel } = plan;
+  const date = item.shiftDate;
+  const individualShiftUrl = estamaIndividualShiftAdminUrl(item.externalId);
   if (individualShiftUrl) {
     await page.goto(individualShiftUrl, { waitUntil: "domcontentloaded" });
     await ensureAdminLogin(page);
     const dateState = classifyEstamaScheduleDate(await readEstamaScheduleDates(page), date);
     if (dateState.state === "outside_range") {
-      await markUnregistered();
       return {
-        skipped: true,
-        reason: "outside_estama_window",
-        message: estamaOutsideRangeMessage(dateState.firstDate, dateState.lastDate),
-        date,
-        range: { startDate: dateState.firstDate, endDate: dateState.lastDate },
+        kind: "skip",
+        result: {
+          skipped: true,
+          reason: "outside_estama_window",
+          message: estamaOutsideRangeMessage(dateState.firstDate, dateState.lastDate),
+          date,
+          range: { startDate: dateState.firstDate, endDate: dateState.lastDate },
+        },
       };
     }
     if (dateState.state === "no_schedule") {
-      const unpublished = await isEstamaCastUnpublished(page, connection.shop_id, external.external_cast_id);
-      if (unpublished && action === "delete") {
-        await markUnregistered();
+      const unpublished = await isEstamaCastUnpublished(page, plan.shopId, item.externalId);
+      if (unpublished && item.action === "delete") {
         return {
-          skipped: true,
-          reason: "not_listed_on_estama",
-          message: "エステ魂に掲載がないため、削除済みとして扱いました",
-          date,
+          kind: "skip",
+          result: {
+            skipped: true,
+            reason: "not_listed_on_estama",
+            message: "エステ魂に掲載がないため、削除済みとして扱いました",
+            date,
+          },
         };
       }
       throw new Error(unpublished
         ? estamaNotListedMessage(castLabel)
         : `エステ魂の管理画面で「${castLabel}」の出勤表を読み取れません（${individualShiftUrl}）`);
     }
-    if (!await syncEstamaIndividualScheduleForm(page, batchItem)) {
+    if (!await syncEstamaIndividualScheduleForm(page, item)) {
       throw new Error(`エステ魂の${date}の出退勤欄が見つかりません`);
     }
-  } else {
-    const shiftUrl = await discoverShiftAdminUrl(page, connection.configuration);
-    await page.goto(shiftUrl, { waitUntil: "domcontentloaded" });
-    await ensureAdminLogin(page);
-    await setField(page, 'input[type="date"], input[name*="date" i], select[name*="date" i]', date);
-    await page.waitForTimeout(500);
+    return { kind: "done" };
+  }
+  const shiftUrl = await discoverShiftAdminUrl(page, plan.configuration);
+  await page.goto(shiftUrl, { waitUntil: "domcontentloaded" });
+  await ensureAdminLogin(page);
+  await setField(page, 'input[type="date"], input[name*="date" i], select[name*="date" i]', date);
+  await page.waitForTimeout(500);
 
-    const row = await findEstamaCastRow(page, {
-      externalId: external.external_cast_id,
-      remoteName: external.remote_name,
-      localName: cast.name,
-    });
-    if (action === "delete") {
-      const off = row.getByText(/休み|非出勤|削除/, { exact: false }).first();
-      if (await off.count()) await off.click();
-      else {
-        const checkbox = row.locator('input[type="checkbox"]').first();
-        if (await checkbox.count() && await checkbox.isChecked()) await checkbox.uncheck();
-        const timeInputs = row.locator('input[type="time"], input[name*="time" i]');
-        for (let i = 0; i < await timeInputs.count(); i += 1) await timeInputs.nth(i).fill("");
-      }
-    } else {
+  const row = await findEstamaCastRow(page, {
+    externalId: item.externalId,
+    remoteName: item.remoteName,
+    localName: item.castName,
+  });
+  if (item.action === "delete") {
+    const off = row.getByText(/休み|非出勤|削除/, { exact: false }).first();
+    if (await off.count()) await off.click();
+    else {
       const checkbox = row.locator('input[type="checkbox"]').first();
-      if (await checkbox.count() && !await checkbox.isChecked()) await checkbox.check();
-      await setTimeInRow(row, "start", String(desired.start_time));
-      await setTimeInRow(row, "end", String(desired.end_time));
+      if (await checkbox.count() && await checkbox.isChecked()) await checkbox.uncheck();
+      const timeInputs = row.locator('input[type="time"], input[name*="time" i]');
+      for (let i = 0; i < await timeInputs.count(); i += 1) await timeInputs.nth(i).fill("");
     }
-    await clickSave(page);
+  } else {
+    const checkbox = row.locator('input[type="checkbox"]').first();
+    if (await checkbox.count() && !await checkbox.isChecked()) await checkbox.check();
+    await setTimeInRow(row, "start", item.startTime);
+    await setTimeInRow(row, "end", item.endTime);
   }
-  if (job.shift_id) await admin.from("shifts").update({ estama_registered: action !== "delete" }).eq("id", job.shift_id);
-  if (dummyShiftId) {
-    await admin.from("estama_dummy_shifts").update({ estama_registered: action !== "delete" }).eq("id", dummyShiftId);
+  await clickSave(page);
+  return { kind: "done" };
+}
+
+/** 画面の結果をDBに書く。戻り値はジョブの結果（result） */
+export async function finishShiftJob(admin: AdminClient, job: Pick<AutomationJob, "shift_id">, plan: ShiftJobPlan, outcome: ShiftPageOutcome | null): Promise<Json> {
+  const markRegistered = async (registered: boolean) => {
+    if (job.shift_id) await admin.from("shifts").update({ estama_registered: registered }).eq("id", job.shift_id);
+    if (plan.dummyShiftId) {
+      await admin.from("estama_dummy_shifts").update({ estama_registered: registered }).eq("id", plan.dummyShiftId);
+    }
+  };
+  if (plan.kind === "skip") {
+    await markRegistered(false);
+    return plan.result;
   }
+  if (!outcome) throw new Error("シフト同期の結果がありません");
+  if (outcome.kind === "skip") {
+    await markRegistered(false);
+    return outcome.result;
+  }
+  await markRegistered(plan.item.action !== "delete");
   await admin.from("external_cast_profiles").update({
     last_shift_sync_at: new Date().toISOString(), last_error: null,
-  }).eq("id", external.id);
-  return { action, date, cast: external.remote_name || cast.name };
+  }).eq("id", plan.externalProfileId);
+  return { action: plan.item.action, date: plan.item.shiftDate, cast: plan.castLabel };
+}
+
+async function syncShift(admin: AdminClient, page: Page, job: AutomationJob, connection: Connection) {
+  const plan = await prepareShiftJob(admin, job, connection);
+  const outcome = plan.kind === "run" ? await runShiftJobOnPage(page, plan) : null;
+  return finishShiftJob(admin, job, plan, outcome);
 }
 
 async function reconcileShifts(admin: AdminClient, page: Page, job: AutomationJob, connection: Connection) {

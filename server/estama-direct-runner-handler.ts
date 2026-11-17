@@ -1,4 +1,5 @@
-import { getAdminClient, authenticateUser, assertStoreManager, requireSingleDiaryImageUrls } from './estama-automation.js';
+import { getAdminClient, authenticateUser, assertStoreManager, requireSingleDiaryImageUrls, prepareShiftJob, finishShiftJob, type ShiftPageOutcome } from './estama-automation.js';
+import { scrubSecrets } from './estama-relogin-result.js';
 import { verifyActionsIdentity } from './github-actions-identity.js';
 import { summarizeAutomation } from './automation-runner-summary.js';
 
@@ -93,16 +94,71 @@ export default async function handler(req: Request, res: Response) {
     }
     if (action === 'claim') {
       if (run.mode!=='work' || identity.event_name!=='workflow_dispatch') throw new Error('invalid_mode');
-      const job = checked(await admin.rpc('claim_estama_direct_job',{p_store_id:STORE_ID,p_run_id:runId})) as any;
-      if (!job) { res.status(200).json({ work:null }); return; }
+      // 出勤同期で画面を開かずに済むもの（同期の対象外の日など）はここで終わらせ、次の作業を渡す
+      for (let skipped = 0; skipped < 30; skipped++) {
+        const job = checked(await admin.rpc('claim_estama_direct_job',{p_store_id:STORE_ID,p_run_id:runId})) as any;
+        if (!job) { res.status(200).json({ work:null }); return; }
+        if (job.job_type !== 'estama_sync_shift') { await claimDiary(job); return; }
+        let plan;
+        try { plan = await prepareShiftJob(admin, job, await shiftConnection()); }
+        catch (error) {
+          checked(await admin.rpc('finish_estama_direct_job',{p_job_id:job.id,p_lease:job.runner_lease,p_run_id:runId,p_status:'failed',p_result:{},p_error:shortError(error)}));
+          continue;
+        }
+        if (plan.kind === 'skip') {
+          const result = await finishShiftJob(admin, job, plan, null);
+          checked(await admin.rpc('finish_estama_direct_job',{p_job_id:job.id,p_lease:job.runner_lease,p_run_id:runId,p_status:'completed',p_result:result,p_error:null}));
+          continue;
+        }
+        res.status(200).json({ work: { type:'shift', jobId:job.id, lease:job.runner_lease, plan, adminLogin: await adminLogin() } }); return;
+      }
+      res.status(200).json({ work:null }); return;
+    }
+    if (action === 'finish_shift') {
+      // ランナーからは画面の結果（done / skip）だけを受け取り、DBに書く中身は受け口がもう一度DBから組み立てる
+      const job = checked(await admin.from('automation_jobs').select('*').eq('id',String(req.body?.jobId||'')).eq('store_id',STORE_ID)
+        .eq('runner','github_actions').eq('runner_run_id',runId).eq('runner_lease',String(req.body?.lease||'')).eq('status','running')
+        .eq('job_type','estama_sync_shift').maybeSingle()) as any;
+      if (!job) { res.status(409).json({error:'lease_lost'}); return; }
+      const raw = req.body?.outcome as any;
+      let status: 'completed'|'failed' = 'failed', result: unknown = {}, error: string|null = null;
+      if (raw?.kind === 'done' || (raw?.kind === 'skip' && ['outside_estama_window','not_listed_on_estama'].includes(raw?.result?.reason))) {
+        try {
+          const plan = await prepareShiftJob(admin, job, await shiftConnection());
+          const outcome: ShiftPageOutcome = raw.kind === 'done' ? { kind:'done' } : { kind:'skip', result: {
+            skipped: true, reason: raw.result.reason, message: String(raw.result.message || '').slice(0, 200),
+            date: String(raw.result.date || '').slice(0, 10),
+            ...(raw.result.range ? { range: { startDate: String(raw.result.range.startDate||'').slice(0,10), endDate: String(raw.result.range.endDate||'').slice(0,10) } } : {}),
+          } };
+          result = await finishShiftJob(admin, job, plan, outcome); status = 'completed';
+        } catch (e) { error = shortError(e); }
+      } else {
+        error = typeof req.body?.error === 'string' ? req.body.error.replace(/\S+@\S+/g,'[mail]').slice(0, 300) : 'エステ魂の出勤表を更新できませんでした';
+      }
+      const ok = checked(await admin.rpc('finish_estama_direct_job',{p_job_id:job.id,p_lease:job.runner_lease,p_run_id:runId,p_status:status,p_result:result,p_error:error}));
+      res.status(ok?200:409).json({ok, status}); return;
+    }
+    async function claimDiary(job: any) {
       try {
         const prepared=await prepare(admin,job.cast_id,job.payload.post_id);
-        res.status(200).json({work:{...prepared,jobId:job.id,lease:job.runner_lease}}); return;
+        res.status(200).json({work:{type:'diary',...prepared,jobId:job.id,lease:job.runner_lease}}); return;
       } catch (error) {
         const reason = error instanceof PrepareError ? error.message : '投稿データ・認証設定を確認してください';
         checked(await admin.rpc('finish_estama_direct_job',{p_job_id:job.id,p_lease:job.runner_lease,p_run_id:runId,p_status:'failed',p_result:{},p_error:`${reason}（送信前に停止）`}));
         throw new Error('job_preparation_failed');
       }
+    }
+    async function shiftConnection() {
+      const row = checked(await admin.from('automation_connections').select('shop_id,configuration').eq('store_id',STORE_ID).eq('provider','estama').maybeSingle()) as any;
+      return { shop_id: row?.shop_id ?? null, configuration: row?.configuration ?? null };
+    }
+    async function adminLogin() {
+      const login = checked(await admin.rpc('get_estama_admin_login_for_runner',{p_store_id:STORE_ID})) as {mail?:string;password?:string}|null;
+      if (!login?.mail || !login.password) throw new Error('admin_login_unavailable');
+      return { mail: login.mail, password: login.password };
+    }
+    function shortError(error: unknown) {
+      return scrubSecrets(error instanceof Error ? error.message : String(error), []).replace(/\S+@\S+/g,'[mail]').slice(0, 300);
     }
     if (action==='heartbeat' || action==='submitting') {
       const fields: Record<string,string>={heartbeat_at:new Date().toISOString()};
