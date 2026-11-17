@@ -15,6 +15,7 @@ const PAGE_LABELS: Array<{ pattern: RegExp; label: string; description: string }
   { pattern: /^\/blog\/?$/, label: "店長ブログ", description: "店長からお届けする店舗のこと、ご利用にまつわる読みものを掲載しています。" },
   { pattern: /^\/recruit-talk\/?$/, label: "セラピスト求人", description: "仙台・宮城で未経験から始められるセラピスト求人です。自由出勤、研修、プライバシー対策、応募前の相談方法をご案内します。" },
   { pattern: /^\/page\/[^/]+\/?$/, label: "お知らせ", description: "店舗からの最新情報をご案内します。" },
+  { pattern: /^\/links\/?$/, label: "リンク", description: "提携サイト・ポータルサイトへのリンク集です。" },
 ];
 
 const upsertMeta = (selector: string, attrs: Record<string, string>) => {

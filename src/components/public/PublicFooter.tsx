@@ -5,6 +5,7 @@ import { useStore } from "@/hooks/useStore";
 import { useStoreContact } from "@/hooks/useStoreContact";
 import { supabase } from "@/integrations/supabase/client";
 import { trackPublicEvent } from "@/lib/publicAnalytics";
+import { safeHttpUrl, visibleLinkBanners } from "@/lib/linkBanners";
 
 const DEFAULT_X_URL = "https://x.com/enka_salon";
 
@@ -14,6 +15,9 @@ export const PublicFooter = () => {
   const [xUrl, setXUrl] = useState(DEFAULT_X_URL);
   const [o2Url, setO2Url] = useState("");
   const storeName = store?.name ?? "艶華";
+  // リンク一覧（他社バナー）は、載せるものがあるときだけフッターに出す
+  const storeSettings = (store?.settings ?? {}) as Record<string, unknown>;
+  const hasLinks = visibleLinkBanners(storeSettings.link_banners).length > 0 || !!safeHttpUrl(storeSettings.link_own_banner);
 
   useEffect(() => {
     if (storeLoading) return;
@@ -82,6 +86,7 @@ export const PublicFooter = () => {
           <Link to="/blog" className="hover:text-white">店長ブログ</Link>
           <Link to="/voice" className="hover:text-white">口コミ</Link>
           <Link to="/access" className="hover:text-white">アクセス</Link>
+          {hasLinks && <Link to="/links" className="hover:text-white">リンク</Link>}
           <Link to="/booking" onClick={() => trackPublicEvent("booking_cta_click", { placement: "footer", method: "web" })} className="font-semibold text-[var(--pub-accent-light,#f2a0bc)] hover:text-white">Web予約</Link>
         </nav>
       </div>

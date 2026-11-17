@@ -97,3 +97,39 @@ export async function detectSubjectMask(image: HTMLImageElement): Promise<HTMLCa
     result.close();
   }
 }
+
+/**
+ * 写真の人の確からしさ（0〜1）を、見分けたときの大きさのまま返す（切り抜く位置を決めるだけなら元の大きさは要らない）。
+ * セラピストの写真の自動切り抜き（panelPhotoAutoCrop）で使う。
+ */
+export async function detectPersonConfidence(
+  source: HTMLImageElement | HTMLCanvasElement,
+  maxEdge = 512,
+): Promise<{ person: Float32Array; width: number; height: number }> {
+  segmenterPromise ??= loadSegmenter().catch((error) => {
+    segmenterPromise = null;
+    throw error;
+  });
+  const segmenter = await segmenterPromise;
+
+  const sw = source instanceof HTMLImageElement ? source.naturalWidth : source.width;
+  const sh = source instanceof HTMLImageElement ? source.naturalHeight : source.height;
+  const scale = Math.min(1, maxEdge / Math.max(sw, sh));
+  const input = document.createElement("canvas");
+  input.width = Math.max(1, Math.round(sw * scale));
+  input.height = Math.max(1, Math.round(sh * scale));
+  input.getContext("2d")?.drawImage(source, 0, 0, input.width, input.height);
+
+  const result = segmenter.segment(input);
+  try {
+    const masks = result.confidenceMasks ?? [];
+    const first = masks[0];
+    if (!first) throw new Error("人を見分けられませんでした");
+    const values = first.getAsFloat32Array();
+    // 結果は close で消えるので写しておく。複数あるモデル（multiclass）は1枚目が背景
+    const person = masks.length === 1 ? Float32Array.from(values) : values.map((v) => 1 - v);
+    return { person, width: first.width, height: first.height };
+  } finally {
+    result.close();
+  }
+}

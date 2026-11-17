@@ -50,6 +50,7 @@ import PublicCastDiary from "./pages/public/CastDiary";
 import PublicPricing from "./pages/public/Pricing";
 import PublicSystem from "./pages/public/System";
 import PublicAccess from "./pages/public/Access";
+import PublicLinks from "./pages/public/Links";
 import ReservationGuide from "./pages/public/ReservationGuide";
 import CastBannerRender from "./pages/public/CastBannerRender";
 import BlogIndex from "./pages/public/BlogIndex";
@@ -188,6 +189,7 @@ const App = () => {
           <Route path="/pricing" element={<PublicPricing />} />
           <Route path="/system" element={<PublicSystem />} />
           <Route path="/access" element={<PublicAccess />} />
+          <Route path="/links" element={<PublicLinks />} />
           <Route path="/g/:token" element={<ReservationGuide />} />
           <Route path="/banner-render" element={<CastBannerRender />} />
           <Route path="/blog" element={<BlogIndex />} />

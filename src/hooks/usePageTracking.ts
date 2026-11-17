@@ -5,7 +5,7 @@ import { useStore } from "@/hooks/useStore";
 
 const PUBLIC_PATHS: string[] = [
   "/", "/lp", "/system", "/campaigns", "/pricing", "/access", "/booking",
-  "/survey", "/review", "/review-maker", "/voice", "/recruit-talk", "/haru",
+  "/survey", "/review", "/review-maker", "/voice", "/recruit-talk", "/haru", "/links",
 ];
 const PUBLIC_PREFIXES: string[] = ["/schedule", "/casts", "/page/", "/book/", "/r/"];
 // /system は公開ページ（/system/... は管理画面なので除外）

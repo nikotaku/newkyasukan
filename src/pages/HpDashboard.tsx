@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router-dom";
-import { Image, Newspaper, PenLine, Share2, Store } from "lucide-react";
+import { Image, Link2, Newspaper, PenLine, Share2, Store } from "lucide-react";
 import { AdminPageShell } from "@/components/AdminPageShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StoreInfo from "./StoreInfo";
@@ -7,8 +7,9 @@ import HpSnsLinks from "./HpSnsLinks";
 import HpTopBanners from "./HpTopBanners";
 import ArticleCreation from "./ArticleCreation";
 import HpBlogManagement from "./HpBlogManagement";
+import HpLinkBanners from "./HpLinkBanners";
 
-// ホームページダッシュボード：店舗情報・店舗SNSリンク・トップバナー・ニュース作成・店長ブログをタブでまとめる（?tab=store|sns|banners|news|blog）。
+// ホームページダッシュボード：店舗情報・店舗SNSリンク・トップバナー・ニュース作成・店長ブログ・リンク一覧（他社バナー）をタブでまとめる（?tab=store|sns|banners|news|blog|links）。
 // 以前の個別のページ（/hp/store-info など）はここのタブへ転送する。
 const TABS = [
   { value: "store", label: "店舗情報", icon: Store },
@@ -16,6 +17,7 @@ const TABS = [
   { value: "banners", label: "バナー", icon: Image },
   { value: "news", label: "ニュース", icon: Newspaper },
   { value: "blog", label: "店長ブログ", icon: PenLine },
+  { value: "links", label: "リンク", icon: Link2 },
 ] as const;
 
 type TabValue = (typeof TABS)[number]["value"];
@@ -30,7 +32,7 @@ export default function HpDashboard() {
       <div className="mx-auto max-w-5xl">
         <h1 className="mb-4 text-2xl font-bold">ホームページダッシュボード</h1>
         <Tabs value={tab} onValueChange={(value) => setSearchParams({ tab: value }, { replace: true })}>
-          <TabsList className="mb-4 grid h-auto w-full grid-cols-5">
+          <TabsList className="mb-4 grid h-auto w-full grid-cols-3 sm:grid-cols-6">
             {TABS.map(({ value, label, icon: Icon }) => (
               <TabsTrigger key={value} value={value} className="flex flex-col items-center gap-0.5 px-1 py-1.5 text-[11px] sm:flex-row sm:gap-1.5 sm:py-2 sm:text-sm">
                 <Icon size={15} className="shrink-0" />
@@ -43,6 +45,7 @@ export default function HpDashboard() {
           <TabsContent value="banners"><HpTopBanners embedded /></TabsContent>
           <TabsContent value="news"><ArticleCreation embedded /></TabsContent>
           <TabsContent value="blog"><HpBlogManagement embedded /></TabsContent>
+          <TabsContent value="links"><HpLinkBanners embedded /></TabsContent>
         </Tabs>
       </div>
     </AdminPageShell>
