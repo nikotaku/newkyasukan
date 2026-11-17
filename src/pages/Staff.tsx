@@ -528,9 +528,9 @@ export default function Staff() {
       toast({ title: "源氏名か本名を入れてください", description: "源氏名が決まっていなければ本名だけで登録できます", variant: "destructive" });
       return;
     }
-    // 源氏名が未定の間はHPに出さず、エステ魂にも登録しない（DBトリガーでもそろえる）
+    // 源氏名が未定の間はHPに出さない（DBトリガーでもそろえる）。エステ魂には「新人A」などの仮の名前で登録してIDで紐付ける
     const stageNamePending = isStageNamePending(stageName);
-    const autoRegisterEstama = formData.estama_auto_register && !stageNamePending;
+    const autoRegisterEstama = formData.estama_auto_register;
 
     setAddingCast(true);
     try {

@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { supabase } from "@/integrations/supabase/client";
 import { isAutoPostKind } from "@/lib/xAutoPost";
-import { MenesnowInspectButton } from "@/components/sns/MenesnowInspectDialog";
 import { businessDate, classifyPost, slotKeyOf } from "@/lib/xDailyPosts";
 import { DEFAULT_X_OPERATIONS_PLAN, normalizeXOperationsPlan, X_OPS_CONTENT_KEY, type XAccountPlan, type XOperationsPlan } from "@/lib/xOperationsPlan";
 
@@ -366,9 +365,6 @@ export function StorePostChannels() {
                     </button>
                   )}
                 </p>
-                {/men-esthe\.co\.jp/i.test(`${channel.login_url ?? ""} ${channel.handle ?? ""}`) && channel.password_configured && (
-                  <div className="pt-1"><MenesnowInspectButton storeId={storeId} /></div>
-                )}
               </div>
             ))}
           </div>
@@ -417,7 +413,7 @@ export function StorePostChannels() {
           <DialogHeader><DialogTitle>{otherForm?.channel ? "媒体を編集" : "媒体を追加"}</DialogTitle></DialogHeader>
           {otherForm && (
             <div className="space-y-3 text-sm">
-              <div className="space-y-1"><Label>媒体名</Label><Input value={otherForm.label} onChange={(e) => setOtherForm({ ...otherForm, label: e.target.value })} placeholder="例：メンエスなう（店舗）" /></div>
+              <div className="space-y-1"><Label>媒体名</Label><Input value={otherForm.label} onChange={(e) => setOtherForm({ ...otherForm, label: e.target.value })} placeholder="例：口コミサイト（店舗）" /></div>
               <div className="space-y-1"><Label>投稿している内容</Label><Textarea rows={2} value={otherForm.note} onChange={(e) => setOtherForm({ ...otherForm, note: e.target.value })} placeholder="例：毎日の出勤・写メ日記" /></div>
               <div className="space-y-1"><Label>公開ページのURL</Label><Input value={otherForm.handle} onChange={(e) => setOtherForm({ ...otherForm, handle: e.target.value })} placeholder="https://" /></div>
               <div className="space-y-1"><Label>ログイン画面のURL</Label><Input value={otherForm.loginUrl} onChange={(e) => setOtherForm({ ...otherForm, loginUrl: e.target.value })} placeholder="https://" /></div>

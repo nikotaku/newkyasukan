@@ -15,8 +15,10 @@ import {
   estamaCastEditUrlCandidates,
   estamaCastIdFromUrl,
   estamaNameMatches,
+  estamaPlaceholderName,
   estamaSyncFields,
   findEstamaCastIdByName,
+  isPendingStageName,
   normalizeEstamaName,
   type PageLink,
 } from "./estama-cast-editor.js";
@@ -260,7 +262,7 @@ export async function createBrowserSession(
     keepAlive,
     timeout: keepAlive ? 21_600 : 300,
     region: "ap-southeast-1",
-    // 日本のIPからしか開けないサイト（メンエスなう等）は、Browserbase の日本のプロキシを通す
+    // 日本のIPからしか開けないサイトは、Browserbase の日本のプロキシを通す
     ...(options.proxyCountry ? { proxies: [{ type: "browserbase" as const, geolocation: { country: options.proxyCountry } }] } : {}),
     browserSettings: {
       ...(contextId ? { context: { id: contextId, persist: true } } : {}),
@@ -898,6 +900,13 @@ async function registerCast(
     .eq("cast_id", job.cast_id).eq("provider", "estama").maybeSingle();
   const castRecord = cast as unknown as CastRecord;
   const data = castToEstama(castRecord);
+  // 源氏名が決まる前は「新人A」などの仮の名前で登録してIDで紐付ける（決まったらそのIDの画面で名前を直す）
+  const stageNamePending = isPendingStageName(castRecord.name);
+  if (stageNamePending) {
+    const { data: others } = await admin.from("external_cast_profiles").select("remote_name")
+      .eq("store_id", job.store_id).eq("provider", "estama").neq("cast_id", job.cast_id);
+    data.name = estamaPlaceholderName(current?.remote_name, (others || []).map((row) => row.remote_name));
+  }
   const syncFields = estamaSyncFields(job.payload);
   const profileHash = createHash("sha256").update(JSON.stringify(data)).digest("hex");
   const photoHash = createHash("sha256").update(JSON.stringify(data.photos)).digest("hex");
@@ -927,7 +936,7 @@ async function registerCast(
 
   // まだつながっていない人でも、エステ魂の在籍一覧に同じ名前がいれば、その人を更新する（二重登録しない）
   let linkedByName = false;
-  if (!externalId) {
+  if (!externalId && !stageNamePending) {
     externalId = await findListedEstamaCastId(page, connection?.shop_id, names);
     linkedByName = Boolean(externalId);
   }
