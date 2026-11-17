@@ -364,6 +364,7 @@
 - 毎時だけだと出勤の開始から最大1時間近く「今すぐ」が出ないので、pg_cron `estama-availability-on-shift-start`（5分ごと）→ `private.dispatch_estama_availability_on_shift_start()` が、出勤の開始・休憩明けから20分以内でまだ更新していなければ同じ更新をかける（毎時27〜42分は動かさない）
 - 出勤者がいない時間は「現在勤務中のセラピストがいないため更新対象なし」で正常（止まっているわけではない）
 - **GitHub Actions への移行（段階2）**：`automation_runner_settings.availability_enabled` をオンにした店舗は、毎時40分・出勤開始のときの更新で Vercel（Browserbase）を呼ばず、`private.dispatch_estama_availability_refresh()` が「⏳ 開始しました」の履歴（`results.runner = 'github_actions'`）を作り `availability_requested_at` を入れて直接実行（`estama-direct-runner`、mode `availability`、出勤同期とは別の concurrency group）を起動する。ランナーは店舗の管理画面にログインして `runEstamaAvailabilityOnPage` だけを行い、受け口の `availability_claim` / `availability_finish` が履歴と `automation_connections.configuration.availability_refresh` を書く（実行は `automation_runner_runs` の mode `work`・purpose `availability`）。結果の文面は `server/estama-availability-report.ts`（Browserbase の経路と共通）。オフに戻せば今まで通り（`20261118030000_estama_availability_github_actions.sql`）
+- **GitHub Actions の接続元は実行ごとに変わり、エステ魂がその一部を 403 Forbidden で断る**（2026-11-18 に確認。同じ時刻でも成功する実行と断られる実行がある）。ログイン（`loginEstamaAdmin`）は 403 なら同じ実行ではやり直さない。今すぐご案内が 403 で失敗したら pg_cron `estama-availability-retry-on-block`（毎分）→ `private.retry_estama_availability_dispatch()` が1分後に起動し直す（20分で3回まで）。出勤同期は失敗すると間をあけて自動で再試行するので、別の接続元で通る。ログイン画面のURL（`/login/?r=/admin/…`）にも `/admin/` が入るので、管理画面にいるかはパスで見る（`isAdminPath`）
 
 ## エステ魂の仮予約の取り込み（WEB予約受付 /schedule/web-bookings）
 
