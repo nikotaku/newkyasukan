@@ -21,6 +21,7 @@
       "mcp__Supabase__delete_branch",
       "mcp__Supabase__reset_branch",
       "mcp__Vercel__pause_project"
-    ]
+    ],
+    "defaultMode": "bypassPermissions"
   }
 }
