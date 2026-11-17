@@ -5,8 +5,18 @@ import {
   formatAvailabilityTime,
 } from "../src/lib/availability.js";
 import { shiftBreaks } from "../src/lib/shiftBreak.js";
+import {
+  O2_BASE,
+  type O2PostReference,
+  extractO2StorePostReferences,
+  findO2StorePostForm,
+  formsFrom,
+  hiddenFields,
+  o2StoreFormError,
+  o2StorePostPageMatches,
+  o2StorePostReferenceFromUrl,
+} from "./o2-store-post-page.js";
 
-const O2_BASE = "https://m-sns.net";
 export const O2_STORE_LOGIN_URL = `${O2_BASE}/shop/login/`;
 export const O2_STORE_POST_CREATE_URL = `${O2_BASE}/shop/post/create/`;
 export const O2_STORE_POST_LIST_URL = `${O2_BASE}/shop/post/`;
@@ -65,17 +75,6 @@ type O2StorePostRow = {
   image_url: string | null;
   status: string;
   attempts: number;
-};
-
-type HtmlForm = {
-  action: string;
-  method: string;
-  html: string;
-};
-
-type O2PostReference = {
-  id: string;
-  url: string;
 };
 
 export type O2StorePostingResult = {
@@ -244,48 +243,6 @@ class CookieJar {
   }
 }
 
-const decodeHtml = (value: string) => value
-  .replace(/&#x([0-9a-f]+);/gi, (_match, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
-  .replace(/&#([0-9]+);/g, (_match, code: string) => String.fromCodePoint(Number.parseInt(code, 10)))
-  .replaceAll("&nbsp;", " ")
-  .replaceAll("&amp;", "&")
-  .replaceAll("&quot;", '"')
-  .replaceAll("&#039;", "'")
-  .replaceAll("&apos;", "'")
-  .replaceAll("&lt;", "<")
-  .replaceAll("&gt;", ">");
-
-const attributeMap = (raw: string) => {
-  const attributes: Record<string, string> = {};
-  for (const match of raw.matchAll(/([:\w-]+)\s*=\s*["']([^"']*)["']/g)) {
-    attributes[match[1].toLowerCase()] = decodeHtml(match[2]);
-  }
-  return attributes;
-};
-
-const formsFrom = (html: string, baseUrl: string): HtmlForm[] =>
-  [...html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)].map((match) => {
-    const attributes = attributeMap(match[1]);
-    return {
-      action: new URL(attributes.action || baseUrl, baseUrl).toString(),
-      method: (attributes.method || "post").toUpperCase(),
-      html: match[2],
-    };
-  });
-
-const fieldsFrom = (html: string, tag: "input" | "textarea" | "button") =>
-  [...html.matchAll(new RegExp(`<${tag}\\b([^>]*)>`, "gi"))]
-    .map((match) => attributeMap(match[1]))
-    .filter((attributes) => attributes.name);
-
-const hiddenFields = (html: string) => {
-  const fields = new Map<string, string>();
-  for (const attribute of fieldsFrom(html, "input")) {
-    if ((attribute.type || "text").toLowerCase() === "hidden") fields.set(attribute.name, attribute.value || "");
-  }
-  return fields;
-};
-
 const isO2StoreLoginPage = (html: string) =>
   /name=["']email["']/i.test(html) && /name=["']password["']/i.test(html) && /店舗ログイン/.test(html);
 
@@ -310,45 +267,6 @@ const follow = async (jar: CookieJar, response: Response, fallbackUrl: string, m
   return current;
 };
 
-const o2PostReferenceFromUrl = (rawUrl: string): O2PostReference | null => {
-  try {
-    const url = new URL(decodeHtml(rawUrl), O2_BASE);
-    if (!/^(?:www\.)?m-sns\.net$/i.test(url.hostname)) return null;
-    if (url.pathname.replace(/\/+$/, "") !== "/post") return null;
-    const id = stringValue(url.searchParams.get("id"));
-    return /^\d+$/.test(id) ? { id, url: `${O2_BASE}/post/?id=${id}` } : null;
-  } catch {
-    return null;
-  }
-};
-
-const extractO2PostReferences = (html: string, baseUrl: string) => {
-  const references = new Map<string, O2PostReference>();
-  for (const match of html.matchAll(/\bhref\s*=\s*["']([^"']+)["']/gi)) {
-    const reference = o2PostReferenceFromUrl(new URL(decodeHtml(match[1]), baseUrl).toString());
-    if (reference && !references.has(reference.id)) references.set(reference.id, reference);
-  }
-  return [...references.values()];
-};
-
-const normalizeO2Text = (html: string) => decodeHtml(html)
-  .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
-  .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
-  .replace(/<[^>]+>/g, " ")
-  .normalize("NFC")
-  .replace(/[\u200B-\u200D\uFEFF]/g, "")
-  .replace(/\s+/g, " ")
-  .trim();
-
-const postDetailMatches = (html: string, expectedBody: string) => {
-  const bodyMatches = normalizeO2Text(html).includes(normalizeO2Text(expectedBody));
-  const imageMatches = [...html.matchAll(/<img\b([^>]*)>/gi)].some((match) => {
-    const attributes = attributeMap(match[1]);
-    return /投稿画像/.test(`${attributes.alt || ""} ${attributes["aria-label"] || ""}`);
-  });
-  return bodyMatches && imageMatches;
-};
-
 const loadO2StorePostList = async (jar: CookieJar, referer: string) => {
   let response = await request(jar, O2_STORE_POST_LIST_URL, { headers: { Referer: referer } });
   response = await follow(jar, response, O2_STORE_POST_LIST_URL);
@@ -357,7 +275,7 @@ const loadO2StorePostList = async (jar: CookieJar, referer: string) => {
   if (isO2StoreLoginPage(html)) throw new Error("O2店舗ログインの有効期限が切れました。投稿は行っていません");
   return {
     url: response.url || O2_STORE_POST_LIST_URL,
-    references: extractO2PostReferences(html, response.url || O2_STORE_POST_LIST_URL),
+    references: extractO2StorePostReferences(html, response.url || O2_STORE_POST_LIST_URL),
   };
 };
 
@@ -415,35 +333,17 @@ export async function postToO2Store(
   const createHtml = await createPage.text();
   if (isO2StoreLoginPage(createHtml)) throw new Error("O2店舗ログインの有効期限が切れました。投稿は完了していません");
 
-  const postForm = formsFrom(createHtml, currentUrl).find((form) => {
-    const textareas = fieldsFrom(form.html, "textarea");
-    const controls = [...fieldsFrom(form.html, "button"), ...fieldsFrom(form.html, "input")];
-    return new URL(form.action).pathname === "/shop/post/create/"
-      && textareas.some((field) => /content|body|text|message/i.test(field.name))
-      && controls.some((field) => field.name === "status" && field.value === "published");
-  });
-  if (!postForm) throw new Error("O2店舗の投稿フォームが見つかりません（画面仕様変更の可能性）。投稿は行っていません");
+  const found = findO2StorePostForm(createHtml, currentUrl);
+  if (!found) throw new Error("O2店舗の投稿フォームが見つかりません（画面仕様変更の可能性）。投稿は行っていません");
+  const { form: postForm, bodyField, fileField } = found;
 
+  // 画像欄の付き添い（tpl_image1 など）・csrf_token は hidden のまま送る。求人の項目・予約投稿の日時は送らない（すぐ公開）
   const form = new FormData();
   for (const [name, value] of hiddenFields(postForm.html)) form.set(name, value);
-  const textareas = fieldsFrom(postForm.html, "textarea");
-  const inputs = fieldsFrom(postForm.html, "input");
-  const buttons = fieldsFrom(postForm.html, "button");
-  const bodyField = textareas.find((field) => /body|content|text|message|post|caption/i.test(field.name))?.name || textareas[0]?.name;
-  if (!bodyField) throw new Error("O2店舗の投稿本文欄を特定できません。投稿は行っていません");
   form.set(bodyField, body);
-  const publicVisibility = inputs.find((field) => (field.type || "").toLowerCase() === "radio" && field.name === "visibility" && field.value === "public");
-  if (publicVisibility?.name) form.set(publicVisibility.name, publicVisibility.value || "public");
-  const publishControl = [...buttons, ...inputs].find((field) =>
-    (field.type || "").toLowerCase() === "submit" && field.name === "status" && field.value === "published"
-  );
-  if (publishControl?.name) form.set(publishControl.name, publishControl.value || "published");
-
-  const fileField = inputs.find((field) => (field.type || "").toLowerCase() === "file");
-  if (!fileField?.name) throw new Error("O2店舗の画像入力欄が見つかりません。投稿は行っていません");
   const image = await downloadImage(imageUrl);
-  form.append(fileField.name, image.blob, image.name);
-  if (form.getAll(fileField.name).filter((item) => item instanceof Blob).length !== 1) {
+  form.append(fileField, image.blob, image.name);
+  if (form.getAll(fileField).filter((item) => item instanceof Blob).length !== 1) {
     throw new Error("O2店舗の送信フォームへ画像を1枚設定できませんでした。投稿は行っていません");
   }
 
@@ -468,11 +368,14 @@ export async function postToO2Store(
   if (isO2StoreLoginPage(responseHtml)) throw new Error("O2店舗ログインの有効期限が切れました。投稿は完了していません");
   const responseUrl = submitted.url || postForm.action;
   if (/\/shop\/post\/create\/?(?:\?|$)/i.test(responseUrl) && formsFrom(responseHtml, responseUrl).some((formItem) => /<textarea\b/i.test(formItem.html))) {
-    throw new Error("O2店舗が投稿を受け付けませんでした。入力項目の仕様変更を確認してください");
+    const reason = o2StoreFormError(responseHtml);
+    throw new Error(reason
+      ? `O2店舗が投稿を受け付けませんでした：${reason}`
+      : "O2店舗が投稿を受け付けませんでした。入力項目の仕様変更を確認してください");
   }
 
-  const responseReferences = extractO2PostReferences(responseHtml, responseUrl);
-  const directReference = o2PostReferenceFromUrl(responseUrl);
+  const responseReferences = extractO2StorePostReferences(responseHtml, responseUrl);
+  const directReference = o2StorePostReferenceFromUrl(responseUrl);
   let candidate: O2PostReference | null = null;
   try {
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -488,7 +391,7 @@ export async function postToO2Store(
         let detail = await request(jar, reference.url, { headers: { Referer: after.url } });
         detail = await follow(jar, detail, reference.url);
         const detailHtml = await detail.text();
-        if (detail.status < 400 && !isO2StoreLoginPage(detailHtml) && postDetailMatches(detailHtml, body)) {
+        if (detail.status < 400 && !isO2StoreLoginPage(detailHtml) && o2StorePostPageMatches(detailHtml, body)) {
           return { postId: reference.id, url: reference.url };
         }
       }
