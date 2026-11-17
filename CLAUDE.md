@@ -115,6 +115,9 @@
 - 店舗情報・店舗SNSリンク・トップバナー・ニュース作成を1画面のタブにまとめた（`?tab=store|sns|banners|news`、`src/pages/HpDashboard.tsx`）。中身は今までの各ページ（`StoreInfo` / `HpSnsLinks` / `HpTopBanners` / `ArticleCreation`）を `embedded` で入れている。外枠（ヘッダー・サイドバー）は `src/components/AdminPageShell.tsx`
 - 以前のURL（`/hp/store-info`・`/hp/sns-links`・`/hp/top-banners`・`/hp/article-creation`）はダッシュボードの該当タブへ転送する。サイドバーの HP の一番上に「ホームページダッシュボード」
 - タイムライン（`/board`、スタッフ向けの掲示板 `board_posts`）は2026-11-17に廃止。画面を消し、`/board` はダッシュボードへ転送（データは残している）
+- **ニュースの同時投稿**：HPでニュースを公開すると、記事で選んだ送り先（作成画面の「エステ魂のニュースにも出す」「O2（店舗アカウント）にも出す」、`hp_articles.post_to_estama` / `post_to_o2`、最初はどちらもオン）へ同時に出す。エステ魂は今まで通り `store-news`、O2は `/api/automations/estama` の `action: "store-news-o2"`（本体 `server/o2-store-news.ts`、空き状況の投稿と同じ `store_site_credentials` の O2 店舗アカウント）。結果は `o2_status`（pending / posting / posted / failed / review_required / skipped）・`o2_error`・`o2_post_url`。外した送り先は `skipped`
+- O2の本文は【タイトル】＋本文（記号を外す）で1000文字まで。超えたら切って「…」と「続きはHPで」＋HPのURL。画像は記事の1枚目、無ければ `stores.settings.o2_news_image` → ロゴ → HPのトップバナーの1枚目（Supabase などO2に送れる置き場所のものだけ）。計算は `src/lib/hpArticleO2.ts`（テスト `npm run test:hp-article-o2`）。2026-11-17 より前の記事はO2の対象外（`skipped`）にした
+- ニュースの一覧は スマホでも読めるように、上にタイトル（2行まで）、その下に「HP 公開中」「エステ魂 ✓ 投稿済み」「O2 失敗」などの札、いちばん下にボタンの列。札を押すと理由・相手のサイトへのリンク・「送り直す」を出す。「要確認」は二重投稿を防ぐため送り直さない
 
 ## X運用表「今日の投稿」（/hp/x-operations）
 

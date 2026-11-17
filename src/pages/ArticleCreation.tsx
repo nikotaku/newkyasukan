@@ -17,7 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Plus, Trash2, Edit2, Sparkles, Loader2, Globe, EyeOff, ImagePlus, X } from "lucide-react";
+import { Plus, Trash2, Sparkles, Loader2, Globe, EyeOff, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAdminStore } from "@/hooks/useAdminStore";
 import { AI_GENERATION_ENABLED } from "@/lib/aiFeatures";
@@ -36,7 +36,35 @@ interface Article {
   estama_status: string;
   estama_error: string | null;
   estama_news_url: string | null;
+  post_to_estama?: boolean;
+  post_to_o2?: boolean;
+  o2_status?: string;
+  o2_error?: string | null;
+  o2_post_url?: string | null;
 }
+
+const REVIEW_PREFIX = "【要確認・再送停止】";
+
+// 送り先ごとの状態の札（エステ魂・O2）。長い説明は札を押したときだけ出す
+type SiteState = { label: string; tone: "ok" | "wait" | "bad" | "off"; detail: string | null; url: string | null };
+
+function siteState(status: string | undefined, error: string | null | undefined, enabled: boolean | undefined, url: string | null | undefined): SiteState {
+  if (enabled === false || status === "skipped") return { label: "出さない", tone: "off", detail: null, url: null };
+  if (status === "posted") return { label: "✓ 投稿済み", tone: "ok", detail: null, url: url ?? null };
+  if (status === "posting") return { label: "投稿中…", tone: "wait", detail: null, url: null };
+  if (status === "review_required" || error?.startsWith(REVIEW_PREFIX)) {
+    return { label: "要確認", tone: "bad", detail: error?.replace(REVIEW_PREFIX, "") ?? null, url: url ?? null };
+  }
+  if (status === "failed") return { label: "失敗", tone: "bad", detail: error ?? null, url: null };
+  return { label: "未投稿", tone: "wait", detail: error ?? null, url: null };
+}
+
+const TONE_CLASS: Record<SiteState["tone"], string> = {
+  ok: "border-green-200 bg-green-50 text-green-700",
+  wait: "border-amber-200 bg-amber-50 text-amber-700",
+  bad: "border-red-200 bg-red-50 text-red-700",
+  off: "border-muted bg-muted/50 text-muted-foreground",
+};
 
 export default function ArticleCreation({ embedded = false }: { embedded?: boolean } = {}) {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -51,6 +79,8 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
     is_featured: false,
     action_url: "",
     image_urls: [] as string[],
+    post_to_estama: true,
+    post_to_o2: true,
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState("");
@@ -63,6 +93,8 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
   const [autoNewsTopic, setAutoNewsTopic] = useState("");
   const [autoNewsLoading, setAutoNewsLoading] = useState(false);
   const [estamaSyncingId, setEstamaSyncingId] = useState<string | null>(null);
+  const [o2SyncingId, setO2SyncingId] = useState<string | null>(null);
+  const [openDetail, setOpenDetail] = useState<string | null>(null);
 
   const { user, loading: authLoading } = useAuth();
   const { storeId, loading: storeLoading } = useAdminStore();
@@ -100,6 +132,36 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
   }, [user, storeLoading, fetchArticles]);
 
   const AI_CATEGORIES = ["coupon", "schedule", "newstaff"];
+
+  // O2の店舗アカウントへ出す（空き状況の投稿と同じアカウント）
+  const publishToO2 = async (articleId: string) => {
+    setO2SyncingId(articleId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("ログインが期限切れです");
+      const response = await fetch("/api/automations/estama", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "store-news-o2", storeId, articleId }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "O2への投稿に失敗しました");
+      if (!result.skipped) toast.success("O2にも投稿しました");
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "O2への投稿に失敗しました";
+      toast.warning(`HPへの公開は完了しました。O2：${message}`);
+      return false;
+    } finally {
+      setO2SyncingId(null);
+    }
+  };
+
+  // HPに公開したら、記事で選んだ送り先（エステ魂・O2）へ同時に出す
+  const publishToSites = async (articleId: string) => {
+    await Promise.all([publishToEstama(articleId), publishToO2(articleId)]);
+  };
 
   const publishToEstama = async (articleId: string) => {
     setEstamaSyncingId(articleId);
@@ -199,7 +261,7 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
 
       toast.success("ニュースを自動生成してHPへ公開しました");
       setAutoNewsTopic("");
-      await publishToEstama(insertedArticle.id);
+      await publishToSites(insertedArticle.id);
       fetchArticles();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "自動投稿に失敗しました");
@@ -248,7 +310,7 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
   };
 
   const resetForm = () => {
-    setFormData({ title: "", slug: "", content: "", category: "news", is_published: false, is_featured: false, action_url: "", image_urls: [] });
+    setFormData({ title: "", slug: "", content: "", category: "news", is_published: false, is_featured: false, action_url: "", image_urls: [], post_to_estama: true, post_to_o2: true });
     setNewImageUrl("");
   };
 
@@ -276,12 +338,16 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
           image_urls: formData.image_urls,
           is_featured: formData.is_featured,
           action_url: formData.action_url.trim() || null,
+          post_to_estama: formData.post_to_estama,
+          post_to_o2: formData.post_to_o2,
+          estama_status: formData.post_to_estama ? "pending" : "skipped",
+          o2_status: formData.post_to_o2 ? "pending" : "skipped",
         },
       ] as never).select("id").single();
 
       if (error) throw error;
       toast.success("記事を作成しました");
-      if (formData.is_published) await publishToEstama(insertedArticle.id);
+      if (formData.is_published) await publishToSites(insertedArticle.id);
       resetForm();
       setIsAdding(false);
       fetchArticles();
@@ -348,7 +414,7 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
         .eq("store_id", storeId);
       if (error) throw error;
       toast.success(article.is_published ? "非公開にしました" : "公開しました");
-      if (!article.is_published) await publishToEstama(article.id);
+      if (!article.is_published) await publishToSites(article.id);
       fetchArticles();
     } catch (error) {
       console.error("Error toggling publish:", error);
@@ -656,6 +722,20 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
                 />
                 <Label htmlFor="published">公開する</Label>
               </div>
+              <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                <p className="text-xs text-muted-foreground">公開したら、ここで選んだ所にも同時に出します</p>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={formData.post_to_estama} onChange={(e) => setFormData({ ...formData, post_to_estama: e.target.checked })} />
+                  エステ魂のニュースにも出す
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={formData.post_to_o2} onChange={(e) => setFormData({ ...formData, post_to_o2: e.target.checked })} />
+                  O2（店舗アカウント）にも出す
+                </label>
+                {formData.post_to_o2 && formData.image_urls.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground">画像が無いときは、O2にはお店の画像（HPのトップバナー）を付けて出します</p>
+                )}
+              </div>
               <div className="flex gap-2">
                 <Button onClick={handleAdd}>作成</Button>
                 <Button
@@ -678,73 +758,111 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
             記事がありません
           </div>
         ) : (
-          <div className="space-y-4">
-            {articles.map((article) => (
-              <Card key={article.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-3">
-                    {article.image_urls && article.image_urls.length > 0 && (
-                      <img
-                        src={article.image_urls[0]}
-                        alt={article.title}
-                        className="w-16 h-16 rounded-md object-cover border shrink-0"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <CardTitle>{article.title}</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {article.slug} • {article.category}
-                        {article.image_urls && article.image_urls.length > 0 ? ` • 画像${article.image_urls.length}枚` : ""}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(article.created_at), "yyyy/MM/dd", {
-                          locale: ja,
-                        })}{" "}
-                        {article.is_published ? "（公開中）" : "（下書き）"}
-                      </p>
-                      {article.is_published && (
-                        <p className={`mt-1 text-xs ${article.estama_status === "posted" ? "text-green-600" : article.estama_status === "failed" ? "text-destructive" : "text-amber-600"}`}>
-                          エステ魂：{article.estama_status === "posted" ? "投稿済み" : article.estama_status === "posting" ? "投稿中" : article.estama_error?.startsWith("【要確認・再送停止】") ? "掲載結果の確認が必要" : article.estama_status === "failed" ? "投稿失敗" : "未投稿"}
-                          {article.estama_error ? `（${article.estama_error}）` : ""}
+          <div className="space-y-3">
+            {articles.map((article) => {
+              const sites = [
+                {
+                  key: "estama",
+                  name: "エステ魂",
+                  state: siteState(article.estama_status, article.estama_error, article.post_to_estama, article.estama_news_url),
+                  syncing: estamaSyncingId === article.id,
+                  resend: () => publishToEstama(article.id),
+                },
+                {
+                  key: "o2",
+                  name: "O2",
+                  state: siteState(article.o2_status, article.o2_error, article.post_to_o2, article.o2_post_url),
+                  syncing: o2SyncingId === article.id,
+                  resend: () => publishToO2(article.id),
+                },
+              ];
+              const detail = sites.find((site) => openDetail === `${article.id}:${site.key}`);
+              return (
+                <Card key={article.id} className="overflow-hidden">
+                  <CardContent className="p-3 sm:p-4 space-y-3">
+                    <div className="flex gap-3">
+                      {article.image_urls && article.image_urls.length > 0 ? (
+                        <img src={article.image_urls[0]} alt="" className="h-16 w-16 shrink-0 rounded-md border object-cover" />
+                      ) : null}
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-sm font-semibold leading-snug sm:text-base">
+                          {article.is_featured && <span className="mr-1 text-pink-600">★</span>}
+                          {article.title}
                         </p>
-                      )}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {format(new Date(article.created_at), "yyyy/MM/dd", { locale: ja })}
+                          {article.image_urls && article.image_urls.length > 0 ? `・画像${article.image_urls.length}枚` : ""}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => void toggleFeatured(article)} title={article.is_featured ? "注目指定を解除" : "注目ニュースに設定"} className={article.is_featured ? "text-pink-600 font-bold" : "text-muted-foreground"}>★</button>
-                      <button type="button" onClick={() => void saveActionUrl(article)} title="予約・詳細リンクを設定" className="rounded border px-2 py-1 text-xs">リンク</button>
-                      {article.is_published
-                        && article.estama_status !== "posted"
-                        && !article.estama_error?.startsWith("【要確認・再送停止】") && (
+
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                      <span className={`rounded-full border px-2 py-0.5 ${article.is_published ? TONE_CLASS.ok : TONE_CLASS.off}`}>
+                        HP {article.is_published ? "公開中" : "下書き"}
+                      </span>
+                      {article.is_published && sites.map((site) => (
                         <button
-                          onClick={async () => { await publishToEstama(article.id); fetchArticles(); }}
-                          disabled={estamaSyncingId === article.id || article.estama_status === "posting"}
-                          title="エステ魂へ再投稿"
-                          className="text-pink-600 hover:text-pink-700 transition-colors disabled:opacity-50"
+                          key={site.key}
+                          type="button"
+                          onClick={() => setOpenDetail(openDetail === `${article.id}:${site.key}` ? null : `${article.id}:${site.key}`)}
+                          className={`rounded-full border px-2 py-0.5 ${TONE_CLASS[site.state.tone]}`}
                         >
-                          {estamaSyncingId === article.id ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                          {site.name} {site.syncing ? "送信中…" : site.state.label}
                         </button>
-                      )}
-                      <button
+                      ))}
+                    </div>
+
+                    {detail && (
+                      <div className="rounded-md border bg-muted/30 p-2 text-xs space-y-2">
+                        {detail.state.detail && <p className="break-words text-muted-foreground">{detail.state.detail}</p>}
+                        <div className="flex flex-wrap gap-2">
+                          {detail.state.url && (
+                            <a href={detail.state.url} target="_blank" rel="noreferrer" className="text-primary underline">{detail.name}で見る</a>
+                          )}
+                          {(detail.state.tone === "bad" || detail.state.label === "未投稿") && detail.state.label !== "要確認" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              disabled={detail.syncing}
+                              onClick={async () => { await detail.resend(); fetchArticles(); }}
+                            >
+                              {detail.syncing ? <Loader2 size={12} className="mr-1 animate-spin" /> : null}{detail.name}に送り直す
+                            </Button>
+                          )}
+                          {detail.state.label === "要確認" && (
+                            <span className="text-muted-foreground">{detail.name}の管理画面で載っているか確かめてください（二重投稿を防ぐため自動では送り直しません）</span>
+                          )}
+                          {!detail.state.detail && !detail.state.url && detail.state.tone === "off" && (
+                            <span className="text-muted-foreground">この記事は{detail.name}には出さない設定です</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-end gap-1 border-t pt-2">
+                      <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => void toggleFeatured(article)} title={article.is_featured ? "注目指定を解除" : "注目ニュースに設定"}>
+                        <span className={article.is_featured ? "text-pink-600" : "text-muted-foreground"}>★</span><span className="ml-1">注目</span>
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => void saveActionUrl(article)}>リンク</Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className={`h-8 px-2 text-xs ${article.is_published ? "text-green-600" : "text-muted-foreground"}`}
                         onClick={() => handleTogglePublish(article)}
                         title={article.is_published ? "非公開にする" : "公開する"}
-                        className={`transition-colors ${article.is_published ? "text-green-600 hover:text-muted-foreground" : "text-muted-foreground hover:text-green-600"}`}
                       >
-                        {article.is_published ? <Globe size={18} /> : <EyeOff size={18} />}
-                      </button>
-                      <button className="text-muted-foreground hover:text-primary transition-colors">
-                        <Edit2 size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(article.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                        {article.is_published ? <Globe size={15} className="mr-1" /> : <EyeOff size={15} className="mr-1" />}
+                        {article.is_published ? "公開中" : "公開する"}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-8 px-2 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(article.id)} aria-label="削除">
+                        <Trash2 size={15} />
+                      </Button>
                     </div>
-                  </div>
-                </CardHeader>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
