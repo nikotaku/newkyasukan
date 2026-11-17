@@ -104,35 +104,72 @@ class AiHttpError extends Error {
   }
 }
 
+/** Google AI（Gemini）の鍵：Edge Function の Secret か、Vault の gemini_api_key（RPC get_gemini_api_key、service_role のみ） */
+async function loadGeminiKey(): Promise<string> {
+  const fromEnv = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY");
+  if (fromEnv) return fromEnv;
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!SUPABASE_URL || !SERVICE_KEY) return "";
+  try {
+    const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+    const { data, error } = await sb.rpc("get_gemini_api_key");
+    if (error) throw error;
+    return typeof data === "string" ? data.trim() : "";
+  } catch (error) {
+    console.error("get_gemini_api_key failed:", error instanceof Error ? error.message : String(error));
+    return "";
+  }
+}
+
+/** 使うモデルの順番。混んでいる（503）・上限（429）・無くなった（404）ときは次を試す */
+const GEMINI_MODELS = () => [Deno.env.get("GEMINI_MODEL"), "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.8-flash"]
+  .filter((model, index, list): model is string => Boolean(model) && list.indexOf(model) === index);
+
 /**
- * 文章を作る。Edge Function の Secret に GEMINI_API_KEY（Google AI Studio の鍵）があれば Google の Gemini、
- * 無ければ ANTHROPIC_API_KEY の Claude を使う。
+ * 文章を作る。Google AI（Gemini）の鍵があれば Gemini、無ければ ANTHROPIC_API_KEY の Claude を使う。
  */
 async function generateText(systemPrompt: string, userPrompt: string): Promise<string> {
-  const geminiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY");
+  const geminiKey = await loadGeminiKey();
   if (geminiKey) {
-    const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: "POST",
-      headers: { "x-goog-api-key": geminiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-        generationConfig: { maxOutputTokens: 2048, temperature: 0.8, thinkingConfig: { thinkingBudget: 0 } },
-      }),
-    });
-    if (!response.ok) {
-      const body = await response.text();
-      console.error("Gemini API error:", response.status, body.slice(0, 500));
-      if (response.status === 429) throw new AiHttpError(429, "Google AIの利用上限に達しました。しばらく待ってから再度お試しください。");
-      if (response.status === 400 || response.status === 403) throw new AiHttpError(response.status, "Google AIのAPIキーが正しくないか、使えない状態です。");
-      throw new AiHttpError(502, "Google AIで文章を作れませんでした");
+    let lastStatus = 0;
+    for (const model of GEMINI_MODELS()) {
+      {
+        // 1つのモデルは20秒まで（混んでいると返事が来ないことがある）。だめなら次のモデル
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          signal: AbortSignal.timeout(20_000),
+          method: "POST",
+          headers: { "x-goog-api-key": geminiKey, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+            generationConfig: { maxOutputTokens: 4096, temperature: 0.8 },
+          }),
+        }).catch((error) => {
+          console.error("Gemini API timeout/network:", model, error instanceof Error ? error.message : String(error));
+          return null;
+        });
+        if (!response) continue;
+        lastStatus = response.status;
+        if (response.ok) {
+          const data = await response.json();
+          const parts = data?.candidates?.[0]?.content?.parts;
+          const text = Array.isArray(parts)
+            ? parts.filter((part: { thought?: boolean }) => !part?.thought).map((part: { text?: string }) => part?.text ?? "").join("").trim()
+            : "";
+          if (!text) throw new AiHttpError(502, "Google AIから文章が返ってきませんでした（内容の制限にかかった可能性があります）");
+          return text;
+        }
+        const body = await response.text();
+        console.error("Gemini API error:", model, response.status, body.slice(0, 300));
+        if (response.status === 400 || response.status === 401 || response.status === 403) {
+          throw new AiHttpError(response.status, "Google AIのAPIキーが正しくないか、使えない状態です。");
+        }
+        // 404（このモデルは使えない）・429・5xx は次のモデルへ
+      }
     }
-    const data = await response.json();
-    const parts = data?.candidates?.[0]?.content?.parts;
-    const text = Array.isArray(parts) ? parts.map((part: { text?: string }) => part?.text ?? "").join("").trim() : "";
-    if (!text) throw new AiHttpError(502, "Google AIから文章が返ってきませんでした（内容の制限にかかった可能性があります）");
-    return text;
+    if (lastStatus === 429) throw new AiHttpError(429, "Google AIの利用上限に達しました。しばらく待ってから再度お試しください。");
+    throw new AiHttpError(503, "Google AIが混み合っています。少し待ってからもう一度「本文を作る」を押してください。");
   }
 
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
