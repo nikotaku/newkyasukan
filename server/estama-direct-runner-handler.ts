@@ -126,7 +126,9 @@ export default async function handler(req: Request, res: Response) {
       const ok=req.body?.ok===true;
       const adminLogin=['ok','failed','unavailable'].includes(String(req.body?.adminLogin)) ? String(req.body?.adminLogin) : undefined;
       const adminLoginStage=typeof req.body?.adminLoginStage==='string' ? req.body.adminLoginStage.replace(/[^a-z_]/g,'').slice(0,40) : undefined;
-      const result={ok,verifiedAccounts:Math.max(0,Math.min(2,Number(req.body?.verifiedAccounts)||0)),failedAccounts:Math.max(0,Math.min(2,Number(req.body?.failedAccounts)||0)),...(adminLogin?{adminLogin}:{}),...(adminLoginStage?{adminLoginStage}:{})};
+      // 失敗の手がかり（ランナー側でメール・パスワードを消してある。念のためメールらしい文字も消す）
+      const adminLoginDetail=typeof req.body?.adminLoginDetail==='string' ? req.body.adminLoginDetail.replace(/\S+@\S+/g,'[mail]').slice(0,200) : undefined;
+      const result={ok,verifiedAccounts:Math.max(0,Math.min(2,Number(req.body?.verifiedAccounts)||0)),failedAccounts:Math.max(0,Math.min(2,Number(req.body?.failedAccounts)||0)),...(adminLogin?{adminLogin}:{}),...(adminLoginStage?{adminLoginStage}:{}),...(adminLoginDetail?{adminLoginDetail}:{})};
       // Includes setup time supplied from workflow start; bounded by the job timeout.
       const duration=Math.max(0,Math.min(1200000,Number(req.body?.durationMs)||0));
       checked(await admin.from('automation_runner_runs').update({status:ok?'completed':'failed',finished_at:new Date().toISOString(),duration_ms:duration,result}).eq('run_id',runId).eq('status','running'));

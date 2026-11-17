@@ -1,7 +1,7 @@
 import { chromium, type Browser } from 'playwright-core';
 import { auditPreparedEstamaDiaryOnPage, runPreparedEstamaDiaryOnPage, type PreparedEstamaDiary } from '../server/estama-automation.js';
 import { assertUploadedPhotoCount } from '../server/estama-photo-upload.js';
-import { loginEstamaAdmin } from '../server/estama-relogin.js';
+import { loginEstamaAdmin, scrubSecrets } from '../server/estama-relogin.js';
 
 const endpoint='https://enka-salon.jp/api/automations/estama-direct-runner';
 const mode=process.env.ESTAMA_RUN_MODE==='work'?'work':'audit';
@@ -12,7 +12,7 @@ let heartbeat: ReturnType<typeof setInterval> | undefined;
 let leaseLost=false;
 let verifiedAccounts=0, failedAccounts=0, processed=0, ok=true, runStarted=false;
 // 店舗管理画面のログイン確認（Browserbase をやめる準備）。結果は ok / failed / unavailable と止まった段階だけ
-let adminLogin: 'ok'|'failed'|'unavailable'|undefined, adminLoginStage: string|undefined;
+let adminLogin: 'ok'|'failed'|'unavailable'|undefined, adminLoginStage: string|undefined, adminLoginDetail: string|undefined;
 
 async function request(body: Record<string,unknown>) {
   const url=new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL!);
@@ -58,8 +58,17 @@ try {
       try {
         const result=await loginEstamaAdmin(page,adminCredentials.mail,adminCredentials.password);
         adminLogin=result.ok?'ok':'failed';
-        if(!result.ok) adminLoginStage=/画面が見つかりません/.test(result.error)?'login_form_missing':/admin/.test(page.url())?'editor_missing':'login_rejected';
-      } catch { adminLogin='failed'; adminLoginStage='browser_error'; }
+        if(!result.ok) {
+          adminLoginStage=/画面が見つかりません/.test(result.error)?'login_form_missing':/admin/.test(page.url())?'editor_missing':'login_rejected';
+          adminLoginDetail=scrubSecrets(`${result.error} @ ${new URL(page.url()).pathname}`,[adminCredentials.mail,adminCredentials.password]).slice(0,200);
+        }
+      } catch(error) {
+        adminLogin='failed'; adminLoginStage='browser_error';
+        // 原因を見られるように、エラーの1行目と止まった画面のパスだけ残す（メール・パスワードは消す）
+        const first=error instanceof Error?`${error.name}: ${error.message.split('\n')[0]}`:'unknown';
+        let path=''; try { path=new URL(page.url()).pathname; } catch { path=''; }
+        adminLoginDetail=scrubSecrets(`${first} @ ${path}`,[adminCredentials.mail,adminCredentials.password]).slice(0,200);
+      }
       finally { await context.close(); }
       if(adminLogin!=='ok') ok=false;
     }
@@ -95,8 +104,8 @@ try {
 finally {
   if(heartbeat) clearInterval(heartbeat);
   await browser?.close().catch(()=>{});
-  if(runStarted) await request({action:'end',ok:ok&&!leaseLost,verifiedAccounts,failedAccounts,adminLogin,adminLoginStage,durationMs:Date.now()-started}).catch(()=>{ok=false;});
+  if(runStarted) await request({action:'end',ok:ok&&!leaseLost,verifiedAccounts,failedAccounts,adminLogin,adminLoginStage,adminLoginDetail,durationMs:Date.now()-started}).catch(()=>{ok=false;});
   // Only aggregate counts: never credentials, pages, screenshots, traces, payloads or raw errors.
-  console.log(JSON.stringify({event:'estama_direct_runner',mode,ok:ok&&!leaseLost,verifiedAccounts,failedAccounts,adminLogin,adminLoginStage,processed,elapsedMs:Date.now()-started}));
+  console.log(JSON.stringify({event:'estama_direct_runner',mode,ok:ok&&!leaseLost,verifiedAccounts,failedAccounts,adminLogin,adminLoginStage,adminLoginDetail,processed,elapsedMs:Date.now()-started}));
   if(!ok||leaseLost) process.exitCode=1;
 }
