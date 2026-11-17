@@ -442,6 +442,7 @@
 
 ## AI生成機能
 
+- **2026-11-17 に、AIで自動で作る機能を一旦すべて止めた**（必要なものから作り直す）。画面のAIボタンは `src/lib/aiFeatures.ts` の `AI_GENERATION_ENABLED = false` で隠している：スタッフ画面のAIメモ登録・コメントのAI生成、タイムラインのAI紹介投稿・スタッフコンシェルジュ、シフトのSMS生成、宣伝スケジュールの「AIで作成する」・投稿文のAI下書き、X運用表の求人・店長の投稿（運用表の例文を出す）、ニュース作成のAI生成・自動投稿、LINE対応のAI下書き・自動応答。公式LINEの自動応答は設定をオフにし、pg_cron `line-customer-auto-reply-every-minute` も止めた（`20261117120000_stop_ai_generation.sql`）。Edge Function は消していない。データから作る文（X運用表の出勤・空き枠など、標準スケジュール）はAIではないのでそのまま
 - Edge Function `generate-cast-content` がカテゴリ別のAIコンテンツ生成を担当
   - `type`: profile / announcement / catchphrase / news / coupon / schedule / shop_comment / newstaff
   - Lovable AI Gateway 経由で `google/gemini-2.5-flash` を使用

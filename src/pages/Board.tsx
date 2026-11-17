@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
 import { StaffConcierge } from "@/components/StaffConcierge";
+import { AI_GENERATION_ENABLED } from "@/lib/aiFeatures";
 
 interface BoardPost {
   id: string;
@@ -118,16 +119,18 @@ const Board = () => {
               <div className="text-sm font-medium text-muted-foreground">
                 投稿者: {displayName || "管理者"}
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1 text-xs"
-                onClick={handleAutoIntro}
-                disabled={isGenerating}
-              >
-                {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                AI紹介投稿
-              </Button>
+              {AI_GENERATION_ENABLED && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1 text-xs"
+                  onClick={handleAutoIntro}
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  AI紹介投稿
+                </Button>
+              )}
             </div>
             <Textarea
               placeholder="いまどうしてる？"
@@ -200,7 +203,7 @@ const Board = () => {
         )}
       </main>
 
-      <StaffConcierge />
+      {AI_GENERATION_ENABLED && <StaffConcierge />}
     </div>
   );
 };
