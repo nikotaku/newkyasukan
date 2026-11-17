@@ -942,6 +942,8 @@ async function registerCast(
   }
   if (!externalId && syncFields === "sns") throw new Error("エステ魂のセラピストとつながっていないため、SNS欄だけの更新はできません");
   const isExisting = Boolean(externalId);
+  // エステ魂の新規登録では「セラピストの特徴」が必須（無いと保存されない）。何も選んでいない人は「新人」で登録する
+  if (!isExisting && data.types.length === 0) data.types = [ESTAMA_FEATURE_MAP["新人"]];
   let editUrl = ESTAMA_CAST_EDIT_URL;
   if (externalId) {
     editUrl = (await openExistingEstamaCastEditor(page, {
@@ -1056,6 +1058,10 @@ async function registerCast(
   const { error: profileError } = await admin.from("external_cast_profiles").upsert(profilePatch, { onConflict: "cast_id,provider" });
   if (profileError) throw new Error(`エステ魂の連携情報を保存できませんでした: ${describeError(profileError)}`);
   await admin.from("casts").update({ estama_profile_url: publicUrl, estama_listed: true }).eq("id", job.cast_id);
+  if (!isExisting && !externalId) {
+    // 新規登録の保存後にIDが分からないとき、もう一度送ると二重に登録されるおそれがあるので再送しない
+    throw new EstamaSubmissionUncertainError("エステ魂の新規登録の保存後にセラピストのIDを確認できませんでした。エステ魂のセラピスト一覧を確かめてから登録し直してください");
+  }
   if (snsMismatch) {
     throw new Error(`エステ魂のブログ・SNS欄が保存後に変わっていませんでした（送った値: ${data.blog || "空"} / ${data.twitter || "空"}、編集画面: ${savedSns.blog || "空"} / ${savedSns.twitter || "空"}）`);
   }
