@@ -1,5 +1,7 @@
 import { getAdminClient, authenticateUser, assertStoreManager, requireSingleDiaryImageUrls, prepareShiftJob, finishShiftJob, type ShiftPageOutcome } from './estama-automation.js';
 import { scrubSecrets } from './estama-relogin-result.js';
+import { availabilityFailurePayload, availabilitySuccessPayload } from './estama-availability-report.js';
+import type { EstamaAvailabilityRefreshResult } from './estama-automation.js';
 import { verifyActionsIdentity } from './github-actions-identity.js';
 import { summarizeAutomation } from './automation-runner-summary.js';
 
@@ -67,16 +69,20 @@ export default async function handler(req: Request, res: Response) {
     const runId = `${identity.run_id}:${identity.run_attempt}`;
     const settings = checked(await admin.from('automation_runner_settings').select('*').eq('store_id',STORE_ID).single()) as any;
     if (action === 'start') {
-      const mode = req.body?.mode === 'work' ? 'work' : 'audit';
-      if ((mode==='work' && (!settings.diary_enabled || identity.event_name!=='workflow_dispatch')) || (mode==='audit' && !settings.audit_enabled)) { res.status(409).json({ error:'runner_disabled' }); return; }
+      const mode = req.body?.mode === 'work' ? 'work' : req.body?.mode === 'availability' ? 'availability' : 'audit';
+      if ((mode==='work' && (!(settings.diary_enabled || settings.shift_enabled) || identity.event_name!=='workflow_dispatch'))
+        || (mode==='availability' && (!settings.availability_enabled || identity.event_name!=='workflow_dispatch'))
+        || (mode==='audit' && !settings.audit_enabled)) { res.status(409).json({ error:'runner_disabled' }); return; }
       // Usage is advisory for the public repository's standard hosted runner.
       // Unique run key rejects duplicate workers and replayed start requests.
-      const result = await admin.from('automation_runner_runs').insert({ run_id:runId,store_id:STORE_ID,mode });
+      const result = await admin.from('automation_runner_runs').insert({ run_id:runId,store_id:STORE_ID,mode: mode==='availability' ? 'work' : mode, purpose: mode==='availability' ? 'availability' : null });
       if (result.error) { res.status(409).json({error:'run_already_started'}); return; }
       res.status(200).json({ ok:true }); return;
     }
-    const run = checked(await admin.from('automation_runner_runs').select('mode,status').eq('run_id',runId).eq('store_id',STORE_ID).single()) as any;
+    const run = checked(await admin.from('automation_runner_runs').select('mode,purpose,status').eq('run_id',runId).eq('store_id',STORE_ID).single()) as any;
     if (run.status!=='running') { res.status(409).json({error:'run_not_active'}); return; }
+    // ご案内状況の更新の実行は DB では mode = 'work'・purpose = 'availability'（作業の受け取りはさせない）
+    if (run.purpose === 'availability') run.mode = 'availability';
     checked(await admin.from('automation_runner_runs').update({ heartbeat_at:new Date().toISOString() }).eq('run_id',runId).eq('status','running'));
     if (action === 'audit') {
       if (run.mode!=='audit') throw new Error('invalid_mode');
@@ -113,6 +119,47 @@ export default async function handler(req: Request, res: Response) {
         res.status(200).json({ work: { type:'shift', jobId:job.id, lease:job.runner_lease, plan, adminLogin: await adminLogin() } }); return;
       }
       res.status(200).json({ work:null }); return;
+    }
+    if (action === 'availability_claim') {
+      // 「ご案内状況」の更新の依頼（起動役が availability_requested_at を入れる）を1回だけ受け取る
+      if (run.mode!=='availability') throw new Error('invalid_mode');
+      const claimed = checked(await admin.from('automation_runner_settings').update({ availability_requested_at: null })
+        .eq('store_id',STORE_ID).not('availability_requested_at','is',null).select('store_id').maybeSingle());
+      if (!claimed) { res.status(200).json({ work:null }); return; }
+      res.status(200).json({ work: { type:'availability', startedAt: new Date().toISOString(), adminLogin: await adminLogin() } }); return;
+    }
+    if (action === 'availability_finish') {
+      if (run.mode!=='availability') throw new Error('invalid_mode');
+      const startedAt = typeof req.body?.startedAt === 'string' ? req.body.startedAt : new Date().toISOString();
+      const finishedAt = new Date().toISOString();
+      const raw = req.body?.result as Partial<EstamaAvailabilityRefreshResult> | undefined;
+      const names = Array.isArray(raw?.castNames) ? raw!.castNames.filter((n): n is string => typeof n === 'string').map((n) => n.slice(0, 50)).slice(0, 40) : [];
+      const count = (value: unknown) => Math.max(0, Math.min(100, Number(value) || 0));
+      const payload = raw && typeof raw === 'object' && !req.body?.error
+        ? availabilitySuccessPayload({
+          availabilityUrl: '', activeCount: count(raw.activeCount), availableNowCount: count(raw.availableNowCount),
+          inactiveCount: count(raw.inactiveCount), manualPreservedCount: count(raw.manualPreservedCount), skippedCount: count(raw.skippedCount),
+          castNames: names, confirmation: String(raw.confirmation || '').slice(0, 500),
+          validUntil: typeof raw.validUntil === 'string' ? raw.validUntil.slice(0, 40) : null, deferred: false, updated: raw.updated === true,
+        }, startedAt, finishedAt)
+        : availabilityFailurePayload(typeof req.body?.error === 'string' ? req.body.error.replace(/\S+@\S+/g,'[mail]').slice(0, 500) : 'ご案内状況を更新できませんでした', false, startedAt, finishedAt);
+      // 起動役が作った「⏳ 開始しました」の履歴に結果を書く（無ければ新しく作る）
+      const pending = checked(await admin.from('estama_sync_reports').select('id').eq('store_id',STORE_ID)
+        .eq('summary','⏳ エスたま ご案内状況の毎時更新を開始しました。').contains('results',{ runner:'github_actions' }).gte('created_at', new Date(Date.now()-30*60000).toISOString())
+        .order('created_at',{ascending:false}).limit(1).maybeSingle()) as { id: string } | null;
+      const report = {
+        status: payload.reportStatus, finished_at: finishedAt, total_count: payload.totalCount, success_count: payload.successCount,
+        cast_names: payload.castNames, summary: payload.summary, results: payload.results, evidence: [], missing_profiles: [], fatal_error: payload.fatalError,
+      };
+      if (pending) checked(await admin.from('estama_sync_reports').update(report).eq('id', pending.id));
+      else checked(await admin.from('estama_sync_reports').insert({ ...report, store_id: STORE_ID, started_at: startedAt }));
+      const connection = checked(await admin.from('automation_connections').select('id,configuration').eq('store_id',STORE_ID).eq('provider','estama').maybeSingle()) as { id: string; configuration: Record<string, unknown> | null } | null;
+      if (connection) {
+        const configuration = connection.configuration && typeof connection.configuration === 'object' ? connection.configuration : {};
+        const previous = configuration.availability_refresh && typeof configuration.availability_refresh === 'object' ? configuration.availability_refresh as Record<string, unknown> : {};
+        checked(await admin.from('automation_connections').update({ configuration: { ...configuration, availability_refresh: { ...previous, ...payload.configuration, runner: 'github_actions' } } }).eq('id', connection.id));
+      }
+      res.status(200).json({ ok: true }); return;
     }
     if (action === 'finish_shift') {
       // ランナーからは画面の結果（done / skip）だけを受け取り、DBに書く中身は受け口がもう一度DBから組み立てる

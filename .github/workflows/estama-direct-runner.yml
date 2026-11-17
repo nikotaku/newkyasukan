@@ -5,7 +5,7 @@ on:
       mode:
         description: audit validates logins without posting; work consumes only explicitly routed jobs
         type: choice
-        options: [audit, work]
+        options: [audit, work, availability]
         default: audit
   push:
     branches: [main]
@@ -17,7 +17,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: estama-direct-runner
+  # ご案内状況の更新は出勤同期・写メ日記の後ろに並ばせない（待っている間に次の起動で取り消されないように）
+  group: estama-direct-runner-${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'availability' && 'availability' || 'main' }}
   cancel-in-progress: false
 jobs:
   chromium:
