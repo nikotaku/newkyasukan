@@ -1,10 +1,10 @@
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright-core';
-import { auditPreparedEstamaDiaryOnPage, runPreparedEstamaDiaryOnPage, runShiftJobOnPage, type PreparedEstamaDiary } from '../server/estama-automation.js';
+import { auditPreparedEstamaDiaryOnPage, runEstamaAvailabilityOnPage, runPreparedEstamaDiaryOnPage, runShiftJobOnPage, type PreparedEstamaDiary } from '../server/estama-automation.js';
 import { assertUploadedPhotoCount } from '../server/estama-photo-upload.js';
 import { loginEstamaAdmin, scrubSecrets } from '../server/estama-relogin.js';
 
 const endpoint='https://enka-salon.jp/api/automations/estama-direct-runner';
-const mode=process.env.ESTAMA_RUN_MODE==='work'?'work':'audit';
+const mode=process.env.ESTAMA_RUN_MODE==='work'?'work':process.env.ESTAMA_RUN_MODE==='availability'?'availability':'audit';
 const started=Number(process.env.RUN_STARTED_MS)||Date.now();
 let browser: Browser | undefined;
 let current: {jobId:string;lease:string} | undefined;
@@ -71,6 +71,26 @@ try {
       }
       finally { await context.close(); }
       if(adminLogin!=='ok') ok=false;
+    }
+  } else if(mode==='availability') {
+    // ご案内状況（今すぐ）：店舗の管理画面にログインして、勤務中の人を「今すぐ」にする。結果の記録は受け口が行う
+    const {work}=await request({action:'availability_claim'});
+    if(work) {
+      const secrets=[work.adminLogin?.mail,work.adminLogin?.password];
+      browser=await chromium.launch({headless:true});
+      const context=await browser.newContext({locale:'ja-JP',timezoneId:'Asia/Tokyo',viewport:{width:1440,height:1000}});
+      const page=await context.newPage(); page.setDefaultTimeout(15000); page.setDefaultNavigationTimeout(35000);
+      try {
+        const login=await loginEstamaAdmin(page,work.adminLogin.mail,work.adminLogin.password);
+        if(!login.ok) throw new Error(login.error);
+        const result=await runEstamaAvailabilityOnPage(page);
+        await request({action:'availability_finish',startedAt:work.startedAt,result});
+        processed++;
+      } catch(error) {
+        ok=false;
+        const message=scrubSecrets(error instanceof Error?error.message.split('\n')[0]:String(error),secrets).slice(0,300);
+        await request({action:'availability_finish',startedAt:work.startedAt,error:message}).catch(()=>{});
+      } finally { await context.close().catch(()=>{}); }
     }
   } else {
     // 写メ日記は10件まで（セラピストごとに新しい画面）。出勤同期は店舗の管理画面に1回ログインして続けて処理する（12分まで）

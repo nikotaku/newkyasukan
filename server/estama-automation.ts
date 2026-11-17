@@ -3531,6 +3531,125 @@ const compactAvailabilityConfirmation = (value: string) => value
   .join(" / ")
   .slice(0, 500);
 
+/** エステ魂の「ご案内状況」画面で、勤務中の人を「今すぐ」にして表示する（画面の操作だけ。Browserbase と GitHub Actions の両方から使う） */
+export async function runEstamaAvailabilityOnPage(page: Page, now = new Date()): Promise<EstamaAvailabilityRefreshResult> {
+  const availabilityUrl = await discoverAvailabilityAdminUrl(page);
+  await page.goto(availabilityUrl, { waitUntil: "domcontentloaded" });
+  await ensureAdminLogin(page);
+  await page.waitForTimeout(500);
+
+  const controls = (await readAvailabilityControls(page))
+    .filter((control) => isEstamaAvailabilitySelect(control.options));
+  if (!controls.length) {
+    throw new Error("エスたまのセラピスト別「ご案内状況」欄が見つかりません");
+  }
+
+  const currentMinutes = jstBusinessMinutes(now);
+  const castNames: string[] = [];
+  let activeCount = 0;
+  let availableNowCount = 0;
+  let inactiveCount = 0;
+  let manualPreservedCount = 0;
+  let skippedCount = 0;
+
+  for (const control of controls) {
+    const range = parseEstamaShiftRange(control.text);
+    if (!range) {
+      skippedCount += 1;
+      continue;
+    }
+
+    const select = page.locator("select").nth(control.index);
+    const active = isEstamaShiftActive(range, currentMinutes);
+    if (!active) {
+      inactiveCount += 1;
+      continue;
+    }
+
+    activeCount += 1;
+    const currentLabel = (await select.locator("option:checked").textContent().catch(() => "") || "")
+      .normalize("NFKC")
+      .replace(/\s+/g, "")
+      .trim();
+    if (currentLabel !== "未設定" && currentLabel !== "今すぐ") {
+      manualPreservedCount += 1;
+      continue;
+    }
+    if (currentLabel !== "今すぐ") await select.selectOption({ label: "今すぐ" });
+    availableNowCount += 1;
+    castNames.push(control.castName || `出勤者${availableNowCount}`);
+  }
+
+  if (skippedCount > 0) {
+    throw new Error(`勤務時間を読み取れないご案内状況欄が${skippedCount}件あります`);
+  }
+
+  if (availableNowCount === 0) {
+    return {
+      availabilityUrl,
+      activeCount,
+      availableNowCount,
+      inactiveCount,
+      manualPreservedCount,
+      skippedCount,
+      castNames,
+      confirmation: activeCount === 0
+        ? "現在勤務中のセラピストがいないため更新対象なし"
+        : "勤務中のセラピストは手動の案内状態を優先したため、店舗表示は更新していません",
+      validUntil: null,
+      deferred: false,
+      updated: false,
+    };
+  }
+
+  const beforeBodyText = await page.locator("body").innerText().catch(() => "");
+  const beforeValidUntil = [...beforeBodyText.matchAll(
+    /(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})まで表示/g,
+  )].at(-1)?.[1] || null;
+  let dialogText = "";
+  page.once("dialog", async (dialog: Dialog) => {
+    dialogText = dialog.message();
+    await dialog.accept();
+  });
+  let submit = page.locator('button, a, input[type="submit"], input[type="button"]').filter({
+    hasText: /今すぐご案内可.*表示/,
+  }).last();
+  if (!await submit.count()) {
+    submit = page.locator(
+      'input[type="submit"][value*="今すぐご案内可"], input[type="button"][value*="今すぐご案内可"]',
+    ).last();
+  }
+  if (!await submit.count()) {
+    throw new Error("エスたまの「今すぐご案内可で表示」ボタンが見つかりません");
+  }
+
+  await clickWithDomFallback(submit, 10_000);
+  await page.waitForTimeout(1_000);
+  const bodyText = await page.locator("body").innerText().catch(() => "");
+  const confirmation = compactAvailabilityConfirmation(`${dialogText}\n${bodyText}`);
+  const validUntilPattern = /(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})まで表示/g;
+  const dialogValidUntil = [...dialogText.matchAll(validUntilPattern)].at(-1)?.[1] || null;
+  const bodyValidUntil = [...bodyText.matchAll(validUntilPattern)].at(-1)?.[1] || null;
+  const validUntil = dialogValidUntil || bodyValidUntil;
+  if (!dialogText.includes("表示しました") && (!validUntil || validUntil === beforeValidUntil)) {
+    throw new Error("「今すぐご案内可」の更新完了を画面上で確認できませんでした");
+  }
+
+  return {
+    availabilityUrl,
+    activeCount,
+    availableNowCount,
+    inactiveCount,
+    manualPreservedCount,
+    skippedCount,
+    castNames: [...new Set(castNames)],
+    confirmation: confirmation || "◎今すぐご案内可で更新完了",
+    validUntil,
+    deferred: false,
+    updated: true,
+  };
+}
+
 export async function refreshEstamaAvailability(
   client: AdminClient,
   connection: Connection,
@@ -3598,121 +3717,7 @@ export async function refreshEstamaAvailability(
   page.setDefaultTimeout(10_000);
 
   try {
-    const availabilityUrl = await discoverAvailabilityAdminUrl(page);
-    await page.goto(availabilityUrl, { waitUntil: "domcontentloaded" });
-    await ensureAdminLogin(page);
-    await page.waitForTimeout(500);
-
-    const controls = (await readAvailabilityControls(page))
-      .filter((control) => isEstamaAvailabilitySelect(control.options));
-    if (!controls.length) {
-      throw new Error("エスたまのセラピスト別「ご案内状況」欄が見つかりません");
-    }
-
-    const currentMinutes = jstBusinessMinutes(now);
-    const castNames: string[] = [];
-    let activeCount = 0;
-    let availableNowCount = 0;
-    let inactiveCount = 0;
-    let manualPreservedCount = 0;
-    let skippedCount = 0;
-
-    for (const control of controls) {
-      const range = parseEstamaShiftRange(control.text);
-      if (!range) {
-        skippedCount += 1;
-        continue;
-      }
-
-      const select = page.locator("select").nth(control.index);
-      const active = isEstamaShiftActive(range, currentMinutes);
-      if (!active) {
-        inactiveCount += 1;
-        continue;
-      }
-
-      activeCount += 1;
-      const currentLabel = (await select.locator("option:checked").textContent().catch(() => "") || "")
-        .normalize("NFKC")
-        .replace(/\s+/g, "")
-        .trim();
-      if (currentLabel !== "未設定" && currentLabel !== "今すぐ") {
-        manualPreservedCount += 1;
-        continue;
-      }
-      if (currentLabel !== "今すぐ") await select.selectOption({ label: "今すぐ" });
-      availableNowCount += 1;
-      castNames.push(control.castName || `出勤者${availableNowCount}`);
-    }
-
-    if (skippedCount > 0) {
-      throw new Error(`勤務時間を読み取れないご案内状況欄が${skippedCount}件あります`);
-    }
-
-    if (availableNowCount === 0) {
-      return {
-        availabilityUrl,
-        activeCount,
-        availableNowCount,
-        inactiveCount,
-        manualPreservedCount,
-        skippedCount,
-        castNames,
-        confirmation: activeCount === 0
-          ? "現在勤務中のセラピストがいないため更新対象なし"
-          : "勤務中のセラピストは手動の案内状態を優先したため、店舗表示は更新していません",
-        validUntil: null,
-        deferred: false,
-        updated: false,
-      };
-    }
-
-    const beforeBodyText = await page.locator("body").innerText().catch(() => "");
-    const beforeValidUntil = [...beforeBodyText.matchAll(
-      /(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})まで表示/g,
-    )].at(-1)?.[1] || null;
-    let dialogText = "";
-    page.once("dialog", async (dialog: Dialog) => {
-      dialogText = dialog.message();
-      await dialog.accept();
-    });
-    let submit = page.locator('button, a, input[type="submit"], input[type="button"]').filter({
-      hasText: /今すぐご案内可.*表示/,
-    }).last();
-    if (!await submit.count()) {
-      submit = page.locator(
-        'input[type="submit"][value*="今すぐご案内可"], input[type="button"][value*="今すぐご案内可"]',
-      ).last();
-    }
-    if (!await submit.count()) {
-      throw new Error("エスたまの「今すぐご案内可で表示」ボタンが見つかりません");
-    }
-
-    await clickWithDomFallback(submit, 10_000);
-    await page.waitForTimeout(1_000);
-    const bodyText = await page.locator("body").innerText().catch(() => "");
-    const confirmation = compactAvailabilityConfirmation(`${dialogText}\n${bodyText}`);
-    const validUntilPattern = /(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})まで表示/g;
-    const dialogValidUntil = [...dialogText.matchAll(validUntilPattern)].at(-1)?.[1] || null;
-    const bodyValidUntil = [...bodyText.matchAll(validUntilPattern)].at(-1)?.[1] || null;
-    const validUntil = dialogValidUntil || bodyValidUntil;
-    if (!dialogText.includes("表示しました") && (!validUntil || validUntil === beforeValidUntil)) {
-      throw new Error("「今すぐご案内可」の更新完了を画面上で確認できませんでした");
-    }
-
-    return {
-      availabilityUrl,
-      activeCount,
-      availableNowCount,
-      inactiveCount,
-      manualPreservedCount,
-      skippedCount,
-      castNames: [...new Set(castNames)],
-      confirmation: confirmation || "◎今すぐご案内可で更新完了",
-      validUntil,
-      deferred: false,
-      updated: true,
-    };
+    return await runEstamaAvailabilityOnPage(page, now);
   } finally {
     await disconnect(browser);
     await releaseSession(bb, session.id);

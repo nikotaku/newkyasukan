@@ -363,6 +363,7 @@
 - pg_cron `estama-availability-hourly`（毎時40分）→ `private.dispatch_estama_availability_refresh()` → Vercel `/api/cron/estama-availability`。エステ魂の「ご案内状況」画面で、エステ魂に載っている勤務時間の中にいる人を「今すぐ」にする（手で別の状態にした人はそのまま）。表示は1時間で切れる。結果は `estama_sync_reports`（「ご案内状況」）
 - 毎時だけだと出勤の開始から最大1時間近く「今すぐ」が出ないので、pg_cron `estama-availability-on-shift-start`（5分ごと）→ `private.dispatch_estama_availability_on_shift_start()` が、出勤の開始・休憩明けから20分以内でまだ更新していなければ同じ更新をかける（毎時27〜42分は動かさない）
 - 出勤者がいない時間は「現在勤務中のセラピストがいないため更新対象なし」で正常（止まっているわけではない）
+- **GitHub Actions への移行（段階2）**：`automation_runner_settings.availability_enabled` をオンにした店舗は、毎時40分・出勤開始のときの更新で Vercel（Browserbase）を呼ばず、`private.dispatch_estama_availability_refresh()` が「⏳ 開始しました」の履歴（`results.runner = 'github_actions'`）を作り `availability_requested_at` を入れて直接実行（`estama-direct-runner`、mode `availability`、出勤同期とは別の concurrency group）を起動する。ランナーは店舗の管理画面にログインして `runEstamaAvailabilityOnPage` だけを行い、受け口の `availability_claim` / `availability_finish` が履歴と `automation_connections.configuration.availability_refresh` を書く（実行は `automation_runner_runs` の mode `work`・purpose `availability`）。結果の文面は `server/estama-availability-report.ts`（Browserbase の経路と共通）。オフに戻せば今まで通り（`20261118030000_estama_availability_github_actions.sql`）
 
 ## エステ魂の仮予約の取り込み（WEB予約受付 /schedule/web-bookings）
 
