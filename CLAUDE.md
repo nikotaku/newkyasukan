@@ -114,6 +114,7 @@
 
 - 店舗情報・店舗SNSリンク・トップバナー・ニュース作成を1画面のタブにまとめた（`?tab=store|sns|banners|news`、`src/pages/HpDashboard.tsx`）。中身は今までの各ページ（`StoreInfo` / `HpSnsLinks` / `HpTopBanners` / `ArticleCreation`）を `embedded` で入れている。外枠（ヘッダー・サイドバー）は `src/components/AdminPageShell.tsx`
 - 以前のURL（`/hp/store-info`・`/hp/sns-links`・`/hp/top-banners`・`/hp/article-creation`）はダッシュボードの該当タブへ転送する。サイドバーの HP の一番上に「ホームページダッシュボード」
+- タイムライン（`/board`、スタッフ向けの掲示板 `board_posts`）は2026-11-17に廃止。画面を消し、`/board` はダッシュボードへ転送（データは残している）
 
 ## X運用表「今日の投稿」（/hp/x-operations）
 

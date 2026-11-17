@@ -74,7 +74,6 @@ const menuItems: MenuItem[] = [
     children: [
       { href: "/hp/dashboard", label: "ホームページダッシュボード" },
       { href: "/design", label: "ホームページ管理" },
-      { href: "/board", label: "タイムライン" },
       { href: "/hp/blog", label: "店長ブログ" },
       { href: "/hp/business-flow", label: "業務フロー" },
       { href: "/hp/kpi-goals", label: "売上目標・KPI" },
