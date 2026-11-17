@@ -10,8 +10,13 @@ export function scrubSecrets(message: string, secrets: Array<string | undefined>
 }
 
 /** ログインを押したあとの画面から、結果を判断する */
+/** 管理画面（/admin/…）にいるか。ログイン画面の ?r=/admin/… に引っかからないようパスだけで見る */
+export function isAdminPath(url: string) {
+  try { return new URL(url).pathname.startsWith("/admin/"); } catch { return false; }
+}
+
 export function classifyLoginResult(input: { url: string; hasEditor: boolean; hasPasswordField: boolean; validation: string }) {
-  if (input.hasEditor || (/\/admin\//.test(input.url) && !input.hasPasswordField)) return { ok: true as const };
+  if (input.hasEditor || (isAdminPath(input.url) && !input.hasPasswordField)) return { ok: true as const };
   const validation = input.validation.replace(/\s+/g, " ").trim();
   if (validation) return { ok: false as const, error: `エステ魂がログインを受け付けませんでした：${validation.slice(0, 200)}` };
   return { ok: false as const, error: "ログイン後に管理画面へ移れませんでした（メールアドレス・パスワードを確認してください）" };
