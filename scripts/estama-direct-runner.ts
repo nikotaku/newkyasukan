@@ -14,6 +14,12 @@ let verifiedAccounts=0, failedAccounts=0, processed=0, ok=true, runStarted=false
 // 店舗管理画面のログイン確認（Browserbase をやめる準備）。結果は ok / failed / unavailable と止まった段階だけ
 let adminLogin: 'ok'|'failed'|'unavailable'|undefined, adminLoginStage: string|undefined, adminLoginDetail: string|undefined;
 
+// 画面なしのブラウザは「HeadlessChrome」と名乗るので、普通の Chrome と同じ名乗りにする（ログイン画面の reCAPTCHA で弾かれないように）
+function openContext(target: Browser) {
+  const userAgent=`Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${target.version()} Safari/537.36`;
+  return target.newContext({locale:'ja-JP',timezoneId:'Asia/Tokyo',viewport:{width:1440,height:1000},userAgent});
+}
+
 async function request(body: Record<string,unknown>) {
   const url=new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL!);
   url.searchParams.set('audience','https://enka-salon.jp/estama-direct-runner');
@@ -40,10 +46,10 @@ try {
   }); },30000);
   if(mode==='audit') {
     const {work,adminLogin:adminCredentials}=await request({action:'audit'});
-    browser=await chromium.launch({headless:true});
+    browser=await chromium.launch({headless:true,args:['--disable-blink-features=AutomationControlled']});
     for(const item of work as PreparedEstamaDiary[]) {
       if(leaseLost) throw new Error('lease_lost');
-      const context=await browser.newContext({locale:'ja-JP',timezoneId:'Asia/Tokyo',viewport:{width:1440,height:1000}});
+      const context=await openContext(browser);
       const page=await context.newPage(); page.setDefaultTimeout(15000); page.setDefaultNavigationTimeout(35000);
       let stage="browser_ready";
       try { await auditPreparedEstamaDiaryOnPage(item,page,value=>{stage=value;}); verifiedAccounts++; }
@@ -53,7 +59,7 @@ try {
     // 店舗管理画面に新しいブラウザでログインできるか（読むだけ。保存も投稿もしない）
     if(!adminCredentials) adminLogin='unavailable';
     else {
-      const context=await browser.newContext({locale:'ja-JP',timezoneId:'Asia/Tokyo',viewport:{width:1440,height:1000}});
+      const context=await openContext(browser);
       const page=await context.newPage(); page.setDefaultTimeout(15000); page.setDefaultNavigationTimeout(35000);
       try {
         const result=await loginEstamaAdmin(page,adminCredentials.mail,adminCredentials.password);
@@ -77,8 +83,8 @@ try {
     const {work}=await request({action:'availability_claim'});
     if(work) {
       const secrets=[work.adminLogin?.mail,work.adminLogin?.password];
-      browser=await chromium.launch({headless:true});
-      const context=await browser.newContext({locale:'ja-JP',timezoneId:'Asia/Tokyo',viewport:{width:1440,height:1000}});
+      browser=await chromium.launch({headless:true,args:['--disable-blink-features=AutomationControlled']});
+      const context=await openContext(browser);
       const page=await context.newPage(); page.setDefaultTimeout(15000); page.setDefaultNavigationTimeout(35000);
       try {
         const login=await loginEstamaAdmin(page,work.adminLogin.mail,work.adminLogin.password);
@@ -102,9 +108,9 @@ try {
       if(work.type==='shift') {
         const secrets=[work.adminLogin?.mail,work.adminLogin?.password];
         try {
-          browser ||= await chromium.launch({headless:true});
+          browser ||= await chromium.launch({headless:true,args:['--disable-blink-features=AutomationControlled']});
           if(!adminPage) {
-            adminContext=await browser.newContext({locale:'ja-JP',timezoneId:'Asia/Tokyo',viewport:{width:1440,height:1000}});
+            adminContext=await openContext(browser);
             adminPage=await adminContext.newPage(); adminPage.setDefaultTimeout(15000); adminPage.setDefaultNavigationTimeout(35000);
             const login=await loginEstamaAdmin(adminPage,work.adminLogin.mail,work.adminLogin.password);
             if(!login.ok) throw new Error(login.error);
@@ -124,8 +130,8 @@ try {
       let submitting=false;
       let context;
       try {
-        browser ||= await chromium.launch({headless:true});
-        context=await browser.newContext({locale:'ja-JP',timezoneId:'Asia/Tokyo',viewport:{width:1440,height:1000}});
+        browser ||= await chromium.launch({headless:true,args:['--disable-blink-features=AutomationControlled']});
+        context=await openContext(browser);
         const page=await context.newPage(); page.setDefaultTimeout(15000); page.setDefaultNavigationTimeout(35000);
         const result=await runPreparedEstamaDiaryOnPage(work,page,async()=>{
           if(leaseLost) throw new Error('lease_lost');

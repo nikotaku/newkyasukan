@@ -74,7 +74,7 @@ async function loginOnce(page: Page, mail: string, password: string) {
   // ログイン画面の欄とボタンの処理（スクリプト）が用意できるまで待つ
   await email.waitFor({ state: "visible", timeout: 15_000 }).catch(() => null);
   if (!(await email.count()) || !(await pass.count())) {
-    return { ok: false as const, error: "エステ魂の店舗ログイン画面が見つかりません（画面が変わった可能性があります）", already: false };
+    return { ok: false as const, error: `エステ魂の店舗ログイン画面が見つかりません（画面が変わった可能性があります）${await whereAmI(page)}`, already: false };
   }
   await page.waitForLoadState("load", { timeout: 15_000 }).catch(() => null);
   await email.fill(mail);
@@ -92,15 +92,25 @@ async function loginOnce(page: Page, mail: string, password: string) {
   }
   const validation = await page.locator("#form-login_shop .validation-error, #form-login_shop .all_vali, .return_vali")
     .allInnerTexts().then((texts) => texts.join(" ")).catch(() => "");
+  const classified = classifyLoginResult({
+    url: page.url(),
+    hasEditor: await onEditor(page),
+    hasPasswordField: (await page.locator('input[type="password"]').count()) > 0,
+    validation,
+  });
+  if (!classified.ok) return { ...classified, error: `${classified.error}${await whereAmI(page)}`, already: false };
   return {
-    ...classifyLoginResult({
-      url: page.url(),
-      hasEditor: await onEditor(page),
-      hasPasswordField: (await page.locator('input[type="password"]').count()) > 0,
-      validation,
-    }),
+    ...classified,
     already: false,
   };
+}
+
+/** 止まった画面の手がかり（パスと画面のタイトルだけ。メール・パスワードは入らない） */
+async function whereAmI(page: Page) {
+  let path = "";
+  try { path = new URL(page.url()).pathname; } catch { path = ""; }
+  const title = (await page.title().catch(() => "")).replace(/\s+/g, " ").slice(0, 40);
+  return ` [${path}${title ? ` 「${title}」` : ""}]`;
 }
 
 /**
