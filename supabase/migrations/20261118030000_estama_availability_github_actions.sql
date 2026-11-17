@@ -81,9 +81,7 @@ begin
     return v_request_id;
   end if;
 
-  delete from public.estama_sync_tokens
-  where expires_at < now() - interval '1 day';
-
+  -- 古いトークンの掃除は毎分のプロフィール同期の起動役などが行う
   v_raw_token := encode(extensions.gen_random_bytes(32), 'hex');
   v_token_hash := encode(extensions.digest(v_raw_token, 'sha256'), 'hex');
   insert into public.estama_sync_tokens (token_hash, purpose, expires_at)
