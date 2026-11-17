@@ -2,6 +2,7 @@
 // 予約通知専用アカウントは月の無料枠が小さく、WEB予約通知を漏らさないことを最優先にするため、
 // 残り通数がWEB予約通知の予備分を下回ったらSMS返信の通知は送らない。
 
+import { businessDateShort, businessDateTime } from "../../../src/lib/businessTime.ts";
 import type { QuotaSnapshot } from "../_shared/linePush.ts";
 
 export interface SmsReplyReservation {
@@ -19,7 +20,6 @@ export interface SmsReplyMessageInput {
   threadUrl?: string | null;
 }
 
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 const MAX_BODY_LENGTH = 500;
 
 export function toLocalPhone(e164: string) {
@@ -35,12 +35,10 @@ export function smsThreadUrl(customDomain: string | null | undefined, fromNumber
 
 function reservationLine(reservation: SmsReplyReservation) {
   const parts: string[] = [];
-  if (reservation.date && /^\d{4}-\d{2}-\d{2}$/.test(reservation.date)) {
-    const [year, month, day] = reservation.date.split("-").map(Number);
-    const weekday = WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
-    parts.push(`${month}/${day}(${weekday})`);
-  }
-  if (reservation.time) parts.push(`${reservation.time.slice(0, 5)}〜`);
+  // 深夜（6時前）は前日の24時台・25時台で書く
+  const when = businessDateTime(reservation.date, reservation.time);
+  if (when) parts.push(businessDateShort(when));
+  if (when?.time) parts.push(`${when.time}〜`);
   if (reservation.castName) parts.push(reservation.castName);
   return parts.length ? `予約: ${parts.join(" ")}` : null;
 }

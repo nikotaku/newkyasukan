@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toExtTime } from "@/lib/timeFormat";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -263,7 +264,7 @@ export default function SalesClosing() {
                           {dailyReservations.map((r) => (
                             <div key={r.id} className="flex items-center justify-between text-sm py-1.5 border-b last:border-0">
                               <div>
-                                <span className="font-medium">{r.start_time.slice(0, 5)}</span>
+                                <span className="font-medium">{toExtTime(r.start_time)}</span>
                                 <span className="mx-2 text-muted-foreground">{r.customer_name}</span>
                                 <span className="text-muted-foreground">{r.casts?.name ?? "未設定"} / {r.course_name}</span>
                               </div>

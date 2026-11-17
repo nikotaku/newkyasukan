@@ -12,6 +12,7 @@
 //   - 他のEdge Function: service_role
 //   - 管理画面: ログイン中のスタッフ（送信先の予約・店舗に所属していること）
 
+import { businessDateLong, businessDateShort, businessDateTime } from "../../../src/lib/businessTime.ts";
 import { loadTwilioCredentials, twilioAuthHeader, type TwilioCredentials } from "../_shared/twilio.ts";
 import { fillTemplate, paymentGuideNote, reservationGuideUrl, toE164 } from "./template.ts";
 
@@ -111,9 +112,9 @@ async function resolveFrom(): Promise<string> {
   return cachedFrom;
 }
 
-const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
 async function buildVars(r: Record<string, any>) {
-  const dt = r.reservation_date ? new Date(r.reservation_date + "T00:00:00") : null;
+  // 深夜（6時前）は前日の24時台・25時台で書く（11/18 0:00 → 11/17 24:00）
+  const when = businessDateTime(r.reservation_date, r.start_time);
   let cast = "";
   if (r.cast_id) {
     const [c] = await sb(`casts?id=eq.${r.cast_id}&select=name`);
@@ -128,9 +129,9 @@ async function buildVars(r: Record<string, any>) {
   const guideUrl = reservationGuideUrl(store?.custom_domain, r.guide_token);
   return {
     name: r.customer_name || "お客",
-    date: dt ? `${dt.getMonth() + 1}/${dt.getDate()}(${WEEK[dt.getDay()]})` : "",
-    date_long: dt ? `${dt.getMonth() + 1}月${dt.getDate()}日(${WEEK[dt.getDay()]})` : "",
-    time: (r.start_time || "").slice(0, 5),
+    date: businessDateShort(when),
+    date_long: businessDateLong(when),
+    time: when?.time ?? "",
     course: r.course_name || "",
     duration: r.duration ? String(r.duration) : "",
     cast,
@@ -195,7 +196,9 @@ Deno.serve(async (req) => {
       to = to || r.customer_phone;
       if (isReminder) {
         const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
-        if (storeId !== ENKA_STORE_ID || r.status !== "confirmed" || r.reservation_date !== tomorrow ||
+        // 「明日」は営業日で見る（11/18 0:00 の予約＝11/17 24:00 は 11/16 に送る）
+        if (storeId !== ENKA_STORE_ID || r.status !== "confirmed" ||
+            businessDateTime(r.reservation_date, r.start_time)?.date !== tomorrow ||
             !r.start_time || !toE164(r.customer_phone)) return json({ ok: true, skipped: true });
         to = r.customer_phone;
         templateId = null;
