@@ -23,5 +23,18 @@
       "mcp__Vercel__pause_project"
     ],
     "defaultMode": "bypassPermissions"
+  },
+  "hooks": {
+    "Elicitation": [
+      {
+        "matcher": "Supabase|supabase|1068d419-89b3-4f8f-8ed2-2d273d879558",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/claude/elicitation-accept.sh"
+          }
+        ]
+      }
+    ]
   }
 }
