@@ -465,6 +465,12 @@
   - `type`: profile / announcement / catchphrase / news / coupon / schedule / shop_comment / newstaff
   - AIの呼び先は上の通り（Gemini か Claude）
 
+## 料金・バック表（正本 /system/rate-master）
+
+- コース（`back_rates`）・オプション（`option_rates`）・指名（`nomination_rates`）の料金とセラピストのバックを1枚の表で直す画面（`src/pages/SystemRateMaster.tsx`、サイドバーの システム → 料金 → 料金・バック表（正本））。列は 名前・時間（分、オプションは延長の分）・料金・バック・店落ち（料金−バックで自動、`shop_back` にも保存）・HP表示・説明（コースだけ）。上下で並べ替え（`display_order`）、行の追加・削除、「保存」でまとめて反映（変わった行だけ送る）。計算は `src/lib/rateMaster.ts`（テスト `npm run test:rate-master`）
+- この3つの表が正本：セラピストのマイページの「バック表」（RPC `get_therapist_back_table(p_token)`、コース・オプション・指名をまとめて返す。HP表示オフのものも出す）、HPの料金、予約入力、面談用ページはここを読む。以前の `get_therapist_back_rates` はコースだけ（今は使っていない）
+- 以前の「コース」「オプション」の画面（`/system/courses`・`/system/options`）も同じ表を直すので、どちらで直しても同じ
+
 ## 面談用ページ（/interview）
 
 - サイドバーの「面談用ページ（画面共有）」をタップすると「出稼ぎ用」（`/interview?type=dekasegi`）・「在籍用」（`?type=zaiseki`）ごとに「開く」「URLをコピー」が出る（`src/components/SidebarLinkVariants.tsx`）。ホーム画面に追加した管理アプリにはアドレスバーが無いため。コピーは `src/lib/copyText.ts`（だめなら長押しでコピーできる小窓）

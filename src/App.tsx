@@ -85,6 +85,7 @@ import SalesDailySalesTarget from "./pages/SalesDailySalesTarget";
 import SalesExpenseInput from "./pages/SalesExpenseInput";
 import SalesMonthlyClosing from "./pages/SalesMonthlyClosing";
 import SystemCourses from "./pages/SystemCourses";
+import SystemRateMaster from "./pages/SystemRateMaster";
 import SystemOptions from "./pages/SystemOptions";
 import SystemDiscounts from "./pages/SystemDiscounts";
 import SystemDeductions from "./pages/SystemDeductions";
@@ -268,6 +269,7 @@ const App = () => {
           <Route path="/sales/monthly-target" element={<SalesMonthlySalesTarget />} />
           <Route path="/sales/daily-target" element={<SalesDailySalesTarget />} />
           <Route path="/sales/expense-input" element={<SalesExpenseInput />} />
+          <Route path="/system/rate-master" element={<SystemRateMaster />} />
           <Route path="/system/courses" element={<SystemCourses />} />
           <Route path="/system/options" element={<SystemOptions />} />
           <Route path="/system/discounts" element={<SystemDiscounts />} />

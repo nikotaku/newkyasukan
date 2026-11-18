@@ -126,6 +126,7 @@ const menuItems: MenuItem[] = [
       {
         groupLabel: "料金",
         items: [
+          { href: "/system/rate-master", label: "料金・バック表（正本）" },
           { href: "/system/courses", label: "コース" },
           { href: "/system/options", label: "オプション" },
           { href: "/system/discounts", label: "各種割引" },
