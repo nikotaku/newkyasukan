@@ -882,6 +882,50 @@ async function findListedEstamaCastId(page: Page, shopId: string | null | undefi
   return findEstamaCastIdByName(await readPageLinks(page), shopId, names);
 }
 
+const ESTAMA_CAST_LIST_URL = "https://estama.jp/admin/cast/";
+
+/** エステ魂のセラピスト一覧で、その人の行が非表示（li.tg_block.disabled）か。行が無ければ null */
+async function estamaCastRowHidden(page: Page, externalId: string): Promise<boolean | null> {
+  await page.goto(ESTAMA_CAST_LIST_URL, { waitUntil: "domcontentloaded" });
+  await ensureAdminLogin(page);
+  const row = page.locator(`li.tg_block:has(a[href="/admin/cast_edit/${externalId}/"])`).first();
+  if (!(await row.count())) return null;
+  return /(^|\s)disabled(\s|$)/.test((await row.getAttribute("class")) || "");
+}
+
+/**
+ * 退店した人をエステ魂のセラピスト一覧で「非表示」にする（削除はしない。写真・口コミは残り、戻ってきたら表示に戻せる）。
+ * 一覧の行の「非表示」ボタン（data-post="cast_disabled"、押すとブラウザの確認が出る）を押し、開き直して非表示になったか確かめる。
+ */
+export async function hideEstamaCast(page: Page, externalId: string) {
+  if (!/^\d+$/.test(externalId)) throw new Error("エステ魂のセラピストIDが正しくありません");
+  const before = await estamaCastRowHidden(page, externalId);
+  if (before === null) return { hidden: true, alreadyGone: true };
+  if (before) return { hidden: true, already: true };
+  const button = page.locator(`a[data-post="cast_disabled"][data-row="${externalId}"]`).first();
+  if (!(await button.count())) throw new Error("エステ魂のセラピスト一覧に「非表示」のボタンが見つかりません");
+  page.once("dialog", (dialog) => { void dialog.accept(); });
+  await Promise.all([
+    page.waitForResponse((response) => response.url().includes("/admin_post/cast_disabled"), { timeout: 20_000 }).catch(() => null),
+    button.click(),
+  ]);
+  await page.waitForTimeout(1_500);
+  if (!(await estamaCastRowHidden(page, externalId))) throw new Error("エステ魂で非表示になったことを確かめられませんでした");
+  return { hidden: true };
+}
+
+async function hideCastJob(admin: AdminClient, page: Page, job: AutomationJob): Promise<Json> {
+  if (!job.cast_id) throw new Error("非表示にするセラピストがありません");
+  const { data: external } = await admin.from("external_cast_profiles").select("id, external_cast_id")
+    .eq("cast_id", job.cast_id).eq("provider", "estama").maybeSingle();
+  const externalId = (external as { external_cast_id?: string | null } | null)?.external_cast_id;
+  if (!externalId) return { skipped: true, reason: "not_listed_on_estama" };
+  const result = await hideEstamaCast(page, externalId);
+  await admin.from("casts").update({ estama_listed: false }).eq("id", job.cast_id);
+  await admin.from("external_cast_profiles").update({ last_error: null }).eq("id", (external as { id: string }).id);
+  return { ...result, externalId, action: "hide" } as Json;
+}
+
 async function registerCast(
   admin: AdminClient,
   page: Page,
@@ -4091,7 +4135,9 @@ export async function processAvailableJobs(
       // この作業でブラウザを使ったか（使っていなければ前の作業の画面なので撮らない）
       let usedPage = false;
       try {
-        if (job.cast_id && (job.job_type === "estama_register_cast" || job.job_type === "estama_post_diary")) {
+        // 退店した人をエステ魂で非表示にする作業（payload.action = hide）は、在籍していない人が対象なので飛ばさない
+        const isHideJob = job.job_type === "estama_register_cast" && job.payload?.action === "hide";
+        if (job.cast_id && !isHideJob && (job.job_type === "estama_register_cast" || job.job_type === "estama_post_diary")) {
           const { data: activeCast, error: activeCastError } = await admin.from("casts")
             .select("id")
             .eq("id", job.cast_id)
@@ -4151,7 +4197,8 @@ export async function processAvailableJobs(
         if (!page || !connection) throw new Error("ブラウザセッションを開始できませんでした");
         usedPage = true;
         let result: Json;
-        if (job.job_type === "estama_register_cast") result = await registerCast(admin, page, job, connection, options.soulCredentials);
+        if (isHideJob) result = await hideCastJob(admin, page, job);
+        else if (job.job_type === "estama_register_cast") result = await registerCast(admin, page, job, connection, options.soulCredentials);
         else if (job.job_type === "estama_sync_shift") result = await syncShift(admin, page, job, connection);
         else if (job.job_type === "estama_post_diary") result = await postEstamaDiary(admin, page, job);
         else result = await reconcileShifts(admin, page, job, connection);
