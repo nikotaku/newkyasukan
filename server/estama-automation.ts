@@ -884,24 +884,34 @@ async function findListedEstamaCastId(page: Page, shopId: string | null | undefi
 
 const ESTAMA_CAST_LIST_URL = "https://estama.jp/admin/cast/";
 
-/** エステ魂のセラピスト一覧で、その人の行が非表示（li.tg_block.disabled）か。行が無ければ null */
-async function estamaCastRowHidden(page: Page, externalId: string): Promise<boolean | null> {
+/** エステ魂の管理画面のセラピスト一覧に、その人の行があるか。あれば非表示（li.tg_block.disabled）か */
+async function estamaCastRowState(page: Page, externalId: string): Promise<"shown" | "hidden" | "missing"> {
   await page.goto(ESTAMA_CAST_LIST_URL, { waitUntil: "domcontentloaded" });
   await ensureAdminLogin(page);
   const row = page.locator(`li.tg_block:has(a[href="/admin/cast_edit/${externalId}/"])`).first();
-  if (!(await row.count())) return null;
-  return /(^|\s)disabled(\s|$)/.test((await row.getAttribute("class")) || "");
+  if (!(await row.count())) return "missing";
+  return /(^|\s)disabled(\s|$)/.test((await row.getAttribute("class")) || "") ? "hidden" : "shown";
+}
+
+/** 公開の在籍一覧にその人が出ているか（非表示・削除した人は出ない） */
+async function estamaCastListedPublicly(page: Page, shopId: string, externalId: string) {
+  await page.goto(`https://estama.jp/shop/${shopId}/cast/`, { waitUntil: "domcontentloaded" });
+  return (await page.locator(`a[href*="/shop/${shopId}/cast/${externalId}/"]`).count()) > 0;
 }
 
 /**
  * 退店した人をエステ魂のセラピスト一覧で「非表示」にする（削除はしない。写真・口コミは残り、戻ってきたら表示に戻せる）。
- * 一覧の行の「非表示」ボタン（data-post="cast_disabled"、押すとブラウザの確認が出る）を押し、開き直して非表示になったか確かめる。
+ * 一覧の行の「非表示」ボタン（data-post="cast_disabled"、押すとブラウザの確認が出る）を押し、公開の在籍一覧から消えたか確かめる。
+ * 「非表示のセラピストを除外する」がオンだと、非表示の人は管理画面の一覧からも消える。
  */
-export async function hideEstamaCast(page: Page, externalId: string) {
+export async function hideEstamaCast(page: Page, externalId: string, shopId: string | null | undefined) {
   if (!/^\d+$/.test(externalId)) throw new Error("エステ魂のセラピストIDが正しくありません");
-  const before = await estamaCastRowHidden(page, externalId);
-  if (before === null) return { hidden: true, alreadyGone: true };
-  if (before) return { hidden: true, already: true };
+  const publicCheck = async () => (shopId && /^\d+$/.test(shopId) ? estamaCastListedPublicly(page, shopId, externalId) : null);
+  const before = await estamaCastRowState(page, externalId);
+  if (before !== "shown") {
+    if ((await publicCheck()) === true) throw new Error("エステ魂の管理画面の一覧にいないのに、公開の在籍一覧に出ています");
+    return { hidden: true, already: true };
+  }
   const button = page.locator(`a[data-post="cast_disabled"][data-row="${externalId}"]`).first();
   if (!(await button.count())) throw new Error("エステ魂のセラピスト一覧に「非表示」のボタンが見つかりません");
   page.once("dialog", (dialog) => { void dialog.accept(); });
@@ -910,7 +920,9 @@ export async function hideEstamaCast(page: Page, externalId: string) {
     button.click(),
   ]);
   await page.waitForTimeout(1_500);
-  if (!(await estamaCastRowHidden(page, externalId))) throw new Error("エステ魂で非表示になったことを確かめられませんでした");
+  const after = await estamaCastRowState(page, externalId);
+  const listed = await publicCheck();
+  if (after === "shown" || listed === true) throw new Error("エステ魂で非表示になったことを確かめられませんでした");
   return { hidden: true };
 }
 
@@ -920,7 +932,9 @@ async function hideCastJob(admin: AdminClient, page: Page, job: AutomationJob): 
     .eq("cast_id", job.cast_id).eq("provider", "estama").maybeSingle();
   const externalId = (external as { external_cast_id?: string | null } | null)?.external_cast_id;
   if (!externalId) return { skipped: true, reason: "not_listed_on_estama" };
-  const result = await hideEstamaCast(page, externalId);
+  const { data: connectionRow } = await admin.from("automation_connections").select("shop_id")
+    .eq("store_id", job.store_id).eq("provider", "estama").maybeSingle();
+  const result = await hideEstamaCast(page, externalId, (connectionRow as { shop_id?: string | null } | null)?.shop_id);
   await admin.from("casts").update({ estama_listed: false }).eq("id", job.cast_id);
   await admin.from("external_cast_profiles").update({ last_error: null }).eq("id", (external as { id: string }).id);
   return { ...result, externalId, action: "hide" } as Json;
