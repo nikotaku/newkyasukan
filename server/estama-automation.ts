@@ -1049,7 +1049,9 @@ async function registerCast(
     store_id: job.store_id, cast_id: job.cast_id, provider: "estama",
     external_cast_id: externalId, admin_edit_url: savedEditUrl, public_profile_url: publicUrl,
     remote_name: syncFields === "all" ? data.name : current?.remote_name || data.name,
-    sync_status: snsMismatch || photoRemovalPending ? "error" : "synced",
+    // IDが分かっていれば「紐付け済み」のまま（プロフィールの確認の失敗は last_error に残す）。
+    // error にするとシフト同期・写メ日記まで止まる（2026-11-01〜18 にりりか&ももか・櫻井ななのシフトが止まっていた）
+    sync_status: externalId ? "synced" : "error",
     last_profile_sync_at: new Date().toISOString(),
     // SNS欄だけ直したときは、プロフィール全体は送っていないので前の値のまま（次の変更で全体を送る）
     last_profile_hash: syncFields === "all" && !snsMismatch && !photoRemovalPending ? profileHash : current?.last_profile_hash || null,
