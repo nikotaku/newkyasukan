@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, KeyRound, Loader2, Phone, PlugZap, Smartphone, Trash2 } from "lucide-react";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +26,7 @@ const formatDateTime = (value: string | null) =>
 
 const rpc = (name: string, args: Record<string, unknown>) => supabase.rpc(name as never, args as never);
 
-export default function PhoneSettings() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default function PhoneSettings({ embedded = false }: { embedded?: boolean } = {}) {
   const { user, loading: authLoading } = useAuth();
   const { store } = useAdminStore();
   const { toast } = useToast();
@@ -135,10 +133,7 @@ export default function PhoneSettings() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-[60px] md:ml-[240px] p-4 sm:p-6">
+    <AdminPageShell embedded={embedded} mainClassName="p-4 sm:p-6">
         <div className="max-w-2xl mx-auto space-y-4 mt-4">
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2"><Phone size={20} />電話（SUBLINE）</h1>
@@ -268,7 +263,6 @@ export default function PhoneSettings() {
             </CardContent>
           </Card>
         </div>
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

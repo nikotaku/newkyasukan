@@ -153,7 +153,7 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => navigate("/settings/notifications")}>
+                <DropdownMenuItem onClick={() => navigate("/system/dashboard?tab=notifications")}>
                   <Bell size={14} className="mr-2" />
                   スマホ通知の設定
                 </DropdownMenuItem>

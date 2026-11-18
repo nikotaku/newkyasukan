@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,8 +21,7 @@ interface Deduction {
   rule: string | null;
 }
 
-export default function SystemDeductions() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default function SystemDeductions({ embedded = false }: { embedded?: boolean } = {}) {
   const [deductions, setDeductions] = useState<Deduction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -91,10 +89,7 @@ export default function SystemDeductions() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-[60px] md:ml-[240px] p-6">
+    <AdminPageShell embedded={embedded} mainClassName="p-6">
         <div className="max-w-4xl mx-auto">
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -183,7 +178,6 @@ export default function SystemDeductions() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

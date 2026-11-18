@@ -120,32 +120,9 @@ const menuItems: MenuItem[] = [
     icon: BarChart3,
   },
   {
-    label: "システム",
+    href: "/system/dashboard",
+    label: "設定ダッシュボード",
     icon: Cpu,
-    subGroups: [
-      {
-        groupLabel: "料金",
-        items: [
-          { href: "/system/rate-master", label: "料金・割引・決済（正本）" },
-        ],
-      },
-      {
-        groupLabel: "給与",
-        items: [
-          { href: "/system/deductions", label: "控除" },
-          { href: "/system/allowances", label: "手当" },
-          { href: "/system/referral-rewards", label: "広告費" },
-        ],
-      },
-      {
-        groupLabel: "設定",
-        items: [
-          { href: "/system/page-content", label: "料金ページ文言" },
-          { href: "/settings/notifications", label: "スマホ通知" },
-          { href: "/settings/phone", label: "電話（SUBLINE）" },
-        ],
-      },
-    ],
   },
   {
     label: "引き継ぎセンター",

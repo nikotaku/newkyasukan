@@ -4,7 +4,7 @@
 // ここで保存した値が、セラピストのマイページの「バック表」・HPの料金・予約入力・面談用ページ・予約案内ページにそのまま出る。
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, History, Loader2, Pencil, Plus, RotateCcw, Save, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, FileText, History, Loader2, Pencil, Plus, RotateCcw, Save, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { AdminPageShell } from "@/components/AdminPageShell";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,7 @@ import {
   type RateKind,
   type RateRow,
 } from "@/lib/rateMaster";
+import { rateSheetPdf, rateSheetPng, renderRateSheet, saveBlob, type SheetSection } from "@/lib/rateSheet";
 
 const yen = (value: number) => `¥${value.toLocaleString()}`;
 
@@ -109,7 +110,53 @@ function formatWhen(iso: string) {
 
 const ACTION_LABEL = { insert: "追加", update: "変更", delete: "削除" } as const;
 
-export default function SystemRateMaster() {
+/** 設定ダッシュボードのタブ：all＝正本（全部・画像/PDF保存）、それ以外はその種類だけ */
+export type RateSection = "all" | "course" | "option" | "nomination" | "discount" | "payment";
+
+const SECTION_TABLE: Record<Exclude<RateSection, "all">, string> = {
+  course: "back_rates",
+  option: "option_rates",
+  nomination: "nomination_rates",
+  discount: "discounts",
+  payment: "payment_settings",
+};
+
+const SECTION_TITLE: Record<RateSection, string> = {
+  all: "料金・割引・決済（正本）",
+  course: "コース・バック",
+  option: "オプション",
+  nomination: "指名",
+  discount: "割引",
+  payment: "決済方法",
+};
+
+interface PayItem {
+  id: string;
+  name: string;
+  kind: "fixed" | "percentage";
+  amount: number;
+  note: string;
+  active: boolean;
+}
+
+const payItemValue = (item: PayItem) => (item.kind === "percentage" ? `${item.amount}%` : yen(item.amount));
+
+function toPayItems(rows: unknown[] | null, typeKey: string | null, noteKey: string | null): PayItem[] {
+  return (rows ?? []).map((raw) => {
+    const row = raw as Record<string, unknown>;
+    const type = typeKey ? String(row[typeKey] ?? "fixed") : "fixed";
+    return {
+      id: String(row.id),
+      name: String(row.name ?? ""),
+      kind: type === "percentage" || type === "percent" ? "percentage" : "fixed",
+      amount: Number(row.amount) || 0,
+      note: noteKey ? String(row[noteKey] ?? "") : "",
+      active: row.is_active !== false,
+    };
+  });
+}
+
+export default function SystemRateMaster({ embedded = false, section = "all" }: { embedded?: boolean; section?: RateSection } = {}) {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -124,6 +171,16 @@ export default function SystemRateMaster() {
   const [changes, setChanges] = useState<RateChangeRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deductions, setDeductions] = useState<PayItem[]>([]);
+  const [allowances, setAllowances] = useState<PayItem[]>([]);
+  const [referrals, setReferrals] = useState<PayItem[]>([]);
+  const [exporting, setExporting] = useState<"png" | "pdf" | null>(null);
+
+  const isAll = section === "all";
+  const showKind = (kind: RateKind) => isAll || section === kind;
+  const showDiscount = isAll || section === "discount";
+  const showPayment = isAll || section === "payment";
+  const showRateTable = RATE_KINDS.some(showKind);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -146,6 +203,15 @@ export default function SystemRateMaster() {
         .select("id, changed_at, changed_by_email, table_name, action, item_label, changes")
         .order("changed_at", { ascending: false }).limit(100),
     ]);
+    const [deductionRes, allowanceRes, referralRes] = await Promise.all([
+      supabase.from("deductions").select("id, name, deduction_type, amount, is_active, rule").order("name"),
+      (supabase.from as unknown as (table: string) => ReturnType<typeof supabase.from>)("allowances")
+        .select("id, name, allowance_type, amount, is_active").order("name"),
+      supabase.from("referral_rewards").select("id, name, amount, note, is_active").order("name"),
+    ]);
+    setDeductions(toPayItems(deductionRes.data as unknown[] | null, "deduction_type", "rule"));
+    setAllowances(toPayItems(allowanceRes.data as unknown[] | null, "allowance_type", null));
+    setReferrals(toPayItems(referralRes.data as unknown[] | null, null, "note"));
     const error = courses.error || options.error || nominations.error || discountRes.error || paymentRes.error;
     if (error) toast.error(`正本を読めませんでした：${error.message}`);
     const loadedRates = rowsFromRecords(
@@ -303,14 +369,74 @@ export default function SystemRateMaster() {
 
   const viewRates = (kind: RateKind) => rates.filter((row) => row.kind === kind);
 
+  // 正本を1枚の画像・PDFにする（保存済みの内容で描く）
+  const sheetSections = (): SheetSection[] => {
+    const rateSection = (kind: RateKind): SheetSection => ({
+      title: RATE_KIND_LABEL[kind],
+      headers: ["内容", "料金", "バック", "店落ち"],
+      accentColumn: 2,
+      rows: savedRates.filter((row) => row.kind === kind).map((row) => [
+        `${row.kind === "course" ? `${row.name} ${row.minutes}分` : row.name}${row.visible ? "" : "（HP非表示）"}`,
+        yen(row.price),
+        row.back && row.back > 0 ? yen(row.back) : "なし",
+        yen(shopBack(row)),
+      ]),
+    });
+    const payItems = (title: string, items: PayItem[], noteHeader: string): SheetSection => ({
+      title,
+      headers: ["名前", "金額", noteHeader],
+      align: ["left", "right", "left"],
+      rows: items.filter((item) => item.active).map((item) => [item.name, payItemValue(item), item.note]),
+    });
+    return [
+      ...RATE_KINDS.map(rateSection),
+      {
+        title: "割引",
+        headers: ["名前", "割引"],
+        accentColumn: 1,
+        rows: savedDiscounts.filter((row) => row.active).map((row) => [row.name, discountValueLabel(row)]),
+      },
+      {
+        title: "決済方法",
+        headers: ["名前", "手数料"],
+        rows: savedPayments.map((row) => [row.method, `${row.fee}%`]),
+        note: "手数料はお客様のご負担",
+      },
+      payItems("控除", deductions, "決まり"),
+      payItems("手当", allowances, ""),
+      payItems("広告費（紹介）", referrals, "メモ"),
+    ];
+  };
+
+  const exportSheet = async (kind: "png" | "pdf") => {
+    setExporting(kind);
+    try {
+      const today = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
+      const canvas = renderRateSheet({ title: "料金・割引・決済（正本）", subtitle: `${today} 時点`, sections: sheetSections() });
+      const stamp = today.replace(/\//g, "");
+      if (kind === "png") await saveBlob(await rateSheetPng(canvas), `料金正本_${stamp}.png`);
+      else await saveBlob(await rateSheetPdf(canvas), `料金正本_${stamp}.pdf`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "保存できませんでした");
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const visibleChanges = isAll ? changes : changes.filter((change) => change.table_name === SECTION_TABLE[section as Exclude<RateSection, "all">]);
+
   return (
-    <AdminPageShell mainClassName="p-3 sm:p-6">
+    <AdminPageShell embedded={embedded} mainClassName="p-3 sm:p-6">
       <div className="mx-auto max-w-4xl space-y-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-xl font-bold">料金・割引・決済（正本）</h1>
+            {embedded
+              ? <h2 className="text-lg font-bold">{SECTION_TITLE[section]}</h2>
+              : <h1 className="text-xl font-bold">{SECTION_TITLE[section]}</h1>}
             <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-              コース・オプション・指名・割引・決済方法の元になる表です。ここで直すと、マイページのバック表・HPの料金・予約入力・面談用ページ・予約案内ページに反映されます。
+              {isAll
+                ? "コース・オプション・指名・割引・決済方法の元になる表です。ここで直すと、マイページのバック表・HPの料金・予約入力・面談用ページ・予約案内ページに反映されます。"
+                : "ここで直すと、正本（ALL）と、マイページのバック表・HPの料金・予約入力などにそのまま反映されます。"}
             </p>
           </div>
           {!editing && (
@@ -320,17 +446,27 @@ export default function SystemRateMaster() {
           )}
         </div>
 
+        {isAll && !editing && !loading && (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" disabled={exporting !== null} onClick={() => void exportSheet("png")}>
+              {exporting === "png" ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}画像で保存
+            </Button>
+            <Button variant="outline" size="sm" disabled={exporting !== null} onClick={() => void exportSheet("pdf")}>
+              {exporting === "pdf" ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileText className="mr-1.5 h-4 w-4" />}PDFで保存
+            </Button>
+          </div>
+        )}
         {loading ? (
           <div className="py-16 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></div>
         ) : !editing ? (
           <>
-            {RATE_KINDS.map((kind) => viewRates(kind).length > 0 && (
+            {RATE_KINDS.filter(showKind).map((kind) => (isAll ? viewRates(kind).length > 0 : true) && (
               <ViewSection key={kind} title={RATE_KIND_LABEL[kind]}>
                 <RateView rows={viewRates(kind)} />
               </ViewSection>
             ))}
 
-            <ViewSection title="割引">
+            {showDiscount && <ViewSection title="割引">
               <div className="grid grid-cols-[1fr_7rem] gap-2 bg-muted/50 px-4 py-2 text-xs font-bold text-muted-foreground">
                 <span>名前</span><span className="text-right">割引</span>
               </div>
@@ -341,9 +477,9 @@ export default function SystemRateMaster() {
                   <span className="text-right font-bold tabular-nums text-rose-600">{discountValueLabel(row)}</span>
                 </div>
               ))}
-            </ViewSection>
+            </ViewSection>}
 
-            <ViewSection title="決済方法">
+            {showPayment && <ViewSection title="決済方法">
               <div className="grid grid-cols-[1fr_5rem_6rem] gap-2 bg-muted/50 px-4 py-2 text-xs font-bold text-muted-foreground">
                 <span>名前</span><span className="text-right">手数料</span><span className="text-right">決済リンク</span>
               </div>
@@ -355,14 +491,37 @@ export default function SystemRateMaster() {
                 </div>
               ))}
               <p className="border-t px-4 py-2 text-[11px] text-muted-foreground">手数料はお客様のご負担。決済リンクとお客様への手順は予約案内ページに出ます。</p>
-            </ViewSection>
+            </ViewSection>}
+
+            {isAll && ([
+              ["控除", deductions, "決まり"],
+              ["手当", allowances, ""],
+              ["広告費（紹介）", referrals, "メモ"],
+            ] as const).map(([title, items, noteLabel]) => (
+              <ViewSection key={title} title={title}>
+                <div className="grid grid-cols-[1fr_6rem] gap-2 bg-muted/50 px-4 py-2 text-xs font-bold text-muted-foreground">
+                  <span>名前{noteLabel ? `・${noteLabel}` : ""}</span><span className="text-right">金額</span>
+                </div>
+                {items.length === 0 && <p className="border-t px-4 py-3 text-sm text-muted-foreground">なし</p>}
+                {items.map((item) => (
+                  <div key={item.id} className={`grid grid-cols-[1fr_6rem] items-center gap-2 border-t px-4 py-3 text-sm ${item.active ? "" : "opacity-50"}`}>
+                    <span className="min-w-0">
+                      {item.name}
+                      {item.note && <span className="block text-[11px] text-muted-foreground">{item.note}</span>}
+                    </span>
+                    <span className="text-right tabular-nums">{payItemValue(item)}</span>
+                  </div>
+                ))}
+                <p className="border-t px-4 py-2 text-[11px] text-muted-foreground">直すときは上の「{title === "広告費（紹介）" ? "広告費" : title}」のタブから</p>
+              </ViewSection>
+            ))}
 
             <section>
               <h2 className="mb-2 flex items-center gap-1.5 text-base font-bold"><History className="h-4 w-4" />変更の記録</h2>
               <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-                {changes.length === 0 ? (
+                {visibleChanges.length === 0 ? (
                   <p className="px-4 py-4 text-sm text-muted-foreground">まだ記録はありません（2026年11月18日から記録しています）</p>
-                ) : changes.map((change) => {
+                ) : visibleChanges.map((change) => {
                   const lines = describeRateChange(change);
                   return (
                     <div key={change.id} className="border-t px-4 py-2.5 text-sm first:border-t-0">
@@ -412,7 +571,7 @@ export default function SystemRateMaster() {
               </div>
             )}
 
-            <div className="overflow-x-auto rounded-lg border bg-card">
+            {showRateTable && <div className="overflow-x-auto rounded-lg border bg-card">
               <table className="w-full min-w-[860px] border-collapse text-sm">
                 <thead className="bg-muted/60 text-xs text-muted-foreground">
                   <tr>
@@ -427,7 +586,7 @@ export default function SystemRateMaster() {
                   </tr>
                 </thead>
                 <tbody>
-                  {RATE_KINDS.map((kind) => {
+                  {RATE_KINDS.filter(showKind).map((kind) => {
                     const kindRows = rates.filter((row) => row.kind === kind);
                     return [
                       <tr key={`${kind}-head`} className="border-t bg-muted/30">
@@ -497,9 +656,9 @@ export default function SystemRateMaster() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </div>}
 
-            <section className="space-y-2">
+            {showDiscount && <section className="space-y-2">
               <h2 className="text-base font-bold">割引</h2>
               <div className="space-y-2">
                 {discounts.map((row, index) => {
@@ -530,9 +689,9 @@ export default function SystemRateMaster() {
                 })}
               </div>
               <Button type="button" variant="ghost" size="sm" onClick={addDiscount}><Plus className="mr-1 h-4 w-4" />割引を足す</Button>
-            </section>
+            </section>}
 
-            <section className="space-y-2">
+            {showPayment && <section className="space-y-2">
               <h2 className="text-base font-bold">決済方法</h2>
               {payments.map((row) => {
                 const changed = paymentPlan.updates.some((item) => item.id === row.id);
@@ -552,7 +711,7 @@ export default function SystemRateMaster() {
                   </div>
                 );
               })}
-            </section>
+            </section>}
 
             <p className="text-xs text-muted-foreground">
               黄色はまだ保存していない変更です。名前を変えると、これまでの予約に入っている名前とは別のものになります（過去の予約の金額は変わりません）。保存すると「変更の記録」に残ります。

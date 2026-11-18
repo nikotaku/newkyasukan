@@ -329,6 +329,9 @@ export const CHANGE_TABLE_LABEL: Record<string, string> = {
   nomination_rates: "指名",
   discounts: "割引",
   payment_settings: "決済方法",
+  deductions: "控除",
+  allowances: "手当",
+  referral_rewards: "広告費",
 };
 
 const FIELD_LABEL: Record<string, string> = {
@@ -350,9 +353,14 @@ const FIELD_LABEL: Record<string, string> = {
   fee_percentage: "手数料",
   payment_link: "決済リンク",
   customer_guide: "お客様への手順",
+  amount: "金額",
+  deduction_type: "種類",
+  allowance_type: "種類",
+  rule: "決まり",
+  note: "メモ",
 };
 
-const MONEY_FIELDS = new Set(["customer_price", "therapist_back"]);
+const MONEY_FIELDS = new Set(["customer_price", "therapist_back", "amount"]);
 
 function fieldValue(field: string, value: unknown): string {
   if (value === null || value === undefined || value === "") return "なし";
@@ -360,6 +368,7 @@ function fieldValue(field: string, value: unknown): string {
   if (MONEY_FIELDS.has(field) && Number.isFinite(Number(value))) return `¥${Number(value).toLocaleString()}`;
   if ((field === "duration" || field === "extension_minutes") && Number.isFinite(Number(value))) return `${Number(value)}分`;
   if (field === "fee_percentage") return `${Number(value)}%`;
+  if (field === "deduction_type" || field === "allowance_type") return value === "percentage" ? "％" : "円";
   if (field === "discount_type") return value === "percentage" || value === "percent" ? "％引き" : "円引き";
   const text = String(value).replace(/\s+/g, " ");
   return text.length > 40 ? `${text.slice(0, 40)}…` : text;
@@ -376,6 +385,6 @@ export function describeRateChange(record: RateChangeRecord): string[] {
         return `${FIELD_LABEL[field] ?? field}：${fieldValue(field, before)} → ${fieldValue(field, after)}`;
       });
   }
-  const keys = ["customer_price", "therapist_back", "discount_value", "fee_percentage"].filter((key) => key in changes);
+  const keys = ["customer_price", "therapist_back", "discount_value", "fee_percentage", "amount"].filter((key) => key in changes);
   return keys.map((key) => `${FIELD_LABEL[key]}：${fieldValue(key, changes[key])}`);
 }
