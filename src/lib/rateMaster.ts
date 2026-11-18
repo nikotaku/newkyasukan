@@ -1,4 +1,4 @@
-// 料金・バック表（正本）：コース（back_rates）・オプション（option_rates）・指名（nomination_rates）を
+// 料金・割引・決済（正本）：コース（back_rates）・オプション（option_rates）・指名（nomination_rates）を
 // 1枚の表で直すための計算。ここで直した値が、セラピストのマイページのバック表・HPの料金・予約入力・面談用ページに出る。
 
 export type RateKind = "course" | "option" | "nomination";
@@ -177,4 +177,205 @@ export function therapistBackSections(table: TherapistBackTable | null): BackSec
       rows: (table.nominations ?? []).map((row, index) => ({ key: `n${index}`, label: row.name, back: back(row.back) })),
     },
   ].filter((section) => section.rows.length > 0);
+}
+
+// ───────── 割引・決済方法（同じ正本のページで直す） ─────────
+
+export type DiscountType = "fixed" | "percentage";
+
+export interface DiscountRecord {
+  id: string;
+  name: string;
+  discount_type: string;
+  discount_value: number | string;
+  is_active: boolean | null;
+  display_order: number | null;
+}
+
+export interface DiscountRow {
+  key: string;
+  id: string | null;
+  name: string;
+  type: DiscountType;
+  value: number;
+  active: boolean;
+}
+
+export interface PaymentRecord {
+  id: string;
+  payment_method: string;
+  fee_percentage: number | string;
+  payment_link: string | null;
+  customer_guide: string | null;
+  is_active: boolean | null;
+}
+
+export interface PaymentRow {
+  id: string;
+  method: string;
+  fee: number;
+  link: string;
+  guide: string;
+  active: boolean;
+}
+
+export function discountRowsFromRecords(records: DiscountRecord[]): DiscountRow[] {
+  return records.map((row) => ({
+    key: row.id,
+    id: row.id,
+    name: row.name ?? "",
+    type: row.discount_type === "percentage" || row.discount_type === "percent" ? "percentage" : "fixed",
+    value: Number(row.discount_value) || 0,
+    active: row.is_active !== false,
+  }));
+}
+
+export function paymentRowsFromRecords(records: PaymentRecord[]): PaymentRow[] {
+  return records.map((row) => ({
+    id: row.id,
+    method: row.payment_method,
+    fee: Number(row.fee_percentage) || 0,
+    link: row.payment_link ?? "",
+    guide: row.customer_guide ?? "",
+    active: row.is_active !== false,
+  }));
+}
+
+/** 割引の中身（¥1,000引き / 10%OFF） */
+export function discountValueLabel(row: Pick<DiscountRow, "type" | "value">): string {
+  if (row.type === "percentage") return `${row.value}%OFF`;
+  return row.value > 0 ? `¥${row.value.toLocaleString()}引き` : "金額の割引なし";
+}
+
+export function validateDiscountRows(rows: DiscountRow[]): string[] {
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const label = `割引「${row.name || "（名前なし）"}」`;
+    if (!row.name.trim()) errors.push("割引に名前が空の行があります");
+    if (!Number.isFinite(row.value) || row.value < 0) errors.push(`${label}の値が正しくありません`);
+    if (row.type === "percentage" && row.value > 100) errors.push(`${label}の％は100までです`);
+    if (row.name.trim() && seen.has(row.name.trim())) errors.push(`${label}が2行あります`);
+    seen.add(row.name.trim());
+  }
+  return errors;
+}
+
+export function validatePaymentRows(rows: PaymentRow[]): string[] {
+  const errors: string[] = [];
+  for (const row of rows) {
+    if (!Number.isFinite(row.fee) || row.fee < 0 || row.fee > 100) errors.push(`決済方法「${row.method}」の手数料は0〜100％で入れてください`);
+    if (row.link.trim() && !/^https?:\/\//i.test(row.link.trim())) errors.push(`決済方法「${row.method}」の決済リンクは https:// から入れてください`);
+  }
+  return errors;
+}
+
+type SimplePayload = Record<string, string | number | boolean | null>;
+
+export interface SimpleSavePlan {
+  inserts: SimplePayload[];
+  updates: Array<{ id: string; payload: SimplePayload }>;
+  deletes: string[];
+}
+
+function discountPayload(row: DiscountRow, order: number): SimplePayload {
+  return { name: row.name.trim(), discount_type: row.type, discount_value: row.value, is_active: row.active, display_order: order };
+}
+
+/** 割引：足す・直す・消す（並び順は display_order に 1, 2, … と入れる） */
+export function planDiscountSave(before: DiscountRow[], after: DiscountRow[]): SimpleSavePlan {
+  const beforeById = new Map(before.map((row, index) => [row.id, discountPayload(row, index + 1)]));
+  const plan: SimpleSavePlan = { inserts: [], updates: [], deletes: [] };
+  after.forEach((row, index) => {
+    const payload = discountPayload(row, index + 1);
+    if (!row.id) { plan.inserts.push(payload); return; }
+    const previous = beforeById.get(row.id);
+    if (!previous || JSON.stringify(previous) !== JSON.stringify(payload)) plan.updates.push({ id: row.id, payload });
+  });
+  const kept = new Set(after.map((row) => row.id).filter(Boolean));
+  plan.deletes = before.map((row) => row.id).filter((id): id is string => !!id && !kept.has(id));
+  return plan;
+}
+
+function paymentPayload(row: PaymentRow): SimplePayload {
+  // is_active はほかの画面で使っていないので送らない
+  return { fee_percentage: row.fee, payment_link: row.link.trim() || null, customer_guide: row.guide.trim() || null };
+}
+
+/** 決済方法：直したものだけ（足す・消すは無し） */
+export function planPaymentSave(before: PaymentRow[], after: PaymentRow[]): SimpleSavePlan {
+  const beforeById = new Map(before.map((row) => [row.id, paymentPayload(row)]));
+  const updates = after
+    .map((row) => ({ id: row.id, payload: paymentPayload(row) }))
+    .filter(({ id, payload }) => JSON.stringify(beforeById.get(id)) !== JSON.stringify(payload));
+  return { inserts: [], updates, deletes: [] };
+}
+
+// ───────── 変更の記録（rate_master_changes） ─────────
+
+export interface RateChangeRecord {
+  id: number;
+  changed_at: string;
+  changed_by_email: string | null;
+  table_name: string;
+  action: "insert" | "update" | "delete";
+  item_label: string;
+  changes: Record<string, unknown>;
+}
+
+export const CHANGE_TABLE_LABEL: Record<string, string> = {
+  back_rates: "コース",
+  option_rates: "オプション",
+  nomination_rates: "指名",
+  discounts: "割引",
+  payment_settings: "決済方法",
+};
+
+const FIELD_LABEL: Record<string, string> = {
+  course_type: "名前",
+  option_name: "名前",
+  nomination_type: "名前",
+  name: "名前",
+  payment_method: "名前",
+  duration: "時間",
+  extension_minutes: "延長の時間",
+  customer_price: "料金",
+  therapist_back: "バック",
+  is_visible: "HP表示",
+  description: "説明",
+  display_order: "並び順",
+  discount_type: "割引の種類",
+  discount_value: "割引の値",
+  is_active: "使う",
+  fee_percentage: "手数料",
+  payment_link: "決済リンク",
+  customer_guide: "お客様への手順",
+};
+
+const MONEY_FIELDS = new Set(["customer_price", "therapist_back"]);
+
+function fieldValue(field: string, value: unknown): string {
+  if (value === null || value === undefined || value === "") return "なし";
+  if (typeof value === "boolean") return value ? "オン" : "オフ";
+  if (MONEY_FIELDS.has(field) && Number.isFinite(Number(value))) return `¥${Number(value).toLocaleString()}`;
+  if ((field === "duration" || field === "extension_minutes") && Number.isFinite(Number(value))) return `${Number(value)}分`;
+  if (field === "fee_percentage") return `${Number(value)}%`;
+  if (field === "discount_type") return value === "percentage" || value === "percent" ? "％引き" : "円引き";
+  const text = String(value).replace(/\s+/g, " ");
+  return text.length > 40 ? `${text.slice(0, 40)}…` : text;
+}
+
+/** 記録1件を「料金：¥15,000 → ¥16,000」の行に。足した・消したときは主な中身だけ */
+export function describeRateChange(record: RateChangeRecord): string[] {
+  const changes = record.changes ?? {};
+  if (record.action === "update") {
+    return Object.entries(changes)
+      .filter(([field]) => field !== "display_order" || Object.keys(changes).length === 1)
+      .map(([field, diff]) => {
+        const { before, after } = (diff ?? {}) as { before?: unknown; after?: unknown };
+        return `${FIELD_LABEL[field] ?? field}：${fieldValue(field, before)} → ${fieldValue(field, after)}`;
+      });
+  }
+  const keys = ["customer_price", "therapist_back", "discount_value", "fee_percentage"].filter((key) => key in changes);
+  return keys.map((key) => `${FIELD_LABEL[key]}：${fieldValue(key, changes[key])}`);
 }
