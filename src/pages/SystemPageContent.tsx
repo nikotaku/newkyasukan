@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +20,7 @@ const FIELDS: { key: string; label: string; type: "input" | "textarea"; rows?: n
   { key: "system_notice_text", label: "NOTICE セクションの本文", type: "textarea", rows: 14 },
 ];
 
-export default function SystemPageContent() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default function SystemPageContent({ embedded = false }: { embedded?: boolean } = {}) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -59,10 +57,7 @@ export default function SystemPageContent() {
   const set = (key: string, v: string) => setValues((p) => ({ ...p, [key]: v }));
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-[60px] md:ml-[240px] p-6">
+    <AdminPageShell embedded={embedded} mainClassName="p-6">
         <div className="max-w-3xl mx-auto">
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -102,7 +97,6 @@ export default function SystemPageContent() {
             </Card>
           )}
         </div>
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

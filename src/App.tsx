@@ -84,13 +84,9 @@ import SalesMonthlySalesTarget from "./pages/SalesMonthlySalesTarget";
 import SalesDailySalesTarget from "./pages/SalesDailySalesTarget";
 import SalesExpenseInput from "./pages/SalesExpenseInput";
 import SalesMonthlyClosing from "./pages/SalesMonthlyClosing";
-import SystemRateMaster from "./pages/SystemRateMaster";
-import SystemDeductions from "./pages/SystemDeductions";
-import SystemReferralRewards from "./pages/SystemReferralRewards";
-import SystemAllowances from "./pages/SystemAllowances";
+import SettingsDashboard from "./pages/SettingsDashboard";
 import SystemSMS from "./pages/SystemSMS";
 import SystemSMSAuto from "./pages/SystemSMSAuto";
-import SystemPageContent from "./pages/SystemPageContent";
 import TherapistCheckout from "./pages/TherapistCheckout";
 import TherapistCleaningReport from "./pages/TherapistCleaningReport";
 import SNSDatabase from "./pages/SNSDatabase";
@@ -114,8 +110,6 @@ import Tasks from "./pages/Tasks";
 import SmsInbox from "./pages/SmsInbox";
 import LineInbox from "./pages/LineInbox";
 import TherapistNotices from "./pages/TherapistNotices";
-import NotificationSettings from "./pages/NotificationSettings";
-import PhoneSettings from "./pages/PhoneSettings";
 import Bios from "./pages/Bios";
 import CtiCalls from "./pages/CtiCalls";
 import CustomerDetail from "./pages/CustomerDetail";
@@ -265,19 +259,19 @@ const App = () => {
           <Route path="/sales/monthly-target" element={<SalesMonthlySalesTarget />} />
           <Route path="/sales/daily-target" element={<SalesDailySalesTarget />} />
           <Route path="/sales/expense-input" element={<SalesExpenseInput />} />
-          <Route path="/system/rate-master" element={<SystemRateMaster />} />
-          {/* コース・オプションは料金の正本（/system/rate-master）で直す */}
-          <Route path="/system/courses" element={<Navigate to="/system/rate-master" replace />} />
-          <Route path="/system/options" element={<Navigate to="/system/rate-master" replace />} />
-          {/* 割引・決済方法は料金の正本（/system/rate-master）にまとめた */}
-          <Route path="/system/discounts" element={<Navigate to="/system/rate-master" replace />} />
-          <Route path="/system/payment-methods" element={<Navigate to="/system/rate-master" replace />} />
-          <Route path="/system/deductions" element={<SystemDeductions />} />
-          <Route path="/system/allowances" element={<SystemAllowances />} />
-          <Route path="/system/referral-rewards" element={<SystemReferralRewards />} />
+          {/* システムの設定は設定ダッシュボード（/system/dashboard?tab=…）にまとめた。以前のURLは該当のタブへ */}
+          <Route path="/system/dashboard" element={<SettingsDashboard />} />
+          <Route path="/system/rate-master" element={<Navigate to="/system/dashboard?tab=all" replace />} />
+          <Route path="/system/courses" element={<Navigate to="/system/dashboard?tab=course" replace />} />
+          <Route path="/system/options" element={<Navigate to="/system/dashboard?tab=option" replace />} />
+          <Route path="/system/discounts" element={<Navigate to="/system/dashboard?tab=discount" replace />} />
+          <Route path="/system/payment-methods" element={<Navigate to="/system/dashboard?tab=payment" replace />} />
+          <Route path="/system/deductions" element={<Navigate to="/system/dashboard?tab=deduction" replace />} />
+          <Route path="/system/allowances" element={<Navigate to="/system/dashboard?tab=allowance" replace />} />
+          <Route path="/system/referral-rewards" element={<Navigate to="/system/dashboard?tab=referral" replace />} />
           <Route path="/system/sms" element={<SystemSMS />} />
           <Route path="/system/sms-auto" element={<SystemSMSAuto />} />
-          <Route path="/system/page-content" element={<SystemPageContent />} />
+          <Route path="/system/page-content" element={<Navigate to="/system/dashboard?tab=page" replace />} />
           <Route path="/database/knowledge/sns" element={<SNSDatabase />} />
           <Route path="/database/therapist/mypage" element={<TherapistMyPage />} />
           <Route path="/database/customers" element={<CustomerDatabase />} />
@@ -302,8 +296,8 @@ const App = () => {
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/sms" element={<SmsInbox />} />
           <Route path="/line-inbox" element={<LineInbox />} />
-          <Route path="/settings/notifications" element={<NotificationSettings />} />
-          <Route path="/settings/phone" element={<PhoneSettings />} />
+          <Route path="/settings/notifications" element={<Navigate to="/system/dashboard?tab=notifications" replace />} />
+          <Route path="/settings/phone" element={<Navigate to="/system/dashboard?tab=phone" replace />} />
           <Route path="/bios" element={<Bios />} />
           <Route path="/panel-manual" element={<PanelPhotoManual />} />
           <Route path="/service-manual" element={<CustomerServiceManual />} />

@@ -170,9 +170,17 @@
 - 結果は `estama_cover_rotations`（1日1行、RPC `start_estama_cover_rotation` / `finish_estama_cover_rotation`）。出た人は露出ノルマの「エスたまトップバナー」（`promotion_exposures`）に自動で記録。バナーが枠より少ない日は余った枠をそのままにする（`server/estama-cover-slots.ts`、テスト `npm run test:estama`）
 - エステ魂の管理画面の作りを確かめるときは `inspect-urls` に `selectors`（要素のHTML）・`scriptKeywords`（スクリプト）を付けられる（読むだけ）
 
-## 料金・割引・決済（正本 /system/rate-master）
+## 設定ダッシュボード（/system/dashboard）
 
-- コース（`back_rates`）・オプション（`option_rates`）・指名（`nomination_rates`）・割引（`discounts`）・決済方法（`payment_settings`）を1ページにまとめた（`src/pages/SystemRateMaster.tsx`、計算は `src/lib/rateMaster.ts`、テスト `npm run test:rate-master`）。ふだんは面談用ページと同じ「内容／料金／バック／店落ち」の見るだけの表、右上の「編集」（`?edit=1`）で編集画面になり、まとめて保存する。以前の「各種割引」（`/system/discounts`）・「決済方法」（`/system/payment-methods`）は廃止してここへ転送
+- サイドバーの「設定ダッシュボード」1つにシステムの設定をまとめた（`src/pages/SettingsDashboard.tsx`、HPダッシュボードと同じ作り・`?tab=`）。タブ：ALL（正本）／コースバック（course）／オプション（option）／指名（nomination）／割引（discount）／決済（payment）／控除（deduction）／手当（allowance）／広告費（referral）／料金ページ文言（page）／スマホ通知（notifications）／電話（phone）。中身は各ページを `embedded` で入れている（外枠は `AdminPageShell`）
+- コースバック〜決済のタブは正本（`SystemRateMaster` の `section`）の一部だけを見る・編集する。直すと正本（ALL）にそのまま出る（同じ表）
+- **ALL は画像・PDFで保存できる**：保存済みの内容（コース・オプション・指名・割引・決済方法・控除・手当・広告費）を canvas に描いて PNG、PDF は A4 縦で切って JPEG を並べた PDF（外部ライブラリなし、`src/lib/rateSheet.ts`、テスト `npm run test:rate-master`）。iPhone は共有シートで保存
+- 以前のURL（`/system/rate-master`・`/system/courses`・`/system/options`・`/system/discounts`・`/system/payment-methods`・`/system/deductions`・`/system/allowances`・`/system/referral-rewards`・`/system/page-content`・`/settings/notifications`・`/settings/phone`）は該当のタブへ転送
+- 手当の表 `allowances` は本番に無く手当の画面が動いていなかったので、2026-11-18 に店舗ごとの表として作った（`20261118120000_allowances_and_pay_change_log.sql`）。控除・手当・広告費の変更も「変更の記録」（`rate_master_changes`）に残る
+
+## 料金・割引・決済（正本 /system/dashboard?tab=all）
+
+- コース（`back_rates`）・オプション（`option_rates`）・指名（`nomination_rates`）・割引（`discounts`）・決済方法（`payment_settings`）を1ページにまとめた（`src/pages/SystemRateMaster.tsx`、計算は `src/lib/rateMaster.ts`、テスト `npm run test:rate-master`）。ふだんは面談用ページと同じ「内容／料金／バック／店落ち」の見るだけの表、右上の「編集」（`?edit=1`）で編集画面になり、まとめて保存する
 - 決済方法は手数料・決済リンク・お客様への手順だけ直す（`payment_settings.is_active` はほかの画面で使っていないので出さない）。割引の「使う」は予約入力の選択肢に効く。割引の並び順は `display_order` に 1, 2, …
 - **変更の記録**：5つの表のどれを、どの画面から直しても、DBトリガー `trg_log_rate_master_change`（`private.log_rate_master_change()`）が `rate_master_changes`（いつ・誰（メール）・どの表・どの行・追加/変更/削除・変わった項目の前後）に残す。正本のページの下に新しい順で100件出す。authenticated は自分の店舗の分を読むだけ（`20261118100000_rate_master_change_log.sql`）
 
@@ -184,7 +192,7 @@
 - 予約のルーム（`reservations.room`）が空なら、そのセラピストのその日の出勤（`shifts.room`、1つに決まるときだけ）を入れる。WEB予約・専用フォームはルームを選ばずに入るため。予約表（`/admin-schedule`）を開いたときに埋めて保存し、新規予約・編集でセラピストを選んだときも入れる（`src/lib/reservationRoom.ts`、テスト `npm run test:reservation-room`）。DBトリガー `trg_reservations_default_room`（`20261010150000_reservation_default_room.sql`）でも予約が入った瞬間に入れる
 - 来店時のお願いは `rooms.caution_text`
 - **ルームの注意とお客様の確認**：予約表の予約詳細に、ルームが空・ルーム管理に無い名前（案内ページに住所が出ない）・そのセラピストのその日の出勤のルームと違う、を赤で出す（`roomIssue`）。案内ページの「予約内容を確認しました」（RPC `confirm_reservation_guide(p_token)`、anon可）で `reservations.guide_confirmed_at` / `guide_confirmed_room` が入り、予約詳細に「お客様が確認済み」、予約表のタイムラインの予約の時間の横に緑の「✓確認」（確認後にルームが変わったら黄色の「再確認」）。確認の後にルームを変えたら「もう一度確認してもらって」と出す（`guideConfirmation`、`get_reservation_guide` の `confirmed_at` も空に戻る）。ルームが空の予約の案内ページは確認ボタンを出さない
-- **お支払いのご案内**：カード・PayPayの予約（`reservations.payment_method`、分割払いなら `payment_details` のカード・PayPay分）だけ、手数料込みの金額・手順・決済リンクのボタンを出す。RPC の `payments`（[{ method, amount, fee, link, guide }]、画面用の整形は `src/lib/reservationGuidePayment.ts`）。リンクと手順は `payment_settings.payment_link` / `customer_guide`（1行に1つ）で、システム →「料金・割引・決済（正本）」の編集で直す。カードの手順はたたき台なので、決済ページの実際の表示に合わせて直す
+- **お支払いのご案内**：カード・PayPayの予約（`reservations.payment_method`、分割払いなら `payment_details` のカード・PayPay分）だけ、手数料込みの金額・手順・決済リンクのボタンを出す。RPC の `payments`（[{ method, amount, fee, link, guide }]、画面用の整形は `src/lib/reservationGuidePayment.ts`）。リンクと手順は `payment_settings.payment_link` / `customer_guide`（1行に1つ）で、設定ダッシュボードの「決済」タブの編集で直す。カードの手順はたたき台なので、決済ページの実際の表示に合わせて直す
 - 予約確認SMSの `{payment_guide}` は、カード・PayPayの予約だけ「リンクを開くと決済方法の案内が出ます」になる（それ以外は行ごと消える。`send-sms/template.ts` の `paymentGuideNote`）
 - PayPayの個人アカウントへの送金（ID検索）でお店の代金を受け取るのはPayPayの規約で禁止（アカウント停止のおそれ）。受け取るなら PayPay for Business の店舗用QR・決済リンクにする
 - テスト: `npm run test:reservation-guide-payment`
@@ -255,7 +263,7 @@
 
 ## 電話（SUBLINE）
 
-- 店の電話はIVRyから SUBLINE（050番号アプリ、株式会社インターパーク）に乗り換え。設定は `/settings/phone`（`src/pages/PhoneSettings.tsx`、サイドバーの システム → 設定 → 電話（SUBLINE））
+- 店の電話はIVRyから SUBLINE（050番号アプリ、株式会社インターパーク）に乗り換え。設定は設定ダッシュボードの「電話」タブ（`src/pages/PhoneSettings.tsx`）
 - SUBLINEは汎用のAPIを公開していない（ヘルプ「SUBLINEでできないこと」）。使えるのは公式kintoneプラグインと同じ2つだけ：`GET https://api.subline.jp/v1/setting/member/`（メンバー・050番号・外部連携オンなら device_id）と `POST /v1/push-call/`（そのメンバーのスマホへ発信の通知）。認証はヘッダー `x-subline-token`（SUBLINE管理画面「外部連携管理 › API設定」のアクセストークン）
 - **着信・通話履歴を外に知らせる仕組みは無い**ので、SUBLINEだけでは着信ポップ・電話の問い合わせ件数の自動集計はできない
 - アクセストークンは Vault（`subline_token:<store_id>`）。登録は画面から RPC `save_subline_token`（店長・オーナー）、やめるときは `clear_subline_token`（値を空にする。空は未登録扱い）。画面には「登録済み」だけ（`get_subline_settings`）。トークンをリポジトリ・チャットに書かないこと
@@ -282,7 +290,7 @@
 ## スマホ通知（管理画面をホーム画面に追加・Web Push）
 
 - LINE通知はそのまま残し、並行してお試し中。WEB予約（booking_origin が web_form / cast_form）・お客様からのSMS返信・SMS残高不足・セラピストの精算入力（マイページの `/therapist/:token/checkout` → `daily_sales_records` が pending で入った・送り直された、topic `daily_sales`。タップで清算明細を開いて承認、下記「精算の承認」）を、管理画面を「ホーム画面に追加」した端末へプッシュ通知する
-- 設定画面は `/settings/notifications`（右上の人のアイコン →「スマホ通知の設定」、サイドバーの システム → 設定 → スマホ通知）。iPhoneはホーム画面に追加したアイコンから開かないと通知を受け取れない（iOS 16.4以降）
+- 設定画面は設定ダッシュボードの「スマホ通知」タブ（`/system/dashboard?tab=notifications`、右上の人のアイコン →「スマホ通知の設定」）。iPhoneはホーム画面に追加したアイコンから開かないと通知を受け取れない（iOS 16.4以降）
 - 管理画面を開いている間だけ `useAdminAppManifest()`（DashboardHeader）が manifest（`public/admin-app/`、名前「艶華 管理」・起動は `/admin-schedule`）を head に入れる。公開サイトには manifest を付けない
 - Service Worker は `public/sw-push.js`（push と通知タップだけ。fetch は横取りしない）。端末の登録は RPC `save_push_subscription`、購読は `push_subscriptions`（topics で通知の種類を選ぶ）
 - 送信は DBトリガー `trg_push_notify()` → Edge Function `push-notify`（`x-push-notify-secret` は Vault の `push_notify_internal_secret`）。購読がない店舗では呼ばない。暗号化とVAPID署名は `_shared/webPush.ts`（外部ライブラリなし）。VAPIDの鍵は Vault の `web_push_vapid_public_key` / `web_push_vapid_private_jwk`（公開鍵は `src/lib/adminPush.ts` にも載せている）

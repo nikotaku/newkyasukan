@@ -178,7 +178,7 @@ export default function EstamaScout() {
               ここで送る人を確認して「送る」を押すと、エステ魂のスカウトテンプレートで自動送信します。
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              通知は <Link to="/settings/notifications" className="underline inline-flex items-center gap-0.5"><Bell size={12} />スマホ通知の設定</Link> で「エステ魂スカウトの確認」をオンにした端末に届きます。
+              通知は <Link to="/system/dashboard?tab=notifications" className="underline inline-flex items-center gap-0.5"><Bell size={12} />スマホ通知の設定</Link> で「エステ魂スカウトの確認」をオンにした端末に届きます。
             </p>
           </div>
 

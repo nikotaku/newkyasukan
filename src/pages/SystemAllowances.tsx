@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,8 +25,7 @@ interface Allowance {
   is_active: boolean;
 }
 
-export default function SystemAllowances() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default function SystemAllowances({ embedded = false }: { embedded?: boolean } = {}) {
   const [allowances, setAllowances] = useState<Allowance[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -91,10 +89,7 @@ export default function SystemAllowances() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-[60px] md:ml-[240px] p-6">
+    <AdminPageShell embedded={embedded} mainClassName="p-6">
         <div className="max-w-4xl mx-auto">
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -168,7 +163,6 @@ export default function SystemAllowances() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, BellOff, Loader2, Send, Share, SquarePlus, Trash2 } from "lucide-react";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -39,8 +38,7 @@ interface DeviceRow {
 const formatDateTime = (value: string | null) =>
   value ? new Date(value).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 
-export default function NotificationSettings() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default function NotificationSettings({ embedded = false }: { embedded?: boolean } = {}) {
   const { user, loading: authLoading } = useAuth();
   const { store: adminStore } = useAdminStore();
   const { toast } = useToast();
@@ -125,10 +123,7 @@ export default function NotificationSettings() {
   });
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-[60px] md:ml-[240px] p-4 sm:p-6">
+    <AdminPageShell embedded={embedded} mainClassName="p-4 sm:p-6">
         <div className="max-w-2xl mx-auto space-y-4 mt-4">
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2"><Bell size={20} />スマホ通知</h1>
@@ -239,7 +234,6 @@ export default function NotificationSettings() {
 
           {adminStore?.id && <TherapistPushSetupList storeId={adminStore.id} customDomain={adminStore.custom_domain} />}
         </div>
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }
