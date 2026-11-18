@@ -27,7 +27,8 @@ import { TherapistNotices, fetchTherapistNotices } from "@/components/therapist/
 import type { PortalNotice } from "@/lib/therapistNotices";
 import { TherapistOpenShifts } from "@/components/therapist/TherapistOpenShifts";
 import { nextShiftPeriod, shiftPeriodRange } from "@/lib/shiftOpenSlots";
-import { BackRateTable, type BackRateRow } from "@/components/therapist/BackRateTable";
+import { BackList } from "@/components/therapist/BackRateTable";
+import { therapistBackSections, type BackSection, type TherapistBackTable } from "@/lib/rateMaster";
 import { TherapistSnsAccount } from "@/components/therapist/TherapistSnsAccount";
 import { hasUnseenSnsNotice, useTherapistSnsAccount } from "@/lib/therapistSns";
 import { normalizeKeyType, normalizeRouteSteps, normalizeWifiSecurity, type EntryRouteStep, type RoomKeyType, type WifiSecurity } from "@/lib/roomEntry";
@@ -194,21 +195,22 @@ export default function TherapistPortal() {
   });
   const openShifts = (start: string, end: string) => { setOpenShiftPeriod({ start, end }); setView("open-shifts"); };
   const [showBackRates, setShowBackRates] = useState(false);
-  const [therapistBackRates, setTherapistBackRates] = useState<BackRateRow[]>([]);
+  // バック表：料金・バック表（正本）のコース・オプション・指名（RPC get_therapist_back_table）
+  const [therapistBackSectionsState, setTherapistBackSectionsState] = useState<BackSection[]>([]);
   const [therapistBackRatesLoading, setTherapistBackRatesLoading] = useState(false);
   const [guideSite, setGuideSite] = useState<"o2" | "esutama" | null>(null);
 
   useEffect(() => {
     if (!showBackRates || !token) return;
     setTherapistBackRatesLoading(true);
-    supabase.rpc("get_therapist_back_rates", { p_token: token })
+    Promise.resolve(supabase.rpc("get_therapist_back_table" as never, { p_token: token } as never))
       .then(({ data, error }) => {
         if (error) {
           toast.error("バック表を取得できませんでした");
-          setTherapistBackRates([]);
+          setTherapistBackSectionsState([]);
           return;
         }
-        setTherapistBackRates(data || []);
+        setTherapistBackSectionsState(therapistBackSections(data as TherapistBackTable | null));
       })
       .finally(() => setTherapistBackRatesLoading(false));
   }, [showBackRates, token]);
@@ -1632,11 +1634,17 @@ export default function TherapistPortal() {
           <DialogHeader><DialogTitle>バック表</DialogTitle></DialogHeader>
           {therapistBackRatesLoading ? (
             <div className="py-12 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></div>
-          ) : therapistBackRates.length === 0 ? (
+          ) : therapistBackSectionsState.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted-foreground">表示できるバック情報がありません</p>
           ) : (
-            <div className="mt-2">
-              <BackRateTable rates={therapistBackRates} />
+            <div className="mt-2 space-y-4">
+              {therapistBackSectionsState.map((section) => (
+                <div key={section.title}>
+                  <p className="mb-1.5 text-sm font-bold">{section.title}</p>
+                  <BackList rows={section.rows} />
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground">1本あたりのお給料です。指名料・オプションはコースのバックに上乗せされます。</p>
             </div>
           )}
         </DialogContent>
