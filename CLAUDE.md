@@ -170,6 +170,12 @@
 - 結果は `estama_cover_rotations`（1日1行、RPC `start_estama_cover_rotation` / `finish_estama_cover_rotation`）。出た人は露出ノルマの「エスたまトップバナー」（`promotion_exposures`）に自動で記録。バナーが枠より少ない日は余った枠をそのままにする（`server/estama-cover-slots.ts`、テスト `npm run test:estama`）
 - エステ魂の管理画面の作りを確かめるときは `inspect-urls` に `selectors`（要素のHTML）・`scriptKeywords`（スクリプト）を付けられる（読むだけ）
 
+## 料金・割引・決済（正本 /system/rate-master）
+
+- コース（`back_rates`）・オプション（`option_rates`）・指名（`nomination_rates`）・割引（`discounts`）・決済方法（`payment_settings`）を1ページにまとめた（`src/pages/SystemRateMaster.tsx`、計算は `src/lib/rateMaster.ts`、テスト `npm run test:rate-master`）。ふだんは面談用ページと同じ「内容／料金／バック／店落ち」の見るだけの表、右上の「編集」（`?edit=1`）で編集画面になり、まとめて保存する。以前の「各種割引」（`/system/discounts`）・「決済方法」（`/system/payment-methods`）は廃止してここへ転送
+- 決済方法は手数料・決済リンク・お客様への手順だけ直す（`payment_settings.is_active` はほかの画面で使っていないので出さない）。割引の「使う」は予約入力の選択肢に効く。割引の並び順は `display_order` に 1, 2, …
+- **変更の記録**：5つの表のどれを、どの画面から直しても、DBトリガー `trg_log_rate_master_change`（`private.log_rate_master_change()`）が `rate_master_changes`（いつ・誰（メール）・どの表・どの行・追加/変更/削除・変わった項目の前後）に残す。正本のページの下に新しい順で100件出す。authenticated は自分の店舗の分を読むだけ（`20261118100000_rate_master_change_log.sql`）
+
 ## 予約案内ページ（SMSのリンク先）
 
 - 予約ごとの案内ページ `/g/:token`（`/r/` はセラピスト別の予約リンクなので使わない）（`src/pages/public/ReservationGuide.tsx`）。予約内容・ルームの住所と地図・道順（写真のステップを自動再生）・来店時のお願い・連絡先を出す。SMSには `{guide_url}` でリンクだけ載せて通数を減らす
@@ -178,7 +184,7 @@
 - 予約のルーム（`reservations.room`）が空なら、そのセラピストのその日の出勤（`shifts.room`、1つに決まるときだけ）を入れる。WEB予約・専用フォームはルームを選ばずに入るため。予約表（`/admin-schedule`）を開いたときに埋めて保存し、新規予約・編集でセラピストを選んだときも入れる（`src/lib/reservationRoom.ts`、テスト `npm run test:reservation-room`）。DBトリガー `trg_reservations_default_room`（`20261010150000_reservation_default_room.sql`）でも予約が入った瞬間に入れる
 - 来店時のお願いは `rooms.caution_text`
 - **ルームの注意とお客様の確認**：予約表の予約詳細に、ルームが空・ルーム管理に無い名前（案内ページに住所が出ない）・そのセラピストのその日の出勤のルームと違う、を赤で出す（`roomIssue`）。案内ページの「予約内容を確認しました」（RPC `confirm_reservation_guide(p_token)`、anon可）で `reservations.guide_confirmed_at` / `guide_confirmed_room` が入り、予約詳細に「お客様が確認済み」、予約表のタイムラインの予約の時間の横に緑の「✓確認」（確認後にルームが変わったら黄色の「再確認」）。確認の後にルームを変えたら「もう一度確認してもらって」と出す（`guideConfirmation`、`get_reservation_guide` の `confirmed_at` も空に戻る）。ルームが空の予約の案内ページは確認ボタンを出さない
-- **お支払いのご案内**：カード・PayPayの予約（`reservations.payment_method`、分割払いなら `payment_details` のカード・PayPay分）だけ、手数料込みの金額・手順・決済リンクのボタンを出す。RPC の `payments`（[{ method, amount, fee, link, guide }]、画面用の整形は `src/lib/reservationGuidePayment.ts`）。リンクと手順は `payment_settings.payment_link` / `customer_guide`（1行に1つ）で、システム →「決済方法」で編集する。カードの手順はたたき台なので、決済ページの実際の表示に合わせて直す
+- **お支払いのご案内**：カード・PayPayの予約（`reservations.payment_method`、分割払いなら `payment_details` のカード・PayPay分）だけ、手数料込みの金額・手順・決済リンクのボタンを出す。RPC の `payments`（[{ method, amount, fee, link, guide }]、画面用の整形は `src/lib/reservationGuidePayment.ts`）。リンクと手順は `payment_settings.payment_link` / `customer_guide`（1行に1つ）で、システム →「料金・割引・決済（正本）」の編集で直す。カードの手順はたたき台なので、決済ページの実際の表示に合わせて直す
 - 予約確認SMSの `{payment_guide}` は、カード・PayPayの予約だけ「リンクを開くと決済方法の案内が出ます」になる（それ以外は行ごと消える。`send-sms/template.ts` の `paymentGuideNote`）
 - PayPayの個人アカウントへの送金（ID検索）でお店の代金を受け取るのはPayPayの規約で禁止（アカウント停止のおそれ）。受け取るなら PayPay for Business の店舗用QR・決済リンクにする
 - テスト: `npm run test:reservation-guide-payment`

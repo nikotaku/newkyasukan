@@ -53,3 +53,41 @@ test("マイページのバック表", () => {
   assert.equal(sections[0].rows[0].label, "艶華 60分");
   assert.equal(sections[2].rows[0].back, null);
 });
+
+test("割引の変更は足す・直す・消すに分け、並び順も入れる", async () => {
+  const { planDiscountSave } = await import("../src/lib/rateMaster.ts");
+  const before = [
+    { key: "a", id: "a", name: "新規割", type: "fixed" as const, value: 1000, active: true },
+    { key: "b", id: "b", name: "古い割引", type: "fixed" as const, value: 500, active: true },
+  ];
+  const after = [
+    { key: "a", id: "a", name: "新規割", type: "fixed" as const, value: 2000, active: true },
+    { key: "n", id: null, name: "10%割", type: "percentage" as const, value: 10, active: true },
+  ];
+  const plan = planDiscountSave(before, after);
+  assert.equal(plan.updates.length, 1);
+  assert.equal(plan.updates[0].payload.discount_value, 2000);
+  assert.equal(plan.inserts[0].display_order, 2);
+  assert.deepEqual(plan.deletes, ["b"]);
+});
+
+test("決済方法は変えたものだけ直す", async () => {
+  const { planPaymentSave } = await import("../src/lib/rateMaster.ts");
+  const rows = [{ id: "p", method: "PayPay", fee: 10, link: "https://x.example/", guide: "", active: true }];
+  assert.equal(planPaymentSave(rows, rows).updates.length, 0);
+  assert.equal(planPaymentSave(rows, [{ ...rows[0], fee: 8 }]).updates[0].payload.fee_percentage, 8);
+});
+
+test("変更の記録を読める文にする", async () => {
+  const { describeRateChange, discountValueLabel } = await import("../src/lib/rateMaster.ts");
+  assert.deepEqual(describeRateChange({
+    id: 1, changed_at: "", changed_by_email: null, table_name: "back_rates", action: "update", item_label: "艶華 60分",
+    changes: { customer_price: { before: 15000, after: 16000 }, is_visible: { before: true, after: false } },
+  }), ["料金：¥15,000 → ¥16,000", "HP表示：オン → オフ"]);
+  assert.deepEqual(describeRateChange({
+    id: 2, changed_at: "", changed_by_email: null, table_name: "payment_settings", action: "update", item_label: "PayPay",
+    changes: { fee_percentage: { before: 10, after: 11 } },
+  }), ["手数料：10% → 11%"]);
+  assert.equal(discountValueLabel({ type: "percentage", value: 10 }), "10%OFF");
+  assert.equal(discountValueLabel({ type: "fixed", value: 1000 }), "¥1,000引き");
+});
