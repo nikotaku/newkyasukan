@@ -10,11 +10,11 @@ export function isStageNamePending(name: string | null | undefined): boolean {
   return trimmed === "" || trimmed === PENDING_STAGE_NAME || trimmed === "名称未設定";
 }
 
-/** カードや一覧に出す名前。源氏名が未定なら本名（スタッフ画面だけで使う） */
+/** 管理画面の一覧・選択肢に出す名前。源氏名が未定なら「源氏名未定（本名）」（本名は管理画面だけ。HP・お客様向けには使わない） */
 export function castAdminLabel(cast: { name: string | null; real_name?: string | null }): string {
   if (!isStageNamePending(cast.name)) return (cast.name ?? "").trim();
   const real = (cast.real_name ?? "").trim();
-  return real ? `${real}（源氏名未定）` : PENDING_STAGE_NAME;
+  return real ? `${PENDING_STAGE_NAME}（${real}）` : PENDING_STAGE_NAME;
 }
 
 export type CastProfileFields = {

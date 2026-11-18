@@ -57,6 +57,7 @@ import {
   type PromotionChannelKey,
 } from "@/lib/standardPromotionSchedule";
 import { AI_GENERATION_ENABLED } from "@/lib/aiFeatures";
+import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 type PromotionPlan = Database["public"]["Tables"]["promotion_plans"]["Row"];
 type PromotionTask = Database["public"]["Tables"]["promotion_plan_tasks"]["Row"] & {
@@ -246,7 +247,7 @@ export default function PromotionSchedule() {
         .order("sort_order", { ascending: true }),
       supabase
         .from("casts")
-        .select("id, store_id, name, photo, profile, message, tags, x_account, o2_url")
+        .select("id, store_id, name, real_name, photo, profile, message, tags, x_account, o2_url")
         .eq("store_id", storeId)
         .eq("is_active", true)
         .order("display_order", { ascending: true })
@@ -951,7 +952,7 @@ export default function PromotionSchedule() {
                           {cast.name.slice(0, 1)}
                         </span>
                       )}
-                      <span className="font-medium">{cast.name}</span>
+                      <span className="font-medium">{castAdminLabel(cast)}</span>
                     </label>
                   );
                 })}

@@ -12,6 +12,7 @@ import {
   promotionParticipants, postingCompletionIndex, postingCompletionKey,
   therapistPostingProgress, type PostingCompletion,
 } from "@/lib/promotionPostingStatus";
+import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 interface PostingGroup {
   key: string;
@@ -36,7 +37,7 @@ export function TherapistPostingStatus({ storeId, planId, castIds, therapistLabe
     queryKey: ["promotion-posting-status", storeId, user?.id, planId, castIds, therapistLabel, taskIds],
     enabled: Boolean(storeId && user && taskIds.length),
     queryFn: async () => {
-      const castsQuery = supabase.from("casts").select("id, name").eq("store_id", storeId);
+      const castsQuery = supabase.from("casts").select("id, name, real_name").eq("store_id", storeId);
       const { data: casts, error: castError } = await (castIds.length
         ? castsQuery.in("id", castIds)
         : castsQuery.eq("is_active", true).in("name", [therapistLabel, ...therapistLabel.split(/\s*[&＆]\s*/)]));
@@ -151,7 +152,7 @@ export function TherapistPostingStatus({ storeId, planId, castIds, therapistLabe
                               onCheckedChange={(checked) => void setCompleted(cast.id, task.id, checked === true)}
                               aria-label={`${cast.name}：${task.label}の完了状態`}
                             />
-                            <span className="min-w-0 break-words font-medium">{cast.name}</span>
+                            <span className="min-w-0 break-words font-medium">{castAdminLabel(cast)}</span>
                             {saving && <Loader2 size={14} className="animate-spin" aria-label="保存中" />}
                           </label>
                           <span className={`flex items-center gap-1 ${completion ? "text-emerald-700" : "text-muted-foreground"}`}>

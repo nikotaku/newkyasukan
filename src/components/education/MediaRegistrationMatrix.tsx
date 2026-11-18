@@ -22,6 +22,7 @@ import {
   type MediaChecklistField,
   type PortalDevice,
 } from "@/lib/mediaRegistration";
+import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 type CastRow = MediaChecklist & { id: string; name: string; photo: string | null };
 
@@ -59,7 +60,7 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
     const [castsRes, profilesRes, snsRes, devicesRes] = await Promise.all([
       supabase
         .from("casts")
-        .select(`id,name,photo,${MEDIA_CHECKLIST_FIELDS.join(",")}`)
+        .select(`id,name,real_name,photo,${MEDIA_CHECKLIST_FIELDS.join(",")}`)
         .eq("store_id", storeId)
         .eq("is_active", true)
         .order("name"),
@@ -199,7 +200,7 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
                         ? <img src={driveImgUrl(cast.photo)} alt="" className="h-8 w-8 rounded-full object-cover shrink-0" />
                         : <div className="h-8 w-8 rounded-full bg-muted shrink-0" />}
                       <div className="min-w-0">
-                        <p className="font-semibold truncate text-sm">{cast.name}</p>
+                        <p className="font-semibold truncate text-sm">{castAdminLabel(cast)}</p>
                         <div className="flex items-center gap-1.5">
                           <div className="h-1.5 w-14 rounded-full bg-muted overflow-hidden">
                             <div className="h-full bg-primary" style={{ width: `${progress.ratio * 100}%` }} />

@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 interface Expense {
   id: string;
@@ -81,7 +82,7 @@ export default function Expenses() {
   };
 
   const fetchCasts = async () => {
-    const { data } = await supabase.from("casts").select("id, name").eq("is_active", true).order("name");
+    const { data } = await supabase.from("casts").select("id, name, real_name").eq("is_active", true).order("name");
     if (data) setCasts(data);
   };
 
@@ -197,7 +198,7 @@ export default function Expenses() {
                         <SelectTrigger><SelectValue placeholder="なし" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__none__">なし</SelectItem>
-                          {casts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                          {casts.map((c) => <SelectItem key={c.id} value={c.id}>{castAdminLabel(c)}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
