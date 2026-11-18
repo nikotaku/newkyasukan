@@ -84,9 +84,7 @@ import SalesMonthlySalesTarget from "./pages/SalesMonthlySalesTarget";
 import SalesDailySalesTarget from "./pages/SalesDailySalesTarget";
 import SalesExpenseInput from "./pages/SalesExpenseInput";
 import SalesMonthlyClosing from "./pages/SalesMonthlyClosing";
-import SystemCourses from "./pages/SystemCourses";
 import SystemRateMaster from "./pages/SystemRateMaster";
-import SystemOptions from "./pages/SystemOptions";
 import SystemDeductions from "./pages/SystemDeductions";
 import SystemReferralRewards from "./pages/SystemReferralRewards";
 import SystemAllowances from "./pages/SystemAllowances";
@@ -268,8 +266,9 @@ const App = () => {
           <Route path="/sales/daily-target" element={<SalesDailySalesTarget />} />
           <Route path="/sales/expense-input" element={<SalesExpenseInput />} />
           <Route path="/system/rate-master" element={<SystemRateMaster />} />
-          <Route path="/system/courses" element={<SystemCourses />} />
-          <Route path="/system/options" element={<SystemOptions />} />
+          {/* コース・オプションは料金の正本（/system/rate-master）で直す */}
+          <Route path="/system/courses" element={<Navigate to="/system/rate-master" replace />} />
+          <Route path="/system/options" element={<Navigate to="/system/rate-master" replace />} />
           {/* 割引・決済方法は料金の正本（/system/rate-master）にまとめた */}
           <Route path="/system/discounts" element={<Navigate to="/system/rate-master" replace />} />
           <Route path="/system/payment-methods" element={<Navigate to="/system/rate-master" replace />} />
