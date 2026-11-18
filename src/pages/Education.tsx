@@ -31,6 +31,7 @@ import {
   normalizeChecklist,
   statusFromProgress,
 } from "@/lib/trainingChecklist";
+import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 interface Cast {
   id: string;
@@ -108,7 +109,7 @@ export default function Education() {
     if (!user || storeLoading) return;
     setLoading(true);
     const [castsRes, modulesRes, recordsRes] = await Promise.all([
-      supabase.from("casts").select("id,name,photo").eq("store_id", storeId).eq("is_active", true).order("name"),
+      supabase.from("casts").select("id,name,real_name,photo").eq("store_id", storeId).eq("is_active", true).order("name"),
       supabase.from("training_modules" as any).select("*").eq("is_active", true).order("display_order"),
       supabase.from("cast_training_records" as any).select("cast_id, module_id, status, checked_items"),
     ]);
@@ -317,7 +318,7 @@ export default function Education() {
                             {c.photo && (
                               <img src={driveImgUrl(c.photo, 100)} className="w-8 h-8 rounded object-cover object-top shrink-0" />
                             )}
-                            <span className="truncate flex-1">{c.name}</span>
+                            <span className="truncate flex-1">{castAdminLabel(c)}</span>
                             <span className={`text-xs tabular-nums shrink-0 ${selected ? "text-primary-foreground/80" : pct >= 100 ? "text-green-600" : pct > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
                               {pct}%
                             </span>

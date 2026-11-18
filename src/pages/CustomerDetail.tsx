@@ -20,6 +20,7 @@ import {
 import { getCustomerInsights } from "@/lib/customerInsights";
 import { SmsHistory } from "@/components/SmsHistory";
 import { PhoneCallLink } from "@/components/phone/PhoneCallLink";
+import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 /**
  * 顧客詳細ページ（/database/customers/:id）。
@@ -163,7 +164,7 @@ export default function CustomerDetail() {
     const [castsRes, therapistNgsRes] = await Promise.all([
       supabase
         .from("casts")
-        .select("id, name, is_active")
+        .select("id, name, real_name, is_active")
         .eq("store_id", loadedCustomer.store_id)
         .order("name"),
       supabase
@@ -514,7 +515,7 @@ export default function CustomerDetail() {
                           <SelectValue placeholder={availableCasts.length === 0 ? "登録できるセラピストがいません" : "セラピストを選択"} />
                         </SelectTrigger>
                         <SelectContent>
-                          {availableCasts.map((cast) => <SelectItem key={cast.id} value={cast.id}>{cast.name}</SelectItem>)}
+                          {availableCasts.map((cast) => <SelectItem key={cast.id} value={cast.id}>{castAdminLabel(cast)}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>

@@ -22,6 +22,7 @@ import {
   snapshotPaymentDetailFees,
 } from "@/lib/paymentFee";
 import { CONVERSATION_OPTIONS } from "@/lib/customerRank";
+import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 const PREFERRED_TYPE_OPTIONS = ["20代前半", "30代", "ギャル系", "お姉さん系", "ベテラン", "未経験", "おっとり", "サバサバ"] as const;
 
@@ -735,7 +736,7 @@ export function ReservationForm({
                   >
                     <option value="">キャストを選択</option>
                     {casts.filter(c => !customerInfo.ng_casts.some(n => n.cast_id === c.id)).map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={c.id}>{castAdminLabel(c)}</option>
                     ))}
                   </select>
                   <input

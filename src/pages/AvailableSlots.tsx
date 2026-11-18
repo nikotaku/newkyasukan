@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { isAvailabilitySlotOpen } from "@/lib/availability";
 import { shiftBreaks } from "@/lib/shiftBreak";
+import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 interface Shift {
   id: string;
@@ -74,7 +75,7 @@ export default function AvailableSlots() {
   const fetchCasts = async () => {
     const { data, error } = await supabase
       .from("casts")
-      .select("id, name")
+      .select("id, name, real_name")
       .eq("is_active", true)
       .order("name");
     if (!error) setCasts(data || []);
@@ -241,7 +242,7 @@ export default function AvailableSlots() {
                 return (
                   <Card key={cast.id}>
                     <CardHeader>
-                      <CardTitle className="text-lg">{cast.name}</CardTitle>
+                      <CardTitle className="text-lg">{castAdminLabel(cast)}</CardTitle>
                       <p className="text-sm text-muted-foreground">
                         {castShift.start_time.slice(0, 5)}～
                         {castShift.end_time.slice(0, 5)}

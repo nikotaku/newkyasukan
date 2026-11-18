@@ -1683,7 +1683,7 @@ export default function Staff() {
                       </SelectTrigger>
                       <SelectContent>
                         {[...activeCasts].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map((c) => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          <SelectItem key={c.id} value={c.id}>{castAdminLabel(c)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Archive, ArchiveRestore, Search, Save, X, Plus, ExternalLink, Copy, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { driveImgUrl } from "@/lib/drive";
+import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 interface Cast {
   id: string;
@@ -108,7 +109,7 @@ export default function TherapistDatabase() {
     try {
       const [castsRes, profilesRes, tokensRes] = await Promise.all([
         supabase.from("casts").select(
-          "id,name,is_active,photo,age,height,bust,cup_size,waist,hip,blood_type,therapist_years,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,message,profile,x_account,line_url,litlink_url,o2_url,ranking_cast_id"
+          "id,name,real_name,is_active,photo,age,height,bust,cup_size,waist,hip,blood_type,therapist_years,favorite_techniques,favorite_food,celebrity_lookalike,day_off_activities,hobbies,ideal_type,message,profile,x_account,line_url,litlink_url,o2_url,ranking_cast_id"
         ).order("name"),
         supabase.from("therapist_profiles" as any).select("*"),
         // Supabase の問い合わせ（rpc）には .catch が無いので Promise にしてから受ける（直接 .catch すると一覧ごと読めなくなる）
@@ -351,7 +352,7 @@ export default function TherapistDatabase() {
                           <img src={driveImgUrl(c.photo, 100)} className="w-8 h-8 rounded object-cover object-top shrink-0" />
                         )}
                         <div className="min-w-0">
-                          <div className="truncate">{c.name}</div>
+                          <div className="truncate">{castAdminLabel(c)}</div>
                           {tags.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-0.5">
                               {tags.map(t => (

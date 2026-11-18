@@ -27,6 +27,7 @@ import {
   type TherapistNotice,
 } from "@/lib/therapistNotices";
 import { nextShiftPeriod, shiftPeriodLabel, shiftPeriodRange } from "@/lib/shiftOpenSlots";
+import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 // セラピストへのお知らせ（掲示板）：書いて出すとマイページの「お知らせ」に載り、スマホ通知も届く。
 // 誰が「確認しました」を押したかをここで見る。
@@ -81,7 +82,7 @@ export default function TherapistNotices() {
     if (!storeId) return;
     setLoading(true);
     const [castRes, noticeRes, readRes] = await Promise.all([
-      supabase.from("casts").select("id,name").eq("store_id", storeId).eq("is_active", true).order("name"),
+      supabase.from("casts").select("id,name,real_name").eq("store_id", storeId).eq("is_active", true).order("name"),
       untyped("therapist_notices").select("*").eq("store_id", storeId).is("deleted_at", null).order("created_at", { ascending: false }).limit(100),
       untyped("therapist_notice_reads").select("notice_id,cast_id,read_at").eq("store_id", storeId),
     ]);
@@ -220,7 +221,7 @@ export default function TherapistNotices() {
                       <label key={cast.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted">
                         <Checkbox checked={picked.includes(cast.id)}
                           onCheckedChange={(v) => setPicked((prev) => (v === true ? [...prev, cast.id] : prev.filter((id) => id !== cast.id)))} />
-                        <span className="truncate">{cast.name}</span>
+                        <span className="truncate">{castAdminLabel(cast)}</span>
                       </label>
                     ))}
                   </div>

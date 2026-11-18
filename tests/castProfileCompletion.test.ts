@@ -19,7 +19,7 @@ test("源氏名が空・未定・名称未設定なら未定", () => {
 
 test("スタッフ画面の名前：源氏名が未定なら本名を出す", () => {
   assert.equal(castAdminLabel({ name: "さくら", real_name: "テスト花子" }), "さくら");
-  assert.equal(castAdminLabel({ name: "源氏名未定", real_name: "テスト花子" }), "テスト花子（源氏名未定）");
+  assert.equal(castAdminLabel({ name: "源氏名未定", real_name: "テスト花子" }), "源氏名未定（テスト花子）");
   assert.equal(castAdminLabel({ name: "源氏名未定", real_name: "" }), "源氏名未定");
 });
 

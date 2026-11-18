@@ -51,6 +51,7 @@ import {
 } from "@/lib/settlementStatus";
 import { formatShiftBreak, overlapsBreaks, shiftBreaks } from "@/lib/shiftBreak";
 import { courseLimitMessage, fetchCourseLimitAlerts, type CourseLimitAlert } from "@/lib/courseLimit";
+import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 interface Cast {
   id: string;
@@ -543,7 +544,7 @@ export default function Schedule() {
   const fetchFormData = async () => {
     if (!adminStore?.id) return;
     const [{ data: c }, { data: r }, { data: b }, { data: o }, { data: n }, { data: d }, { data: t }, { data: cp }, tokenResult] = await Promise.all([
-      supabase.from("casts").select("id, name, photo, store_id, is_active").order("name"),
+      supabase.from("casts").select("id, name, real_name, photo, store_id, is_active").order("name"),
       supabase.from("rooms").select("id, name, address, sms_text, map_url, caution_text, store_id").eq("is_active", true).order("name"),
       supabase.from("back_rates").select("*").order("display_order"),
       supabase.from("option_rates").select("*").order("display_order"),
@@ -1337,7 +1338,7 @@ export default function Schedule() {
                               </div>
                             )}
                             <div className="flex items-center justify-center gap-1 min-w-0 leading-tight">
-                              <span className="text-[10px] font-semibold truncate">{cast.name}</span>
+                              <span className="text-[10px] font-semibold truncate">{castAdminLabel(cast)}</span>
                               <RoomBadges rooms={castRoomMap.get(cast.id) ?? []} compact />
                             </div>
                             <div className="text-[9px] text-muted-foreground leading-tight">

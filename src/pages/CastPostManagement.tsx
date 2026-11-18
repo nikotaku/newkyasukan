@@ -30,6 +30,7 @@ import { canDeleteFailedCastPost } from "@/lib/cast-post-deletion";
 import { isCastPostReviewRequired } from "@/lib/cast-post-status";
 import { isEstamaReviewRequired } from "@/lib/estama-post-status";
 import { POST_IMAGE_SIZE, prepareSquarePostImage } from "@/lib/post-image";
+import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 interface Cast { id: string; name: string; }
 
@@ -137,7 +138,7 @@ export default function CastPostManagement() {
     if (!user || storeLoading) return;
     setLoading(true);
     const [castsResult, postsResult, credentialsResult, completionsResult] = await Promise.all([
-      supabase.from("casts").select("id,name").eq("store_id", storeId).eq("is_active", true).order("display_order", { ascending: true }),
+      supabase.from("casts").select("id,name,real_name").eq("store_id", storeId).eq("is_active", true).order("display_order", { ascending: true }),
       supabase.from("cast_posts").select("*,casts(name)").eq("store_id", storeId).order("created_at", { ascending: false }).limit(100),
       supabase.rpc("get_site_connection_status_admin", { p_store_id: storeId }),
       supabase.from("cast_test_post_completions").select("cast_id,site,completed_at").eq("store_id", storeId),
@@ -552,7 +553,7 @@ export default function CastPostManagement() {
               <div className="grid gap-x-6 border-t px-4 py-3 sm:grid-cols-2">
                 {casts.map((cast) => (
                   <div key={cast.id} className="flex items-center justify-between border-b border-dashed py-1.5 text-xs">
-                    <span className="truncate font-medium">{cast.name}</span>
+                    <span className="truncate font-medium">{castAdminLabel(cast)}</span>
                     <span className="flex shrink-0 items-center gap-2">
                       <Badge>HP</Badge>
                       {connectionBadge(cast.id, "o2", "O2")}
@@ -614,7 +615,7 @@ export default function CastPostManagement() {
         >
           <DialogHeader><DialogTitle>{testMode ? "O2・魂へテスト投稿" : "HP・O2・魂へ一括投稿"}</DialogTitle></DialogHeader>
           <div className="mt-2 space-y-4">
-            <div><Label>セラピスト</Label><Select value={form.castId} onValueChange={(value) => setForm({ ...form, castId: value })} disabled={submitting}><SelectTrigger><SelectValue placeholder="選択してください" /></SelectTrigger><SelectContent>{casts.map((cast) => <SelectItem key={cast.id} value={cast.id}>{cast.name}</SelectItem>)}</SelectContent></Select></div>
+            <div><Label>セラピスト</Label><Select value={form.castId} onValueChange={(value) => setForm({ ...form, castId: value })} disabled={submitting}><SelectTrigger><SelectValue placeholder="選択してください" /></SelectTrigger><SelectContent>{casts.map((cast) => <SelectItem key={cast.id} value={cast.id}>{castAdminLabel(cast)}</SelectItem>)}</SelectContent></Select></div>
             <div><Label>タイトル（任意）</Label><Input maxLength={120} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} disabled={submitting} /></div>
             <div><Label>本文</Label><Textarea rows={6} maxLength={5000} value={form.body} onChange={(event) => setForm({ ...form, body: event.target.value })} placeholder="投稿内容を入力" disabled={submitting} /></div>
             <div className="space-y-2">

@@ -22,6 +22,7 @@ import { calculateMonthlyRoomOccupancy } from "@/lib/roomOccupancy";
 import { ENKA_ROOMS, ROOM_ADDRESS_HINT, canonicalRoomName } from "@/lib/storeRooms";
 import { breakValue, formatShiftBreak, validateShiftBreak } from "@/lib/shiftBreak";
 import { ShiftBreakFields } from "@/components/shift/ShiftBreakFields";
+import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 interface Shift {
   id: string;
@@ -235,7 +236,7 @@ export default function MonthlyShift() {
   const fetchCasts = useCallback(async () => {
     const { data, error } = await supabase
       .from("casts")
-      .select("id, name, is_estama_dummy")
+      .select("id, name, real_name, is_estama_dummy")
       .eq("store_id", storeId)
       .eq("is_active", true)
       .order("display_order", { ascending: true })
@@ -928,7 +929,7 @@ export default function MonthlyShift() {
                 <SelectTrigger><SelectValue placeholder="選択してください" /></SelectTrigger>
                 <SelectContent>
                   {(formKind === "dummy" ? dummyCasts : regularCasts).map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{castAdminLabel(c)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1082,7 +1083,7 @@ export default function MonthlyShift() {
                     )}>
                       {selected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
                     </span>
-                    <span className="font-medium">{cast.name}</span>
+                    <span className="font-medium">{castAdminLabel(cast)}</span>
                     {cast.is_estama_dummy && (
                       <span className="ml-auto text-[10px] text-muted-foreground">現在の対象</span>
                     )}
