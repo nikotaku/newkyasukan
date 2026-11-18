@@ -1010,6 +1010,13 @@ async function registerCast(
     const publicHref = await page.locator('a[href*="/shop/"][href*="/cast/"]').first().getAttribute("href").catch(() => null);
     publicUrl = publicHref ? new URL(publicHref, page.url()).toString() : castRecord.estama_profile_url || null;
     externalId = estamaCastIdFromUrl(publicUrl) || estamaCastIdFromUrl(page.url()) || current?.external_cast_id || null;
+    // 保存後にセラピスト一覧（/admin/cast/?result=complete）へ移ってIDが分からないときは、
+    // 公開の在籍一覧で今登録した名前を探す（同じ名前が1人だけのとき。新人A・新人Bの仮の名前はほかと重ならない）
+    for (let attempt = 0; !externalId && attempt < 3; attempt++) {
+      if (attempt > 0) await page.waitForTimeout(5_000);
+      externalId = await findListedEstamaCastId(page, connection?.shop_id, [data.name]);
+    }
+    if (externalId && estamaCastIdFromUrl(publicUrl) !== externalId && connection?.shop_id) publicUrl = `https://estama.jp/shop/${connection.shop_id}/cast/${externalId}/`;
     // 新規登録も保存後の画面に残った値を確認結果として扱わない。
     if (externalId) {
       savedEditUrl = (await openExistingEstamaCastEditor(page, {
