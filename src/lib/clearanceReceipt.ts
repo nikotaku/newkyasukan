@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { toExtTime } from "./timeFormat";
 import type { ClearanceExtraItem } from "./clearanceExtraItems";
+import { pairShareFirst, pairTotalFirst, splitPairNames } from "./pairReceipt";
 
 export interface ReceiptReservation {
   start_time: string;
@@ -76,8 +77,41 @@ function stepH(subLines: number): number {
  * 清算明細をPNG画像として生成しダウンロードする。
  * セラピストへLINE/SMS等で送付しやすいレシート形式。
  */
-/** 清算明細の画像を描く（管理画面の承認・ダウンロードと、セラピストのマイページで同じものを出す） */
+/**
+ * 清算明細の画像を描く（管理画面の承認・ダウンロードと、セラピストのマイページで同じものを出す）。
+ * Wセラピスト（「りりか&ももか」）は1人ずつの明細を2枚、横に並べる。
+ */
 export function renderClearanceReceipt(data: ClearanceReceiptData): HTMLCanvasElement {
+  const names = splitPairNames(data.castName);
+  if (!names) return renderSingleReceipt(data);
+  const cards = names.map((name, index) => renderSingleReceipt(data, { name, index: index as 0 | 1 }));
+  const scale = 2;
+  const gap = 12 * scale;
+  const margin = 6 * scale;
+  const cardW = Math.max(...cards.map((card) => card.width));
+  const cardH = Math.max(...cards.map((card) => card.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = margin * 2 + cardW * 2 + gap;
+  canvas.height = margin * 2 + cardH;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  cards.forEach((card, index) => {
+    const x = margin + index * (cardW + gap);
+    ctx.drawImage(card, x, margin);
+    ctx.strokeStyle = "#94a3b8";
+    ctx.lineWidth = 2;
+    roundRect(ctx, x + 1, margin + 1, cardW - 2, cardH - 2, 12 * scale);
+    ctx.stroke();
+  });
+  return canvas;
+}
+
+/** 1人分の明細。pair があれば金額を2人分と1人分の両方で出す（Wセラピスト） */
+function renderSingleReceipt(data: ClearanceReceiptData, pair?: { name: string; index: 0 | 1 }): HTMLCanvasElement {
+  // Wセラピスト：料金・売上・現金は「2人分 (この人の分)」、給与・経費は「この人の分 (2人分)」
+  const total = (value: number, sign = "") => (pair ? pairTotalFirst(value, pair.index, sign) : `${sign}${yen(value)}`);
+  const share = (value: number, sign = "") => (pair ? pairShareFirst(value, pair.index, sign) : `${sign}${yen(value)}`);
   const scale = 2;
   const W = 600;
   const pad = 28;
@@ -157,7 +191,7 @@ export function renderClearanceReceipt(data: ClearanceReceiptData): HTMLCanvasEl
   // セラピスト名
   ctx.fillStyle = ink;
   ctx.font = `bold 18px ${FONT}`;
-  ctx.fillText(`${data.castName} 様`, pad, y + 18);
+  ctx.fillText(`${pair?.name ?? data.castName} 様`, pad, y + 18);
   y += 32;
 
   // 区切り
@@ -194,10 +228,10 @@ export function renderClearanceReceipt(data: ClearanceReceiptData): HTMLCanvasEl
     ctx.fillStyle = ink;
     ctx.font = `bold 13px ${FONT}`;
     ctx.textAlign = "right";
-    ctx.fillText(yen(r.price), right, y + 16);
+    ctx.fillText(total(r.price), right, y + 16);
     ctx.fillStyle = muted;
     ctx.font = `11px ${FONT}`;
-    ctx.fillText(`バック ${yen(r.totalBack)}`, right, y + 34);
+    ctx.fillText(`バック ${total(r.totalBack)}`, right, y + 34);
     ctx.textAlign = "left";
     ctx.strokeStyle = "#f3f4f6";
     ctx.beginPath();
@@ -226,20 +260,20 @@ export function renderClearanceReceipt(data: ClearanceReceiptData): HTMLCanvasEl
     y += 26;
   };
 
-  summaryRow("売上合計", yen(data.totalSales));
-  summaryRow("給与バック", yen(data.therapistBack));
-  summaryRow("雑費", `- ${yen(data.miscExpenses)}`);
-  summaryRow("宿泊費", `- ${yen(data.accommodationFee)}`);
+  summaryRow("売上合計", total(data.totalSales));
+  summaryRow(pair ? "給与／バック" : "給与バック", share(data.therapistBack));
+  summaryRow("雑費", share(data.miscExpenses, "- "));
+  summaryRow("宿泊費", share(data.accommodationFee, "- "));
   if (data.transportationFee > 0) {
-    summaryRow("交通費", `+ ${yen(data.transportationFee)}`);
+    summaryRow("交通費", share(data.transportationFee, "+ "));
   }
   for (const item of deductionItems) {
-    summaryRow(item.label || "その他控除", `- ${yen(item.amount)}`);
+    summaryRow(item.label || "その他控除", share(item.amount, "- "));
   }
   for (const item of salaryAdjustmentItems) {
-    summaryRow(item.label || "給与不足分", `+ ${yen(item.amount)}`, { color: "#047857" });
+    summaryRow(item.label || "給与不足分", share(item.amount, "+ "), { color: "#047857" });
   }
-  summaryRow("セラピスト給与", yen(data.salary), { color: primary, bold: true });
+  summaryRow("セラピスト給与", share(data.salary), { color: primary, bold: true });
 
   // ❶❷❸ 3行サマリー
   ctx.strokeStyle = line;
@@ -249,7 +283,7 @@ export function renderClearanceReceipt(data: ClearanceReceiptData): HTMLCanvasEl
   ctx.stroke();
   y += 16;
 
-  const payoutRow = (num: string, label: string, value: number, opts?: { highlight?: boolean }) => {
+  const payoutRow = (num: string, label: string, value: string, opts?: { highlight?: boolean }) => {
     const rh = 32;
     if (opts?.highlight) {
       ctx.fillStyle = "#eff6ff";
@@ -265,19 +299,20 @@ export function renderClearanceReceipt(data: ClearanceReceiptData): HTMLCanvasEl
     ctx.fillStyle = opts?.highlight ? primary : ink;
     ctx.font = opts?.highlight ? `bold 17px ${FONT}` : `bold 14px ${FONT}`;
     ctx.textAlign = "right";
-    ctx.fillText(yen(value), right - 8, y + 22);
+    ctx.fillText(value, right - 8, y + 22);
     ctx.textAlign = "left";
     y += rh;
   };
 
   // 投函金額 = 現金預かり額 − セラピスト給与。足りないときは不足分（後日お店から振込か次回出勤日に相殺）
   const cashPayout = data.cashTotal - data.salary;
-  payoutRow("❶", "現金預かり額", data.cashTotal);
-  payoutRow("❷", "セラピスト給与", data.salary);
+  // Wセラピストはここも「2人分 (この人の分)」
+  payoutRow("❶", "現金預かり額", total(data.cashTotal));
+  payoutRow("❷", pair ? "セラピスト給与（2人分）" : "セラピスト給与", total(data.salary));
   if (cashPayout < 0) {
-    payoutRow("❸", "給与の不足分（振込か次回出勤日に相殺）", -cashPayout, { highlight: true });
+    payoutRow("❸", pair ? "給与の不足分" : "給与の不足分（振込か次回出勤日に相殺）", total(-cashPayout), { highlight: true });
   } else {
-    payoutRow("❸", "投函金額", cashPayout, { highlight: true });
+    payoutRow("❸", "投函金額", total(cashPayout), { highlight: true });
   }
   y += 8;
 
