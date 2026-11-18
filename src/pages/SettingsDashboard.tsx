@@ -1,10 +1,11 @@
 import type { ComponentType } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Bell, BookOpen, Coins, CreditCard, FileText, Gift, Layers, Megaphone, MinusCircle, Phone, PlusCircle, Sparkles, UserCheck } from "lucide-react";
+import { Bell, BookOpen, Flag, Coins, CreditCard, FileText, Gift, Layers, Megaphone, MinusCircle, Phone, PlusCircle, Sparkles, UserCheck } from "lucide-react";
 import { AdminPageShell } from "@/components/AdminPageShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SystemRateMaster, { type RateSection } from "./SystemRateMaster";
 import SystemDeductions from "./SystemDeductions";
+import SystemCampaigns from "./SystemCampaigns";
 import SystemAllowances from "./SystemAllowances";
 import SystemReferralRewards from "./SystemReferralRewards";
 import SystemPageContent from "./SystemPageContent";
@@ -29,6 +30,7 @@ const TABS: TabDef[] = [
   { value: "nomination", label: "指名", icon: UserCheck, render: rate("nomination") },
   { value: "discount", label: "割引", icon: Gift, render: rate("discount") },
   { value: "payment", label: "決済", icon: CreditCard, render: rate("payment") },
+  { value: "campaign", label: "キャンペーン", icon: Flag, render: () => <SystemCampaigns embedded /> },
   { value: "deduction", label: "控除", icon: MinusCircle, render: () => <SystemDeductions embedded /> },
   { value: "allowance", label: "手当", icon: PlusCircle, render: () => <SystemAllowances embedded /> },
   { value: "referral", label: "広告費", icon: Megaphone, render: () => <SystemReferralRewards embedded /> },
