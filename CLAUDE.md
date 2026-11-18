@@ -172,10 +172,11 @@
 
 ## 設定ダッシュボード（/system/dashboard）
 
-- サイドバーの「設定ダッシュボード」1つにシステムの設定をまとめた（`src/pages/SettingsDashboard.tsx`、HPダッシュボードと同じ作り・`?tab=`）。タブ：ALL（正本）／コースバック（course）／オプション（option）／指名（nomination）／割引（discount）／決済（payment）／控除（deduction）／手当（allowance）／広告費（referral）／料金ページ文言（page）／スマホ通知（notifications）／電話（phone）。中身は各ページを `embedded` で入れている（外枠は `AdminPageShell`）
+- サイドバーの「設定ダッシュボード」1つにシステムの設定をまとめた（`src/pages/SettingsDashboard.tsx`、HPダッシュボードと同じ作り・`?tab=`）。タブ：ALL（正本）／コースバック（course）／オプション（option）／指名（nomination）／割引（discount）／決済（payment）／キャンペーン（campaign）／控除（deduction）／手当（allowance）／広告費（referral）／料金ページ文言（page）／スマホ通知（notifications）／電話（phone）。中身は各ページを `embedded` で入れている（外枠は `AdminPageShell`）
 - コースバック〜決済のタブは正本（`SystemRateMaster` の `section`）の一部だけを見る・編集する。直すと正本（ALL）にそのまま出る（同じ表）
 - **ALL は画像・PDFで保存できる**：保存済みの内容（コース・オプション・指名・割引・決済方法・控除・手当・広告費）を canvas に描いて PNG、PDF は A4 縦で切って JPEG を並べた PDF（外部ライブラリなし、`src/lib/rateSheet.ts`、テスト `npm run test:rate-master`）。iPhone は共有シートで保存
 - 以前のURL（`/system/rate-master`・`/system/courses`・`/system/options`・`/system/discounts`・`/system/payment-methods`・`/system/deductions`・`/system/allowances`・`/system/referral-rewards`・`/system/page-content`・`/settings/notifications`・`/settings/phone`）は該当のタブへ転送
+- **キャンペーン**（`?tab=campaign`、`src/pages/SystemCampaigns.tsx`）：表 `campaigns`（名前・内容・開始日・終了日（空なら期限なし）・備考・使う割引 `discount_id`（任意）・`archived_at`）。状態は日付から自動で 継続中／開始前／期間終了、「アーカイブ」で一覧から外して残す（「継続中に戻す」で戻る）。社内の管理用でHPには出さない（anon 不可）。変更は「変更の記録」に残る。計算は `src/lib/campaigns.ts`（テスト `npm run test:rate-master`）、`20261118140000_campaigns.sql`
 - 手当の表 `allowances` は本番に無く手当の画面が動いていなかったので、2026-11-18 に店舗ごとの表として作った（`20261118120000_allowances_and_pay_change_log.sql`）。控除・手当・広告費の変更も「変更の記録」（`rate_master_changes`）に残る
 
 ## 料金・割引・決済（正本 /system/dashboard?tab=all）

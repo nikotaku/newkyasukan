@@ -332,6 +332,7 @@ export const CHANGE_TABLE_LABEL: Record<string, string> = {
   deductions: "控除",
   allowances: "手当",
   referral_rewards: "広告費",
+  campaigns: "キャンペーン",
 };
 
 const FIELD_LABEL: Record<string, string> = {
@@ -358,6 +359,12 @@ const FIELD_LABEL: Record<string, string> = {
   allowance_type: "種類",
   rule: "決まり",
   note: "メモ",
+  details: "内容",
+  start_date: "開始日",
+  end_date: "終了日",
+  notes: "備考",
+  discount_id: "割引",
+  archived_at: "アーカイブ",
 };
 
 const MONEY_FIELDS = new Set(["customer_price", "therapist_back", "amount"]);
@@ -365,6 +372,8 @@ const MONEY_FIELDS = new Set(["customer_price", "therapist_back", "amount"]);
 function fieldValue(field: string, value: unknown): string {
   if (value === null || value === undefined || value === "") return "なし";
   if (typeof value === "boolean") return value ? "オン" : "オフ";
+  if (field === "archived_at") return "した";
+  if (field === "discount_id") return "あり";
   if (MONEY_FIELDS.has(field) && Number.isFinite(Number(value))) return `¥${Number(value).toLocaleString()}`;
   if ((field === "duration" || field === "extension_minutes") && Number.isFinite(Number(value))) return `${Number(value)}分`;
   if (field === "fee_percentage") return `${Number(value)}%`;
