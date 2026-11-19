@@ -32,6 +32,7 @@ export interface ExposureDialogTarget {
 const SOURCE_LABEL: Record<QuotaItemSource, string> = {
   manual: "記録",
   plan: "企画",
+  news: "ニュース投稿（自動）",
   hp_news: "HPニュース（自動）",
   x: "X運用表（自動）",
 };
