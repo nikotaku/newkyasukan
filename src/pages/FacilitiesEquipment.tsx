@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { equipmentRoomId, equipmentProperties, equipmentFields } from "@/lib/facilityEquipment";
+import { useAdminStore } from "@/hooks/useAdminStore";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,10 +33,10 @@ interface CustomField {
 const ITEM_TYPES = [
   { key: "consumables", label: "消耗品" },
   { key: "costumes", label: "衣装" },
-  { key: "furniture", label: "家具家電" },
+  { key: "furniture", label: "什器・家具家電" },
 ];
 
-const emptyForm = () => ({ name: "", quantity: 1, unit: "個", notes: "", customFields: [] as CustomField[], manualImages: [] as string[] });
+const emptyForm = () => ({ room_id: "", name: "", quantity: 1, unit: "個", notes: "", customFields: [] as CustomField[], manualImages: [] as string[] });
 
 export default function FacilitiesEquipment() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -46,7 +48,13 @@ export default function FacilitiesEquipment() {
   const [uploadingImages, setUploadingImages] = useState(false);
   const [formData, setFormData] = useState(emptyForm());
   const [searchParams] = useSearchParams();
-  const defaultTab = searchParams.get("type") || "consumables";
+  const requestedTab = searchParams.get("type");
+  const activeTab = ITEM_TYPES.some(t => t.key === requestedTab) ? requestedTab! : "consumables";
+  const [rooms, setRooms] = useState<{ id: string; name: string }[]>([]);
+  const [roomFilter, setRoomFilter] = useState(searchParams.get("room") || "all");
+  const [loadError, setLoadError] = useState(false);
+  const { storeId, loading: storeLoading } = useAdminStore();
+  const [, setSearchParams] = useSearchParams();
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -56,17 +64,35 @@ export default function FacilitiesEquipment() {
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (user) fetchItems();
-  }, [user]);
+    if (!user || storeLoading) return;
+    let active = true;
+    setItems([]); setRooms([]); setLoading(true); setLoadError(false); closeForm();
+    Promise.all([
+      supabase.from("facility_equipment").select("*").eq("store_id", storeId).order("name"),
+      supabase.from("rooms").select("id,name").eq("store_id", storeId).order("name"),
+    ]).then(([equipment, roomList]) => {
+      if (!active) return;
+      if (equipment.error || roomList.error) {
+        setLoadError(true); toast.error("設備・ルームを読み込めませんでした");
+      } else {
+        setItems((equipment.data || []) as EquipmentItem[]);
+        setRooms(roomList.data || []);
+      }
+      setLoading(false);
+    });
+    return () => { active = false; };
+  }, [user, storeId, storeLoading]);
 
   const fetchItems = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from("facility_equipment").select("*").order("name");
+      const { data, error } = await supabase.from("facility_equipment").select("*").eq("store_id", storeId).order("name");
       if (error && error.code !== "PGRST116") throw error;
       setItems((data || []) as EquipmentItem[]);
+      setLoadError(false);
     } catch (error) {
       console.error("Error:", error);
+      setLoadError(true); toast.error("設備を読み込めませんでした");
     } finally {
       setLoading(false);
     }
@@ -74,18 +100,19 @@ export default function FacilitiesEquipment() {
 
   const openAdd = (itemType: string) => {
     setEditingId(null);
-    setFormData(emptyForm());
+    setFormData({ ...emptyForm(), room_id: rooms.some(r => r.id === roomFilter) ? roomFilter : "" });
     setFormType(itemType);
   };
 
   const openEdit = (item: EquipmentItem) => {
     setEditingId(item.id);
     setFormData({
+      room_id: equipmentRoomId(item) || "",
       name: item.name,
       quantity: item.quantity,
       unit: item.unit || "個",
       notes: item.notes || "",
-      customFields: Object.entries(item.custom_fields || {}).map(([key, value]) => ({ key, value: String(value) })),
+      customFields: Object.entries(equipmentProperties(item.custom_fields)).map(([key, value]) => ({ key, value: String(value) })),
       manualImages: item.manual_images || [],
     });
     setFormType(item.item_type);
@@ -120,12 +147,17 @@ export default function FacilitiesEquipment() {
 
   const handleSave = async (itemType: string) => {
     if (!formData.name.trim()) { toast.error("名称を入力してください"); return; }
+    if (!Number.isSafeInteger(formData.quantity) || formData.quantity < 0) {
+      toast.error("数量は0以上の整数で入力してください"); return;
+    }
+    if (formData.room_id && !rooms.some(room => room.id === formData.room_id)) {
+      toast.error("ルームを選び直してください"); return;
+    }
     setSaving(true);
-    const custom_fields = Object.fromEntries(
-      formData.customFields.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value])
-    );
+    const custom_fields = equipmentFields(formData.customFields, formData.room_id);
     const payload = {
       item_type: itemType,
+      store_id: storeId,
       name: formData.name.trim(),
       quantity: formData.quantity,
       unit: formData.unit || null,
@@ -134,7 +166,7 @@ export default function FacilitiesEquipment() {
       manual_images: formData.manualImages,
     };
     const { error } = editingId
-      ? await supabase.from("facility_equipment").update(payload).eq("id", editingId)
+      ? await supabase.from("facility_equipment").update(payload).eq("id", editingId).eq("store_id", storeId)
       : await supabase.from("facility_equipment").insert([payload]);
     setSaving(false);
     if (error) { console.error(error); toast.error("保存に失敗しました"); return; }
@@ -145,7 +177,7 @@ export default function FacilitiesEquipment() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("削除しますか？")) return;
-    const { error } = await supabase.from("facility_equipment").delete().eq("id", id);
+    const { error } = await supabase.from("facility_equipment").delete().eq("id", id).eq("store_id", storeId);
     if (error) { toast.error("削除に失敗しました"); return; }
     fetchItems();
   };
@@ -153,6 +185,12 @@ export default function FacilitiesEquipment() {
   const renderForm = (itemType: string) => (
     <Card className="mb-4">
       <CardContent className="pt-4 space-y-3">
+        <label className="block text-sm space-y-1">設置ルーム
+          <select className="w-full rounded-md border bg-background p-2" value={formData.room_id} onChange={e => setFormData({ ...formData, room_id: e.target.value })}>
+            <option value="">共通・未指定</option>
+            {rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
+          </select>
+        </label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
             <Label>名称</Label>
@@ -160,7 +198,7 @@ export default function FacilitiesEquipment() {
           </div>
           <div>
             <Label>数量</Label>
-            <Input type="number" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })} />
+            <Input type="number" min="0" step="1" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })} />
           </div>
           <div>
             <Label>単位</Label>
@@ -241,10 +279,17 @@ export default function FacilitiesEquipment() {
         <div className="max-w-4xl mx-auto">
           <div className="mb-6">
             <h1 className="text-2xl font-bold">設備管理</h1>
-            <p className="text-muted-foreground">消耗品・衣装・家具家電の管理</p>
+            <p className="text-muted-foreground">消耗品・衣装・什器・家具家電の管理</p>
           </div>
 
-          <Tabs defaultValue={defaultTab}>
+          <label className="block text-sm mb-4 space-y-1">ルームで絞り込み
+            <select className="block w-full sm:w-64 rounded-md border bg-background p-2" value={roomFilter} onChange={e => { setRoomFilter(e.target.value); closeForm(); }}>
+              <option value="all">すべてのルーム</option>
+              <option value="unassigned">共通・未指定</option>
+              {rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
+            </select>
+          </label>
+          <Tabs value={activeTab} onValueChange={value => { closeForm(); setSearchParams(previous => { const next = new URLSearchParams(previous); next.set("type", value); return next; }); }}>
             <TabsList className="mb-6">
               {ITEM_TYPES.map((t) => (
                 <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>
@@ -252,12 +297,13 @@ export default function FacilitiesEquipment() {
             </TabsList>
 
             {ITEM_TYPES.map(({ key, label }) => {
-              const typeItems = items.filter((i) => i.item_type === key);
+              const typeItems = items.filter((i) => i.item_type === key && (roomFilter === "all" || (roomFilter === "unassigned" ? !equipmentRoomId(i) : equipmentRoomId(i) === roomFilter)));
               const formOpen = formType === key;
               return (
                 <TabsContent key={key} value={key}>
+                  {key === "furniture" && <p className="text-sm text-muted-foreground mb-4">置き時計・観葉植物・乾燥機・洗濯機など、設置して使う物を登録します。数量・設置ルーム・設置場所や型番などの追加項目を管理できます。</p>}
                   <div className="mb-4 flex justify-end">
-                    <Button onClick={() => (formOpen && !editingId ? closeForm() : openAdd(key))}>
+                    <Button disabled={loading || loadError || saving} onClick={() => (formOpen && !editingId ? closeForm() : openAdd(key))}>
                       <Plus size={14} className="mr-2" />{label}を追加
                     </Button>
                   </div>
@@ -266,6 +312,8 @@ export default function FacilitiesEquipment() {
 
                   {loading ? (
                     <div className="text-center text-muted-foreground">読み込み中...</div>
+                  ) : loadError ? (
+                    <p role="alert">読み込みに失敗しました。<Button variant="outline" onClick={() => window.location.reload()}>再読み込み</Button></p>
                   ) : typeItems.length === 0 ? (
                     <Card><CardContent className="pt-10 pb-10 text-center text-muted-foreground">データがありません</CardContent></Card>
                   ) : (
@@ -277,12 +325,13 @@ export default function FacilitiesEquipment() {
                               <div className="min-w-0">
                                 <div>
                                   <span className="font-semibold text-sm">{item.name}</span>
+                                  <span className="ml-3 text-xs text-muted-foreground">{rooms.find(room => room.id === equipmentRoomId(item))?.name || "共通・未指定"}</span>
                                   <span className="ml-3 text-sm text-muted-foreground">{item.quantity}{item.unit}</span>
                                   {item.notes && <span className="ml-3 text-xs text-muted-foreground">{item.notes}</span>}
                                 </div>
-                                {item.custom_fields && Object.keys(item.custom_fields).length > 0 && (
+                                {item.custom_fields && Object.keys(equipmentProperties(item.custom_fields)).length > 0 && (
                                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
-                                    {Object.entries(item.custom_fields).map(([k, v]) => (
+                                    {Object.entries(equipmentProperties(item.custom_fields)).map(([k, v]) => (
                                       <span key={k} className="text-xs text-muted-foreground">
                                         <span className="font-medium">{k}:</span> {String(v)}
                                       </span>
