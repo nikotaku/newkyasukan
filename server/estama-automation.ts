@@ -4136,7 +4136,7 @@ export function estamaProfileHashes(cast: CastRecord) {
  * 見落としの拾い直し：紐付け済み・在籍中の人で、HPの今の内容がエステ魂へ送った内容（ハッシュ）と違うのに
  * 待っている同期が無ければ積む。紐付けが外れていた間の変更・トリガーを通らない一括更新・手で紐付けた人など、
  * 変更のトリガーだけでは積まれない分を、スタッフ画面の「登録・反映 ◯%」と同じ比べ方で見つける。
- * 失敗が続く人を毎分積み直さないよう、直近12時間に失敗した人は飛ばす。
+ * 失敗が続く人・確認が通らない人を毎時積み直さないよう、直近12時間に同期が終わった（成功・失敗とも）人は飛ばす。
  */
 export async function enqueueOutdatedProfileSyncs(admin: AdminClient, options: { limit?: number } = {}) {
   const { data: profiles, error } = await admin.from("external_cast_profiles")
@@ -4149,7 +4149,8 @@ export async function enqueueOutdatedProfileSyncs(admin: AdminClient, options: {
     admin.from("casts").select(["id", "is_active", ...ESTAMA_CAST_COLUMNS].join(",")).in("id", castIds),
     admin.from("automation_jobs").select("cast_id,status,finished_at")
       .eq("provider", "estama").eq("job_type", "estama_register_cast").in("cast_id", castIds)
-      .or(`status.in.(queued,running,waiting_for_login),and(status.eq.failed,finished_at.gte.${new Date(Date.now() - 12 * 3_600_000).toISOString()})`),
+      // 終わった同期でも確認が通らなかった人（写真の削除が判別できない等）を毎時送り直さないよう、直近12時間に終わったものも見る
+      .or(`status.in.(queued,running,waiting_for_login),and(status.in.(failed,completed),finished_at.gte.${new Date(Date.now() - 12 * 3_600_000).toISOString()})`),
   ]);
   if (castError) throw new Error(`セラピスト情報を読み込めませんでした: ${describeError(castError)}`);
   if (jobError) throw new Error(`同期の待ちを読み込めませんでした: ${describeError(jobError)}`);
