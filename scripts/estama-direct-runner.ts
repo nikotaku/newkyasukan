@@ -69,10 +69,24 @@ try {
           const links = await page.locator('a[href]').evaluateAll(anchors => anchors.flatMap(anchor => {
             const label = (anchor.textContent || '').trim();
             const url = new URL((anchor as HTMLAnchorElement).href);
-            return /リアルタイム|速報|即ヒメ|集客/.test(label) && url.origin === 'https://estama.jp' && url.pathname.startsWith('/admin/')
+            return /リアルタイム|ワンクリックアピール|招待待ち|招待メッセージ/.test(label) && url.origin === 'https://estama.jp' && url.pathname.startsWith('/admin/')
               ? [{ label: label.slice(0, 60), path: url.pathname }] : [];
           }));
           console.log(JSON.stringify({event: 'estama_realtime_navigation', links}));
+          for (const path of new Set(links.map(link => link.path))) {
+            await page.goto('https://estama.jp'+path,{waitUntil:'domcontentloaded'});
+            const controls = await page.evaluate(() => ({
+              forms: Array.from(document.forms).map(form => ({
+                action: new URL(form.action).pathname,
+                fields: Array.from(form.querySelectorAll('input:not([type=hidden]):not([type=password]),textarea,select,button')).map(el => ({
+                  tag:el.tagName, name:el.getAttribute('name'), id:el.id, type:el.getAttribute('type'),
+                  button:el.matches('button,input[type=submit]') ? (el.textContent || el.getAttribute('value') || '').trim().slice(0,30) : undefined,
+                })).slice(0,25)
+              })).slice(0,10),
+              actions: Array.from(document.querySelectorAll('a,button')).map(el => (el.textContent||'').trim()).filter(text => /^(編集する|アピールする|投稿する|招待する|更新する|保存する|登録する|送信する)$/.test(text)).slice(0,20)
+            }));
+            console.log(JSON.stringify({event:'estama_pr_controls',path,controls}));
+          }
         }
         if(!result.ok) {
           adminLoginStage=/画面が見つかりません/.test(result.error)?'login_form_missing':/admin/.test(page.url())?'editor_missing':'login_rejected';
