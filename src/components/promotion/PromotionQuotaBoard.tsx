@@ -11,6 +11,9 @@ import {
   Target,
   UsersRound,
 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -51,15 +54,58 @@ function cellTone(cell: QuotaCell) {
 export function PromotionQuotaBoard({ storeId }: { storeId: string | null }) {
   const today = currentBusinessDate();
   const [month, setMonth] = useState(() => monthOf(today));
+  if (!storeId) return null;
+  return <MonthlyQuotaBoard key={storeId + month} storeId={storeId} month={month} setMonth={setMonth} today={today} />;
+}
+
+function MonthlyQuotaBoard({ storeId, month, setMonth, today }: {
+  storeId: string;
+  month: string;
+  setMonth: React.Dispatch<React.SetStateAction<string>>;
+  today: string;
+}) {
+  const [showArchived, setShowArchived] = useState(false);
+  const queryClient = useQueryClient();
+  const archiveKey = ["promotion-quota-archives", storeId, month];
+  const table = () => supabase.from("promotion_quota_archives" as never);
+  const archives = useQuery({
+    queryKey: archiveKey,
+    queryFn: async () => {
+      const { data, error } = await table().select("cast_id").eq("store_id", storeId).eq("month_start", month + "-01");
+      if (error) throw error;
+      return (data as { cast_id: string }[]).map(item => item.cast_id);
+    },
+  });
+  const changeArchive = useMutation({
+    mutationFn: async ({ castId, restore }: { castId: string; restore: boolean }) => {
+      const key = { store_id: storeId, month_start: month + "-01", cast_id: castId };
+      const result = restore ? await table().delete().match(key) : await table().upsert(key as never, { ignoreDuplicates: true });
+      if (result.error) throw result.error;
+    },
+    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: archiveKey }); },
+    onError: () => toast.error("アーカイブの変更を保存できませんでした"),
+  });
+  const archiveButton = (row: QuotaRow) => (
+    <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground" disabled={changeArchive.isPending}
+      aria-label={row.name + (showArchived ? "を一覧に戻す" : "の今月分をアーカイブ")}
+      onClick={() => changeArchive.mutate({ castId: row.castId, restore: showArchived })}>
+      {showArchived ? "一覧に戻す" : "アーカイブ"}
+    </Button>
+  );
   const [showIdle, setShowIdle] = useState(false);
   const [dialog, setDialog] = useState<ExposureDialogTarget | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const { rows, config, configSaved, plans, loading, error, reload } = usePromotionQuota(storeId, month);
+  const { rows: allRows, config, configSaved, plans, loading: quotaLoading, error: quotaError, reload: reloadQuota } = usePromotionQuota(storeId, month);
+
+  const loading = quotaLoading || archives.isLoading;
+  const error = quotaError || (archives.isError ? "アーカイブの読み込みに失敗しました" : "");
+  const reload = () => Promise.all([reloadQuota(), archives.refetch()]);
+  const rows = useMemo(() => allRows.filter(row => (archives.data?.includes(row.castId) ?? false) === showArchived), [allRows, archives.data, showArchived]);
 
   const summary = useMemo(() => summarizeQuota(rows), [rows]);
   // ノルマのない人（出勤なし）でも、記録・予定があれば出す
   const active = rows.filter((row) => row.required > 0 || Object.values(row.cells).some((cell) => cell.items.length > 0));
-  const visible = showIdle ? rows : active;
+  const visible = showArchived || showIdle ? rows : active;
   const idleCount = rows.length - active.length;
 
   // 遅れているもの（今日までに終わっているべき回数に足りない）を、足りない数の多い順に
@@ -88,6 +134,9 @@ export function PromotionQuotaBoard({ storeId }: { storeId: string | null }) {
           <Button variant="ghost" size="sm" onClick={() => setMonth(monthOf(today))}>今月へ</Button>
         )}
         <div className="ml-auto flex flex-wrap gap-2">
+          <Button size="sm" variant={showArchived ? "default" : "outline"} aria-pressed={showArchived} onClick={() => setShowArchived(!showArchived)}>
+            {showArchived ? "通常の一覧へ" : "アーカイブ"} {archives.data?.length ?? 0}
+          </Button>
           <Button size="sm" onClick={() => setDialog({ castId: null, channel: null })} disabled={loading || rows.length === 0}>
             <Plus size={15} className="mr-1" />露出を記録
           </Button>
@@ -200,7 +249,7 @@ export function PromotionQuotaBoard({ storeId }: { storeId: string | null }) {
             {loading ? (
               <div className="rounded-xl border bg-card py-12 text-center"><Loader2 className="inline-block animate-spin text-primary" /></div>
             ) : visible.length === 0 ? (
-              <div className="rounded-xl border bg-card py-10 text-center text-sm text-muted-foreground">この月に出勤のあるセラピストはいません</div>
+              <div className="rounded-xl border bg-card py-10 text-center text-sm text-muted-foreground">{showArchived ? "この月のアーカイブはありません" : "この月に出勤のあるセラピストはいません"}</div>
             ) : visible.map((row) => (
               <div key={row.castId} className="rounded-xl border bg-card p-3">
                 <div className="flex items-start gap-2">
@@ -215,6 +264,7 @@ export function PromotionQuotaBoard({ storeId }: { storeId: string | null }) {
                     </div>
                   ))}
                 </div>
+                <div className="mt-1 flex justify-end">{archiveButton(row)}</div>
               </div>
             ))}
           </div>
@@ -238,11 +288,11 @@ export function PromotionQuotaBoard({ storeId }: { storeId: string | null }) {
                 {loading ? (
                   <tr><td colSpan={QUOTA_CHANNELS.length + 2} className="py-12 text-center"><Loader2 className="inline-block animate-spin text-primary" /></td></tr>
                 ) : visible.length === 0 ? (
-                  <tr><td colSpan={QUOTA_CHANNELS.length + 2} className="py-10 text-center text-muted-foreground">この月に出勤のあるセラピストはいません</td></tr>
+                  <tr><td colSpan={QUOTA_CHANNELS.length + 2} className="py-10 text-center text-muted-foreground">{showArchived ? "この月のアーカイブはありません" : "この月に出勤のあるセラピストはいません"}</td></tr>
                 ) : visible.map((row) => (
                   <tr key={row.castId} className="border-t">
                     <td className="sticky left-0 z-10 bg-card px-3 py-2">
-                      <div className="min-w-[150px]"><TherapistLabel row={row} /></div>
+                      <div className="min-w-[150px]"><TherapistLabel row={row} />{archiveButton(row)}</div>
                     </td>
                     {QUOTA_CHANNELS.map((channel) => (
                       <td key={channel.key} className="px-1 py-1.5 text-center">
@@ -258,7 +308,7 @@ export function PromotionQuotaBoard({ storeId }: { storeId: string | null }) {
         </>
       )}
 
-      {idleCount > 0 && (
+      {!showArchived && idleCount > 0 && (
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
           <Switch checked={showIdle} onCheckedChange={setShowIdle} />
           この月に出勤のないセラピスト（{idleCount}人）も表示
