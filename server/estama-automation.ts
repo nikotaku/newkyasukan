@@ -958,6 +958,9 @@ async function registerCast(
     .eq("cast_id", job.cast_id).eq("provider", "estama").maybeSingle();
   const castRecord = cast as unknown as CastRecord;
   const data = castToEstama(castRecord);
+  // 反映確認のハッシュは「HPの入力」から作る（スタッフ画面の「登録・反映 ◯%」が同じ計算で比べるため）。
+  // 下で仮の名前（新人A）・既定の特徴（新人）に置き換える前の値で作らないと、源氏名未定の人はずっと「確認待ち」になる
+  const { profileHash, photoHash } = estamaProfileHashes(castRecord);
   // 源氏名が決まる前は「新人A」などの仮の名前で登録してIDで紐付ける（決まったらそのIDの画面で名前を直す）
   const stageNamePending = isPendingStageName(castRecord.name);
   if (stageNamePending) {
@@ -966,8 +969,6 @@ async function registerCast(
     data.name = estamaPlaceholderName(current?.remote_name, (others || []).map((row) => row.remote_name));
   }
   const syncFields = estamaSyncFields(job.payload);
-  const profileHash = createHash("sha256").update(JSON.stringify(data)).digest("hex");
-  const photoHash = createHash("sha256").update(JSON.stringify(data.photos)).digest("hex");
   const names = [current?.remote_name, data.name, castRecord.name];
   let externalId: string | null = current?.external_cast_id
     || estamaCastIdFromUrl(current?.public_profile_url)
@@ -4120,6 +4121,68 @@ async function pruneOldJobScreenshots(admin: AdminClient, storeId: string) {
   } catch (error) {
     console.warn(JSON.stringify({ event: "estama_job_screenshot_prune_failed", storeId, error: describeError(error) }));
   }
+}
+
+/** 反映確認用のハッシュ。src/lib/estamaProfileCompletion.ts の estamaFingerprint と同じ計算（HPの入力をそのまま変換） */
+export function estamaProfileHashes(cast: CastRecord) {
+  const data = castToEstama(cast);
+  return {
+    profileHash: createHash("sha256").update(JSON.stringify(data)).digest("hex"),
+    photoHash: createHash("sha256").update(JSON.stringify(data.photos)).digest("hex"),
+  };
+}
+
+/**
+ * 見落としの拾い直し：紐付け済み・在籍中の人で、HPの今の内容がエステ魂へ送った内容（ハッシュ）と違うのに
+ * 待っている同期が無ければ積む。紐付けが外れていた間の変更・トリガーを通らない一括更新・手で紐付けた人など、
+ * 変更のトリガーだけでは積まれない分を、スタッフ画面の「登録・反映 ◯%」と同じ比べ方で見つける。
+ * 失敗が続く人を毎分積み直さないよう、直近12時間に失敗した人は飛ばす。
+ */
+export async function enqueueOutdatedProfileSyncs(admin: AdminClient, options: { limit?: number } = {}) {
+  const { data: profiles, error } = await admin.from("external_cast_profiles")
+    .select("store_id,cast_id,last_profile_hash,last_photo_hash")
+    .eq("provider", "estama").eq("sync_status", "synced").not("external_cast_id", "is", null);
+  if (error) throw new Error(`エステ魂の紐付けを読み込めませんでした: ${describeError(error)}`);
+  if (!profiles?.length) return [];
+  const castIds = profiles.map((row) => row.cast_id);
+  const [{ data: casts, error: castError }, { data: jobs, error: jobError }] = await Promise.all([
+    admin.from("casts").select(["id", "is_active", ...ESTAMA_CAST_COLUMNS].join(",")).in("id", castIds),
+    admin.from("automation_jobs").select("cast_id,status,finished_at")
+      .eq("provider", "estama").eq("job_type", "estama_register_cast").in("cast_id", castIds)
+      .or(`status.in.(queued,running,waiting_for_login),and(status.eq.failed,finished_at.gte.${new Date(Date.now() - 12 * 3_600_000).toISOString()})`),
+  ]);
+  if (castError) throw new Error(`セラピスト情報を読み込めませんでした: ${describeError(castError)}`);
+  if (jobError) throw new Error(`同期の待ちを読み込めませんでした: ${describeError(jobError)}`);
+  const busy = new Set((jobs || []).map((row) => row.cast_id));
+  const castById = new Map(((casts || []) as unknown as Array<CastRecord & { id: string; is_active: boolean }>).map((row) => [row.id, row]));
+  const queued: string[] = [];
+  for (const profile of profiles) {
+    if (queued.length >= (options.limit ?? 5)) break;
+    const cast = castById.get(profile.cast_id);
+    if (!cast?.is_active || busy.has(profile.cast_id)) continue;
+    const { profileHash, photoHash } = estamaProfileHashes(cast);
+    if (profile.last_profile_hash === profileHash && profile.last_photo_hash === photoHash) continue;
+    const { error: enqueueError } = await admin.rpc("enqueue_estama_job", {
+      p_store_id: profile.store_id,
+      p_job_type: "estama_register_cast",
+      p_cast_id: profile.cast_id,
+      p_shift_id: null,
+      p_dedupe_key: `estama:cast:${profile.cast_id}`,
+      p_payload: {
+        source: "hash_mismatch",
+        changed: [
+          profile.last_profile_hash !== profileHash ? "profile" : null,
+          profile.last_photo_hash !== photoHash ? "photos" : null,
+        ].filter(Boolean),
+      },
+    });
+    if (enqueueError) {
+      console.warn(JSON.stringify({ event: "estama_outdated_profile_enqueue_failed", castId: profile.cast_id, error: describeError(enqueueError) }));
+      continue;
+    }
+    queued.push(profile.cast_id);
+  }
+  return queued;
 }
 
 export async function processAvailableJobs(
