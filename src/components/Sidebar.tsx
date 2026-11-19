@@ -179,30 +179,9 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    label: "セラピスト",
+    href: "/therapists/dashboard",
+    label: "セラピストダッシュボード",
     icon: UserCircle,
-    children: [
-      { href: "/staff", label: "セラピスト一覧" },
-      { href: "/therapist-notices", label: "お知らせ（マイページ掲示板）" },
-      { href: "/promotion-schedule", label: "投稿宣伝スケジュール" },
-      { href: "/education", label: "教育・媒体登録・SNS連携" },
-      { href: "/post-management", label: "一括投稿管理" },
-      { href: "/panel-manual", label: "パネル撮影マニュアル" },
-      { href: "/service-manual", label: "接客マニュアル" },
-      { href: "/recruitment-criteria", label: "採用基準確認シート" },
-      { href: "/recruit-talk", label: "求人LP" },
-      { href: "/recruit-scout", label: "引き抜きDM" },
-      { href: "/recruit/estama-scout", label: "エステ魂スカウト" },
-      { href: "/marketing/recruit-lp", label: "求人LP A/B分析" },
-      {
-        href: "/interview",
-        label: "面談用ページ（画面共有）",
-        variants: [
-          { href: "/interview?type=dekasegi", label: "出稼ぎ用" },
-          { href: "/interview?type=zaiseki", label: "在籍用" },
-        ],
-      },
-    ],
   },
   {
     label: "顧客",
