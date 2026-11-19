@@ -2520,6 +2520,7 @@ export default function Staff() {
                         </span>
                       </div>
                       <p className={`mt-0.5 text-[10px] ${profileCompletion.confirmed ? "text-emerald-700" : "text-muted-foreground"}`}>
+                        {profileCompletion.missingCount > 0 && `プロフィール未入力 ${profileCompletion.missingCount}項目 · `}
                         {profileCompletion.confirmed ? "エスたま反映確認済み" : "エスたま反映確認待ち"}
                       </p>
                     </div>
