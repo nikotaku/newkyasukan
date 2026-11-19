@@ -1013,7 +1013,13 @@ async function registerCast(
     ["#ForteProcedure", data.forte_procedure], ["#Food", data.food], ["#ManLikeType", data.man_like_type],
     ["#LikeTalent", data.like_talent], ["#Holiday", data.holiday], ["#Vogue", data.vogue],
   ];
-  for (const [selector, value] of fields) await setField(page, selector, value);
+  // 既にエステ魂にいる人は、HPで空の欄（年齢・身長・サイズ・血液型など）でエステ魂の値を消さない。
+  // 必須の欄を空にして送ると、エステ魂は保存せずに同じ編集画面を返す（りりか&ももか・北乃みか、2026-11-19）
+  const keepWhenBlank = new Set(['[name="experience"]', '[name="age"]', '[name="tall"]', '[name="size_b"]', '[name="size_cup"]', '[name="size_w"]', '[name="size_h"]', '[name="blood"]']);
+  for (const [selector, value] of fields) {
+    if (isExisting && keepWhenBlank.has(selector) && (value === null || value === undefined || String(value) === "")) continue;
+    await setField(page, selector, value);
+  }
   // ブログ・SNS 欄（外部ブログ＝O2、X＝SNS運用管理のX）。見つからない欄は結果に残す
   const snsFields: Array<[string, string, string]> = [
     ["blog", ESTAMA_BLOG_FIELD, data.blog],
@@ -1026,7 +1032,8 @@ async function registerCast(
   }
   if (syncFields === "all") {
     const selectedTypes = new Set(data.types);
-    for (const type of Object.values(ESTAMA_FEATURE_MAP)) {
+    // HPで特徴を1つも選んでいない人は、エステ魂の特徴をそのままにする（全部外すと必須の欄が空になり保存されない）
+    for (const type of selectedTypes.size ? Object.values(ESTAMA_FEATURE_MAP) : []) {
       const checkbox = page.locator(`#type_${type}`);
       if (await checkbox.count() && await checkbox.isChecked() !== selectedTypes.has(type)) {
         await checkbox.setChecked(selectedTypes.has(type));
@@ -1058,6 +1065,11 @@ async function registerCast(
   page.off("response", onSaveResponse);
   const afterSaveUrl = page.url();
   const saveErrors = await visibleEstamaErrors(page);
+  // エステ魂の入力エラーは欄の近くに文字で出る（「〜してください」など）。保存できなかったときの理由として拾う
+  const inlineErrors = await page.locator('[class*="err" i]:visible, [class*="alert" i]:visible, [class*="caution" i]:visible, [class*="warn" i]:visible')
+    .allTextContents().catch(() => [] as string[]);
+  const requiredMessages = await page.locator("body").innerText().then((text) => (text.match(/[^\n。]{0,30}(?:してください|入力されていません|選択されていません|必須です|正しくありません)/g) || []).slice(0, 5)).catch(() => [] as string[]);
+  const validationNote = [...new Set([...inlineErrors.map((value) => value.trim()).filter(Boolean), ...requiredMessages])].join(" / ").slice(0, 200);
   if (saveErrors.length) {
     throw new Error(`エステ魂で保存できませんでした: ${[...new Set(saveErrors)].join(" / ").slice(0, 240)}`);
   }
@@ -1108,7 +1120,7 @@ async function registerCast(
     }
   }
 
-  const saveTrace = `保存後の画面: ${new URL(afterSaveUrl).pathname}${saveResponses.length ? `／送信: ${saveResponses.join(" ｜ ").slice(0, 400)}` : "／送信の記録なし（保存ボタンが押せていない可能性）"}`;
+  const saveTrace = `保存後の画面: ${new URL(afterSaveUrl).pathname}${validationNote ? `／画面の表示: ${validationNote}` : ""}${saveResponses.length ? `／送信: ${saveResponses.join(" ｜ ").slice(0, 400)}` : "／送信の記録なし（保存ボタンが押せていない可能性）"}`;
   const lastError = snsMismatch
     ? `エステ魂のブログ・SNS欄が保存後に変わっていませんでした（${saveTrace}）`
     : photoRemovalPending ? "エステ魂の削除対象写真を自動判別できませんでした" : null;
