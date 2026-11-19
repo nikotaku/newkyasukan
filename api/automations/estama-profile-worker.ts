@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   enqueueOutdatedProfileSyncs,
   getAdminClient,
@@ -14,6 +15,17 @@ type ResponseLike = {
 };
 
 const stringValue = (value: unknown) => typeof value === "string" ? value.trim() : "";
+
+/** トークンが有効か（使わずに）確かめる。待ちの作業が無いと claim は失敗するので、見回りはその前に行う */
+async function tokenIsValid(admin: ReturnType<typeof getAdminClient>, token: string) {
+  if (!/^[0-9a-f]{64}$/.test(token)) return false;
+  const { data, error } = await admin.from("estama_sync_tokens").select("token_hash")
+    .eq("token_hash", createHash("sha256").update(token).digest("hex"))
+    .eq("purpose", "profile-worker").is("used_at", null).gt("expires_at", new Date().toISOString())
+    .maybeSingle();
+  if (error) throw new Error(`プロフィール同期トークンを確認できませんでした: ${error.message}`);
+  return Boolean(data);
+}
 
 async function claimToken(admin: ReturnType<typeof getAdminClient>, token: string) {
   if (token.length < 48) return false;
@@ -36,18 +48,23 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
   try {
     token = stringValue(req.body?.token);
     admin = getAdminClient();
-    claimed = await claimToken(admin, token);
-    if (!claimed) {
+    if (!await tokenIsValid(admin, token)) {
       res.status(401).json({ error: "プロフィール同期トークンが無効または使用済みです" });
       return;
     }
-
     // HPの今の内容とエステ魂へ送った内容が違うのに待ちが無い人を積む（毎時の見回り・ふだんの起動のたび）
     let outdated: string[] = [];
     try {
       outdated = await enqueueOutdatedProfileSyncs(admin);
     } catch (error) {
       console.error(JSON.stringify({ event: "estama_outdated_profile_check_failed", error: error instanceof Error ? error.message : String(error) }));
+    }
+    claimed = await claimToken(admin, token);
+    if (!claimed) {
+      // 見回りで積む人がいなければ claim は失敗する（待ちが無い）。それは正常
+      if (!outdated.length) { res.status(200).json({ ok: true, outdated, processed: 0 }); return; }
+      res.status(409).json({ error: "プロフィール同期を始められませんでした（ほかの作業中）", outdated });
+      return;
     }
 
     const results = await processAvailableJobs(admin, {
