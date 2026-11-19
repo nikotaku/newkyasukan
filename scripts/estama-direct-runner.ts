@@ -70,13 +70,27 @@ try {
           const links = await page.locator('a[href]').evaluateAll(anchors => anchors.flatMap(anchor => {
             const label = (anchor.textContent || '').trim();
             const url = new URL((anchor as HTMLAnchorElement).href);
-            return /リアルタイム|ワンクリックアピール|招待/.test(label) && url.origin === 'https://estama.jp' && url.pathname.startsWith('/admin/')
+            return /リアルタイム|ワンクリックアピール|招待|ユーザー管理|プレミアムユーザー/.test(label) && url.origin === 'https://estama.jp' && url.pathname.startsWith('/admin/')
               ? [{ label: label.slice(0, 60), path: url.pathname }] : [];
           }));
           console.log(JSON.stringify({event: 'estama_realtime_navigation', links}));
-          for (const path of new Set(links.map(link => link.path))) {
+          const targets = [...new Set(links.map(link => link.path))];
+          for (const path of targets) {
             await page.goto('https://estama.jp'+path,{waitUntil:'domcontentloaded'});
+            if (/^\/admin\/(guest|job)\/realtime\/$/.test(path)) {
+              const edit=page.getByRole('link',{name:'編集',exact:true});
+              if(await edit.count()===1) {
+                const href=await edit.getAttribute('href');
+                const url=new URL(href||'',page.url());
+                if(url.origin==='https://estama.jp' && url.pathname===path+'edit/update/') targets.push(url.pathname);
+              }
+            }
             const controls = await page.evaluate(() => ({
+              actionLabels: Array.from(document.querySelectorAll('a,button,input[type=submit],label')).map(el=>(el.textContent||el.getAttribute('value')||'').trim()).filter(t=>t.length<35 && /保存|登録する|更新|投稿する|編集する|時間後|掲載期間|入力内容|アピール|招待|会員/.test(t)).slice(-45),
+              cards: Array.from(document.querySelectorAll('a,button')).filter(el=>/^(編集する|アピールする)$/.test((el.textContent||'').trim())).map(el=>{
+                let p=el.parentElement; while(p && !(p.innerText.includes('最終アピール') && p.innerText.includes('残り')))p=p.parentElement;
+                return {type:(p?.innerText||'').split('\n')[0].slice(0,30),href:el instanceof HTMLAnchorElement ? new URL(el.href,location.href).pathname.replace(/\d+/g,'[id]'):null};
+              }).slice(0,10),
               links: Array.from(document.querySelectorAll('main a[href],article a[href],form a[href],a[href*="edit"],a[href*="invite"]')).flatMap(el=>{
                 const url=new URL((el as HTMLAnchorElement).href);
                 const label=(el.textContent||'').trim();
