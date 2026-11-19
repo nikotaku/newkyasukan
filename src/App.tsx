@@ -84,6 +84,7 @@ import SalesMonthlySalesTarget from "./pages/SalesMonthlySalesTarget";
 import SalesDailySalesTarget from "./pages/SalesDailySalesTarget";
 import SalesExpenseInput from "./pages/SalesExpenseInput";
 import SalesMonthlyClosing from "./pages/SalesMonthlyClosing";
+import TherapistDashboard from "./pages/TherapistDashboard";
 import SettingsDashboard from "./pages/SettingsDashboard";
 import SystemSMS from "./pages/SystemSMS";
 import SystemSMSAuto from "./pages/SystemSMSAuto";
@@ -207,6 +208,7 @@ const App = () => {
           <Route path="/schedule/estama-sync-history" element={<EstamaSyncHistory />} />
           <Route path="/schedule/reservations-list" element={<ReservationsList />} />
           <Route path="/schedule/available-slots" element={<AvailableSlots />} />
+          <Route path="/therapists/dashboard" element={<TherapistDashboard />} />
           <Route path="/staff" element={<Staff />} />
           <Route path="/staff/dispatch-registration" element={<DispatchRegistrationAdmin />} />
           <Route path="/shift" element={<Shift />} />
