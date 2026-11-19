@@ -34,11 +34,11 @@ export function CastMissingFields({
   const text = (key: keyof EditableCast, label: string, opts?: { placeholder?: string; area?: boolean }) =>
     show(label) && (
       <div key={label}>
-        <Label className="text-xs">{label}{mark(label)}</Label>
+        <Label htmlFor={`missing-${key}`} className="text-xs">{label}{mark(label)}</Label>
         {opts?.area ? (
-          <Textarea rows={2} placeholder={opts.placeholder} value={String(cast[key] ?? "")} onChange={(e) => onChange({ [key]: e.target.value })} />
+          <Textarea id={`missing-${key}`} rows={2} placeholder={opts.placeholder} value={String(cast[key] ?? "")} onChange={(e) => onChange({ [key]: e.target.value })} />
         ) : (
-          <Input placeholder={opts?.placeholder} value={String(cast[key] ?? "")} onChange={(e) => onChange({ [key]: e.target.value })} />
+          <Input id={`missing-${key}`} placeholder={opts?.placeholder} value={String(cast[key] ?? "")} onChange={(e) => onChange({ [key]: e.target.value })} />
         )}
       </div>
     );
@@ -76,7 +76,8 @@ export function CastMissingFields({
       <div className="rounded-md border bg-muted/40 p-3 text-xs">
         <div className="flex items-center justify-between gap-2">
           <span>
-            足りない項目だけ出しています（いま <span className="font-semibold">{completion.percent}%</span>）
+            <strong className="block">{completion.missing.length ? `未入力 ${completion.missing.length}項目` : "すべて入力済み"}</strong>
+            {completion.missing.join("、")}
           </span>
           <Button type="button" variant="outline" size="sm" className="h-7 shrink-0 bg-white px-2 text-xs" onClick={() => void copyProfileLink()}>
             <Copy className="mr-1 h-3 w-3" />本人に入力してもらう
@@ -92,6 +93,13 @@ export function CastMissingFields({
             value={isStageNamePending(cast.name) ? "" : cast.name ?? ""}
             onChange={(e) => onChange({ name: e.target.value })}
           />
+        </div>
+      )}
+      {text("name_kana", "フリガナ", { placeholder: "例：サクラ" })}
+      {show("セラピストの特徴") && (
+        <div className="flex items-center justify-between rounded-md border p-2 text-sm">
+          <span>セラピストの特徴{mark("セラピストの特徴")}</span>
+          <Button type="button" size="sm" variant="outline" onClick={() => onGoToTab("interview")}>特徴を選ぶ →</Button>
         </div>
       )}
       {text("real_name", "本名", { placeholder: "例：佐藤 花子" })}
