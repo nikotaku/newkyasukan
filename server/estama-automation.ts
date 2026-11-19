@@ -1056,8 +1056,14 @@ async function registerCast(
       if (response.request().method() !== "POST" || !/estama\.jp/.test(response.url())) return;
       const path = new URL(response.url()).pathname;
       if (/file_upload|recaptcha|clarity|onesignal/i.test(path)) return;
-      const body = (await response.text().catch(() => "")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-      saveResponses.push(`${path} ${response.status()} ${body.slice(0, 160)}`);
+      const html = await response.text().catch(() => "");
+      // 送ったフォームの中身（SNS欄・写真欄の有無）と、返ってきた画面のエラーらしき文だけを控える
+      const form = new URLSearchParams(response.request().postData() || "");
+      const sent = ["twitter", "blog", "Name", "name"].filter((key) => form.has(key)).map((key) => `${key}=${(form.get(key) || "").slice(0, 40)}`);
+      const keys = [...new Set([...form.keys()])];
+      const text = html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+      const hints = [...new Set(text.match(/[^ 。]{0,30}(?:エラー|してください|できません|文字以内|不正|失敗|正しく)[^ 。]{0,30}/g) || [])].slice(0, 4);
+      saveResponses.push(`${path} ${response.status()} 項目${keys.length}個 ${sent.join(" ")}${hints.length ? ` 画面:${hints.join(" / ")}` : ""}`);
     } catch { /* 記録できなくても保存は続ける */ }
   };
   page.on("response", onSaveResponse);
@@ -1120,7 +1126,7 @@ async function registerCast(
     }
   }
 
-  const saveTrace = `保存後の画面: ${new URL(afterSaveUrl).pathname}${validationNote ? `／画面の表示: ${validationNote}` : ""}${saveResponses.length ? `／送信: ${saveResponses.join(" ｜ ").slice(0, 400)}` : "／送信の記録なし（保存ボタンが押せていない可能性）"}`;
+  const saveTrace = `保存後の画面: ${new URL(afterSaveUrl).pathname}${validationNote ? `／画面の表示: ${validationNote}` : ""}${saveResponses.length ? `／送信: ${saveResponses.filter((line) => !line.startsWith("/g/")).join(" ｜ ").slice(0, 600)}` : "／送信の記録なし（保存ボタンが押せていない可能性）"}`;
   const lastError = snsMismatch
     ? `エステ魂のブログ・SNS欄が保存後に変わっていませんでした（${saveTrace}）`
     : photoRemovalPending ? "エステ魂の削除対象写真を自動判別できませんでした" : null;
