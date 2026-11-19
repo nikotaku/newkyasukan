@@ -4194,6 +4194,8 @@ export async function processAvailableJobs(
     jobType?: AutomationJob["job_type"];
     limit?: number;
     soulCredentials?: SoulCredentials;
+    /** この時刻（ms）を過ぎたら次の作業を取らない。Vercel の時間切れで作業の途中で切られないように */
+    deadline?: number;
   } = {},
 ) {
   const limit = Math.max(1, Math.min(options.limit || 20, 60));
@@ -4207,6 +4209,7 @@ export async function processAvailableJobs(
 
   try {
     for (let index = 0; index < limit; index += 1) {
+      if (options.deadline && Date.now() > options.deadline) break;
       const job = await claimNextJob(admin, options.storeId, options.castId, options.jobId, options.jobType);
       if (!job) break;
       // この作業でブラウザを使ったか（使っていなければ前の作業の画面なので撮らない）

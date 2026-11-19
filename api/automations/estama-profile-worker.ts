@@ -67,14 +67,19 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       return;
     }
 
+    // プロフィール同期は1件2分ほど（写真のアップロード）。300秒で切られると作業の途中で止まり7分後のやり直しになるので、
+    // 始めてから120秒を過ぎたら次の作業は取らない（残りは次の起動で）
+    const startedAt = Date.now();
     const results = await processAvailableJobs(admin, {
       jobType: "estama_register_cast",
       limit: 10,
+      deadline: startedAt + 120_000,
     });
     // ログイン切れなどで「待ち」に戻ったシフト同期も、次の23時の一括同期を待たずに流す
     const shiftResults = await processAvailableJobs(admin, {
       jobType: "estama_sync_shift",
       limit: 10,
+      deadline: startedAt + 200_000,
     });
     res.status(200).json({ ok: true, outdated, processed: results.length + shiftResults.length, results: [...results, ...shiftResults] });
   } catch (error) {
