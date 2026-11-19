@@ -1,10 +1,11 @@
+import { createHash } from "node:crypto";
 import type { Page, Locator } from "playwright-core";
 import { clickWithScopedConfirmation } from "./playwright-actions.js";
 import { isConfirmedEstamaAppeal, parseEstamaLastAppeal } from "./estama-appeal.js";
 import { ensureAdminLogin } from "./estama-automation.js";
 import { postEstamaStoreNewsOnPage, type EstamaStoreNewsArticle } from "./estama-store-news.js";
 
-type Task = {kind:string;body:string;expires_at:string;article?:EstamaStoreNewsArticle};
+type Task = {kind:string;body:string;expires_at:string;article?:EstamaStoreNewsArticle;coupon?:{id:string;name:string}};
 type Result = {status:"sent"|"skipped"|"review";detail:Record<string,unknown>};
 async function menu(page:Page,label:RegExp) {
   await page.goto("https://estama.jp/admin/",{waitUntil:"domcontentloaded"});
@@ -32,8 +33,37 @@ async function appealCard(page:Page,label:RegExp) {
   // Smallest ancestor containing both the daily allowance and last appeal.
   return one(title.locator("xpath=ancestor::*[contains(.,'最終アピール') and contains(.,'残り')][1]"));
 }
-export async function runPrTask(page:Page,task:Task,shopId:string):Promise<Result> {
+export async function runPrTask(page:Page,task:Task,shopId:string,reserveInvite:(key:string,couponId:string)=>Promise<boolean>):Promise<Result> {
   checkTime(task.expires_at);
+  if(task.kind==="invites"){
+    if(!task.coupon) return {status:"skipped",detail:{message:"有効なクーポンがありません"}};
+    await menu(page,/^(?:招待待ち(?:ユーザー)?(?:一覧)?|招待メッセージ(?:管理)?)$/);
+    const cards=page.locator("tr:visible, li:visible, article:visible").filter({hasText:/招待待ち/}).filter({hasText:/PREMIUM|プレミアム/i});
+    let sent=0;
+    for(const card of await cards.all()){
+      const send=submitAction(card,/^招待(?:メッセージを送信|を送る|する)$/);
+      if(await send.count()!==1) continue;
+      const id=await card.getAttribute("data-user-id") || await card.locator("input[name='user_id']").first().getAttribute("value",{timeout:500}).catch(()=>null);
+      if(!id || !/^[a-zA-Z0-9_-]{1,90}$/.test(id)) throw new Error("招待先を識別できません");
+      // Open only the compose form; submission occurs after recipient and coupon verification.
+      const editor=card.locator("form").filter({has:page.locator("textarea")});
+      if(await editor.count()!==1) throw new Error("招待文・クーポンの入力画面を確認してください");
+      const field=await one(editor.locator("textarea:visible"));
+      const coupon=await one(editor.locator("select:visible").filter({has:page.getByRole("option",{name:task.coupon.name,exact:true})}));
+      await field.fill(task.body);
+      await coupon.selectOption({label:task.coupon.name});
+      const button=await one(submitAction(editor,/^(?:招待する|招待メッセージを送信|送信する)$/));
+      checkTime(task.expires_at);
+      const key=createHash("sha256").update(shopId+"|"+id).digest("hex");
+      if(!await reserveInvite(key,task.coupon.id)) continue;
+      await clickWithScopedConfirmation(page,button);
+      if(!await page.getByText(/招待メッセージを送信しました|招待が完了しました/).isVisible()) return {status:"review",detail:{message:"招待の送信結果を確認できません",sent}};
+      sent++;
+      // Navigation may replace the recipient list. Never reuse the old list.
+      break;
+    }
+    return {status:sent?"sent":"skipped",detail:{message:sent?"招待メッセージとクーポンを送信":"対象者または新しい招待先なし",sent}};
+  }
   if(task.kind==="news" && task.article) {
     const result=await postEstamaStoreNewsOnPage(page,task.article,"https://estama.jp/shop/"+encodeURIComponent(shopId)+"/newslist/");
     return {status:"sent",detail:{url:result.url}};
@@ -41,6 +71,17 @@ export async function runPrTask(page:Page,task:Task,shopId:string):Promise<Resul
   if(task.kind==="realtime" || task.kind==="recruiting"){
     const label=task.kind==="realtime" ? /^リアルタイム集客$/ : /^リアルタイム求人$/;
     await menu(page,label);
+    if(!await page.locator("textarea:visible").count()){
+      const editor=page.getByRole("link",{name:/^(?:新規投稿|新しく投稿する|新規登録|リアルタイム(?:集客|求人)(?:を投稿する|を登録する|を編集する)|投稿画面へ|編集する)$/}).filter({visible:true});
+      const target=await one(editor);
+      const href=await target.getAttribute("href");
+      if(href){
+        const url=new URL(href,page.url());
+        if(url.origin!=="https://estama.jp" || !url.pathname.startsWith("/admin/")) throw new Error("編集画面の場所を確認できません");
+        await page.goto(url.href,{waitUntil:"domcontentloaded"});
+      } else { await target.click(); }
+      await ensureAdminLogin(page);
+    }
     const field=await one(page.locator("textarea:visible"));
     const form=field.locator("xpath=ancestor::form[1]");
     const limit=await field.getAttribute("maxlength");

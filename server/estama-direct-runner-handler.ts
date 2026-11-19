@@ -91,8 +91,17 @@ export default async function handler(req: Request, res: Response) {
         if(!connection.shop_id) throw new Error('shop_id_missing');
         res.status(200).json({login:await adminLogin(),shopId:connection.shop_id}); return;
       }
+      if(action==='pr_reserve_invite') {
+        const reserved=checked(await admin.rpc('pr_reserve_invite',{p_store:STORE_ID,p_run:runId,p_task:req.body?.id,p_recipient:req.body?.recipient,p_coupon:req.body?.couponId}));
+        res.status(200).json({reserved});return;
+      }
       if(action==='pr_claim') {
         const work=checked(await admin.rpc('pr_desk_claim',{p_store:STORE_ID,p_run:runId}));
+        if(work && (work as {kind?:string}).kind==='invites') {
+          const settings=checked(await admin.from('pr_desk_settings').select('coupon_id').eq('store_id',STORE_ID).single()) as {coupon_id:string};
+          const coupon=checked(await admin.from('discounts').select('id,name').eq('store_id',STORE_ID).eq('id',settings.coupon_id).eq('is_active',true).eq('public_booking_enabled',true).maybeSingle());
+          res.status(200).json({work:{...(work as object),coupon}});return;
+        }
         res.status(200).json({work});return;
       }
       if(action==='pr_finish') {

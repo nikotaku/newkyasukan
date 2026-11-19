@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
+const deliveryLabels: Record<string, string> = { sent: "配信済み", queued: "配信待ち", running: "処理中", review: "要確認", failed: "配信失敗", expired: "期限終了", skipped: "見送り", unconnected: "未配信" };
 const formatTime = (value: string) => new Date(value).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
 
 export default function RealtimeNoticeManagement() {
@@ -63,7 +64,7 @@ export default function RealtimeNoticeManagement() {
         const active = !row.ended_at && Date.parse(row.expires_at)>Date.now();
         return <article key={row.id} className="space-y-1 rounded-lg border p-3">
           <p className="whitespace-pre-wrap break-words">{row.body}</p>
-          <p className="text-sm">HP {active ? "掲載中" : "掲載終了"} ／ エステ魂 {row.estama_status === "sent" ? "配信済み" : "未配信"}</p>
+          <p className="text-sm">HP {active ? "掲載中" : "掲載終了"} ／ エステ魂 {deliveryLabels[row.estama_status] || "要確認"}</p>
           <p className="text-xs">{formatTime(row.created_at)} 〜 {formatTime(row.ended_at || row.expires_at)}</p>
           {active && <Button variant="outline" disabled={busy} onClick={() => submit(row.id)}>掲載を終了</Button>}
         </article>;
