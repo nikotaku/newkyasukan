@@ -635,33 +635,21 @@ export default function EnkaHome() {
                               {featuredDiscount.name}で{discountLabel(featuredDiscount)}
                             </p>
                           )}
-                          <div className="grid grid-cols-2 gap-2">
-                            <Link
-                              to="/booking"
-                              className="rounded-lg px-3 py-2.5 text-center text-sm font-bold text-white"
-                              style={{ backgroundColor: "var(--pub-accent,#d4547a)" }}
-                            >
-                              Web予約・空き状況
-                            </Link>
-                            <Link
-                              to="/campaigns"
-                              className="rounded-lg border px-3 py-2.5 text-center text-sm font-bold"
-                              style={{ borderColor: "var(--pub-accent,#d4547a)", color: "var(--pub-text,#f7e9f0)" }}
-                            >
-                              クーポン詳細
+                          <p className="mb-3 text-sm leading-relaxed" style={{ color: "var(--pub-text,#f7e9f0)" }}>
+                            ご予約の際は「艶華コース80分＋オプションパック『牡丹』で」とお伝えいただくとスムーズです。
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            <a href={telHref} className="rounded-lg border px-3 py-3 text-center text-sm font-bold" style={{ borderColor: "var(--pub-accent,#d4547a)" }}>
+                              電話で予約 <span className="whitespace-nowrap">{phoneDisplay}</span>
+                            </a>
+                            <a href={lineUrl} target="_blank" rel="noreferrer" className="rounded-lg border px-3 py-3 text-center text-sm font-bold" style={{ borderColor: "var(--pub-accent,#d4547a)" }}>
+                              公式LINEで予約
+                            </a>
+                            <Link to="/booking" className="rounded-lg px-3 py-3 text-center text-sm font-bold text-white" style={{ backgroundColor: "var(--pub-accent,#d4547a)" }}>
+                              Web予約フォーム
                             </Link>
                           </div>
-                          {lineUrl && (
-                            <a
-                              href={lineUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-3 block text-center text-xs underline underline-offset-4"
-                              style={{ color: "var(--pub-text-mid,#dfc0cf)" }}
-                            >
-                              LINEで予約・相談する
-                            </a>
-                          )}
+                          <Link to="/campaigns" className="mt-3 block text-center text-xs underline underline-offset-4">クーポン詳細</Link>
                         </div>
                       </div>
                     )}
