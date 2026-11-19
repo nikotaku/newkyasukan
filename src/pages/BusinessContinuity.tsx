@@ -104,7 +104,8 @@ export default function BusinessContinuity() {
       title: "ルーム・設備",
       modules: [
         { href: "/facilities/rooms", label: "ルーム管理", icon: DoorOpen, description: "ルーム・備品の管理" },
-        { href: "/facilities/equipment", label: "設備・消耗品", icon: Package, description: "消耗品・衣装・家具家電" },
+        { href: "/facilities/equipment?type=furniture", label: "什器・家具家電", icon: Package, description: "ルーム別の置き時計・観葉植物・乾燥機・洗濯機など" },
+        { href: "/facilities/equipment", label: "消耗品・衣装", icon: Package, description: "消耗品と衣装の登録・管理" },
       ],
     },
     {

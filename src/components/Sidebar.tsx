@@ -148,7 +148,7 @@ const menuItems: MenuItem[] = [
           { href: "/facilities/rooms?tab=supplies", label: "備品登録" },
           { href: "/facilities/equipment", label: "消耗品" },
           { href: "/facilities/equipment?type=costumes", label: "衣装" },
-          { href: "/facilities/equipment?type=furniture", label: "家具家電" },
+          { href: "/facilities/equipment?type=furniture", label: "什器・家具家電" },
         ],
       },
       {
