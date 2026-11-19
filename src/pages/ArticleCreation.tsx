@@ -78,6 +78,28 @@ const TONE_CLASS: Record<SiteState["tone"], string> = {
   off: "border-muted bg-muted/50 text-muted-foreground",
 };
 
+function NewsCastSelector({ casts, selected, onChange }: {
+  casts: { id: string; name: string }[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium">投稿実績を付けるセラピスト（複数選択可）</legend>
+      <p className="text-xs text-muted-foreground">店舗全体のお知らせは未選択で投稿できます。</p>
+      <div className="flex max-h-44 flex-wrap gap-2 overflow-y-auto">
+        {casts.map((cast) => (
+          <label key={cast.id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+            <input type="checkbox" checked={selected.includes(cast.id)}
+              onChange={(event) => onChange(event.target.checked ? [...selected, cast.id] : selected.filter((id) => id !== cast.id))} />
+            {cast.name}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 export default function ArticleCreation({ embedded = false }: { embedded?: boolean } = {}) {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,6 +135,25 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
   const { user, loading: authLoading } = useAuth();
   const { storeId, loading: storeLoading } = useAdminStore();
   const navigate = useNavigate();
+  const [casts, setCasts] = useState<{ id: string; name: string }[]>([]);
+  const [newsCastIds, setNewsCastIds] = useState<string[]>([]);
+  const [autoCastIds, setAutoCastIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    setCasts([]);
+    setNewsCastIds([]);
+    setAutoCastIds([]);
+    if (user && !storeLoading) {
+      void supabase.from("casts").select("id,name").eq("store_id", storeId)
+        .eq("is_active", true).order("display_order").then(({ data, error }) => {
+          if (!active) return;
+          if (error) toast.error("セラピスト一覧の取得に失敗しました");
+          else setCasts(data ?? []);
+        });
+    }
+    return () => { active = false; };
+  }, [storeId, storeLoading, user?.id]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -293,6 +334,7 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
       const { data: insertedArticle, error: insertError } = await supabase.from("hp_articles").insert([
         {
           store_id: storeId,
+          news_cast_ids: autoCastIds,
           title,
           slug,
           content: data.content,
@@ -300,11 +342,12 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
           is_published: true,
           image_urls: Array.isArray(data.images) ? data.images : [],
         },
-      ]).select("id").single();
+      ] as never).select("id").single();
       if (insertError) throw insertError;
 
       toast.success("ニュースを自動生成してHPへ公開しました");
       setAutoNewsTopic("");
+      setAutoCastIds([]);
       await publishToSites(insertedArticle.id);
       fetchArticles();
     } catch (e) {
@@ -354,6 +397,7 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
   };
 
   const resetForm = () => {
+    setNewsCastIds([]);
     setFormData({ title: "", slug: "", content: "", category: "news", is_published: false, is_featured: false, action_url: "", image_urls: [], post_to_estama: true, post_to_o2: true });
     setNewImageUrl("");
   };
@@ -374,6 +418,7 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
       const { data: insertedArticle, error } = await supabase.from("hp_articles").insert([
         {
           store_id: storeId,
+          news_cast_ids: newsCastIds,
           title: formData.title,
           slug,
           content: formData.content,
@@ -493,7 +538,8 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
               AIで記事を生成し、HPとエステ魂のニュースへ同時投稿します。テーマは任意です。
             </p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            <NewsCastSelector casts={casts} selected={autoCastIds} onChange={setAutoCastIds} />
             <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 value={autoNewsTopic}
@@ -523,6 +569,7 @@ export default function ArticleCreation({ embedded = false }: { embedded?: boole
               <CardTitle>新しい記事を作成</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <NewsCastSelector casts={casts} selected={newsCastIds} onChange={setNewsCastIds} />
               <div>
                 <Label htmlFor="title">タイトル</Label>
                 <Input

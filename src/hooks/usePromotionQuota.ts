@@ -52,7 +52,7 @@ export function usePromotionQuota(storeId: string | null, month: string) {
         .lt("shift_date", end),
       supabase
         .from("promotion_exposures" as never)
-        .select("id,cast_id,channel_key,exposed_on,note,url,plan_id")
+        .select("id,cast_id,channel_key,exposed_on,note,url,plan_id,news_article_id")
         .eq("store_id", storeId)
         .gte("exposed_on", start)
         .lt("exposed_on", end),
@@ -72,6 +72,7 @@ export function usePromotionQuota(storeId: string | null, month: string) {
         .from("hp_articles")
         .select("id,title,content,created_at,is_published")
         .eq("store_id", storeId)
+        .is("news_cast_ids", null)
         .eq("is_published", true)
         .gte("created_at", tokyoMidnightIso(start))
         .lt("created_at", tokyoMidnightIso(end)),

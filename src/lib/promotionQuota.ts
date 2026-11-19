@@ -20,10 +20,10 @@ export interface QuotaChannel {
 
 export const QUOTA_CHANNELS: QuotaChannel[] = [
   { key: "hp_top_banner", label: "HPトップバナー", short: "HPバナー", newcomerOnly: true, auto: "トップのセラピストのバナーに出た日（毎朝自動で記録）" },
-  { key: "hp_news", label: "HPニュース", short: "HPニュース", newcomerOnly: false, auto: "HPのニュースに名前が出た記事" },
+  { key: "hp_news", label: "HPニュース", short: "HPニュース", newcomerOnly: false, auto: "ニュース作成で選択してHPに公開した記事" },
   { key: "x_post", label: "X投稿", short: "X", newcomerOnly: false, auto: "X運用表で投稿した紹介・口コミなど（出勤・空き枠のまとめは除く）" },
-  { key: "o2_post", label: "O2投稿", short: "O2", newcomerOnly: false, auto: null },
-  { key: "estama_news", label: "エスたまニュース", short: "魂ニュース", newcomerOnly: false, auto: null },
+  { key: "o2_post", label: "O2投稿", short: "O2", newcomerOnly: false, auto: "選択したセラピストのニュースがO2に投稿された回数" },
+  { key: "estama_news", label: "エスたまニュース", short: "魂ニュース", newcomerOnly: false, auto: "選択したセラピストのニュースがエステ魂に投稿された回数" },
   { key: "estama_top_banner", label: "エスたまトップバナー", short: "魂バナー", newcomerOnly: false, auto: null },
 ];
 
@@ -264,6 +264,7 @@ export interface QuotaShiftInput {
 }
 
 export interface QuotaExposureInput {
+  news_article_id?: string | null;
   id: string;
   cast_id: string;
   channel_key: string;
@@ -309,7 +310,7 @@ export interface QuotaXPostInput {
   post_url?: string | null;
 }
 
-export type QuotaItemSource = "manual" | "plan" | "hp_news" | "x";
+export type QuotaItemSource = "news" | "manual" | "plan" | "hp_news" | "x";
 
 export interface QuotaItem {
   source: QuotaItemSource;
@@ -436,11 +437,11 @@ export function buildQuotaBoard(input: QuotaBoardInput): QuotaRow[] {
       if (exposure.cast_id !== cast.id || !inMonth(exposure.exposed_on) || !isQuotaChannel(exposure.channel_key)) continue;
       const plan = exposure.plan_id ? plansById.get(exposure.plan_id) : null;
       items[exposure.channel_key].push({
-        source: "manual",
+        source: exposure.news_article_id ? "news" : "manual",
         date: exposure.exposed_on,
         label: [exposure.note?.trim(), plan ? `企画：${plan.title}` : null].filter(Boolean).join(" ／ ") || "記録",
         url: exposure.url?.trim() || null,
-        exposureId: exposure.id,
+        exposureId: exposure.news_article_id ? null : exposure.id,
         planId: exposure.plan_id ?? null,
         planned: false,
       });
