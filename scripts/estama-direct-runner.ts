@@ -64,6 +64,16 @@ try {
       try {
         const result=await loginEstamaAdmin(page,adminCredentials.mail,adminCredentials.password);
         adminLogin=result.ok?'ok':'failed';
+        if (result.ok) {
+          // Only report navigation labels and same-site paths, never form values or query strings.
+          const links = await page.locator('a[href]').evaluateAll(anchors => anchors.flatMap(anchor => {
+            const label = (anchor.textContent || '').trim();
+            const url = new URL((anchor as HTMLAnchorElement).href);
+            return /リアルタイム|速報|即ヒメ|集客/.test(label) && url.origin === 'https://estama.jp' && url.pathname.startsWith('/admin/')
+              ? [{ label: label.slice(0, 60), path: url.pathname }] : [];
+          }));
+          console.log(JSON.stringify({event: 'estama_realtime_navigation', links}));
+        }
         if(!result.ok) {
           adminLoginStage=/画面が見つかりません/.test(result.error)?'login_form_missing':/admin/.test(page.url())?'editor_missing':'login_rejected';
           adminLoginDetail=scrubSecrets(`${result.error} @ ${new URL(page.url()).pathname}`,[adminCredentials.mail,adminCredentials.password]).slice(0,200);
