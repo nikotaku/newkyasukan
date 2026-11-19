@@ -1,3 +1,4 @@
+import { RoomSupplyInventory } from "@/components/RoomSupplyInventory";
 import { useState, useEffect, useRef } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
@@ -603,6 +604,8 @@ export default function FacilitiesRooms() {
                   </div>
                 </CardContent>
               </Card>
+
+              <RoomSupplyInventory key={selectedId} roomId={selectedId!} />
 
               {/* 備品DB */}
               <Card>
