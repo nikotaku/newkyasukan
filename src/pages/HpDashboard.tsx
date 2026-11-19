@@ -1,3 +1,4 @@
+import PrDesk from "./PrDesk";
 import { useSearchParams } from "react-router-dom";
 import { Image, Link2, Newspaper, PenLine, Share2, Store } from "lucide-react";
 import { AdminPageShell } from "@/components/AdminPageShell";
@@ -18,6 +19,7 @@ const TABS = [
   { value: "sns", label: "SNS", icon: Share2 },
   { value: "banners", label: "バナー", icon: Image },
   { value: "news", label: "ニュース", icon: Newspaper },
+  { value: "realtime", label: "AI広報部", icon: Share2 },
   { value: "blog", label: "店長ブログ", icon: PenLine },
   { value: "links", label: "リンク", icon: Link2 },
 ] as const;
@@ -34,7 +36,7 @@ export default function HpDashboard() {
       <div className="mx-auto max-w-5xl">
         <h1 className="mb-4 text-2xl font-bold">ホームページダッシュボード</h1>
         <Tabs value={tab} onValueChange={(value) => setSearchParams({ tab: value }, { replace: true })}>
-          <TabsList className="mb-4 grid h-auto w-full grid-cols-3 sm:grid-cols-6">
+          <TabsList className="mb-4 grid h-auto w-full grid-cols-3 sm:grid-cols-7">
             {TABS.map(({ value, label, icon: Icon }) => (
               <TabsTrigger key={value} value={value} className="flex flex-col items-center gap-0.5 px-1 py-1.5 text-[11px] sm:flex-row sm:gap-1.5 sm:py-2 sm:text-sm">
                 <Icon size={15} className="shrink-0" />
@@ -50,6 +52,7 @@ export default function HpDashboard() {
               <BannerManagement />
             </div>
           </TabsContent>
+          <TabsContent value="realtime"><PrDesk /></TabsContent>
           <TabsContent value="news"><ArticleCreation embedded /></TabsContent>
           <TabsContent value="blog"><HpBlogManagement embedded /></TabsContent>
           <TabsContent value="links"><HpLinkBanners embedded /></TabsContent>

@@ -155,7 +155,22 @@ export async function postEstamaStoreNews(
     const page = connected.page;
     page.setDefaultTimeout(15_000);
 
-    // 1日10回まで（朝6時にリセット）。エステ魂の「AI広報部」がオンだと自動の投稿で使い切ることがある
+    return await postEstamaStoreNewsOnPage(page, article, publicUrl);
+  } catch (error) {
+    if (error instanceof EstamaSubmissionUncertainError) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.startsWith(REVIEW_REQUIRED_PREFIX)) throw new EstamaSubmissionUncertainError(message);
+    throw error;
+  } finally {
+    if (browser) await disconnect(browser);
+    await releaseSession(created.bb, created.session.id);
+  }
+}
+
+
+export async function postEstamaStoreNewsOnPage(page: Page, article: EstamaStoreNewsArticle, publicUrl: string) {
+  const body = article.content?.trim() || "";
+  // 1日10回まで（朝6時にリセット）。エステ魂の「AI広報部」がオンだと自動の投稿で使い切ることがある
     await page.goto(ESTAMA_NEWS_LIST, { waitUntil: "domcontentloaded" });
     await ensureAdminLogin(page);
     const remaining = parseEstamaNewsRemaining(await page.locator("body").innerText().catch(() => ""));
@@ -208,14 +223,4 @@ export async function postEstamaStoreNews(
       throw new EstamaSubmissionUncertainError("エステ魂のニュース送信後、掲載結果を確認できません");
     }
     return { posted: true, url: publicUrl, uploadedImages, title: submittedTitle };
-  } catch (error) {
-    if (error instanceof EstamaSubmissionUncertainError) throw error;
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.startsWith(REVIEW_REQUIRED_PREFIX)) throw new EstamaSubmissionUncertainError(message);
-    throw error;
-  } finally {
-    if (browser) await disconnect(browser);
-    await releaseSession(created.bb, created.session.id);
-  }
 }
-

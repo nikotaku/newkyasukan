@@ -1,10 +1,11 @@
+import { runPrTask } from '../server/estama-pr-desk.js';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright-core';
 import { auditPreparedEstamaDiaryOnPage, runEstamaAvailabilityOnPage, runPreparedEstamaDiaryOnPage, runShiftJobOnPage, type PreparedEstamaDiary } from '../server/estama-automation.js';
 import { assertUploadedPhotoCount } from '../server/estama-photo-upload.js';
 import { loginEstamaAdmin, scrubSecrets } from '../server/estama-relogin.js';
 
 const endpoint='https://enka-salon.jp/api/automations/estama-direct-runner';
-const mode=process.env.ESTAMA_RUN_MODE==='work'?'work':process.env.ESTAMA_RUN_MODE==='availability'?'availability':'audit';
+const mode=process.env.ESTAMA_RUN_MODE==='pr'?'pr':process.env.ESTAMA_RUN_MODE==='work'?'work':process.env.ESTAMA_RUN_MODE==='availability'?'availability':'audit';
 const started=Number(process.env.RUN_STARTED_MS)||Date.now();
 let browser: Browser | undefined;
 let current: {jobId:string;lease:string} | undefined;
@@ -69,13 +70,19 @@ try {
           const links = await page.locator('a[href]').evaluateAll(anchors => anchors.flatMap(anchor => {
             const label = (anchor.textContent || '').trim();
             const url = new URL((anchor as HTMLAnchorElement).href);
-            return /リアルタイム|ワンクリックアピール|招待待ち|招待メッセージ/.test(label) && url.origin === 'https://estama.jp' && url.pathname.startsWith('/admin/')
+            return /リアルタイム|ワンクリックアピール|招待/.test(label) && url.origin === 'https://estama.jp' && url.pathname.startsWith('/admin/')
               ? [{ label: label.slice(0, 60), path: url.pathname }] : [];
           }));
           console.log(JSON.stringify({event: 'estama_realtime_navigation', links}));
           for (const path of new Set(links.map(link => link.path))) {
             await page.goto('https://estama.jp'+path,{waitUntil:'domcontentloaded'});
             const controls = await page.evaluate(() => ({
+              links: Array.from(document.querySelectorAll('main a[href],article a[href],form a[href],a[href*="edit"],a[href*="invite"]')).flatMap(el=>{
+                const url=new URL((el as HTMLAnchorElement).href);
+                const label=(el.textContent||'').trim();
+                if(url.origin!=='https://estama.jp' || !url.pathname.startsWith('/admin/') || !/リアルタイム|編集|招待|登録|新規|投稿/.test(label) || label.length>35) return [];
+                return [{label,path:url.pathname.replace(/\d+/g,'[id]')}];
+              }).slice(0,45),
               forms: Array.from(document.forms).map(form => ({
                 action: new URL(form.action).pathname,
                 fields: Array.from(form.querySelectorAll('input:not([type=hidden]):not([type=password]),textarea,select,button')).map(el => ({
@@ -102,6 +109,27 @@ try {
       finally { await context.close(); }
       if(adminLogin!=='ok') ok=false;
     }
+  } else if(mode==='pr') {
+    const {login,shopId}=await request({action:'pr_login'});
+    browser=await chromium.launch({headless:true});
+    const context=await openContext(browser);
+    const page=await context.newPage(); page.setDefaultTimeout(12000);
+    try {
+      const result=await loginEstamaAdmin(page,login.mail,login.password);
+      if(!result.ok) throw new Error('admin_login_failed');
+      while(!leaseLost && processed<15 && Date.now()-started<11*60000) {
+        const {work}=await request({action:'pr_claim'});
+        if(!work) break;
+        let outcome;
+        try { outcome=await runPrTask(page,work,shopId); }
+        catch(error) {
+          const message=scrubSecrets(error instanceof Error?error.message.split('\n')[0]:'操作を確認できません',[login.mail,login.password]).slice(0,160);
+          outcome={status:'review',detail:{message}};
+        }
+        await request({action:'pr_finish',id:work.id,...outcome});
+        processed++;
+      }
+    } finally { await context.close(); }
   } else if(mode==='availability') {
     // ご案内状況（今すぐ）：店舗の管理画面にログインして、勤務中の人を「今すぐ」にする。結果の記録は受け口が行う
     const {work}=await request({action:'availability_claim'});

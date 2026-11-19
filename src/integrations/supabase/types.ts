@@ -14,6 +14,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      realtime_notices: {
+        Row: { id: string; store_id: string; body: string; created_at: string; expires_at: string; ended_at: string | null; estama_status: string }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       advertising_costs: {
         Row: {
           clicks: number
@@ -6287,6 +6293,9 @@ export type Database = {
       }
     }
     Functions: {
+      current_realtime_notice: { Args: { p_store: string }; Returns: { body: string; remaining_ms: number }[] }
+      publish_realtime_notice: { Args: { p_store: string; p_body: string; p_minutes: number; p_id: string }; Returns: undefined }
+      stop_realtime_notice: { Args: { p_store: string; p_id: string }; Returns: undefined }
       can_manage_store: { Args: { p_store_id: string }; Returns: boolean }
       check_repeat_nomination: {
         Args: { p_cast_id: string; p_phone: string }

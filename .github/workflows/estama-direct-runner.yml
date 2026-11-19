@@ -5,7 +5,7 @@ on:
       mode:
         description: audit validates logins without posting; work consumes only explicitly routed jobs
         type: choice
-        options: [audit, work, availability]
+        options: [audit, work, availability, pr]
         default: audit
   push:
     branches: [main]
