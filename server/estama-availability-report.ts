@@ -77,6 +77,7 @@ export function availabilitySuccessPayload(
     fatalError: null,
     configuration: {
       status: result.deferred ? "deferred" : result.updated ? "success" : "skipped",
+      ...(!result.deferred ? { error: null } : {}),
       last_run_at: finishedAt,
       active_count: result.activeCount,
       available_now_count: result.availableNowCount,
