@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Loader2, Link as LinkIcon, Copy, Eye, EyeOff, GripVertical, FileUp, X, ChevronDown, ChevronRight, ExternalLink, Bot, AlertTriangle, Archive, ArchiveRestore, MoreHorizontal } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Loader2, Link as LinkIcon, Copy, Eye, EyeOff, GripVertical, FileUp, X, ChevronDown, ChevronRight, ExternalLink, Bot, AlertTriangle, Archive, ArchiveRestore } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
 import { ImportModal } from "@/components/ImportModal";
 import { EstamaImportModal, type EstamaProfileData } from "@/components/EstamaImportModal";
@@ -457,9 +456,9 @@ export default function Staff() {
 
   const activeCasts = casts.filter((cast) => cast.is_active);
   const statusCasts = casts.filter((cast) => cast.is_active === (archiveView === "active"));
-  const filteredCasts = statusCasts;
+  
 
-  const categoryFilteredCasts = filteredCasts.filter(cast => getCastCategory(cast) === categoryTab);
+  const categoryFilteredCasts = archiveView === "archived" ? statusCasts : activeCasts.filter(cast => getCastCategory(cast) === categoryTab);
   const missingSbCasts = archiveView === "active" ? categoryFilteredCasts.filter(cast => !isSbLinked(cast)) : [];
 
   const changeArchiveView = (view: "active" | "archived") => {
@@ -1716,19 +1715,11 @@ export default function Staff() {
               </div>
             )}
             <Tabs defaultValue="management" className="w-full">
-              <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:justify-between sm:items-center">
-                <div>
-                  <h1 className="text-2xl font-bold">キャスト管理</h1>
-                  <p className="text-muted-foreground">キャストの登録・管理</p>
-                </div>
-                
-                <div className="flex items-center gap-2">
                   {isAdmin && (
                     <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                       <DialogTrigger asChild>
-                        <Button>
-                          <Plus size={16} />
-                          新規追加
+                        <Button size="icon" aria-label="キャストを新規追加" className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-30 h-12 w-12 rounded-full shadow-lg">
+                          <Plus size={22} />
                         </Button>
                       </DialogTrigger>
                   <DialogContent className="max-w-md">
@@ -1799,42 +1790,32 @@ export default function Staff() {
                         </Button>
                       </div>
                     </div>
+                    <details className="text-sm"><summary className="cursor-pointer">その他の登録・設定</summary>
+                      <div className="grid">
+                    {AI_GENERATION_ENABLED && (
+                      <button type="button" className="flex items-center py-2 text-left" onClick={() => { setIsAddDialogOpen(false); setAiMemoOpen(true); }}>
+                        <span className="mr-2">🤖</span>AIメモで登録・追記
+                      </button>
+                    )}
+                    <button type="button" className="flex items-center py-2 text-left" onClick={() => { setIsAddDialogOpen(false); setIsEstamaImportOpen(true); }}>
+                      <ExternalLink size={14} className="mr-2" />エスたまからインポート
+                    </button>
+                    <button type="button" className="flex items-center py-2 text-left" onClick={() => { setIsAddDialogOpen(false); setIsImportOpen(true); }}>
+                      <FileUp size={14} className="mr-2" />CSVインポート
+                    </button>
+                    <button type="button" className="flex items-center py-2 text-left" onClick={() => { setIsAddDialogOpen(false); navigate("/staff/dispatch-registration"); }}>
+                      <LinkIcon size={14} className="mr-2" />派遣登録フォーム
+                    </button>
+
+                    <button type="button" className="flex items-center py-2 text-left" onClick={() => { setIsAddDialogOpen(false); setEstamaAutomationOpen(true); }}>
+                      <Bot size={14} className="mr-2" />エスたま自動化の設定
+                    </button>
+
+                      </div>
+                    </details>
                   </DialogContent>
                 </Dialog>
               )}
-              {/* たまにしか使わない操作はまとめてしまう */}
-              {isAdmin && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon" aria-label="その他の操作">
-                      <MoreHorizontal size={18} />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    {AI_GENERATION_ENABLED && (
-                      <DropdownMenuItem onClick={() => setAiMemoOpen(true)}>
-                        <span className="mr-2">🤖</span>AIメモで登録・追記
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onClick={() => setIsEstamaImportOpen(true)}>
-                      <ExternalLink size={14} className="mr-2" />エスたまからインポート
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
-                      <FileUp size={14} className="mr-2" />CSVインポート
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/staff/dispatch-registration")}>
-                      <LinkIcon size={14} className="mr-2" />派遣登録フォーム
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setEstamaAutomationOpen(true)}>
-                      <Bot size={14} className="mr-2" />エスたま自動化の設定
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              </div>
-            </div>
-
             {/* Edit Dialog */}
             {editingCast && (
               <Dialog
@@ -2371,34 +2352,17 @@ export default function Staff() {
             )}
 
             <TabsContent value="management" className="space-y-4">
-              <div className="grid grid-cols-2 gap-2 sm:max-w-sm">
-                <Button
-                  type="button"
-                  variant={archiveView === "active" ? "default" : "outline"}
-                  onClick={() => changeArchiveView("active")}
-                >
-                  在籍中 {activeCasts.length}
-                </Button>
-                <Button
-                  type="button"
-                  variant={archiveView === "archived" ? "secondary" : "outline"}
-                  onClick={() => changeArchiveView("archived")}
-                >
-                  アーカイブ {casts.length - activeCasts.length}
-                </Button>
-              </div>
-
               {/* Category Tabs */}
               <div className="flex gap-0.5 border-b pb-0 overflow-x-auto scrollbar-none">
                 {CATEGORY_TAGS.map((cat) => {
-                  const count = statusCasts.filter(c => getCastCategory(c) === cat).length;
+                  const count = activeCasts.filter(c => getCastCategory(c) === cat).length;
                   const label = CATEGORY_LABELS[cat];
                   return (
                     <button
                       key={cat}
-                      onClick={() => setCategoryTab(cat)}
+                      onClick={() => { changeArchiveView("active"); setCategoryTab(cat); }}
                       className={`flex-shrink-0 px-3 py-2 text-xs font-medium border-b-2 transition-colors leading-tight text-center min-w-[72px] ${
-                        categoryTab === cat
+                        archiveView === "active" && categoryTab === cat
                           ? "border-primary text-primary"
                           : "border-transparent text-muted-foreground hover:text-foreground"
                       }`}
@@ -2409,6 +2373,9 @@ export default function Staff() {
                     </button>
                   );
                 })}
+                <button type="button" aria-pressed={archiveView === "archived"} onClick={() => changeArchiveView("archived")} className={`ml-auto shrink-0 border-b-2 px-3 py-2 text-xs font-medium ${archiveView === "archived" ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}>
+                  アーカイブ<span className="mx-auto mt-0.5 block w-fit rounded-full bg-muted px-1.5">{casts.length - activeCasts.length}</span>
+                </button>
               </div>
 
             {/* セラピストがマイページから送ったプロフィール（反映待ち） */}
