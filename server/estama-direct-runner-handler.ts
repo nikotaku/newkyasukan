@@ -69,21 +69,37 @@ export default async function handler(req: Request, res: Response) {
     const runId = `${identity.run_id}:${identity.run_attempt}`;
     const settings = checked(await admin.from('automation_runner_settings').select('*').eq('store_id',STORE_ID).single()) as any;
     if (action === 'start') {
-      const mode = req.body?.mode === 'work' ? 'work' : req.body?.mode === 'availability' ? 'availability' : 'audit';
-      if ((mode==='work' && (!(settings.diary_enabled || settings.shift_enabled) || identity.event_name!=='workflow_dispatch'))
+      const mode = req.body?.mode === 'pr' ? 'pr' : req.body?.mode === 'work' ? 'work' : req.body?.mode === 'availability' ? 'availability' : 'audit';
+      if ((mode==='pr' && identity.event_name!=='workflow_dispatch') || (mode==='work' && (!(settings.diary_enabled || settings.shift_enabled) || identity.event_name!=='workflow_dispatch'))
         || (mode==='availability' && (!settings.availability_enabled || identity.event_name!=='workflow_dispatch'))
         || (mode==='audit' && !settings.audit_enabled)) { res.status(409).json({ error:'runner_disabled' }); return; }
       // Usage is advisory for the public repository's standard hosted runner.
       // Unique run key rejects duplicate workers and replayed start requests.
-      const result = await admin.from('automation_runner_runs').insert({ run_id:runId,store_id:STORE_ID,mode: mode==='availability' ? 'work' : mode, purpose: mode==='availability' ? 'availability' : null });
+      const result = await admin.from('automation_runner_runs').insert({ run_id:runId,store_id:STORE_ID,mode: mode==='pr' || mode==='availability' ? 'work' : mode, purpose: mode==='pr' || mode==='availability' ? mode : null });
       if (result.error) { res.status(409).json({error:'run_already_started'}); return; }
       res.status(200).json({ ok:true }); return;
     }
     const run = checked(await admin.from('automation_runner_runs').select('mode,purpose,status').eq('run_id',runId).eq('store_id',STORE_ID).single()) as any;
     if (run.status!=='running') { res.status(409).json({error:'run_not_active'}); return; }
     // ご案内状況の更新の実行は DB では mode = 'work'・purpose = 'availability'（作業の受け取りはさせない）
-    if (run.purpose === 'availability') run.mode = 'availability';
+    if (run.purpose === 'availability' || run.purpose === 'pr') run.mode = run.purpose;
     checked(await admin.from('automation_runner_runs').update({ heartbeat_at:new Date().toISOString() }).eq('run_id',runId).eq('status','running'));
+    if (action?.startsWith('pr_')) {
+      if(run.mode!=='pr' || identity.event_name!=='workflow_dispatch') throw new Error('invalid_mode');
+      if(action==='pr_login') {
+        const connection=await shiftConnection();
+        if(!connection.shop_id) throw new Error('shop_id_missing');
+        res.status(200).json({login:await adminLogin(),shopId:connection.shop_id}); return;
+      }
+      if(action==='pr_claim') {
+        const work=checked(await admin.rpc('pr_desk_claim',{p_store:STORE_ID,p_run:runId}));
+        res.status(200).json({work});return;
+      }
+      if(action==='pr_finish') {
+        checked(await admin.rpc('pr_desk_finish',{p_store:STORE_ID,p_run:runId,p_id:req.body?.id,p_status:req.body?.status,p_detail:req.body?.detail}));
+        res.status(200).json({ok:true});return;
+      }
+    }
     if (action === 'audit') {
       if (run.mode!=='audit') throw new Error('invalid_mode');
       const recent = checked(await admin.from('automation_jobs').select('cast_id').eq('store_id',STORE_ID).eq('job_type','estama_post_diary').eq('status','completed').order('finished_at',{ascending:false}).limit(30)) as any[];
