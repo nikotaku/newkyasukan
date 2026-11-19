@@ -72,12 +72,13 @@ export async function runPrTask(page:Page,task:Task,shopId:string,reserveInvite:
     const label=task.kind==="realtime" ? /^リアルタイム集客$/ : /^リアルタイム求人$/;
     await menu(page,label);
     if(!await page.locator("textarea:visible").count()){
-      const editor=page.getByRole("link",{name:/^(?:新規投稿|新しく投稿する|新規登録|リアルタイム(?:集客|求人)(?:を投稿する|を登録する|を編集する)|投稿画面へ|編集する)$/}).filter({visible:true});
+      const listUrl=new URL(page.url());
+      const editor=page.getByRole("link",{name:"編集",exact:true}).and(page.locator('a[href*="/realtime/edit/update/"]')).filter({visible:true});
       const target=await one(editor);
       const href=await target.getAttribute("href");
       if(href){
         const url=new URL(href,page.url());
-        if(url.origin!=="https://estama.jp" || !url.pathname.startsWith("/admin/")) throw new Error("編集画面の場所を確認できません");
+        if(url.origin!=="https://estama.jp" || url.pathname!==listUrl.pathname+"edit/update/") throw new Error("編集画面の場所を確認できません");
         await page.goto(url.href,{waitUntil:"domcontentloaded"});
       } else { await target.click(); }
       await ensureAdminLogin(page);
