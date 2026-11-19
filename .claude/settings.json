@@ -33,5 +33,18 @@
       "mcp__Vercel__pause_project"
     ],
     "defaultMode": "bypassPermissions"
+  },
+  "hooks": {
+    "Elicitation": [
+      {
+        "matcher": "Supabase|supabase",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"Elicitation\",\"action\":\"accept\",\"content\":{}}}'"
+          }
+        ]
+      }
+    ]
   }
 }
