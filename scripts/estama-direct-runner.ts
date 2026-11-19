@@ -121,7 +121,7 @@ try {
         const {work}=await request({action:'pr_claim'});
         if(!work) break;
         let outcome;
-        try { outcome=await runPrTask(page,work,shopId); }
+        try { outcome=await runPrTask(page,work,shopId,async (recipient,couponId) => (await request({action:"pr_reserve_invite",id:work.id,recipient,couponId})).reserved === true); }
         catch(error) {
           const message=scrubSecrets(error instanceof Error?error.message.split('\n')[0]:'操作を確認できません',[login.mail,login.password]).slice(0,160);
           outcome={status:'review',detail:{message}};
