@@ -4,7 +4,14 @@ import test from "node:test";
 import { castToEstama } from "../src/lib/estamaProfileData.ts";
 import { estamaFingerprint, estamaProfileCompletion } from "../src/lib/estamaProfileCompletion.ts";
 
-const cast = { name: "さくら", photo: "https://example.com/a.jpg", x_account: "@old_account" };
+const cast = {
+  name: "さくら", name_kana: "サクラ", real_name: "テスト花子", features: ["清楚系"],
+  photo: "https://example.com/a.jpg", x_account: "@old_account",
+  age: 24, height: 158, body_size: "84/58/84", cup_size: "D", therapist_experience: "未経験",
+  favorite_techniques: "リンパ", favorite_food: "和食", ideal_type: "優しい人",
+  celebrity_lookalike: "特になし", day_off_activities: "読書", hobbies: "料理",
+  therapist_comment: "よろしくお願いします", shop_comment: "おすすめです",
+};
 const sha = (value: string) => createHash("sha256").update(value).digest("hex");
 const confirmationFor = async (value = cast) => {
   const fingerprint = await estamaFingerprint(value);
@@ -26,7 +33,7 @@ test("既存ワーカーのSHA-256記録と同じデータを照合する", asyn
 test("登録確認で100%、SNS変更で低下、新しい内容の反映確認後に100%へ戻る", async () => {
   const confirmed = await confirmationFor();
   const previous = await estamaFingerprint(cast);
-  // 任意欄が空でもエステ魂への登録・反映が確認できていれば100%。
+  assert.ok(estamaProfileCompletion(cast, null, previous).percent < 100);
   assert.equal(estamaProfileCompletion(cast, confirmed, previous).percent, 100);
   const changed = { ...cast, x_account: "@new_account" };
   const next = await estamaFingerprint(changed);
@@ -62,4 +69,15 @@ test("写真・名前・O2・Instagramの変更も再確認する。Xの同じID
   }
   const same = { ...cast, x_account: "https://twitter.com/old_account" };
   assert.equal(estamaProfileCompletion(same, confirmed, await estamaFingerprint(same)).percent, 100);
+});
+
+test("最新の反映確認済みでも、未入力項目に応じて登録率が下がる", async () => {
+  const results = [];
+  for (const value of [cast, { ...cast, name: "源氏名未定" }, { ...cast, name: "源氏名未定", photo: "" }]) {
+    const result = estamaProfileCompletion(value, await confirmationFor(value), await estamaFingerprint(value));
+    assert.equal(result.confirmed, true);
+    results.push(result);
+  }
+  assert.deepEqual(results.map(result => result.missingCount), [0, 1, 2]);
+  assert.ok(results[0].percent > results[1].percent && results[1].percent > results[2].percent);
 });
