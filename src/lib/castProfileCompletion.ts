@@ -20,6 +20,8 @@ export function castAdminLabel(cast: { name: string | null; real_name?: string |
 export type CastProfileFields = {
   name: string | null;
   real_name?: string | null;
+  name_kana?: string | null;
+  features?: string[] | null;
   photo?: string | null;
   age?: number | null;
   height?: number | null;
@@ -52,11 +54,13 @@ const filled = (value: unknown): boolean => {
 
 export const CAST_PROFILE_ITEMS: { key: string; label: string; done: (cast: CastProfileFields) => boolean }[] = [
   { key: "name", label: "源氏名", done: (c) => !isStageNamePending(c.name) },
+  { key: "name_kana", label: "フリガナ", done: (c) => filled(c.name_kana) },
+  { key: "features", label: "セラピストの特徴", done: (c) => c.features?.some(filled) ?? false },
   { key: "real_name", label: "本名", done: (c) => filled(c.real_name) },
   { key: "photo", label: "写真", done: (c) => filled(c.photo) },
   { key: "age", label: "年齢", done: (c) => filled(c.age) },
   { key: "height", label: "身長", done: (c) => filled(c.height) },
-  { key: "three_size", label: "スリーサイズ", done: (c) => (filled(c.bust) && filled(c.waist) && filled(c.hip)) || filled(c.body_size) },
+  { key: "three_size", label: "スリーサイズ", done: (c) => (filled(c.bust) && filled(c.waist) && filled(c.hip)) || ((c.body_size ?? "").normalize("NFKC").match(/\d+/g) ?? []).filter(n => Number(n) > 0).length === 3 },
   { key: "cup", label: "カップ", done: (c) => filled(c.cup_size) || filled(c.bust_size) },
   { key: "experience", label: "セラピスト歴", done: (c) => filled(c.therapist_experience) || filled(c.therapist_years) },
   { key: "favorite_techniques", label: "得意な施術", done: (c) => filled(c.favorite_techniques) },

@@ -40,11 +40,12 @@ export function estamaProfileCompletion(
     && confirmation.last_photo_hash === fingerprint?.photoHash,
   );
   const input = castProfileCompletion(cast);
-  // 登録・反映確認を最後の1項目として数える。確認済みなら任意欄が空でも完了。
+  // 最新の掲載内容との一致は、入力項目とは別の1項目として数える。
   const total = input.total + 1;
   return {
-    percent: confirmed ? 100 : Math.round(input.done / total * 100),
+    percent: Math.round((input.done + Number(confirmed)) / total * 100),
     confirmed,
+    missingCount: input.missing.length,
     message: confirmed ? "エスたまへの登録・最新内容の反映を確認済み" : "エスたまへの登録・最新内容の反映確認待ち",
   };
 }

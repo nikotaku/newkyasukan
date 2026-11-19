@@ -33,6 +33,8 @@ test("本名だけの登録は少しだけ、全部入れば100%", () => {
   const full = castProfileCompletion({
     name: "さくら",
     real_name: "テスト花子",
+    name_kana: "サクラ",
+    features: ["清楚系"],
     photo: "https://example.com/a.jpg",
     age: 24,
     height: 158,
