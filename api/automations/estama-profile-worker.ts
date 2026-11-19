@@ -1,4 +1,5 @@
 import {
+  enqueueOutdatedProfileSyncs,
   getAdminClient,
   processAvailableJobs,
 } from "../../server/estama-automation.js";
@@ -41,6 +42,14 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       return;
     }
 
+    // HPの今の内容とエステ魂へ送った内容が違うのに待ちが無い人を積む（毎時の見回り・ふだんの起動のたび）
+    let outdated: string[] = [];
+    try {
+      outdated = await enqueueOutdatedProfileSyncs(admin);
+    } catch (error) {
+      console.error(JSON.stringify({ event: "estama_outdated_profile_check_failed", error: error instanceof Error ? error.message : String(error) }));
+    }
+
     const results = await processAvailableJobs(admin, {
       jobType: "estama_register_cast",
       limit: 10,
@@ -50,7 +59,7 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       jobType: "estama_sync_shift",
       limit: 10,
     });
-    res.status(200).json({ ok: true, processed: results.length + shiftResults.length, results: [...results, ...shiftResults] });
+    res.status(200).json({ ok: true, outdated, processed: results.length + shiftResults.length, results: [...results, ...shiftResults] });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(JSON.stringify({ event: "estama_profile_worker_failed", error: message }));
