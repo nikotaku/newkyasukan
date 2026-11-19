@@ -1,6 +1,6 @@
 import Browserbase from "@browserbasehq/sdk";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { chromium, type Browser, type Dialog, type Locator, type Page } from "playwright-core";
+import { chromium, type Browser, type Dialog, type Locator, type Page, type Response } from "playwright-core";
 import { createHash, randomUUID } from "node:crypto";
 import jsQR from "jsqr";
 import { PNG } from "pngjs";
@@ -425,25 +425,18 @@ export async function ensureAdminLogin(page: Page, requiredSelector?: string) {
 async function markRemovedPhotoSlots(page: Page, desiredCount: number, previousCount: number) {
   if (desiredCount >= previousCount) return { requested: 0, marked: 0 };
   const requested = previousCount - desiredCount;
-  const controls = page.locator([
-    'input[type="checkbox"][name*="photo" i][name*="delete" i]',
-    'input[type="checkbox"][name*="photo" i][name*="remove" i]',
-    'input[type="checkbox"][name*="image" i][name*="delete" i]',
-    'input[type="checkbox"][name*="image" i][name*="remove" i]',
-    'input[type="checkbox"][name*="pic" i][name*="delete" i]',
-    'input[type="checkbox"][name*="pic" i][name*="remove" i]',
-    'input[type="checkbox"][id*="photo" i][id*="delete" i]',
-    'input[type="checkbox"][id*="photo" i][id*="remove" i]',
-    'input[type="checkbox"][id*="image" i][id*="delete" i]',
-    'input[type="checkbox"][id*="image" i][id*="remove" i]',
-    'input[type="checkbox"][id*="pic" i][id*="delete" i]',
-    'input[type="checkbox"][id*="pic" i][id*="remove" i]',
-  ].join(","));
-  const total = await controls.count();
+  // 2026-11 の編集画面：写真枠ごとに「削除する」（a.tmp_photo__cancel[data-delete_col="photoN"]）。
+  // 押すとその枠が空になり、保存で消える。HPより多い枠（desiredCount+1 枚目以降）を押す
   let marked = 0;
-  for (let index = desiredCount; index < Math.min(previousCount, total); index += 1) {
-    const control = controls.nth(index);
-    if (!await control.isChecked()) await control.check();
+  for (let slot = desiredCount + 1; slot <= previousCount; slot += 1) {
+    const link = page.locator(`a.tmp_photo__cancel[data-delete_col="photo${slot}"]`).first();
+    if (await link.count() && await link.isVisible().catch(() => false)) {
+      await link.click().catch(() => undefined);
+      await page.waitForTimeout(300);
+      marked += 1;
+      continue;
+    }
+    // 「削除する」が出ていない枠は写真が無い（エステ魂側で先に消えている）ので消し済みとして数える
     marked += 1;
   }
   return { requested, marked };
@@ -1049,7 +1042,21 @@ async function registerCast(
     ? await markRemovedPhotoSlots(page, data.photos.length, previousPhotoCount)
     : { requested: 0, marked: 0 };
   const photoRemovalPending = photoRemoval.marked < photoRemoval.requested;
+  // 保存のときにエステ魂へ送った通信（POST）と返事を控える。保存が効かなかったときに理由を残すため
+  const saveResponses: string[] = [];
+  const onSaveResponse = async (response: Response) => {
+    try {
+      if (response.request().method() !== "POST" || !/estama\.jp/.test(response.url())) return;
+      const path = new URL(response.url()).pathname;
+      if (/file_upload|recaptcha|clarity|onesignal/i.test(path)) return;
+      const body = (await response.text().catch(() => "")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      saveResponses.push(`${path} ${response.status()} ${body.slice(0, 160)}`);
+    } catch { /* 記録できなくても保存は続ける */ }
+  };
+  page.on("response", onSaveResponse);
   await clickSave(page);
+  page.off("response", onSaveResponse);
+  const afterSaveUrl = page.url();
   const saveErrors = await visibleEstamaErrors(page);
   if (saveErrors.length) {
     throw new Error(`エステ魂で保存できませんでした: ${[...new Set(saveErrors)].join(" / ").slice(0, 240)}`);
@@ -1101,8 +1108,9 @@ async function registerCast(
     }
   }
 
+  const saveTrace = `保存後の画面: ${new URL(afterSaveUrl).pathname}${saveResponses.length ? `／送信: ${saveResponses.join(" ｜ ").slice(0, 400)}` : "／送信の記録なし（保存ボタンが押せていない可能性）"}`;
   const lastError = snsMismatch
-    ? "エステ魂のブログ・SNS欄が保存後に変わっていませんでした"
+    ? `エステ魂のブログ・SNS欄が保存後に変わっていませんでした（${saveTrace}）`
     : photoRemovalPending ? "エステ魂の削除対象写真を自動判別できませんでした" : null;
   const profilePatch = {
     store_id: job.store_id, cast_id: job.cast_id, provider: "estama",
@@ -1131,7 +1139,7 @@ async function registerCast(
     throw new EstamaSubmissionUncertainError("エステ魂の新規登録の保存後にセラピストのIDを確認できませんでした。エステ魂のセラピスト一覧を確かめてから登録し直してください");
   }
   if (snsMismatch) {
-    throw new Error(`エステ魂のブログ・SNS欄が保存後に変わっていませんでした（送った値: ${data.blog || "空"} / ${data.twitter || "空"}、編集画面: ${savedSns.blog || "空"} / ${savedSns.twitter || "空"}）`);
+    throw new Error(`エステ魂のブログ・SNS欄が保存後に変わっていませんでした（送った値: ${data.blog || "空"} / ${data.twitter || "空"}、編集画面: ${savedSns.blog || "空"} / ${savedSns.twitter || "空"}／${saveTrace}）`);
   }
   return {
     externalId,
