@@ -1,3 +1,9 @@
+import { useSearchParams } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import SalesDailySales from "./SalesDailySales";
+import HpKpiGoals from "./HpKpiGoals";
+import PaymentManagement from "./PaymentManagement";
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
@@ -16,8 +22,6 @@ import {
   TrendingUp,
   UsersRound,
 } from "lucide-react";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,8 +44,7 @@ interface SummaryData {
   averageCustomerSpendChange: number | null;
 }
 
-export default function SalesDashboard() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+function SalesOverview({ embedded = false }: { embedded?: boolean } = {}) {
   const [summary, setSummary] = useState<SummaryData>({
     monthlySales: 0,
     monthlyCount: 0,
@@ -147,11 +150,7 @@ export default function SalesDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="pt-[60px] md:ml-[240px] p-6">
+    <AdminPageShell embedded={embedded} mainClassName="p-4 md:p-6">
         <div className="max-w-5xl mx-auto space-y-6">
           <div>
             <h1 className="text-2xl font-bold">売上管理ダッシュボード</h1>
@@ -271,7 +270,36 @@ export default function SalesDashboard() {
             <p className="text-xs text-muted-foreground">© 2025 caskan.jp All rights reserved</p>
           </div>
         </footer>
-      </main>
-    </div>
+      </AdminPageShell>
+  );
+}
+
+
+const SALES_TABS = [
+  { value: "overview", label: "売上・経費" },
+  { value: "daily", label: "日別精算" },
+  { value: "kpi", label: "KPI管理" },
+  { value: "payments", label: "支払い管理" },
+];
+
+export default function SalesDashboard() {
+  const [params, setParams] = useSearchParams();
+  const requested = params.get("tab");
+  const tab = SALES_TABS.some(item => item.value === requested) ? requested! : "overview";
+  return (
+    <AdminPageShell mainClassName="p-3 sm:p-6">
+      <div className="mx-auto max-w-5xl">
+        <h1 className="mb-4 text-2xl font-bold">売上ダッシュボード</h1>
+        <Tabs value={tab} onValueChange={value => setParams({ tab: value }, { replace: true })}>
+          <TabsList className="mb-4 flex h-auto w-full justify-start overflow-x-auto">
+            {SALES_TABS.map(item => <TabsTrigger key={item.value} value={item.value}>{item.label}</TabsTrigger>)}
+          </TabsList>
+          <TabsContent value="overview"><SalesOverview embedded /></TabsContent>
+          <TabsContent value="daily"><SalesDailySales embedded /></TabsContent>
+          <TabsContent value="kpi"><HpKpiGoals embedded /></TabsContent>
+          <TabsContent value="payments"><PaymentManagement embedded /></TabsContent>
+        </Tabs>
+      </div>
+    </AdminPageShell>
   );
 }
