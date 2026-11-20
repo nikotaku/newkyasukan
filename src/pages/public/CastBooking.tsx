@@ -1,3 +1,4 @@
+import { checkCustomerPhone } from "@/lib/customerPhone";
 import {
   DOUBLE_COURSE_TYPE, DOUBLE_NOMINATION_TYPE, DOUBLE_OPTION_LABELS, DOUBLE_OPTION_NAMES,
   isDoubleBookingCourse,
@@ -125,6 +126,8 @@ export default function CastBooking() {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const phoneCheck = checkCustomerPhone(phone);
   const [notes, setNotes] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
@@ -278,7 +281,7 @@ export default function CastBooking() {
     setError("");
     if (!cast) return;
     if (!name.trim()) { setError("お名前を入力してね"); return; }
-    if (!phone.trim() || phone.replace(/\D/g, "").length < 10) { setError("電話番号を入力してね"); return; }
+    if (!phoneCheck.ok) { setPhoneTouched(true); setError(phoneCheck.message); return; }
     if (!date) { setError("希望日を選んでね"); return; }
     if (isRirikaMomoka && !campaignDate) { setError("11月17日または18日を選んでね"); return; }
     if (!time) { setError("希望時間を選んでね"); return; }
@@ -308,7 +311,7 @@ export default function CastBooking() {
         id: reservationId,
         cast_id: cast.id,
         customer_name: name.trim(),
-        customer_phone: phone.trim(),
+        customer_phone: phoneCheck.phone,
         reservation_date: resDate,
         start_time: time,
         duration,
@@ -800,11 +803,16 @@ export default function CastBooking() {
             </label>
             <input
               type="tel"
+              inputMode="tel"
+              autoComplete="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
+              onBlur={() => setPhoneTouched(true)}
               placeholder="090-1234-5678"
-              className="w-full rounded-2xl border-2 border-pink-100 focus:border-pink-300 bg-pink-50/50 px-4 py-3 text-sm focus:outline-none"
+              aria-invalid={phoneTouched && !phoneCheck.ok}
+              className={`w-full rounded-2xl border-2 ${phoneTouched && !phoneCheck.ok ? "border-red-300" : "border-pink-100"} focus:border-pink-300 bg-pink-50/50 px-4 py-3 text-sm focus:outline-none`}
             />
+            {phoneTouched && !phoneCheck.ok && <p className="text-xs text-red-500 mt-1.5">{phoneCheck.message}</p>}
             <p className="text-[11px] text-gray-400 mt-1.5">※ SMSで確認のご連絡をします</p>
           </div>
 

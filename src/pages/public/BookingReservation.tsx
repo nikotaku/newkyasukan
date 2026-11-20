@@ -1,3 +1,4 @@
+import { checkCustomerPhone, normalizeCustomerPhone } from "@/lib/customerPhone";
 import {
   DOUBLE_COURSE_TYPE, DOUBLE_NOMINATION_TYPE, DOUBLE_OPTION_LABELS, DOUBLE_OPTION_NAMES,
   isDoubleBookingCourse,
@@ -129,7 +130,11 @@ const businessTimeLabel = (time: string) => {
 const reservationSchema = z.object({
   customer_name: z.string().trim().min(1, "お名前を入力してください").max(100, "お名前は100文字以内で入力してください").regex(/^[\p{L}\p{N}\s\-\.]+$/u, "お名前に使用できない文字が含まれています"),
   customer_furigana: z.string().trim().min(1, "フリガナを入力してください").max(100, "フリガナは100文字以内で入力してください").regex(/^[\p{L}\p{N}\s\-\.]+$/u, "フリガナに使用できない文字が含まれています"),
-  customer_phone: z.string().trim().min(10, "電話番号を入力してください").max(20, "電話番号は20文字以内で入力してください").regex(/^[0-9\-\(\)\+\s]+$/, "電話番号の形式が正しくありません"),
+  // SMSで確認を送るので携帯電話の11桁だけ（src/lib/customerPhone.ts）
+  customer_phone: z.string().max(30, "電話番号の形式が正しくありません").superRefine((value, ctx) => {
+    const result = checkCustomerPhone(value);
+    if (!result.ok) ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.message });
+  }),
   customer_email: z.string().trim().max(255, "メールアドレスは255文字以内で入力してください").refine(isValidEmail, "有効なメールアドレスを入力してください（例: example@email.jp）"),
   notes: z.string().max(1000, "備考は1000文字以内で入力してください").refine(val => !val || !/<[^>]*>/g.test(val), "HTMLタグは使用できません").optional(),
 });
@@ -190,6 +195,7 @@ const BookingReservation = () => {
   const [customerName, setCustomerName] = useState<string>("");
   const [customerFurigana, setCustomerFurigana] = useState<string>("");
   const [customerPhone, setCustomerPhone] = useState<string>("");
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [customerEmail, setCustomerEmail] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
@@ -846,7 +852,7 @@ const BookingReservation = () => {
           cast_id: actualCastId,
           customer_name: customerName.trim(),
           customer_furigana: customerFurigana.trim(),
-          customer_phone: customerPhone.trim(),
+          customer_phone: normalizeCustomerPhone(customerPhone),
           customer_email: customerEmail.trim(),
           reservation_date: reservationDateKey(selectedDate, startTime),
           start_time: startTime,
@@ -906,7 +912,7 @@ const BookingReservation = () => {
           : []),
         ``,
         `お名前: ${customerName}`,
-        `電話番号: ${customerPhone}`,
+        `電話番号: ${normalizeCustomerPhone(customerPhone)}`,
         ...(notes ? [`備考: ${notes}`] : []),
       ];
       setCompletedBookingText(summaryLines.join('\n'));
@@ -1668,10 +1674,14 @@ const BookingReservation = () => {
                         placeholder="090-1234-5678"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
-                        onBlur={handlePhoneBlur}
+                        onBlur={() => { setPhoneTouched(true); handlePhoneBlur(); }}
+                        inputMode="tel"
+                        autoComplete="tel"
+                        aria-invalid={phoneTouched && !checkCustomerPhone(customerPhone).ok}
                         required
                         maxLength={20}
                       />
+                      {phoneTouched && (() => { const r = checkCustomerPhone(customerPhone); return r.ok ? null : <p className="text-xs text-destructive mt-1">{r.message}</p>; })()}
                       {selectedCastId !== "none" && selectedCastId !== "" && (
                         <p className="text-xs text-muted-foreground mt-1">
                           ※{nominationType === DOUBLE_NOMINATION_TYPE ? "特別指名料" : `指名料（${nominationType}）`}が加算されます

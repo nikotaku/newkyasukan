@@ -205,6 +205,10 @@
 - お客様の予約確認SMS・前日リマインド（`send-sms`）、予約案内ページ（`/g/:token`）、管理画面アプリのスマホ通知（`push-notify`）、SMS返信のLINE通知（`sms-webhook`）は `src/lib/businessTime.ts` の `businessDateTime` でそろえる（Edge Function は相対パスで読むので、デプロイ時は `src/lib/businessTime.ts` も一緒に送る）。セラピストへの通知（`reservationLineNotification.ts`）・WEB予約のLINE通知（`notify-line-booking`）・管理画面の予約表（`toExtTime`）は前から同じ表記。テスト `npm run test:business-time`
 - 前日リマインドSMS（pg_cron `enka-reservation-sms-reminders`）の「明日」も営業日で見る（11/17 24:00 の予約は 11/16 の夕方に送る）
 
+## 予約フォームの電話番号（携帯の11桁だけ）
+
+- お客様が入れる予約フォーム（WEB予約 `BookingReservation`・セラピスト専用フォーム `CastBooking`・`KeikaBooking`）は、確認をSMSで送るので携帯電話の番号（`^0[789]0\d{8}$`、070・080・090の11桁）だけ通す。全角・ハイフン・空白・+81 は受け付けて、保存はハイフンなしの数字だけ。入力欄を離れたときに理由（「携帯電話の番号は11桁です（今は10桁）」など）を赤で出す。2026-11-20 に10桁の番号（080…の1桁抜け）でセラピスト専用フォームから入った予約があったため。判定は `src/lib/customerPhone.ts`（テスト `npm run test:customer-phone`）。管理画面の予約入力（固定電話のお客様もいる）は対象外
+
 ## 予約の二重登録防止
 
 - 予約入力（`ReservationForm`）の保存ボタンは保存中は押せない（「保存中…」）。以前は連打・スマホの二重タップで同じ予約が0.01〜1秒差で2件入っていた（予約表から入れた予約）
