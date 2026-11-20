@@ -91,28 +91,62 @@ export function smsFailureReason(code: string | null | undefined, message?: stri
   return message || "届きませんでした（理由は不明）";
 }
 
-// お客様へのSMSが送れなかった・届かなかったとき（Twilio の送信エラーと、あとから届く「届かなかった」の知らせ）
+// お客様へのSMSが送れなかった・届かなかったとき（Twilio の送信エラーと、あとから届く「届かなかった」の知らせ）。
+// retryState：scheduled＝自動で送り直し中（最初の失敗のときだけ知らせる）／not_retryable＝送り直しても届かない番号／
+// gave_up＝送り直しても届かなかった（または予約の時間を過ぎた）。tag は最初のSMSごとにそろえ、あとの知らせで置き換える
 export function smsFailedMessage(input: {
   logId: string;
+  rootId?: string | null;
   toNumber: string;
   errorCode: string | null;
   errorMessage: string | null;
   customerName: string | null;
   reservationDate?: string | null;
   startTime?: string | null;
+  retryState?: string | null;
+  retryCount?: number | null;
 }): PushMessage {
   const local = input.toNumber.replace(/^\+81/, "0");
   const when = businessWhen(input.reservationDate ?? null, input.startTime ?? null);
-  const lines = [
-    smsFailureReason(input.errorCode, input.errorMessage),
-    when ? `予約：${when}` : null,
-    `${local}　電話など別の方法で連絡してください`,
-  ].filter(Boolean);
+  const who = input.customerName ? `（${input.customerName}様）` : "";
+  const state = input.retryState ?? null;
+  const contact = `${local}　電話など別の方法で連絡してください`;
+  const title = state === "scheduled"
+    ? `⚠️ SMSが届きませんでした${who}`
+    : state === "gave_up"
+      ? `⚠️ SMSを送り直しても届きませんでした${who}`
+      : `⚠️ SMSを送れませんでした${who}`;
+  const next = state === "scheduled"
+    ? "自動で送り直しています（届くまで最大6回）。結果はまたお知らせします"
+    : state === "gave_up"
+      ? `${input.retryCount ? `${input.retryCount}回送り直しましたが届きませんでした。` : ""}${contact}`
+      : state === "not_retryable"
+        ? `この番号には送り直しても届きません。${contact}`
+        : contact;
+  const lines = [smsFailureReason(input.errorCode, input.errorMessage), when ? `予約：${when}` : null, next].filter(Boolean);
   return {
-    title: `⚠️ SMSを送れませんでした${input.customerName ? `（${input.customerName}様）` : ""}`,
+    title,
     body: clip(lines.join("／"), 160),
     url: `/sms?to=${encodeURIComponent(input.toNumber)}`,
-    tag: `sms-failed-${input.logId}`,
+    tag: `sms-failed-${input.rootId || input.logId}`,
+  };
+}
+
+// 自動の送り直しで届いたとき（最初の「届きませんでした」の通知を置き換える）
+export function smsRetryDeliveredMessage(input: {
+  rootId: string;
+  toNumber: string;
+  customerName: string | null;
+  retryCount: number;
+  reservationDate?: string | null;
+  startTime?: string | null;
+}): PushMessage {
+  const when = businessWhen(input.reservationDate ?? null, input.startTime ?? null);
+  return {
+    title: `✅ SMSが届きました${input.customerName ? `（${input.customerName}様）` : ""}`,
+    body: clip([`送り直し${input.retryCount}回目で届きました`, when ? `予約：${when}` : null].filter(Boolean).join("／"), 160),
+    url: `/sms?to=${encodeURIComponent(input.toNumber)}`,
+    tag: `sms-failed-${input.rootId}`,
   };
 }
 

@@ -3,6 +3,7 @@
 //   { reservation_id } / { reservation_id, template_id } / { to, body, store_id? }
 //   { reservation_id, to, preview_only? } … 予約内容で本文を作り、別の宛先へ送る（予約は送信済みにしない）
 //   { action: "reservation_reminder", reminder_reservation_id } … 前日リマインド（内部専用）
+//   { action: "retry", retry_log_id } … 送れなかった・届かなかったSMSを同じ文面で送り直す（内部専用。pg_cron sms-retry-every-minute → private.dispatch_sms_retries）
 //   { action: "numbers" }   … 番号一覧
 //   { action: "configure" } … SMS対応番号の受信Webhookをsms-webhookに設定
 // テンプレ変数は template.ts を参照（{guide_url} は予約ごとの案内ページ /g/:token）。
@@ -151,6 +152,58 @@ const ENKA_STORE_ID = "404499ab-5350-490f-9608-5814faffda6f";
 const REMINDER_TPL = "艶華です。明日{date_long} {time}からご予約を承っています。変更の際はお早めにご連絡ください。";
 const DEFAULT_TPL = "{name}様\nご予約を承りました。\n{date} {time}〜 {course}\nご来店をお待ちしております。";
 
+// 送れなかった・届かなかったSMSを、同じ文面・同じ宛先でもう一度送る。送り直しは新しい行（retry_of = 最初の行）。
+// また失敗したら、その行の status の更新で DB（private.sms_schedule_retry）が次の送り直しを決める
+async function retrySms(logId: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(logId)) return { ok: false, error: "invalid log id" };
+  const [log] = await sb(`sms_logs?id=eq.${logId}&select=*`);
+  if (!log || log.retry_state !== "sending" || log.direction === "inbound") return { ok: true, skipped: true };
+  const root = log.retry_of || log.id;
+  const finish = (state: string) => sb(`sms_logs?id=eq.${log.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ retry_state: state, next_retry_at: null, updated_at: new Date().toISOString() }),
+  });
+  // 同じSMSの送り直しが、別の経路（手で再送など）で既に届いていればやめる
+  const [delivered] = await sb(`sms_logs?or=(id.eq.${root},retry_of.eq.${root})&status=in.(delivered,sent,queued,accepted,sending)&id=neq.${log.id}&select=id&created_at=gt.${encodeURIComponent(log.created_at)}&limit=1`);
+  if (delivered) { await finish("done"); return { ok: true, skipped: true, reason: "already_sent" }; }
+  if (log.reservation_id) {
+    const [reservation] = await sb(`reservations?id=eq.${log.reservation_id}&select=status`);
+    if (reservation?.status === "cancelled") { await finish("stopped"); return { ok: true, skipped: true, reason: "cancelled" }; }
+  }
+  const toE = toE164(log.to_number);
+  if (!toE || !String(log.body || "").trim()) { await finish("gave_up"); return { ok: false, error: "宛先か本文がありません" }; }
+
+  const fromNum = TW_MSID ? null : await resolveFrom();
+  const [retry] = await sb("sms_logs", {
+    method: "POST",
+    body: JSON.stringify({
+      store_id: log.store_id, reservation_id: log.reservation_id, template_id: log.template_id,
+      to_number: toE, from_number: fromNum, body: log.body, direction: "outbound", customer_id: log.customer_id,
+      retry_of: root, retry_count: Number(log.retry_count || 0) + 1, created_by: log.created_by ?? null,
+    }),
+  });
+  await finish("done");
+
+  const form = new URLSearchParams({ To: toE, Body: log.body, StatusCallback: WEBHOOK_URL });
+  if (TW_MSID) form.set("MessagingServiceSid", TW_MSID); else form.set("From", fromNum!);
+  const tw = await twilioFetch("/Messages.json", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: form,
+  });
+  const res = await tw.json();
+  await sb(`sms_logs?id=eq.${retry.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      status: tw.ok ? (res.status || "sent") : "failed", twilio_sid: res.sid || null,
+      error_code: tw.ok ? null : String(res.code ?? ""), error_message: tw.ok ? null : res.message ?? null,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+  console.log(JSON.stringify({ event: "sms_retry", root, attempt: retry.retry_count, ok: tw.ok, code: tw.ok ? null : res.code }));
+  return { ok: tw.ok, log_id: retry.id, attempt: retry.retry_count };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -172,6 +225,11 @@ Deno.serve(async (req) => {
         results.push({ number: n.number, ok: r.ok, sms_url: d.sms_url, error: r.ok ? null : d.message });
       }
       return json({ results });
+    }
+
+    if (input.action === "retry") {
+      if (caller.kind !== "internal") return json({ error: "権限がありません" }, 403);
+      return json(await retrySms(String(input.retry_log_id || "")));
     }
 
     const isReminder = input.action === "reservation_reminder";

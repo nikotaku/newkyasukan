@@ -1,5 +1,5 @@
 // 管理画面を「ホーム画面に追加」したアプリへのプッシュ通知（LINE通知と並行して送る試験運用）。
-//  - { event: "web_booking" | "sms_reply" | "sms_failed" | "sms_balance" | "estama_scout" | "estama_login" | "daily_sales" | "settlement_transfer" | "line_inbox" | "line_inbox_failed" | "estama_reserve" | "subscription" | "promotion_task", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
+//  - { event: "web_booking" | "sms_reply" | "sms_failed" | "sms_retry_delivered" | "sms_balance" | "estama_scout" | "estama_login" | "daily_sales" | "settlement_transfer" | "line_inbox" | "line_inbox_failed" | "estama_reserve" | "subscription" | "promotion_task", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
 //  - { action: "test" } … ログイン中のスタッフが自分の端末にテスト通知を送る（JWT）
 // 購読（push_subscriptions）の topics に含まれる通知だけを、その店舗の端末へ送る。SMS残高は全店舗の購読へ。
 // 送れなくなった購読（アプリ削除・通知オフ）は消す。VAPIDの鍵は Vault（RPC get_web_push_vapid）。
@@ -17,6 +17,7 @@ import {
   smsBalanceMessage,
   smsFailedMessage,
   smsReplyMessage,
+  smsRetryDeliveredMessage,
   subscriptionAlertMessage,
   testMessage,
   webBookingMessage,
@@ -116,27 +117,39 @@ async function buildEvent(event: string, id: string, resubmitted = false): Promi
     const [customer] = log.customer_id ? await sb(`customers?id=eq.${log.customer_id}&select=name`) : [null];
     return { message: smsReplyMessage({ fromNumber: log.from_number, body: log.body ?? "", customerName: customer?.name ?? null }), storeId: log.store_id };
   }
-  if (event === "sms_failed") {
-    // お客様へのSMSが送れなかった・届かなかった。通知の種類は「SMS」（返信と同じ）
-    const [log] = await sb(`sms_logs?id=eq.${id}&select=id,store_id,to_number,status,error_code,error_message,customer_id,reservation_id,direction`);
-    if (!log || log.direction === "inbound" || !["failed", "undelivered"].includes(log.status) || !log.to_number) return null;
+  if (event === "sms_failed" || event === "sms_retry_delivered") {
+    // お客様へのSMSが送れなかった・届かなかった／自動の送り直しで届いた。通知の種類は「SMS」（返信と同じ）
+    const [log] = await sb(`sms_logs?id=eq.${id}&select=id,store_id,to_number,status,error_code,error_message,customer_id,reservation_id,direction,retry_of,retry_count,retry_state`);
+    if (!log || log.direction === "inbound" || !log.to_number) return null;
+    if (event === "sms_failed" && !["failed", "undelivered"].includes(log.status)) return null;
+    if (event === "sms_retry_delivered" && (log.status !== "delivered" || !log.retry_of)) return null;
     const [reservation] = log.reservation_id
       ? await sb(`reservations?id=eq.${log.reservation_id}&select=customer_name,reservation_date,start_time`)
       : [null];
     const [customer] = !reservation && log.customer_id ? await sb(`customers?id=eq.${log.customer_id}&select=name`) : [null];
-    return {
-      message: smsFailedMessage({
+    const customerName = reservation?.customer_name ?? customer?.name ?? null;
+    const message = event === "sms_retry_delivered"
+      ? smsRetryDeliveredMessage({
+        rootId: log.retry_of,
+        toNumber: log.to_number,
+        customerName,
+        retryCount: Number(log.retry_count || 0),
+        reservationDate: reservation?.reservation_date ?? null,
+        startTime: reservation?.start_time ?? null,
+      })
+      : smsFailedMessage({
         logId: log.id,
+        rootId: log.retry_of ?? log.id,
         toNumber: log.to_number,
         errorCode: log.error_code ?? null,
         errorMessage: log.error_message ?? null,
-        customerName: reservation?.customer_name ?? customer?.name ?? null,
+        customerName,
         reservationDate: reservation?.reservation_date ?? null,
         startTime: reservation?.start_time ?? null,
-      }),
-      storeId: log.store_id,
-      topic: "sms_reply",
-    };
+        retryState: log.retry_state ?? null,
+        retryCount: Number(log.retry_count || 0),
+      });
+    return { message, storeId: log.store_id, topic: "sms_reply" };
   }
   if (event === "estama_scout") {
     const [batch] = await sb(
