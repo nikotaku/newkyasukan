@@ -1,4 +1,4 @@
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SalesDailySales from "./SalesDailySales";
 import HpKpiGoals from "./HpKpiGoals";
@@ -302,4 +302,12 @@ export default function SalesDashboard() {
       </div>
     </AdminPageShell>
   );
+}
+
+
+export function SalesTabRedirect({ tab }: { tab: string }) {
+  const [params] = useSearchParams();
+  const next = new URLSearchParams(params);
+  next.set("tab", tab);
+  return <Navigate to={`/sales?${next.toString()}`} replace />;
 }
