@@ -6,9 +6,12 @@ import { useAdminStore } from "@/hooks/useAdminStore";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import RealtimeNoticeManagement from "./RealtimeNoticeManagement";
+import { PrNewsTypes } from "@/components/pr/PrNewsTypes";
 
 const db: SupabaseClient = supabase;
-const labels = {news:"ニュース自動配信",realtime:"リアルタイム集客",attendance:"出勤情報アピール",guest_appeal:"集客ワンクリックアピール",job_appeal:"求人ワンクリックアピール",recruiting:"リアルタイム求人",invites:"招待メッセージ"} as const;
+// ニュースの自動投稿（4種類・画像付き）は PrNewsTypes で切り替える。ここはそれ以外の配信
+const labels = {realtime:"リアルタイム集客",attendance:"出勤情報アピール",guest_appeal:"集客ワンクリックアピール",job_appeal:"求人ワンクリックアピール",recruiting:"リアルタイム求人",invites:"招待メッセージ"} as const;
+const historyLabels: Record<string,string> = {...labels,news:"ニュース（今すぐご案内）",news_attendance:"ニュース（本日の出勤）",news_intro:"ニュース（セラピスト紹介）",news_coupon:"ニュース（クーポン紹介）"};
 const statuses: Record<string,string> = {queued:"配信待ち",running:"処理中",sent:"配信確認済み",skipped:"見送り",failed:"失敗",review:"要確認",expired:"期限終了"};
 export default function PrDesk() {
   const {storeId} = useAdminStore();
@@ -31,6 +34,7 @@ export default function PrDesk() {
   return <div className="space-y-5"><h2 className="text-xl font-bold">AI広報部</h2>
     <section className="rounded-lg border p-4"><h3 className="font-bold">本日の配信予定</h3>
     <p>次のご案内　{preview.data?.next || "案内枠なし"}</p><p>出勤情報の更新時刻　{preview.data?.slots?.join(" ／ ") || "予定なし"}</p></section>
+    {storeId && <PrNewsTypes storeId={storeId} />}
     {settings.data && <form key={storeId} className="grid gap-3 rounded-lg border p-4" onSubmit={async e=>{
       e.preventDefault(); const form=new FormData(e.currentTarget);
       const flags=Object.fromEntries(Object.keys(labels).map(k=>[k,form.has(k)]));
@@ -47,7 +51,7 @@ export default function PrDesk() {
     {(settings.error||history.error||preview.error) && <p role="alert">配信データを読み込めませんでした。</p>}
     <RealtimeNoticeManagement/>
     <section><h3 className="font-bold">エステ魂の配信履歴</h3>{history.data?.length===0 && <p>履歴はありません。</p>}
-    {history.data?.slice(0,25).map(r=><article key={r.id} className="border-b py-2"><strong>{labels[r.kind as keyof typeof labels]}　{statuses[r.status]}</strong><p className="break-words">{r.body}</p><small>{new Date(r.created_at).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})}　{r.detail?.message}</small></article>)}
+    {history.data?.slice(0,25).map(r=><article key={r.id} className="border-b py-2"><strong>{historyLabels[r.kind] ?? r.kind}　{statuses[r.status]}</strong><p className="break-words">{r.body}</p><small>{new Date(r.created_at).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})}　{r.detail?.message}</small></article>)}
     {page>0 && <Button onClick={()=>setPage(page-1)}>前へ</Button>}{(history.data?.length||0)>25 && <Button onClick={()=>setPage(page+1)}>次へ</Button>}</section>
     </div>;
 }
