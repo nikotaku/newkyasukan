@@ -72,7 +72,6 @@ const menuItems: MenuItem[] = [
     label: "HP",
     icon: Globe,
     children: [
-      
       { href: "/hp/business-flow", label: "業務フロー" },
       { href: "/hp/dashboard", label: "HPダッシュボード" },
       { href: "/hp/x-operations", label: "X運用表" },
