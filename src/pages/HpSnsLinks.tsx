@@ -13,7 +13,7 @@ import { Save } from "lucide-react";
 
 const FIELDS: { key: string; label: string }[] = [
   { key: "store_sns_x", label: "X (旧Twitter) URL" },
-  { key: "store_sns_line", label: "LINE URL" },
+  { key: "store_sns_line", label: "予約用LINE URL" },
   { key: "store_sns_o2", label: "O2 (ゼロツー) URL" },
   { key: "store_sns_instagram", label: "Instagram URL" },
   { key: "store_sns_bluesky", label: "Bluesky URL" },
@@ -70,7 +70,7 @@ export default function HpSnsLinks({ embedded = false }: { embedded?: boolean } 
           <div>
             <p className="text-xs text-muted-foreground mb-1">HP</p>
             <h1 className="text-2xl font-bold">店舗公式SNSリンク</h1>
-            <p className="text-muted-foreground text-sm">トップページ「店舗公式SNS」ブロックに表示されるリンクを編集します（空欄は非表示）</p>
+            <p className="text-muted-foreground text-sm">HP全体のSNS・予約用LINEをここで設定します。</p>
           </div>
           <Button onClick={handleSave} disabled={saving || loading}>
             <Save size={16} className="mr-1.5" />{saving ? "保存中..." : "保存"}
