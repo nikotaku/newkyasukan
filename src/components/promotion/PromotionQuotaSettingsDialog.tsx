@@ -121,7 +121,9 @@ export function PromotionQuotaSettingsDialog({
               <tr>
                 <th className="py-1.5 pr-2 text-left font-medium">出勤日数</th>
                 {tierChannels.map((channel) => (
-                  <th key={channel.key} className="px-1 py-1.5 text-center font-medium whitespace-nowrap">{channel.short}</th>
+                  <th key={channel.key} className={`px-1 py-1.5 text-center font-medium whitespace-nowrap ${channel.group === "self" ? "text-violet-700" : ""}`}>
+                    {channel.short}
+                  </th>
                 ))}
                 <th />
               </tr>
@@ -184,7 +186,7 @@ export function PromotionQuotaSettingsDialog({
             />
             日。新人月に上乗せする回数
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
             {QUOTA_CHANNELS.map((channel) => (
               <label key={channel.key} className="space-y-1 text-center text-[11px] text-muted-foreground">
                 <span className="block whitespace-nowrap">{channel.short}</span>
@@ -199,7 +201,7 @@ export function PromotionQuotaSettingsDialog({
               </label>
             ))}
           </div>
-          <p className="text-[11px] text-muted-foreground">HPトップバナーは新人だけの枠なので、ここでだけ決めます。</p>
+          <p className="text-[11px] text-muted-foreground">HPトップバナーは新人だけの枠なので、ここでだけ決めます。紫の「本人X」「本人O2」は本人投稿、ほかは店舗投稿です。</p>
         </div>
 
         <DialogFooter className="gap-2 sm:justify-between">

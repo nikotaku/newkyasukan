@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useAdminStore } from "@/hooks/useAdminStore";
+import { CastXReadStatus } from "./CastXReadStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { isAutoPostKind } from "@/lib/xAutoPost";
 import { businessDate, classifyPost, slotKeyOf } from "@/lib/xDailyPosts";
@@ -332,6 +333,8 @@ export function StorePostChannels() {
           );
         })}
       </div>
+
+      <CastXReadStatus hasTenchoKeys={Boolean(xChannel("tencho")?.keys_configured)} />
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">

@@ -125,3 +125,62 @@ export async function verifyCredentials(credentials: XCredentials, fetchImpl?: t
 
 export const tweetUrl = (username: string | null | undefined, id: string) =>
   `https://x.com/${username ? username.replace(/^@/, "") : "i"}/status/${id}`;
+
+// ───────── 読み取り（本人の投稿を店長アカウントのキーで読む） ─────────
+
+export interface XUser {
+  id: string;
+  username: string;
+}
+
+export interface XTweet {
+  id: string;
+  text: string;
+  created_at: string;
+  referenced_tweets?: Array<{ type: string; id: string }>;
+}
+
+function describeReadError(status: number, body: Record<string, unknown> | null) {
+  const base = describeError(status, body);
+  if (status === 403) return { error: base.error.replace(/投稿が許可されていません/, "読み取りが許可されていません").replace(/アプリの権限が「Read and write」か、キーを作り直したかを確認してください/, "X Developer のプランで他のアカウントの投稿を読めるか確認してください"), needsAttention: true };
+  if (status === 402) return { error: base.error.replace("投稿できません", "読み取れません"), needsAttention: true };
+  if (status === 429) return { error: `読み取りの上限に達しました。時間をおいて読み直します（${base.error}）`, needsAttention: false };
+  return base;
+}
+
+async function read(path: string, credentials: XCredentials, fetchImpl: typeof fetch = fetch) {
+  const result = await call("GET", path, credentials, undefined, fetchImpl);
+  if (result.ok) return result;
+  return { ...result, ...describeReadError(result.status, result.body) };
+}
+
+/** @ID から X の数字のID を引く（100件まで） */
+export async function lookupUsers(credentials: XCredentials, usernames: string[], fetchImpl?: typeof fetch) {
+  const query = new URLSearchParams({ usernames: usernames.slice(0, 100).join(",") });
+  const result = await read(`/users/by?${query}`, credentials, fetchImpl);
+  const users = (result.body?.data as XUser[] | undefined) ?? [];
+  return { ok: result.ok, status: result.status, users, error: result.error, needsAttention: result.needsAttention };
+}
+
+/** その人の投稿（リポスト・返信を除く）。since_id より新しいもの、なければ start_time 以降。新しい順 */
+export async function userTweets(
+  credentials: XCredentials,
+  userId: string,
+  options: { sinceId?: string | null; startTime?: string; maxPages?: number },
+  fetchImpl?: typeof fetch,
+) {
+  const tweets: XTweet[] = [];
+  let nextToken: string | undefined;
+  for (let page = 0; page < (options.maxPages ?? 3); page += 1) {
+    const query = new URLSearchParams({ max_results: "100", exclude: "retweets,replies", "tweet.fields": "created_at,referenced_tweets" });
+    if (options.sinceId) query.set("since_id", options.sinceId);
+    else if (options.startTime) query.set("start_time", options.startTime);
+    if (nextToken) query.set("pagination_token", nextToken);
+    const result = await read(`/users/${encodeURIComponent(userId)}/tweets?${query}`, credentials, fetchImpl);
+    if (!result.ok) return { ok: false, status: result.status, tweets, error: result.error, needsAttention: result.needsAttention };
+    tweets.push(...((result.body?.data as XTweet[] | undefined) ?? []));
+    nextToken = (result.body?.meta as { next_token?: string } | undefined)?.next_token;
+    if (!nextToken) break;
+  }
+  return { ok: true, status: 200, tweets };
+}
