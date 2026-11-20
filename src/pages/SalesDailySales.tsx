@@ -82,6 +82,7 @@ interface CastGroup {
   autoBack: number;
   // 出稼ぎのセラピスト（宿泊費を自動で入れる）
   isDekasegi: boolean;
+  isDouble: boolean;
 }
 
 interface Clearance {
@@ -331,6 +332,7 @@ export default function SalesDailySales() {
           groups[castId] = {
             castId, castName, accessToken, reservations: [], totalSales: 0, cashSales: 0, autoBack: 0,
             isDekasegi: isDekasegiTherapist(r.casts?.tags),
+            isDouble: r.casts?.tags?.includes("Wセラピスト") ?? false,
           };
         }
         // 予約ごとのバック内訳を計算
@@ -405,8 +407,8 @@ export default function SalesDailySales() {
         inputs[g.castId] = {
           therapistBack: resolvedBack.therapistBack,
           // まだ保存していない日は、雑費（1本¥1,000・1日¥2,000まで）と出稼ぎの宿泊費（1日¥2,000）を自動で入れる
-          miscExpenses: ex?.misc_expenses ?? defaultMiscExpenses(g.reservations.length),
-          accommodationFee: ex?.accommodation_fee ?? (g.isDekasegi ? DEKASEGI_ACCOMMODATION_PER_DAY : 0),
+          miscExpenses: ex?.misc_expenses ?? defaultMiscExpenses(g.reservations.length, g.isDouble),
+          accommodationFee: ex?.accommodation_fee ?? 0,
           transportationFee: ex?.transportation_fee ?? 0,
           otherItems: deductions,
           // まだ保存していない日は、「次回出勤日に相殺」を選んだ前回までの不足分を上乗せする。
@@ -1003,12 +1005,16 @@ export default function SalesDailySales() {
                             value={input.miscExpenses === 0 ? "" : input.miscExpenses}
                             onChange={(e) => updateInput(g.castId, "miscExpenses", Number(e.target.value) || 0)}
                           />
-                          {!cleared && input.miscExpenses === defaultMiscExpenses(g.reservations.length) && input.miscExpenses > 0 && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{miscExpensesHint(g.reservations.length)}</p>
+                          {!cleared && input.miscExpenses === defaultMiscExpenses(g.reservations.length, g.isDouble) && input.miscExpenses > 0 && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{miscExpensesHint(g.reservations.length, g.isDouble)}</p>
                           )}
                         </div>
                         <div>
                           <Label className="text-xs mb-1 block">宿泊費（円）</Label>
+                          <label className="flex items-center gap-2 text-xs mb-2">
+                            <input type="checkbox" checked={input.accommodationFee > 0} onChange={(e) => updateInput(g.castId, "accommodationFee", e.target.checked ? DEKASEGI_ACCOMMODATION_PER_DAY : 0)} />
+                            この日の勤務後に宿泊する（2,000円）
+                          </label>
                           <Input
                             type="number"
                             min="0"
@@ -1018,7 +1024,7 @@ export default function SalesDailySales() {
                             onChange={(e) => updateInput(g.castId, "accommodationFee", Number(e.target.value) || 0)}
                           />
                           {g.isDekasegi && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5">出稼ぎ：1日¥2,000{!cleared && input.accommodationFee === DEKASEGI_ACCOMMODATION_PER_DAY ? "（自動入力）" : ""}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">宿泊した日のみ2,000円</p>
                           )}
                         </div>
                         <div>
