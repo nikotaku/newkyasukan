@@ -64,7 +64,8 @@ export async function runPrTask(page:Page,task:Task,shopId:string,reserveInvite:
     }
     return {status:sent?"sent":"skipped",detail:{message:sent?"招待メッセージとクーポンを送信":"対象者または新しい招待先なし",sent}};
   }
-  if(task.kind==="news" && task.article) {
+  // ニュースは4種類（今すぐご案内・本日の出勤・セラピスト紹介・クーポン紹介）とも、記事の画像を付けてエステ魂のニュースへ
+  if(task.kind.startsWith("news") && task.article) {
     const result=await postEstamaStoreNewsOnPage(page,task.article,"https://estama.jp/shop/"+encodeURIComponent(shopId)+"/newslist/");
     return {status:"sent",detail:{url:result.url}};
   }
