@@ -118,3 +118,25 @@ test("不足分の振込希望の通知：金額と振込先（口座番号は�
   assert.equal(message.url, "/sales/daily-sales?date=2026-10-05&cast=22222222-2222-2222-2222-222222222222");
   assert.match(settlementTransferMessage(approval, null, null).body, /マイページで入力/);
 });
+
+test("SMSを送れなかったときの通知は理由・予約・番号を出し、SMSの画面を開く", async () => {
+  const { smsFailedMessage, smsFailureReason } = await import("../supabase/functions/push-notify/messages.ts");
+  assert.equal(smsFailureReason("30005"), "この番号は使われていないか、存在しません");
+  assert.equal(smsFailureReason("99999", "boom"), "送信エラー（99999）：boom");
+  assert.equal(smsFailureReason(null, null), "届きませんでした（理由は不明）");
+  const message = smsFailedMessage({
+    logId: "log-1",
+    toNumber: "+819012345678",
+    errorCode: "30003",
+    errorMessage: null,
+    customerName: "山田",
+    reservationDate: "2026-11-21",
+    startTime: "01:30:00",
+  });
+  assert.equal(message.title, "⚠️ SMSを送れませんでした（山田様）");
+  assert.match(message.body, /相手の電話につながりません/);
+  assert.match(message.body, /11\/20\(金\) 25:30〜/);
+  assert.match(message.body, /09012345678/);
+  assert.equal(message.url, "/sms?to=%2B819012345678");
+  assert.equal(message.tag, "sms-failed-log-1");
+});
