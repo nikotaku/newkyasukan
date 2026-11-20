@@ -1,3 +1,4 @@
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addDays, format, startOfMonth, startOfWeek } from "date-fns";
 import {
@@ -13,8 +14,6 @@ import {
   Target,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,8 +113,7 @@ const currentPeriods = (date = new Date()): Record<KpiCadence, KpiPeriod> => {
 const clampCount = (value: number, minimum: number, maximum = 999) =>
   Math.min(maximum, Math.max(minimum, Math.trunc(Number.isFinite(value) ? value : minimum)));
 
-export default function HpKpiGoals() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default function HpKpiGoals({ embedded = false }: { embedded?: boolean } = {}) {
   const [loading, setLoading] = useState(true);
   const [savingCadence, setSavingCadence] = useState<KpiCadence | null>(null);
   const [updatingCadence, setUpdatingCadence] = useState<KpiCadence | null>(null);
@@ -287,11 +285,7 @@ export default function HpKpiGoals() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen((open) => !open)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="pt-[60px] md:ml-[240px] p-4 md:p-6">
+    <AdminPageShell embedded={embedded} mainClassName="p-4 md:p-6">
         <div className="mx-auto max-w-6xl space-y-6">
           <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -425,7 +419,6 @@ export default function HpKpiGoals() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+      </AdminPageShell>
   );
 }
