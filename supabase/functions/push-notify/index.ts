@@ -1,5 +1,5 @@
 // 管理画面を「ホーム画面に追加」したアプリへのプッシュ通知（LINE通知と並行して送る試験運用）。
-//  - { event: "web_booking" | "sms_reply" | "sms_balance" | "estama_scout" | "estama_login" | "daily_sales" | "settlement_transfer" | "line_inbox" | "line_inbox_failed" | "estama_reserve" | "subscription" | "promotion_task", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
+//  - { event: "web_booking" | "sms_reply" | "sms_failed" | "sms_balance" | "estama_scout" | "estama_login" | "daily_sales" | "settlement_transfer" | "line_inbox" | "line_inbox_failed" | "estama_reserve" | "subscription" | "promotion_task", id, resubmitted? } … DBトリガーから（x-push-notify-secret）
 //  - { action: "test" } … ログイン中のスタッフが自分の端末にテスト通知を送る（JWT）
 // 購読（push_subscriptions）の topics に含まれる通知だけを、その店舗の端末へ送る。SMS残高は全店舗の購読へ。
 // 送れなくなった購読（アプリ削除・通知オフ）は消す。VAPIDの鍵は Vault（RPC get_web_push_vapid）。
@@ -15,6 +15,7 @@ import {
   promotionTaskMessage,
   settlementTransferMessage,
   smsBalanceMessage,
+  smsFailedMessage,
   smsReplyMessage,
   subscriptionAlertMessage,
   testMessage,
@@ -114,6 +115,28 @@ async function buildEvent(event: string, id: string, resubmitted = false): Promi
     if (!sent) return null;
     const [customer] = log.customer_id ? await sb(`customers?id=eq.${log.customer_id}&select=name`) : [null];
     return { message: smsReplyMessage({ fromNumber: log.from_number, body: log.body ?? "", customerName: customer?.name ?? null }), storeId: log.store_id };
+  }
+  if (event === "sms_failed") {
+    // お客様へのSMSが送れなかった・届かなかった。通知の種類は「SMS」（返信と同じ）
+    const [log] = await sb(`sms_logs?id=eq.${id}&select=id,store_id,to_number,status,error_code,error_message,customer_id,reservation_id,direction`);
+    if (!log || log.direction === "inbound" || !["failed", "undelivered"].includes(log.status) || !log.to_number) return null;
+    const [reservation] = log.reservation_id
+      ? await sb(`reservations?id=eq.${log.reservation_id}&select=customer_name,reservation_date,start_time`)
+      : [null];
+    const [customer] = !reservation && log.customer_id ? await sb(`customers?id=eq.${log.customer_id}&select=name`) : [null];
+    return {
+      message: smsFailedMessage({
+        logId: log.id,
+        toNumber: log.to_number,
+        errorCode: log.error_code ?? null,
+        errorMessage: log.error_message ?? null,
+        customerName: reservation?.customer_name ?? customer?.name ?? null,
+        reservationDate: reservation?.reservation_date ?? null,
+        startTime: reservation?.start_time ?? null,
+      }),
+      storeId: log.store_id,
+      topic: "sms_reply",
+    };
   }
   if (event === "estama_scout") {
     const [batch] = await sb(

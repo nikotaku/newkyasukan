@@ -69,6 +69,53 @@ export function smsReplyMessage(input: { fromNumber: string; body: string; custo
   };
 }
 
+// Twilio のエラー番号を、何をすればよいか分かる言葉にする（番号は https://www.twilio.com/docs/api/errors ）
+const SMS_ERROR_REASONS: Record<string, string> = {
+  "21211": "電話番号の形式が正しくありません",
+  "21408": "この国あての送信が許可されていません",
+  "21610": "お客様がSMSの受け取りを止めています（STOP）",
+  "21612": "この番号には送れません",
+  "21614": "携帯電話の番号ではありません",
+  "30003": "相手の電話につながりません（電源オフ・圏外など）",
+  "30004": "お客様の電話・携帯会社で受け取りを拒否しています",
+  "30005": "この番号は使われていないか、存在しません",
+  "30006": "固定電話など、SMSを受け取れない番号です",
+  "30007": "携帯会社に迷惑SMSとして止められました",
+  "30008": "携帯会社側の原因で届きませんでした",
+};
+
+export function smsFailureReason(code: string | null | undefined, message?: string | null) {
+  const key = String(code ?? "").trim();
+  if (SMS_ERROR_REASONS[key]) return SMS_ERROR_REASONS[key];
+  if (key) return `送信エラー（${key}）${message ? `：${message}` : ""}`;
+  return message || "届きませんでした（理由は不明）";
+}
+
+// お客様へのSMSが送れなかった・届かなかったとき（Twilio の送信エラーと、あとから届く「届かなかった」の知らせ）
+export function smsFailedMessage(input: {
+  logId: string;
+  toNumber: string;
+  errorCode: string | null;
+  errorMessage: string | null;
+  customerName: string | null;
+  reservationDate?: string | null;
+  startTime?: string | null;
+}): PushMessage {
+  const local = input.toNumber.replace(/^\+81/, "0");
+  const when = businessWhen(input.reservationDate ?? null, input.startTime ?? null);
+  const lines = [
+    smsFailureReason(input.errorCode, input.errorMessage),
+    when ? `予約：${when}` : null,
+    `${local}　電話など別の方法で連絡してください`,
+  ].filter(Boolean);
+  return {
+    title: `⚠️ SMSを送れませんでした${input.customerName ? `（${input.customerName}様）` : ""}`,
+    body: clip(lines.join("／"), 160),
+    url: `/sms?to=${encodeURIComponent(input.toNumber)}`,
+    tag: `sms-failed-${input.logId}`,
+  };
+}
+
 export function smsBalanceMessage(effectiveBalance: number): PushMessage {
   return {
     title: "⚠️ SMSの残高が少なくなっています",

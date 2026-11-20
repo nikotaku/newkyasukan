@@ -231,6 +231,7 @@
 
 - 公開鍵だけでは呼べない（料金がかかるため）。予約確定トリガー `trg_send_reservation_sms` は Vault の `send_sms_internal_secret` を `x-send-sms-secret` で付ける。管理画面はログイン中スタッフのJWT（所属店舗のSMSのみ）、他のEdge Functionは service_role
 - Twilioの認証情報は Vault から読む（下記）。コードに書かないこと
+- **送れなかった・届かなかったときのスマホ通知**（2026-11-20〜）：お客様へのSMSが Twilio に断られた（send-sms が `sms_logs.status = failed`）か、あとから「届かなかった」と知らせが来た（sms-webhook が `undelivered` / `failed` に更新）ときに、管理画面アプリへスマホ通知（DBトリガー `trg_push_notify`（`sms_logs_push_notify_status` は UPDATE も見る）→ push-notify の event `sms_failed`）。通知の種類は「SMS」（`sms_reply` と同じ。設定画面のラベルは「SMSの返信が来た・送れなかったとき」）。本文は理由（Twilio のエラー番号を言葉にする `smsFailureReason`、30008 = 携帯会社側の原因 など）・予約の日時・番号で、タップでSMSの画面。同じSMSで2回は知らせない。`20261120100000_sms_failed_push_notify.sql`、テスト `npm run test:push-notify`
 - 管理権限は `user_stores.role`（owner / manager）で判定する。このプロジェクトに `user_roles` テーブルはないので、Edge Function から参照しないこと（参照すると404で500エラーになる）
 
 ## サロン経費管理（別リポジトリ nikotaku/salon-keihi）
@@ -286,6 +287,7 @@
 - 認証は `x-ingest-token`（`report_ingest_tokens` にSHA-256で保存）。トークンはリポジトリに入れない
 - **設定は画面から**：WEB予約受付（`/schedule/web-bookings`）のエステ魂の欄の「メールですぐ取り込む」（`src/components/GmailInstantSyncSetup.tsx`）。「スクリプトをコピー」で RPC `create_report_ingest_token`（店長・オーナー、本体は返すだけで保存しない）のトークン入りの `scripts/gmail-report-sync.gs` がコピーされるので、転送先の Gmail（艶華は enka@ のメールを転送している chelsy… のアカウント）の script.google.com に貼って `setup` を実行。状況（最後に送ってきた時刻・最後の仮予約のメール）は RPC `get_report_ingest_status`。トークンをチャットに出さないこと
 - 仮予約のメールは件名（「エステ魂」と「予約」）か、送り元が estama.jp で件名に「予約」があるもの（転送でも元の送り元のまま。`classifyReportEmail(subject, from)`）
+- **受付専用メール（Cloudflare Email Routing → Email Worker）**：`enka-salon.jp` のメールは Cloudflare Email Routing で受けている（MX が route*.mx.cloudflare.net）。受付専用のアドレスを Email Worker（`workers/mail-intake/index.js`、依存なしでダッシュボードに貼れる）に向けると、届いたメールをスタッフのメールへ転送しつつ、そのまま（`Content-Type: message/rfc822`）`report-email-ingest` へ送る。取り込み口は MIME を `npm:postal-mime` で読み（ISO-2022-JP も可）、id は Message-ID のハッシュ（`mail-…`）。Gmail の1分ごとの見回りと違い、届いた瞬間にエステ魂の仮予約を読みに行ける。Worker の設定は `INGEST_URL`・`INGEST_TOKEN`（シークレット）・`FORWARD_TO`。2026-11-20 時点で取り込み口は本番に出してあるが、Cloudflare 側（Worker の作成・アドレスの割り当て・エステ魂の通知先の変更）はまだ
 - 受け取ったメールと読み取り結果は `report_email_messages`。書式が読めないものは `unparsed` で残るので `parse.ts` を直す（手順: `docs/gmail-report-sync.md`）
 
 ## スマホ通知（管理画面をホーム画面に追加・Web Push）

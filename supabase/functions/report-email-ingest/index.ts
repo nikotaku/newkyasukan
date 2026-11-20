@@ -4,6 +4,9 @@
 // エステ魂の仮予約のメール（またはIVRyに来た 0120-286-634 の自動音声の着信通知）が届いたら、
 // すぐにエステ魂の「お店への予約」を読みに行く（RPC request_estama_reserve_sync → WEB予約受付の右側に出る）。
 //
+// 受付専用メール（Cloudflare Email Routing → Email Worker、workers/mail-intake/index.js）からは、届いたメールを
+// そのまま（Content-Type: message/rfc822）送ってくる。Gmailの1分ごとの見回りと違い、届いた瞬間に取り込める。
+//
 // 認証: ヘッダー x-ingest-token。report_ingest_tokens にSHA-256で保存したトークンから店舗を決める。
 // 同じメールは何度届いても1回だけ取り込む（Gmailのメッセージ ID で判定）。
 // エステ魂の日次は、その日の行が既にあれば上書きしない（読み取り結果は report_email_messages に残す）。
@@ -15,6 +18,7 @@ import {
   parseIvryCall,
   type ReportEmail,
 } from "./parse.ts";
+import PostalMime from "npm:postal-mime@2.4.4";
 import { classifyBillingMail } from "../../../src/lib/subscriptionWatch.ts";
 
 const SB_URL = Deno.env.get("SUPABASE_URL")!;
@@ -61,6 +65,20 @@ function toEmail(raw: unknown): ReportEmail | null {
   };
 }
 
+// 受付専用メールから届いたメール（MIMEのまま）を、Gmailのスクリプトと同じ形（id・件名・送り元・日時・本文）にする。
+// id は Message-ID（無ければ本体）のハッシュ。同じメールが2回届いても1回だけ取り込む
+async function rawMailToMessage(raw: Uint8Array) {
+  if (raw.byteLength > 2_000_000) throw new Error("メールが大きすぎます");
+  const mail = await PostalMime.parse(raw);
+  const messageId = mail.messageId || "";
+  const id = "mail-" + (await sha256Hex(messageId || new TextDecoder().decode(raw.slice(0, 200_000)))).slice(0, 40);
+  const text = mail.text
+    || (mail.html || "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|tr|li)>/gi, "\n").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
+  const date = mail.date && !Number.isNaN(new Date(mail.date).getTime()) ? new Date(mail.date).toISOString() : new Date().toISOString();
+  const from = mail.from ? `${mail.from.name || ""} <${mail.from.address || ""}>`.trim() : "";
+  return { id, subject: mail.subject || "(件名なし)", from, date, body: text };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
   try {
@@ -70,7 +88,10 @@ Deno.serve(async (req: Request) => {
     if (!tokenRow) return json(401, { error: "invalid token" });
     const storeId: string = tokenRow.store_id;
 
-    const payload = await req.json().catch(() => null) as { messages?: unknown[] } | null;
+    const isRawMail = /message\/rfc822/i.test(req.headers.get("content-type") || "");
+    const payload = isRawMail
+      ? { messages: [await rawMailToMessage(new Uint8Array(await req.arrayBuffer()))] }
+      : await req.json().catch(() => null) as { messages?: unknown[] } | null;
     const emails = (Array.isArray(payload?.messages) ? payload!.messages : [])
       .slice(0, MAX_MESSAGES)
       .map(toEmail)
