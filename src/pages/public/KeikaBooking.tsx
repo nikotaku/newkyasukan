@@ -1,3 +1,4 @@
+import { checkCustomerPhone } from "@/lib/customerPhone";
 import { useState, useEffect } from "react";
 import { format, addDays } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -34,6 +35,8 @@ export default function KeikaBooking() {
   const [fullPackage, setFullPackage] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const phoneCheck = checkCustomerPhone(phone);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -48,7 +51,7 @@ export default function KeikaBooking() {
     e.preventDefault();
     setError("");
     if (!name.trim()) { setError("お名前を入力してください"); return; }
-    if (!phone.trim() || phone.replace(/\D/g, "").length < 10) { setError("電話番号を入力してください"); return; }
+    if (!phoneCheck.ok) { setPhoneTouched(true); setError(phoneCheck.message); return; }
     if (!time) { setError("希望時間を選んでください"); return; }
 
     setSubmitting(true);
@@ -57,7 +60,7 @@ export default function KeikaBooking() {
         body: {
           form_slug: "keika",
           customer_name: name.trim(),
-          customer_phone: phone.trim(),
+          customer_phone: phoneCheck.phone,
           requested_date: date,
           requested_time: time,
           course: `${minutes}分コース（¥${course.price.toLocaleString()}）`,
@@ -219,11 +222,16 @@ export default function KeikaBooking() {
             <label className="block text-xs font-bold tracking-[0.2em] text-[#2b2b2b] mb-2" style={serif}>TEL</label>
             <input
               type="tel"
+              inputMode="tel"
+              autoComplete="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
+              onBlur={() => setPhoneTouched(true)}
               placeholder="090-1234-5678"
+              aria-invalid={phoneTouched && !phoneCheck.ok}
               className="w-full rounded-xl border border-[#d8c4b6] bg-white/60 px-4 py-3 text-sm focus:outline-none focus:border-[#2b2b2b]"
             />
+            {phoneTouched && !phoneCheck.ok && <p className="text-xs text-red-600 mt-1.5">{phoneCheck.message}</p>}
           </div>
 
           {/* ひとこと */}
