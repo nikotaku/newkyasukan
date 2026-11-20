@@ -1,3 +1,4 @@
+import SalesMonthlyClosing from "./SalesMonthlyClosing";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SalesDailySales from "./SalesDailySales";
@@ -278,6 +279,7 @@ function SalesOverview({ embedded = false }: { embedded?: boolean } = {}) {
 const SALES_TABS = [
   { value: "overview", label: "売上・経費" },
   { value: "daily", label: "日別精算" },
+  { value: "expenses", label: "経費（月別清算）" },
   { value: "kpi", label: "KPI管理" },
   { value: "payments", label: "支払い管理" },
 ];
@@ -296,6 +298,7 @@ export default function SalesDashboard() {
           </TabsList>
           <TabsContent value="overview"><SalesOverview embedded /></TabsContent>
           <TabsContent value="daily"><SalesDailySales embedded /></TabsContent>
+          <TabsContent value="expenses"><SalesMonthlyClosing embedded focusExpenses /></TabsContent>
           <TabsContent value="kpi"><HpKpiGoals embedded /></TabsContent>
           <TabsContent value="payments"><PaymentManagement embedded /></TabsContent>
         </Tabs>

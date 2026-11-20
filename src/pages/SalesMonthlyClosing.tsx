@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -184,8 +184,11 @@ function TherapistMetricList({ rows, metric }: { rows: TherapistMetric[]; metric
   );
 }
 
-export default function SalesMonthlyClosing() {
+// embedded = 売上ダッシュボードのタブの中に出す（外枠なし）。focusExpenses = 開いたら経費の欄までスクロールする
+export default function SalesMonthlyClosing({ embedded = false, focusExpenses = false }: { embedded?: boolean; focusExpenses?: boolean } = {}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const expensesRef = useRef<HTMLDivElement>(null);
+  const scrolledToExpenses = useRef(false);
   const [selectedMonth, setSelectedMonth] = useState(startOfMonth(new Date()));
   const [records, setRecords] = useState<ExpenseRec[]>([]);
   const [fixedCostDestinations, setFixedCostDestinations] = useState<FixedCostDestination[]>([]);
@@ -696,11 +699,14 @@ export default function SalesMonthlyClosing() {
     </button>
   );
 
-  return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-[60px] md:ml-[240px] p-6">
+  // 「経費」タブから開いたときは、読み込みが終わったら経費の欄までスクロール（1回だけ）
+  useEffect(() => {
+    if (!focusExpenses || loading || scrolledToExpenses.current) return;
+    scrolledToExpenses.current = true;
+    requestAnimationFrame(() => expensesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [focusExpenses, loading]);
+
+  const body = (
         <div className="max-w-3xl mx-auto">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -973,6 +979,7 @@ export default function SalesMonthlyClosing() {
               </Card>
 
               {/* ── 経費（固定費チェックリスト） ── */}
+              <div ref={expensesRef} className="scroll-mt-20">
               <Card className={pendingItems.length > 0 ? "border-amber-300" : ""}>
                 <SectionHeader
                   id="expenses"
@@ -1271,11 +1278,19 @@ export default function SalesMonthlyClosing() {
                   </CardContent>
                 )}
               </Card>
+              </div>
 
             </div>
           )}
         </div>
-      </main>
+  );
+
+  if (embedded) return body;
+  return (
+    <div className="min-h-screen bg-background">
+      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <main className="pt-[60px] md:ml-[240px] p-6">{body}</main>
     </div>
   );
 }
