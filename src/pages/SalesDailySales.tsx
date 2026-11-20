@@ -454,7 +454,7 @@ export default function SalesDailySales({ embedded = false }: { embedded?: boole
     const focus = focusRef.current;
     if (!focus || loading) return;
     focusRef.current = null;
-    if (searchParams.get("cast") || searchParams.get("date")) setSearchParams({}, { replace: true });
+    if (searchParams.get("cast") || searchParams.get("date")) setSearchParams(embedded ? { tab: "daily" } : {}, { replace: true });
     if (!castGroups.some((g) => g.castId === focus.castId)) {
       toast.info("この日の予約が見つかりませんでした");
       return;
