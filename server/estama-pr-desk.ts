@@ -70,25 +70,18 @@ export async function runPrTask(page:Page,task:Task,shopId:string,reserveInvite:
   }
   if(task.kind==="realtime" || task.kind==="recruiting"){
     const label=task.kind==="realtime" ? /^リアルタイム集客$/ : /^リアルタイム求人$/;
-    await menu(page,label);
-    if(!await page.locator("textarea:visible").count()){
-      const listUrl=new URL(page.url());
-      const editor=page.getByRole("link",{name:"編集",exact:true}).and(page.locator('a[href*="/realtime/edit/update/"]')).filter({visible:true});
-      const target=await one(editor);
-      const href=await target.getAttribute("href");
-      if(href){
-        const url=new URL(href,page.url());
-        if(url.origin!=="https://estama.jp" || url.pathname!==listUrl.pathname+"edit/update/") throw new Error("編集画面の場所を確認できません");
-        await page.goto(url.href,{waitUntil:"domcontentloaded"});
-      } else { await target.click(); }
-      await ensureAdminLogin(page);
-    }
-    const field=await one(page.locator("textarea:visible"));
-    const form=field.locator("xpath=ancestor::form[1]");
+    const category=task.kind==="realtime"?"guest":"job";
+    const url="https://estama.jp/admin/"+category+"/realtime/edit/update/";
+    await page.goto(url,{waitUntil:"domcontentloaded"});
+    await ensureAdminLogin(page,"#PostContent");
+    const field=page.locator("#PostContent");
+    const title=page.locator("#PostTitle");
+    await title.fill(task.kind==="realtime"?"本日のご案内":"セラピスト募集のお知らせ");
+    const form=page.locator("body");
     const limit=await field.getAttribute("maxlength");
     if(limit && task.body.length>Number(limit)) throw new Error("媒体の文字数上限を超えています");
     await field.fill(task.body);
-    const button=await one(submitAction(form,/^(更新|保存|登録|投稿|配信)(する)?$/));
+    const button=await one(form.getByText("更新する",{exact:true}).filter({visible:true}));
     checkTime(task.expires_at);
     await clickWithScopedConfirmation(page,button);
     await menu(page,label);
