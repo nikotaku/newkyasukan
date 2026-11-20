@@ -157,7 +157,7 @@ export default function CastBooking() {
       if (castId) {
         const { data } = await supabase
           .from("casts")
-          .select("id, name, photo, store_id, stores(custom_domain)")
+          .select("id, name, photo, store_id, stores!casts_store_id_fkey(custom_domain)")
           .eq("id", castId)
           .eq("is_active", true)
           .maybeSingle();
@@ -166,7 +166,7 @@ export default function CastBooking() {
         // UUID型には前方一致を直接かけられないため、公開キャストの最小項目だけ取得して照合する。
         const { data } = await supabase
           .from("casts")
-          .select("id, name, photo, store_id, stores(custom_domain)")
+          .select("id, name, photo, store_id, stores!casts_store_id_fkey(custom_domain)")
           .eq("is_active", true);
         const matches = ((data || []) as CastLookup[]).filter(
           (row) => getBookingKey(row.id) === castKey.toLowerCase(),
