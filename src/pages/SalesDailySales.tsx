@@ -1,6 +1,5 @@
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -166,8 +165,7 @@ const linkedDate = (value: string | null) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
-export default function SalesDailySales() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default function SalesDailySales({ embedded = false }: { embedded?: boolean } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const linkedDateRef = useRef(linkedDate(searchParams.get("date")));
   // 開いたあと、その人の明細を出す（スマホ通知から）・その人の欄まで動かす（不足分の一覧から）
@@ -659,11 +657,7 @@ export default function SalesDailySales() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="pt-[60px] md:ml-[240px] p-6">
+    <AdminPageShell embedded={embedded} mainClassName="p-4 md:p-6">
         <div className="max-w-3xl mx-auto">
           {/* Header with date nav */}
           <div className="mb-6 flex items-center justify-between">
@@ -1357,7 +1351,7 @@ export default function SalesDailySales() {
             </div>
           )}
         </div>
-      </main>
+
 
       <SettlementReceiptDialog
         receipt={receiptData}
@@ -1368,6 +1362,6 @@ export default function SalesDailySales() {
         onDownload={() => receiptGroup && handleDownloadReceipt(receiptGroup)}
         onClose={() => setReceiptCastId(null)}
       />
-    </div>
+    </AdminPageShell>
   );
 }
