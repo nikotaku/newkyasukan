@@ -2343,6 +2343,10 @@ export default function Staff() {
 
                   {/* 保存はどのタブからでも押せるよう下に固定 */}
                   {editTab !== "sns" && <div className="sticky bottom-0 -mx-6 -mb-6 mt-4 border-t bg-background/95 px-6 py-3 backdrop-blur">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={editingCast?.tags?.includes("Wセラピスト") ?? false} onChange={(e) => setEditingCast(prev => prev ? { ...prev, tags: e.target.checked ? [...(prev.tags || []).filter(t => t !== "Wセラピスト"), "Wセラピスト"] : (prev.tags || []).filter(t => t !== "Wセラピスト") } : prev)} />
+                      Wセラピスト（雑費は通常の2倍・上限4,000円）
+                    </label>
                     <Button onClick={handleUpdateCast} disabled={bannerBusy} className="w-full">
                       {bannerBusy ? "バナーの処理中…" : "保存する"}
                     </Button>
