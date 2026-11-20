@@ -1,13 +1,7 @@
 import StoreInfo from "./StoreInfo";
 import HpSnsLinks from "./HpSnsLinks";
-import HpTopBanners from "./HpTopBanners";
-import HpLinkBanners from "./HpLinkBanners";
-import ArticleCreation from "./ArticleCreation";
-import HpBlogManagement from "./HpBlogManagement";
-import PrDesk from "./PrDesk";
-import { BannerManagement } from "@/components/BannerManagement";
 import type { ComponentType } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { Bell, BookOpen, Flag, Coins, CreditCard, FileText, Gift, Layers, Megaphone, MinusCircle, Phone, PlusCircle, Sparkles, UserCheck } from "lucide-react";
 import { AdminPageShell } from "@/components/AdminPageShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,11 +28,6 @@ const rate = (section: RateSection) => () => <SystemRateMaster embedded section=
 const TABS: TabDef[] = [
   { value: "store", label: "店舗情報", icon: BookOpen, render: () => <StoreInfo embedded /> },
   { value: "sns", label: "SNS", icon: Megaphone, render: () => <HpSnsLinks embedded /> },
-  { value: "banners", label: "バナー", icon: Flag, render: () => <><HpTopBanners embedded /><BannerManagement /></> },
-  { value: "links", label: "リンク", icon: BookOpen, render: () => <HpLinkBanners embedded /> },
-  { value: "news", label: "ニュース", icon: FileText, render: () => <ArticleCreation embedded /> },
-  { value: "blog", label: "店長ブログ", icon: FileText, render: () => <HpBlogManagement embedded /> },
-  { value: "realtime", label: "AI広報部", icon: Megaphone, render: () => <PrDesk /> },
   { value: "all", label: "ALL", icon: BookOpen, render: rate("all") },
   { value: "course", label: "コースバック", icon: Coins, render: rate("course") },
   { value: "option", label: "オプション", icon: Sparkles, render: rate("option") },
@@ -61,6 +50,8 @@ export default function SettingsDashboard() {
   const requested = searchParams.get("tab");
   const tab = TABS.some((item) => item.value === requested) ? (requested as string) : "all";
   const current = TABS.find((item) => item.value === tab) ?? TABS[0];
+
+  if (["banners", "links", "news", "blog", "realtime"].includes(requested || "")) return <Navigate to={`/hp/dashboard?tab=${requested}`} replace />;
 
   return (
     <AdminPageShell mainClassName="p-3 sm:p-6">

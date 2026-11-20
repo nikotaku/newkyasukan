@@ -72,9 +72,8 @@ const menuItems: MenuItem[] = [
     label: "HP",
     icon: Globe,
     children: [
-      
       { href: "/hp/business-flow", label: "業務フロー" },
-      { href: "/hp/kpi-goals", label: "売上目標・KPI" },
+      { href: "/hp/dashboard", label: "HPダッシュボード" },
       { href: "/hp/x-operations", label: "X運用表" },
     ],
   },
@@ -88,16 +87,6 @@ const menuItems: MenuItem[] = [
       { href: "/system/sms-auto", label: "自動送信・サンクス・クーポン" },
       { href: "/system/sms", label: "送信履歴" },
     ],
-  },
-  {
-    href: "/sales/daily-sales",
-    label: "日別精算",
-    icon: Calculator,
-  },
-  {
-    href: "/payments",
-    label: "支払い管理",
-    icon: WalletCards,
   },
   {
     href: "/sales",

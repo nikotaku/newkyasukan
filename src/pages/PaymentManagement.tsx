@@ -1,3 +1,4 @@
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { addMonths, endOfMonth, format, isSameMonth, startOfMonth } from "date-fns";
@@ -15,8 +16,6 @@ import {
   WalletCards,
 } from "lucide-react";
 import { toast } from "sonner";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -107,8 +106,7 @@ const stateView: Record<PaymentState, { label: string; className: string }> = {
   upcoming: { label: "支払予定", className: "border-sky-200 bg-sky-50 text-sky-700" },
 };
 
-export default function PaymentManagement() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default function PaymentManagement({ embedded = false }: { embedded?: boolean } = {}) {
   const [selectedMonth, setSelectedMonth] = useState(startOfMonth(new Date()));
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -249,10 +247,7 @@ export default function PaymentManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-[60px] md:ml-[240px] p-4 md:p-6">
+    <AdminPageShell embedded={embedded} mainClassName="p-4 md:p-6">
         <div className="mx-auto max-w-7xl space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -381,8 +376,7 @@ export default function PaymentManagement() {
             <Button variant="outline" onClick={() => navigate("/sales/monthly-closing")}><Receipt size={16} className="mr-2" />月別清算</Button>
           </div>
         </div>
-      </main>
-    </div>
+      </AdminPageShell>
   );
 }
 

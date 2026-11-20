@@ -117,7 +117,7 @@ import CustomerDetail from "./pages/CustomerDetail";
 import CastPostManagement from "./pages/CastPostManagement";
 import TherapistPostPage from "./pages/TherapistPostPage";
 import BusinessContinuity from "./pages/BusinessContinuity";
-import SalesDashboard from "./pages/SalesDashboard";
+import SalesDashboard, { SalesTabRedirect } from "./pages/SalesDashboard";
 import SalesData from "./pages/SalesData";
 import ScheduleDashboard from "./pages/ScheduleDashboard";
 import PanelPhotoManual from "./pages/PanelPhotoManual";
@@ -223,7 +223,7 @@ const App = () => {
           <Route path="/hp/article-creation" element={<Navigate to="/hp/dashboard?tab=news" replace />} />
           <Route path="/hp/business-flow" element={<BusinessFlow />} />
           <Route path="/hp/top-banners" element={<Navigate to="/hp/dashboard?tab=banners" replace />} />
-          <Route path="/hp/kpi-goals" element={<HpKpiGoals />} />
+          <Route path="/hp/kpi-goals" element={<SalesTabRedirect tab="kpi" />} />
           <Route path="/hp/store-info" element={<Navigate to="/hp/dashboard?tab=store" replace />} />
           <Route path="/hp/sns-links" element={<Navigate to="/hp/dashboard?tab=sns" replace />} />
           <Route path="/hp/x-operations" element={<HpXOperations />} />
@@ -250,7 +250,7 @@ const App = () => {
           <Route path="/sales/therapist-breakdown" element={<SalesTherapistBreakdown />} />
           <Route path="/sales/price-analysis" element={<SalesPriceAnalysis />} />
           <Route path="/sales/monthly-sales" element={<SalesMonthlySales />} />
-          <Route path="/sales/daily-sales" element={<SalesDailySales />} />
+          <Route path="/sales/daily-sales" element={<SalesTabRedirect tab="daily" />} />
           <Route path="/sales/monthly-closing" element={<SalesMonthlyClosing />} />
           <Route path="/sales/pending-reports" element={<SalesPendingReports />} />
           <Route path="/sales/deduction-summary" element={<SalesDeductionSummary />} />
@@ -319,7 +319,7 @@ const App = () => {
           <Route path="/business-continuity/logins" element={<BusinessLogins />} />
           <Route path="/business-continuity/fixed-costs" element={<BusinessFixedCosts />} />
           <Route path="/business-continuity/bank-accounts" element={<BusinessBankAccounts />} />
-          <Route path="/payments" element={<PaymentManagement />} />
+          <Route path="/payments" element={<SalesTabRedirect tab="payments" />} />
           <Route path="/business-continuity/contracts" element={<BusinessContracts />} />
           <Route path="/purchase-orders" element={<PurchaseOrders />} />
 
