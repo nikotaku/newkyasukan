@@ -5,7 +5,7 @@ import { assertUploadedPhotoCount } from '../server/estama-photo-upload.js';
 import { loginEstamaAdmin, scrubSecrets } from '../server/estama-relogin.js';
 
 const endpoint='https://enka-salon.jp/api/automations/estama-direct-runner';
-const mode=process.env.ESTAMA_RUN_MODE==='pr'?'pr':process.env.ESTAMA_RUN_MODE==='work'?'work':process.env.ESTAMA_RUN_MODE==='availability'?'availability':'audit';
+const mode=process.env.ESTAMA_RUN_MODE==='relogin'?'relogin':process.env.ESTAMA_RUN_MODE==='pr'?'pr':process.env.ESTAMA_RUN_MODE==='work'?'work':process.env.ESTAMA_RUN_MODE==='availability'?'availability':'audit';
 const started=Number(process.env.RUN_STARTED_MS)||Date.now();
 let browser: Browser | undefined;
 let current: {jobId:string;lease:string} | undefined;
@@ -45,7 +45,18 @@ try {
   heartbeat=setInterval(()=>{ void request({action:'heartbeat',...current}).catch(()=>{
     leaseLost=true; void browser?.close().catch(()=>{});
   }); },30000);
-  if(mode==='audit') {
+  if(mode==='relogin') {
+    const {login}=await request({action:'relogin_credentials'});
+    browser=await chromium.launch({headless:true});
+    const context=await openContext(browser);
+    const page=await context.newPage();
+    page.setDefaultTimeout(15000); page.setDefaultNavigationTimeout(35000);
+    try {
+      const result=await loginEstamaAdmin(page,login.mail,login.password);
+      ok=result.ok; adminLogin=ok?'ok':'failed';
+    } catch { ok=false; adminLogin='failed'; }
+    finally { await context.close(); }
+  } else if(mode==='audit') {
     const {work,adminLogin:adminCredentials}=await request({action:'audit'});
     browser=await chromium.launch({headless:true,args:['--disable-blink-features=AutomationControlled']});
     for(const item of work as PreparedEstamaDiary[]) {
