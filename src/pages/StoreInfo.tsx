@@ -90,6 +90,8 @@ export default function StoreInfo({ embedded = false }: { embedded?: boolean } =
     setSaving(true);
     try {
       const payload: any = { ...formData };
+      delete payload.twitter_url;
+      delete payload.line_url;
       let result;
       if (formData.id) {
         result = await supabase.from("store_info").update(payload).eq("id", formData.id);
@@ -234,30 +236,7 @@ export default function StoreInfo({ embedded = false }: { embedded?: boolean } =
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader><CardTitle>SNSリンク</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>X（Twitter）URL</Label>
-                  <Input
-                    value={formData.twitter_url || ""}
-                    onChange={(e) => set("twitter_url", e.target.value)}
-                    placeholder="https://twitter.com/zr_news1"
-                  />
-                </div>
-                <div>
-                  <Label>予約用LINE URL</Label>
-                  <Input
-                    value={formData.line_url || ""}
-                    onChange={(e) => set("line_url", e.target.value)}
-                    placeholder="https://lin.ee/RdRhmXw"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  ※ 電話番号・予約用LINEはHP全体（ナビ・下部バー・各予約ボタン）に反映されます
-                </p>
-              </CardContent>
-            </Card>
+
           </div>
         )}
       </div>

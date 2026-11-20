@@ -9,9 +9,9 @@ export const DEKASEGI_ACCOMMODATION_PER_DAY = 2_000;
 export const DEKASEGI_TAG = "出稼ぎ";
 
 /** その日の本数から雑費を出す（1本1,000円・1日2,000円まで） */
-export function defaultMiscExpenses(sessionCount: number) {
+export function defaultMiscExpenses(sessionCount: number, isDouble = false) {
   const sessions = Number.isFinite(sessionCount) ? Math.max(0, Math.floor(sessionCount)) : 0;
-  return Math.min(sessions * MISC_FEE_PER_SESSION, MISC_FEE_DAILY_CAP);
+  return Math.min(sessions * MISC_FEE_PER_SESSION, MISC_FEE_DAILY_CAP) * (isDouble ? 2 : 1);
 }
 
 export function isDekasegiTherapist(tags: readonly string[] | null | undefined) {
@@ -24,8 +24,9 @@ export function defaultAccommodationFee(tags: readonly string[] | null | undefin
 }
 
 /** 画面に出す「自動入力」の説明 */
-export function miscExpensesHint(sessionCount: number) {
-  const amount = defaultMiscExpenses(sessionCount);
+export function miscExpensesHint(sessionCount: number, isDouble = false) {
+  const amount = defaultMiscExpenses(sessionCount, isDouble);
   const capped = sessionCount * MISC_FEE_PER_SESSION > MISC_FEE_DAILY_CAP;
+  if (isDouble) return `Wセラピスト：1本¥2,000・1日¥4,000まで＝¥${amount.toLocaleString("ja-JP")}`;
   return `自動：${sessionCount}本×¥1,000${capped ? "（1日¥2,000まで）" : ""}＝¥${amount.toLocaleString("ja-JP")}`;
 }
