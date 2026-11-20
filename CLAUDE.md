@@ -95,7 +95,7 @@
 
 ## 宣伝ノルマ（/promotion-schedule の「露出ノルマ」タブ）
 
-- セラピストごとに、その月の**出勤日数**で媒体ごとの最低露出回数を決め、実績と比べる。媒体は HPトップバナー（新人のみ）・HPニュース・X・O2・エスたまニュース・エスたまトップバナー。画面は `src/components/promotion/PromotionQuotaBoard.tsx`、計算は `src/lib/promotionQuota.ts`（テスト `npm run test:promotion-quota`）
+- セラピストごとに、その月の**出勤日数**で媒体ごとの最低露出回数を決め、実績と比べる。媒体は**本人投稿**（本人X `self_x_post`・本人O2 `self_o2_post`）と**店舗投稿**（HPトップバナー（新人のみ）・HPニュース・店舗X `x_post`・店舗O2 `o2_post`・エスたまニュース・エスたまトップバナー）に分ける（`QUOTA_CHANNELS` の `group`、2026-11-20）。企画のX・O2の投稿は `promotionTaskOwner` で本人／店舗に振り分け、本人の分は本人の投稿報告（`therapist_promotion_task_completions`）か実際の投稿で完了。本人の実際の投稿＝マイページの同時投稿でO2に出たもの（`cast_posts`）・本人のX（`cast_x_posts`）で、同じ日の企画の本人の投稿とは二重に数えない。分ける前に保存した決まりには本人X・O2の既定の回数を入れて読む画面は `src/components/promotion/PromotionQuotaBoard.tsx`、計算は `src/lib/promotionQuota.ts`（テスト `npm run test:promotion-quota`）
 - 決まりは `promotion_quota_settings.config`（店長・オーナーだけ変更。無ければ既定：1〜4日 / 5〜9日 / 10〜14日 / 15日以上の4段階）。出勤日数はその月のシフト（取り消し・却下を除く）の日数
 - 新人は `casts.join_date` から30日。上乗せ（HPトップバナーなど）は新人の期間がいちばん長く入っている月に1回だけ
 - 実績 = `promotion_exposures`（「露出を記録」）＋ 企画（`promotion_plan_tasks` の完了した投稿。O2ストーリーはO2、宣伝先が空の古い企画は「店舗X：」などの見出しから）＋ HPニュース（`hp_articles` に名前が出た公開記事）＋ X運用表で投稿したもの（`x_daily_posts` の集客アカウント。出勤・空き枠のまとめは除く）。企画のまだ終わっていない投稿は「予定」
@@ -350,6 +350,15 @@
 
 - Supabase が止まっている（未払いによる一時停止・障害でプロジェクトのドメインが引けない等）と、公開HPの出勤・空き枠が「出勤なし」に見えてしまう。`src/components/BackendDownNotice.tsx`（App全体に1つ）が `/auth/v1/health` を2回確かめ、つながらなければ「メンテナンス中・ご予約はお電話・LINEで」を出す。1分ごとに確かめ直し、戻ったら「再読み込み」を出すので、復旧後の作業は不要
 - DBが読めないときの電話番号・LINEの予備値は `src/hooks/useStoreContact.tsx`（艶華の 050-1785-6945）
+
+## 本人のXの読み取り（店長アカウントのキー）
+
+- SNS連携管理の「店舗の投稿先」の **X・店長**（`store_post_channels.account_key = 'tencho'`）に4つのキーが入っている店舗だけ、各セラピストのX（`casts.x_account`、`normalizeXHandle` でIDに）の投稿を X API で読む。画面は「店舗の投稿先」の中の「本人のXの読み取り」（`src/components/sns/CastXReadStatus.tsx`、今すぐ読む・間隔1/3/6時間）
+- pg_cron `cast-x-posts-hourly`（毎時19分）→ `private.dispatch_cast_x_posts()`（`cast_x_read_due_stores()` が空なら呼ばない）→ Edge Function `x-cast-posts`（`x-auto-post-secret` を流用。画面からは店長・オーナーのJWT）。デプロイ時は `_shared/xApi.ts` と `server/estama-sns-links.ts` も一緒に送る
+- 表：`cast_x_accounts`（@ID → 数字のID・since_id）／`cast_x_posts`（tweet_id で一意。リポスト・返信は読まない。初回は今月1日から）／`cast_x_read_status`（店舗ごとの最終実行・エラー・間隔 既定180分・`blocked_until`）。authenticated は読むだけ（書くのは Edge Function）
+- 401/402/403（キー無効・プランで読めない）は12時間あけて読み直す。429は次の回に。読んだら `run_promotion_task_autocheck_service` で企画の本人のX投稿に✓（`promotion_task_evidence` の `self_x`。宣伝先がX・O2で本人担当の投稿は、店舗の投稿ではなく本人の投稿で確かめる）
+- 自分以外のアカウントの投稿を読むのは X API の有料の利用枠が要る（プランの確認・契約は店舗の判断）
+- テスト: `npm run test:x-auto-post`（`tests/xCastPosts.test.ts`）
 
 ## 店舗の投稿先・Xの自動投稿（SNS連携管理）
 

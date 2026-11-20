@@ -18,6 +18,7 @@ import { currentBusinessDate } from "@/hooks/usePromotionQuota";
 import {
   monthOf,
   QUOTA_CHANNELS,
+  QUOTA_GROUP_LABEL,
   type QuotaChannelKey,
   type QuotaItemSource,
   type QuotaPlanInput,
@@ -35,6 +36,8 @@ const SOURCE_LABEL: Record<QuotaItemSource, string> = {
   news: "ニュース投稿（自動）",
   hp_news: "HPニュース（自動）",
   x: "X運用表（自動）",
+  cast_post: "マイページの投稿（自動）",
+  cast_x: "本人のX（自動）",
 };
 
 const selectClass = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
@@ -215,8 +218,12 @@ export function PromotionExposureDialog({
                   value={channel}
                   onChange={(event) => setChannel(event.target.value as QuotaChannelKey)}
                 >
-                  {QUOTA_CHANNELS.map((item) => (
-                    <option key={item.key} value={item.key}>{item.label}{item.newcomerOnly ? "（新人）" : ""}</option>
+                  {(["self", "store"] as const).map((group) => (
+                    <optgroup key={group} label={QUOTA_GROUP_LABEL[group]}>
+                      {QUOTA_CHANNELS.filter((item) => item.group === group).map((item) => (
+                        <option key={item.key} value={item.key}>{item.label}{item.newcomerOnly ? "（新人）" : ""}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>

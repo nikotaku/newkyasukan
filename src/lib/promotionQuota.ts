@@ -4,14 +4,30 @@
  *   決まり   : promotion_quota_settings.config（無ければ DEFAULT_QUOTA_CONFIG）
  *   実績     : promotion_exposures（手で記録）＋ 企画の完了した投稿（promotion_plan_tasks）
  *              ＋ HPニュース（hp_articles に名前が出たもの）＋ X運用表で投稿したもの（x_daily_posts。出勤・空き枠のまとめは除く）
+ *              ＋ 本人の投稿（マイページの同時投稿でO2に出たもの cast_posts、本人のXの投稿 cast_x_posts）
  *   予定     : 企画のまだ終わっていない投稿
+ * 媒体は「本人投稿」（本人のX・O2）と「店舗投稿」（HP・店舗のX・O2・エステ魂）に分ける。
  */
 import { classifyPost } from "./xDailyPosts.ts";
+import { promotionTaskOwner } from "./promotionTaskOwner.ts";
 
-export type QuotaChannelKey = "hp_top_banner" | "hp_news" | "x_post" | "o2_post" | "estama_news" | "estama_top_banner";
+export type QuotaChannelKey =
+  | "self_x_post"
+  | "self_o2_post"
+  | "hp_top_banner"
+  | "hp_news"
+  | "x_post"
+  | "o2_post"
+  | "estama_news"
+  | "estama_top_banner";
+
+export type QuotaGroup = "self" | "store";
+
+export const QUOTA_GROUP_LABEL: Record<QuotaGroup, string> = { self: "本人投稿", store: "店舗投稿" };
 
 export interface QuotaChannel {
   key: QuotaChannelKey;
+  group: QuotaGroup;
   label: string;
   short: string;
   newcomerOnly: boolean;
@@ -19,13 +35,17 @@ export interface QuotaChannel {
 }
 
 export const QUOTA_CHANNELS: QuotaChannel[] = [
-  { key: "hp_top_banner", label: "HPトップバナー", short: "HPバナー", newcomerOnly: true, auto: "トップのセラピストのバナーに出た日（毎朝自動で記録）" },
-  { key: "hp_news", label: "HPニュース", short: "HPニュース", newcomerOnly: false, auto: "ニュース作成で選択してHPに公開した記事" },
-  { key: "x_post", label: "X投稿", short: "X", newcomerOnly: false, auto: "X運用表で投稿した紹介・口コミなど（出勤・空き枠のまとめは除く）" },
-  { key: "o2_post", label: "O2投稿", short: "O2", newcomerOnly: false, auto: "選択したセラピストのニュースがO2に投稿された回数" },
-  { key: "estama_news", label: "エスたまニュース", short: "魂ニュース", newcomerOnly: false, auto: "選択したセラピストのニュースがエステ魂に投稿された回数" },
-  { key: "estama_top_banner", label: "エスたまトップバナー", short: "魂バナー", newcomerOnly: false, auto: null },
+  { key: "self_x_post", group: "self", label: "本人のX投稿", short: "本人X", newcomerOnly: false, auto: "本人のXアカウントの投稿（X APIで読み取り）と、企画の本人のX投稿で本人が完了したもの" },
+  { key: "self_o2_post", group: "self", label: "本人のO2投稿", short: "本人O2", newcomerOnly: false, auto: "マイページの同時投稿でO2に出たものと、企画の本人のO2投稿・ストーリーで本人が完了したもの" },
+  { key: "hp_top_banner", group: "store", label: "HPトップバナー", short: "HPバナー", newcomerOnly: true, auto: "トップのセラピストのバナーに出た日（毎朝自動で記録）" },
+  { key: "hp_news", group: "store", label: "HPニュース", short: "HPニュース", newcomerOnly: false, auto: "ニュース作成で選択してHPに公開した記事" },
+  { key: "x_post", group: "store", label: "店舗のX投稿", short: "店舗X", newcomerOnly: false, auto: "X運用表で投稿した紹介・口コミなど（出勤・空き枠のまとめは除く）と、企画の店舗のX投稿" },
+  { key: "o2_post", group: "store", label: "店舗のO2投稿", short: "店舗O2", newcomerOnly: false, auto: "選択したセラピストのニュースがO2（店舗アカウント）に投稿された回数" },
+  { key: "estama_news", group: "store", label: "エスたまニュース", short: "魂ニュース", newcomerOnly: false, auto: "選択したセラピストのニュースがエステ魂に投稿された回数" },
+  { key: "estama_top_banner", group: "store", label: "エスたまトップバナー", short: "魂バナー", newcomerOnly: false, auto: null },
 ];
+
+export const quotaChannelsOf = (group: QuotaGroup) => QUOTA_CHANNELS.filter((channel) => channel.group === group);
 
 export const QUOTA_CHANNEL_KEYS = QUOTA_CHANNELS.map((channel) => channel.key);
 
@@ -45,6 +65,8 @@ export interface QuotaConfig {
 const MAX_COUNT = 60;
 
 export const emptyTargets = (): QuotaTargets => ({
+  self_x_post: 0,
+  self_o2_post: 0,
   hp_top_banner: 0,
   hp_news: 0,
   x_post: 0,
@@ -57,13 +79,13 @@ const targets = (values: Partial<QuotaTargets>): QuotaTargets => ({ ...emptyTarg
 
 export const DEFAULT_QUOTA_CONFIG: QuotaConfig = {
   tiers: [
-    { minDays: 1, targets: targets({ x_post: 2, o2_post: 2, estama_news: 1 }) },
-    { minDays: 5, targets: targets({ x_post: 4, o2_post: 4, hp_news: 1, estama_news: 1 }) },
-    { minDays: 10, targets: targets({ x_post: 6, o2_post: 6, hp_news: 1, estama_news: 2, estama_top_banner: 1 }) },
-    { minDays: 15, targets: targets({ x_post: 8, o2_post: 8, hp_news: 2, estama_news: 2, estama_top_banner: 1 }) },
+    { minDays: 1, targets: targets({ self_x_post: 2, self_o2_post: 2, x_post: 1, o2_post: 1, estama_news: 1 }) },
+    { minDays: 5, targets: targets({ self_x_post: 4, self_o2_post: 4, x_post: 2, o2_post: 1, hp_news: 1, estama_news: 1 }) },
+    { minDays: 10, targets: targets({ self_x_post: 6, self_o2_post: 6, x_post: 3, o2_post: 2, hp_news: 1, estama_news: 2, estama_top_banner: 1 }) },
+    { minDays: 15, targets: targets({ self_x_post: 8, self_o2_post: 8, x_post: 4, o2_post: 2, hp_news: 2, estama_news: 2, estama_top_banner: 1 }) },
   ],
   newcomerDays: 30,
-  newcomerBonus: targets({ hp_top_banner: 1, hp_news: 1, x_post: 2, estama_news: 1, estama_top_banner: 1 }),
+  newcomerBonus: targets({ self_x_post: 1, hp_top_banner: 1, hp_news: 1, x_post: 1, estama_news: 1, estama_top_banner: 1 }),
 };
 
 const clampCount = (value: unknown, max = MAX_COUNT) => {
@@ -71,16 +93,24 @@ const clampCount = (value: unknown, max = MAX_COUNT) => {
   return Number.isFinite(number) ? Math.min(Math.max(number, 0), max) : 0;
 };
 
-const readTargets = (value: unknown, allowTopBanner: boolean): QuotaTargets => {
+const readTargets = (value: unknown, allowTopBanner: boolean, fallback?: QuotaTargets): QuotaTargets => {
   const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const result = emptyTargets();
   for (const key of QUOTA_CHANNEL_KEYS) {
-    result[key] = clampCount(source[key]);
+    // 本人投稿を分ける前に保存した決まりには本人のX・O2が無いので、そこだけ既定の回数を入れる
+    result[key] = key in source ? clampCount(source[key]) : clampCount(fallback?.[key] ?? 0);
   }
   // HPトップバナーは新人だけ
   if (!allowTopBanner) result.hp_top_banner = 0;
   return result;
 };
+
+/** その出勤日数の既定の回数（古い決まりに無い項目を埋める） */
+function defaultTierTargets(minDays: number): QuotaTargets {
+  let found = DEFAULT_QUOTA_CONFIG.tiers[0].targets;
+  for (const tier of DEFAULT_QUOTA_CONFIG.tiers) if (minDays >= tier.minDays) found = tier.targets;
+  return found;
+}
 
 /** 保存された決まりを読む（壊れていれば既定の決まり） */
 export function normalizeQuotaConfig(raw: unknown): QuotaConfig {
@@ -91,7 +121,8 @@ export function normalizeQuotaConfig(raw: unknown): QuotaConfig {
   const tiers = source.tiers
     .map((tier) => {
       const value = tier && typeof tier === "object" ? (tier as Record<string, unknown>) : {};
-      return { minDays: clampCount(value.minDays, 31), targets: readTargets(value.targets, false) };
+      const minDays = clampCount(value.minDays, 31);
+      return { minDays, targets: readTargets(value.targets, false, defaultTierTargets(minDays)) };
     })
     .filter((tier) => tier.minDays >= 1 && !seen.has(tier.minDays) && seen.add(tier.minDays))
     .sort((a, b) => a.minDays - b.minDays);
@@ -100,7 +131,7 @@ export function normalizeQuotaConfig(raw: unknown): QuotaConfig {
   return {
     tiers,
     newcomerDays: newcomerDays >= 1 ? newcomerDays : DEFAULT_QUOTA_CONFIG.newcomerDays,
-    newcomerBonus: readTargets(source.newcomerBonus, true),
+    newcomerBonus: readTargets(source.newcomerBonus, true, DEFAULT_QUOTA_CONFIG.newcomerBonus),
   };
 }
 
@@ -310,7 +341,34 @@ export interface QuotaXPostInput {
   post_url?: string | null;
 }
 
-export type QuotaItemSource = "news" | "manual" | "plan" | "hp_news" | "x";
+/** マイページの同時投稿（cast_posts）。O2に出たものを本人のO2に数える */
+export interface QuotaCastPostInput {
+  cast_id: string;
+  title: string | null;
+  posted_at: string | null;
+  created_at: string;
+  o2_status: string | null;
+  o2_post_url?: string | null;
+}
+
+/** 本人のXの投稿（cast_x_posts。店長アカウントのキーで X API から読む） */
+export interface QuotaCastXPostInput {
+  cast_id: string;
+  text: string | null;
+  posted_at: string;
+  url: string | null;
+  is_reply?: boolean | null;
+  is_retweet?: boolean | null;
+}
+
+/** 本人の投稿報告（therapist_promotion_task_completions） */
+export interface QuotaTaskCompletionInput {
+  cast_id: string;
+  task_id: string;
+  is_completed: boolean;
+}
+
+export type QuotaItemSource = "news" | "manual" | "plan" | "hp_news" | "x" | "cast_post" | "cast_x";
 
 export interface QuotaItem {
   source: QuotaItemSource;
@@ -359,6 +417,9 @@ export interface QuotaBoardInput {
   planTasks: QuotaPlanTaskInput[];
   articles: QuotaArticleInput[];
   xPosts: QuotaXPostInput[];
+  castPosts?: QuotaCastPostInput[];
+  castXPosts?: QuotaCastXPostInput[];
+  taskCompletions?: QuotaTaskCompletionInput[];
 }
 
 const CANCELLED_SHIFT = new Set(["cancelled", "canceled", "absent", "rejected"]);
@@ -388,7 +449,16 @@ const PLAN_CHANNEL_TO_QUOTA: Record<string, QuotaChannelKey> = {
 /**
  * 企画の投稿がどの媒体か。宣伝先が空の古い企画は「店舗X：…」「本人02：…」のような見出しから読む
  */
-export function planTaskChannel(task: Pick<QuotaPlanTaskInput, "channel_key" | "label">): QuotaChannelKey | null {
+export function planTaskChannel(task: Pick<QuotaPlanTaskInput, "channel_key" | "label"> & { task_type?: string }): QuotaChannelKey | null {
+  const channel = basePlanTaskChannel(task);
+  if (channel !== "x_post" && channel !== "o2_post") return channel;
+  // X・O2は、本人の投稿か店舗の投稿かを企画の担当の決まり（promotionTaskOwner）で分ける
+  const owner = promotionTaskOwner(task.task_type ?? "posting", task.label, task.channel_key);
+  if (owner !== "therapist") return channel;
+  return channel === "x_post" ? "self_x_post" : "self_o2_post";
+}
+
+function basePlanTaskChannel(task: Pick<QuotaPlanTaskInput, "channel_key" | "label">): QuotaChannelKey | null {
   if (task.channel_key) return PLAN_CHANNEL_TO_QUOTA[task.channel_key] ?? null;
   const label = task.label.normalize("NFKC");
   const head = label.split(/[:：]/)[0].slice(0, 12);
@@ -422,6 +492,15 @@ export function buildQuotaBoard(input: QuotaBoardInput): QuotaRow[] {
     .map((article) => ({ ...article, date: tokyoDate(article.created_at) }))
     .filter((article) => inMonth(article.date));
   const xPosts = input.xPosts.filter((post) => inMonth(post.post_date) && xPostCountsAsPromotion(post));
+  const castPosts = (input.castPosts ?? [])
+    .filter((post) => post.o2_status === "posted")
+    .map((post) => ({ ...post, date: tokyoDate(post.posted_at ?? post.created_at) }))
+    .filter((post) => inMonth(post.date));
+  const castXPosts = (input.castXPosts ?? [])
+    .filter((post) => !post.is_retweet && !post.is_reply)
+    .map((post) => ({ ...post, date: tokyoDate(post.posted_at) }))
+    .filter((post) => inMonth(post.date));
+  const completedTasks = new Set((input.taskCompletions ?? []).filter((row) => row.is_completed).map((row) => `${row.cast_id}:${row.task_id}`));
 
   return input.casts.map((cast) => {
     const shiftDays = countShiftDays(input.shifts, cast.id, month);
@@ -429,9 +508,35 @@ export function buildQuotaBoard(input: QuotaBoardInput): QuotaRow[] {
     const info = newcomerInfo(cast.join_date, config.newcomerDays);
     const bonusThisMonth = Boolean(info && info.bonusMonth === month);
     const required = requiredFor(config, shiftDays, bonusThisMonth);
-    const items: Record<QuotaChannelKey, QuotaItem[]> = {
-      hp_top_banner: [], hp_news: [], x_post: [], o2_post: [], estama_news: [], estama_top_banner: [],
-    };
+    const items = Object.fromEntries(QUOTA_CHANNEL_KEYS.map((key) => [key, [] as QuotaItem[]])) as Record<QuotaChannelKey, QuotaItem[]>;
+
+    // 本人の実際の投稿（O2・X）。企画の本人の投稿は、同じ日の実際の投稿があればそこに合わせて二重に数えない
+    for (const post of castPosts) {
+      if (post.cast_id !== cast.id) continue;
+      items.self_o2_post.push({
+        source: "cast_post",
+        date: post.date,
+        label: post.title?.trim() ? `マイページの投稿：${post.title.trim()}` : "マイページの投稿",
+        url: post.o2_post_url ?? null,
+        exposureId: null,
+        planId: null,
+        planned: false,
+      });
+    }
+    for (const post of castXPosts) {
+      if (post.cast_id !== cast.id) continue;
+      const text = (post.text ?? "").replace(/\s+/g, " ").trim();
+      items.self_x_post.push({
+        source: "cast_x",
+        date: post.date,
+        label: text ? `Xの投稿：${text.length > 40 ? `${text.slice(0, 40)}…` : text}` : "Xの投稿",
+        url: post.url ?? null,
+        exposureId: null,
+        planId: null,
+        planned: false,
+      });
+    }
+    const matchedActual = new Set<QuotaItem>();
 
     for (const exposure of input.exposures) {
       if (exposure.cast_id !== cast.id || !inMonth(exposure.exposed_on) || !isQuotaChannel(exposure.channel_key)) continue;
@@ -452,10 +557,31 @@ export function buildQuotaBoard(input: QuotaBoardInput): QuotaRow[] {
       const channel = planTaskChannel(task);
       const plan = plansById.get(task.plan_id);
       if (!channel || !plan || !(plan.cast_ids ?? []).includes(cast.id)) continue;
+      const label = `${plan.title}：${task.label}`;
+      if (channel === "self_x_post" || channel === "self_o2_post") {
+        // 本人の投稿：同じ日の実際の投稿があれば、それを企画の分とみなす
+        const actual = items[channel].find((item) => !matchedActual.has(item) && (item.source === "cast_x" || item.source === "cast_post") && item.date === task.scheduled_on);
+        if (actual) {
+          matchedActual.add(actual);
+          actual.label = `${label}（${actual.label}）`;
+          actual.planId = plan.id;
+          continue;
+        }
+        items[channel].push({
+          source: "plan",
+          date: task.scheduled_on!,
+          label,
+          url: null,
+          exposureId: null,
+          planId: plan.id,
+          planned: !(task.is_completed || completedTasks.has(`${cast.id}:${task.id}`)),
+        });
+        continue;
+      }
       items[channel].push({
         source: "plan",
         date: task.scheduled_on!,
-        label: `${plan.title}：${task.label}`,
+        label,
         url: null,
         exposureId: null,
         planId: plan.id,

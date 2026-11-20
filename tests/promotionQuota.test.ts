@@ -33,11 +33,13 @@ test("出勤日数で段階が決まる（出勤なしはノルマなし）", ()
 test("必要回数：段階の回数＋新人月の上乗せ。HPトップバナーは新人だけ", () => {
   const regular = requiredFor(config, 10, false);
   assert.equal(regular.hp_top_banner, 0);
-  assert.equal(regular.x_post, 6);
+  assert.equal(regular.self_x_post, 6);
+  assert.equal(regular.x_post, 3);
   assert.equal(regular.estama_top_banner, 1);
   const newcomer = requiredFor(config, 10, true);
   assert.equal(newcomer.hp_top_banner, 1);
-  assert.equal(newcomer.x_post, 8);
+  assert.equal(newcomer.self_x_post, 7);
+  assert.equal(newcomer.x_post, 4);
   assert.equal(newcomer.hp_news, 2);
   // 出勤がない月は新人でも0
   assert.equal(Object.values(requiredFor(config, 0, true)).reduce((a, b) => a + b, 0), 0);
@@ -96,11 +98,13 @@ test("Xは集客アカウントで投稿したもの（出勤・空き枠のま�
 });
 
 test("企画の投稿の媒体：宣伝先が空なら見出し（店舗X：・本人02：）から読む", () => {
-  assert.equal(planTaskChannel({ channel_key: "o2_story", label: "ストーリー" }), "o2_post");
+  assert.equal(planTaskChannel({ channel_key: "o2_story", label: "ストーリー" }), "self_o2_post");
   assert.equal(planTaskChannel({ channel_key: "line_official", label: "LINE" }), null);
   assert.equal(planTaskChannel({ channel_key: null, label: "店舗X：桐生まいピックアップ投稿" }), "x_post");
-  assert.equal(planTaskChannel({ channel_key: null, label: "本人X：出勤告知画像" }), "x_post");
-  assert.equal(planTaskChannel({ channel_key: null, label: "本人02：初出勤告知投稿" }), "o2_post");
+  assert.equal(planTaskChannel({ channel_key: null, label: "本人X：出勤告知画像" }), "self_x_post");
+  assert.equal(planTaskChannel({ channel_key: null, label: "本人02：初出勤告知投稿" }), "self_o2_post");
+  assert.equal(planTaskChannel({ channel_key: "x_post", label: "店舗X：紹介" }), "x_post");
+  assert.equal(planTaskChannel({ channel_key: "x_post", label: "入店告知" }), "self_x_post");
   assert.equal(planTaskChannel({ channel_key: null, label: "店舗HP：ニュース更新で入店告知" }), "hp_news");
   assert.equal(planTaskChannel({ channel_key: null, label: "エステ魂：ニュース投稿" }), "estama_news");
   assert.equal(planTaskChannel({ channel_key: null, label: "LINE公式：一斉配信" }), null);
@@ -162,6 +166,11 @@ test("一覧：記録・企画・HPニュース・Xを媒体ごとに数え、�
       { post_date: "2026-10-05", account_key: "shukyaku", slot_key: "12:00|セラピスト紹介", text: "葵みずきさんのご紹介", posted_text: null, posted_at: "2026-10-05T03:00:00Z" },
       { post_date: "2026-10-05", account_key: "shukyaku", slot_key: "10:00|本日の出勤", text: "葵みずき 伊藤れな", posted_text: null, posted_at: "2026-10-05T01:00:00Z" },
     ],
+    // 本人の投稿報告（企画の本人の投稿は、本人が完了したものだけ数える）
+    taskCompletions: [
+      { cast_id: "rena", task_id: "t1", is_completed: true },
+      { cast_id: "rena", task_id: "t2", is_completed: true },
+    ],
   };
   const rows = buildQuotaBoard(input);
   assert.deepEqual(rows.map((row) => row.castId), ["rena", "mizuki", "rino"]);
@@ -172,20 +181,22 @@ test("一覧：記録・企画・HPニュース・Xを媒体ごとに数え、�
   assert.equal(rena.newcomer?.bonusThisMonth, true);
   assert.equal(rena.cells.hp_top_banner.required, 1);
   assert.equal(rena.cells.hp_top_banner.done, 1);
-  assert.equal(rena.cells.x_post.required, 10);
-  assert.equal(rena.cells.x_post.done, 1);
-  assert.equal(rena.cells.x_post.planned, 1);
-  assert.equal(rena.cells.o2_post.done, 1); // O2ストーリーはO2に数える
+  assert.equal(rena.cells.self_x_post.required, 9);
+  assert.equal(rena.cells.self_x_post.done, 1);
+  assert.equal(rena.cells.self_x_post.planned, 1);
+  assert.equal(rena.cells.x_post.required, 5);
+  assert.equal(rena.cells.x_post.done, 0);
+  assert.equal(rena.cells.self_o2_post.done, 1); // O2ストーリーは本人のO2に数える
   assert.equal(rena.cells.hp_news.done, 1); // 日本時間で10/1の記事
   assert.equal(rena.status, "behind");
-  assert.ok(rena.behind.includes("x_post"));
+  assert.ok(rena.behind.includes("self_x_post"));
 
   const mizuki = rows[1];
   assert.equal(mizuki.tierLabel, "5〜9日");
   assert.equal(mizuki.newcomer?.bonusThisMonth, false); // 上乗せは9月
   assert.equal(mizuki.cells.hp_top_banner.required, 0);
   assert.equal(mizuki.cells.o2_post.done, 1); // 9/30の記録は数えない
-  assert.equal(mizuki.cells.x_post.done, 1); // 紹介だけ（出勤のまとめは除く）
+  assert.equal(mizuki.cells.x_post.done, 1); // 店舗X：紹介だけ（出勤のまとめは除く）
   assert.equal(mizuki.cells.hp_news.done, 0); // 非公開の記事は数えない
 
   const rino = rows[2];
@@ -198,4 +209,49 @@ test("一覧：記録・企画・HPニュース・Xを媒体ごとに数え、�
   assert.equal(summary.completed, 0);
   assert.equal(summary.behind, 2);
   assert.equal(summary.required, rena.required + mizuki.required);
+});
+
+test("本人投稿：実際の投稿（O2・X）を数え、同じ日の企画の本人の投稿とは二重に数えない", () => {
+  const rows = buildQuotaBoard({
+    month: "2026-11",
+    today: "2026-11-20",
+    config,
+    casts: [{ id: "a", name: "葵みずき", join_date: null }],
+    shifts: [{ cast_id: "a", shift_date: "2026-11-02", status: "scheduled", approval_status: "approved" }],
+    exposures: [],
+    plans: [{ id: "p", title: "企画", cast_ids: ["a"] }],
+    planTasks: [
+      { id: "t1", plan_id: "p", task_type: "posting", channel_key: "x_post", scheduled_on: "2026-11-03", is_completed: false, label: "本人X：出勤告知" },
+      { id: "t2", plan_id: "p", task_type: "posting", channel_key: "x_post", scheduled_on: "2026-11-25", is_completed: false, label: "本人X：お礼" },
+    ],
+    articles: [],
+    xPosts: [],
+    castPosts: [
+      { cast_id: "a", title: "出勤します", posted_at: "2026-11-03T05:00:00Z", created_at: "2026-11-03T05:00:00Z", o2_status: "posted" },
+      { cast_id: "a", title: "失敗", posted_at: null, created_at: "2026-11-04T05:00:00Z", o2_status: "failed" },
+    ],
+    castXPosts: [
+      { cast_id: "a", text: "今日出勤です", posted_at: "2026-11-03T03:00:00Z", url: "https://x.com/a/status/1" },
+      { cast_id: "a", text: "RT", posted_at: "2026-11-04T03:00:00Z", url: null, is_retweet: true },
+      { cast_id: "a", text: "返信", posted_at: "2026-11-04T04:00:00Z", url: null, is_reply: true },
+    ],
+  });
+  const cells = rows[0].cells;
+  assert.equal(cells.self_o2_post.done, 1);
+  assert.equal(cells.self_x_post.done, 1); // 実際の投稿と11/3の企画は1回
+  assert.equal(cells.self_x_post.planned, 1); // 11/25はまだ
+  assert.match(cells.self_x_post.items[0].label, /出勤告知/);
+  assert.equal(cells.self_x_post.items[0].url, "https://x.com/a/status/1");
+});
+
+test("本人投稿を分ける前に保存した決まりには、本人のX・O2の既定の回数を入れる", () => {
+  const old = normalizeQuotaConfig({
+    tiers: [{ minDays: 1, targets: { x_post: 3, o2_post: 3 } }, { minDays: 10, targets: { x_post: 5 } }],
+    newcomerDays: 30,
+    newcomerBonus: { hp_top_banner: 1 },
+  });
+  assert.equal(old.tiers[0].targets.x_post, 3);
+  assert.equal(old.tiers[0].targets.self_x_post, 2);
+  assert.equal(old.tiers[1].targets.self_o2_post, 6);
+  assert.equal(old.newcomerBonus.self_x_post, 1);
 });

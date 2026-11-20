@@ -24,6 +24,8 @@ import {
   monthLabel,
   monthOf,
   QUOTA_CHANNELS,
+  QUOTA_GROUP_LABEL,
+  quotaChannelsOf,
   summarizeQuota,
   tierLabel,
   type QuotaCell,
@@ -208,7 +210,9 @@ function MonthlyQuotaBoard({ storeId, month, setMonth, today }: {
         <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
           <li>出勤日数は、その月に登録されているシフト（取り消し・却下を除く）の日数です。シフトが増えると段階も上がります。</li>
           <li>新人は入店から{config.newcomerDays}日。上乗せ（HPトップバナーなど）は、新人の期間がいちばん長く入っている月に1回だけ付きます。</li>
-          <li>実績は「露出を記録」した分に加えて、企画の完了した投稿・HPニュースに名前が出た記事・X運用表で投稿した紹介や口コミ（出勤・空き枠のまとめは除く）を自動で数えます。</li>
+          <li>媒体は「本人投稿」（本人のX・O2）と「店舗投稿」（HP・店舗のX・O2・エステ魂）に分けています。</li>
+          <li>本人投稿は、マイページの同時投稿でO2に出たもの・本人のXの投稿（店長アカウントのキーで読み取り）・企画の本人の投稿で本人が完了したものを数えます（同じ日の企画と実際の投稿は1回）。</li>
+          <li>店舗投稿は「露出を記録」した分に加えて、企画の店舗の投稿・HPニュースに名前が出た記事・X運用表で投稿した紹介や口コミ（出勤・空き枠のまとめは除く）を自動で数えます。</li>
           <li>オレンジのマスは、今日までに終わっているべき回数（月の日割り）に足りていないものです。</li>
         </ul>
       </details>
@@ -256,14 +260,19 @@ function MonthlyQuotaBoard({ storeId, month, setMonth, today }: {
                   <div className="min-w-0 flex-1"><TherapistLabel row={row} /></div>
                   <RateMeter row={row} />
                 </div>
-                <div className="mt-2 grid grid-cols-3 gap-1.5">
-                  {QUOTA_CHANNELS.map((channel) => (
-                    <div key={channel.key} className="text-center">
-                      <p className="mb-0.5 text-[10px] text-muted-foreground">{channel.short}</p>
-                      <CellButton row={row} channel={channel.key} onOpen={openCell} />
+                {(["self", "store"] as const).map((group) => (
+                  <div key={group} className="mt-2">
+                    <p className={cn("mb-1 text-[11px] font-bold", group === "self" ? "text-violet-700" : "text-sky-700")}>{QUOTA_GROUP_LABEL[group]}</p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {quotaChannelsOf(group).map((channel) => (
+                        <div key={channel.key} className="text-center">
+                          <p className="mb-0.5 text-[10px] text-muted-foreground">{channel.short}</p>
+                          <CellButton row={row} channel={channel.key} onOpen={openCell} />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
                 <div className="mt-1 flex justify-end">{archiveButton(row)}</div>
               </div>
             ))}
@@ -274,14 +283,25 @@ function MonthlyQuotaBoard({ storeId, month, setMonth, today }: {
             <table className="w-full min-w-[820px] text-sm">
               <thead className="bg-muted/60 text-xs text-muted-foreground">
                 <tr>
-                  <th className="sticky left-0 z-10 bg-muted px-3 py-2 text-left">セラピスト</th>
-                  {QUOTA_CHANNELS.map((channel) => (
-                    <th key={channel.key} className="px-1.5 py-2 text-center font-medium whitespace-nowrap">
+                  <th rowSpan={2} className="sticky left-0 z-10 bg-muted px-3 py-2 text-left">セラピスト</th>
+                  {(["self", "store"] as const).map((group) => (
+                    <th
+                      key={group}
+                      colSpan={quotaChannelsOf(group).length}
+                      className={cn("border-b px-1.5 pt-2 pb-1 text-center font-bold", group === "self" ? "bg-violet-50 text-violet-700" : "border-l bg-sky-50 text-sky-700")}
+                    >
+                      {QUOTA_GROUP_LABEL[group]}
+                    </th>
+                  ))}
+                  <th rowSpan={2} className="px-2 py-2 text-center font-medium">達成</th>
+                </tr>
+                <tr>
+                  {QUOTA_CHANNELS.map((channel, index) => (
+                    <th key={channel.key} className={cn("px-1.5 py-2 text-center font-medium whitespace-nowrap", index > 0 && channel.group !== QUOTA_CHANNELS[index - 1].group && "border-l")}>
                       {channel.short}
                       {channel.newcomerOnly && <div className="text-[10px] font-normal">新人のみ</div>}
                     </th>
                   ))}
-                  <th className="px-2 py-2 text-center font-medium">達成</th>
                 </tr>
               </thead>
               <tbody>
@@ -294,8 +314,8 @@ function MonthlyQuotaBoard({ storeId, month, setMonth, today }: {
                     <td className="sticky left-0 z-10 bg-card px-3 py-2">
                       <div className="min-w-[150px]"><TherapistLabel row={row} />{archiveButton(row)}</div>
                     </td>
-                    {QUOTA_CHANNELS.map((channel) => (
-                      <td key={channel.key} className="px-1 py-1.5 text-center">
+                    {QUOTA_CHANNELS.map((channel, index) => (
+                      <td key={channel.key} className={cn("px-1 py-1.5 text-center", index > 0 && channel.group !== QUOTA_CHANNELS[index - 1].group && "border-l")}>
                         <CellButton row={row} channel={channel.key} onOpen={openCell} />
                       </td>
                     ))}

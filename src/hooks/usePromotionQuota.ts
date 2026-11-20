@@ -9,6 +9,9 @@ import {
   normalizeQuotaConfig,
   type QuotaArticleInput,
   type QuotaCastInput,
+  type QuotaCastPostInput,
+  type QuotaCastXPostInput,
+  type QuotaTaskCompletionInput,
   type QuotaConfig,
   type QuotaExposureInput,
   type QuotaPlanInput,
@@ -22,6 +25,7 @@ import { businessDate } from "@/lib/xDailyPosts";
 export const currentBusinessDate = () => businessDate(new Date());
 
 const tokyoMidnightIso = (date: string) => new Date(`${date}T00:00:00+09:00`).toISOString();
+const addDays = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
 export function usePromotionQuota(storeId: string | null, month: string) {
   const [rows, setRows] = useState<QuotaRow[]>([]);
@@ -36,7 +40,7 @@ export function usePromotionQuota(storeId: string | null, month: string) {
     setLoading(true);
     setError("");
     const { start, end } = monthRange(month);
-    const [settingsRes, castsRes, shiftsRes, exposuresRes, plansRes, tasksRes, articlesRes, xRes] = await Promise.all([
+    const [settingsRes, castsRes, shiftsRes, exposuresRes, plansRes, tasksRes, articlesRes, xRes, castPostsRes, castXRes, completionsRes] = await Promise.all([
       supabase.from("promotion_quota_settings" as never).select("config").eq("store_id", storeId).maybeSingle(),
       supabase
         .from("casts")
@@ -83,6 +87,25 @@ export function usePromotionQuota(storeId: string | null, month: string) {
         .eq("account_key", "shukyaku")
         .gte("post_date", start)
         .lt("post_date", end),
+      // 本人投稿：マイページの同時投稿（O2）・読み取った本人のX・本人の投稿報告
+      supabase
+        .from("cast_posts")
+        .select("cast_id,title,posted_at,created_at,o2_status,o2_post_url")
+        .eq("store_id", storeId)
+        .eq("o2_status", "posted")
+        .gte("created_at", tokyoMidnightIso(addDays(start, -7)))
+        .lt("created_at", tokyoMidnightIso(end)),
+      supabase
+        .from("cast_x_posts" as never)
+        .select("cast_id,text,posted_at,url,is_reply,is_retweet")
+        .eq("store_id", storeId)
+        .gte("posted_at", tokyoMidnightIso(start))
+        .lt("posted_at", tokyoMidnightIso(end)),
+      supabase
+        .from("therapist_promotion_task_completions" as never)
+        .select("cast_id,task_id,is_completed")
+        .eq("store_id", storeId)
+        .eq("is_completed", true),
     ]);
 
     // ノルマの決まり・記録が読めないときは止める。企画（店長のみ）・HP・Xは読めなくても記録だけで数える
@@ -109,6 +132,9 @@ export function usePromotionQuota(storeId: string | null, month: string) {
       planTasks: (tasksRes.data ?? []) as QuotaPlanTaskInput[],
       articles: (articlesRes.data ?? []) as QuotaArticleInput[],
       xPosts: (xRes.data ?? []) as unknown as QuotaXPostInput[],
+      castPosts: (castPostsRes.data ?? []) as unknown as QuotaCastPostInput[],
+      castXPosts: (castXRes.data ?? []) as unknown as QuotaCastXPostInput[],
+      taskCompletions: (completionsRes.data ?? []) as unknown as QuotaTaskCompletionInput[],
     }));
     setLoading(false);
   }, [month, storeId]);
