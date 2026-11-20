@@ -50,7 +50,6 @@ export const useStoreContact = (): StoreContact => {
       setLineUrl(hit.lineUrl);
       setHours(hit.hours);
       setLoaded(true);
-      return;
     }
     supabase
       .from("store_info" as any)
