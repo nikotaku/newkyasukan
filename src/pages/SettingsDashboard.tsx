@@ -1,3 +1,11 @@
+import StoreInfo from "./StoreInfo";
+import HpSnsLinks from "./HpSnsLinks";
+import HpTopBanners from "./HpTopBanners";
+import HpLinkBanners from "./HpLinkBanners";
+import ArticleCreation from "./ArticleCreation";
+import HpBlogManagement from "./HpBlogManagement";
+import PrDesk from "./PrDesk";
+import { BannerManagement } from "@/components/BannerManagement";
 import type { ComponentType } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Bell, BookOpen, Flag, Coins, CreditCard, FileText, Gift, Layers, Megaphone, MinusCircle, Phone, PlusCircle, Sparkles, UserCheck } from "lucide-react";
@@ -24,6 +32,13 @@ type TabDef = {
 const rate = (section: RateSection) => () => <SystemRateMaster embedded section={section} />;
 
 const TABS: TabDef[] = [
+  { value: "store", label: "店舗情報", icon: BookOpen, render: () => <StoreInfo embedded /> },
+  { value: "sns", label: "SNS", icon: Megaphone, render: () => <HpSnsLinks embedded /> },
+  { value: "banners", label: "バナー", icon: Flag, render: () => <><HpTopBanners embedded /><BannerManagement /></> },
+  { value: "links", label: "リンク", icon: BookOpen, render: () => <HpLinkBanners embedded /> },
+  { value: "news", label: "ニュース", icon: FileText, render: () => <ArticleCreation embedded /> },
+  { value: "blog", label: "店長ブログ", icon: FileText, render: () => <HpBlogManagement embedded /> },
+  { value: "realtime", label: "AI広報部", icon: Megaphone, render: () => <PrDesk /> },
   { value: "all", label: "ALL", icon: BookOpen, render: rate("all") },
   { value: "course", label: "コースバック", icon: Coins, render: rate("course") },
   { value: "option", label: "オプション", icon: Sparkles, render: rate("option") },
