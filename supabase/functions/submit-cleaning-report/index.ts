@@ -1,3 +1,4 @@
+import { loadLineBookingChannel } from "../_shared/lineBookingChannel.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -146,11 +147,6 @@ async function notifyLine(
   const signedUrls = (signedUrlsResult.data || []).map((item) => item.signedUrl).filter(Boolean);
   if (signedUrls.length !== 2) return { ok: false, errorCode: "cleaning_signed_url_missing" };
 
-  const token = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN");
-  const groupId = destinationResult.data?.line_group_id || Deno.env.get("LINE_GROUP_ID");
-  if (!token) return { ok: false, errorCode: "line_token_missing" };
-  if (!groupId) return { ok: false, errorCode: "line_destination_missing" };
-
   const lines = [
     "🧹【清掃完了報告】",
     "",
@@ -164,37 +160,64 @@ async function notifyLine(
     ...(report.notes === "洗面所の排水口を掃除した" ? ["✅ 洗面所の排水口を掃除した"] : []),
     "📷 ルーム・水回り画像を確認してください",
   ];
+  const messages = [
+    { type: "text", text: lines.join("\n") },
+    { type: "image", originalContentUrl: signedUrls[0], previewImageUrl: signedUrls[0] },
+    { type: "image", originalContentUrl: signedUrls[1], previewImageUrl: signedUrls[1] },
+  ];
 
+  // 1) メインの公式アカウント → operations のグループ
+  const mainToken = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN");
+  const mainGroup = destinationResult.data?.line_group_id || Deno.env.get("LINE_GROUP_ID");
+  let firstError = !mainToken ? "line_token_missing" : !mainGroup ? "line_destination_missing" : "";
+  if (mainToken && mainGroup) {
+    const result = await pushLine(mainToken, mainGroup, messages, report.id);
+    if (result.ok) return result;
+    firstError = result.errorCode;
+  }
+
+  // 2) メインで送れない（トークン切れ 401・上限 429 など）ときは、予約通知専用アカウント → web_booking のグループ
+  //    （2026-11-13 からメインのトークンが 401 になり、清掃報告がLINEに届いていなかった）
+  const [{ token: bookingToken }, bookingDest] = await Promise.all([
+    loadLineBookingChannel(admin as unknown as Parameters<typeof loadLineBookingChannel>[0]),
+    admin.from("line_notification_destinations").select("line_group_id")
+      .eq("store_id", report.store_id).eq("destination_key", "web_booking").maybeSingle(),
+  ]);
+  const bookingGroup = bookingDest.data?.line_group_id || Deno.env.get("LINE_BOOKING_GROUP_ID");
+  if (bookingToken && bookingGroup) {
+    const result = await pushLine(bookingToken, bookingGroup, messages, report.id);
+    if (result.ok) {
+      console.warn("Cleaning LINE notification sent via booking account", { reportId: report.id, mainError: firstError });
+      return result;
+    }
+    return { ok: false, errorCode: `${firstError}+booking_${result.errorCode}` };
+  }
+  return { ok: false, errorCode: firstError || "line_unknown_error" };
+}
+
+async function pushLine(token: string, to: string, messages: unknown[], retryKey: string) {
   try {
     const response = await fetch("https://api.line.me/v2/bot/message/push", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
-        "X-Line-Retry-Key": report.id,
+        "X-Line-Retry-Key": retryKey,
       },
-      body: JSON.stringify({
-        to: groupId,
-        messages: [
-          { type: "text", text: lines.join("\n") },
-          { type: "image", originalContentUrl: signedUrls[0], previewImageUrl: signedUrls[0] },
-          { type: "image", originalContentUrl: signedUrls[1], previewImageUrl: signedUrls[1] },
-        ],
-      }),
+      body: JSON.stringify({ to, messages }),
     });
-
     if (response.ok || (response.status === 409 && response.headers.get("x-line-accepted-request-id"))) {
-      return { ok: true };
+      return { ok: true as const };
     }
     console.error("Cleaning LINE notification failed", {
-      reportId: report.id,
+      reportId: retryKey,
       status: response.status,
       requestId: response.headers.get("x-line-request-id"),
     });
-    return { ok: false, errorCode: `line_http_${response.status}` };
+    return { ok: false as const, errorCode: `line_http_${response.status}` };
   } catch {
-    console.error("Cleaning LINE notification network error", { reportId: report.id });
-    return { ok: false, errorCode: "line_network_error" };
+    console.error("Cleaning LINE notification network error", { reportId: retryKey });
+    return { ok: false as const, errorCode: "line_network_error" };
   }
 }
 
@@ -347,7 +370,7 @@ Deno.serve(async (req: Request) => {
     if (!lineResult.ok) {
       await markNotificationFailed(admin, report.id, lineResult.errorCode || "line_unknown_error");
       return jsonResponse({
-        error: lineResult.errorCode === "line_http_429"
+        error: lineResult.errorCode?.includes("line_http_429")
           ? "清掃報告は保存済みです。LINE側の送信制限により通知できません。時間をおいて再送してください。精算の再送は不要です"
           : "清掃報告は保存済みですが、LINE通知に失敗しました。精算の再送は不要です",
         saved: true,
