@@ -69,21 +69,25 @@ export default async function handler(req: Request, res: Response) {
     const runId = `${identity.run_id}:${identity.run_attempt}`;
     const settings = checked(await admin.from('automation_runner_settings').select('*').eq('store_id',STORE_ID).single()) as any;
     if (action === 'start') {
-      const mode = req.body?.mode === 'pr' ? 'pr' : req.body?.mode === 'work' ? 'work' : req.body?.mode === 'availability' ? 'availability' : 'audit';
-      if ((mode==='pr' && identity.event_name!=='workflow_dispatch') || (mode==='work' && (!(settings.diary_enabled || settings.shift_enabled) || identity.event_name!=='workflow_dispatch'))
+      const mode = req.body?.mode === 'relogin' ? 'relogin' : req.body?.mode === 'pr' ? 'pr' : req.body?.mode === 'work' ? 'work' : req.body?.mode === 'availability' ? 'availability' : 'audit';
+      if ((mode==='relogin' && (!settings.relogin_enabled || identity.event_name!=='workflow_dispatch')) || (mode==='pr' && identity.event_name!=='workflow_dispatch') || (mode==='work' && (!(settings.diary_enabled || settings.shift_enabled) || identity.event_name!=='workflow_dispatch'))
         || (mode==='availability' && (!settings.availability_enabled || identity.event_name!=='workflow_dispatch'))
         || (mode==='audit' && !settings.audit_enabled)) { res.status(409).json({ error:'runner_disabled' }); return; }
       // Usage is advisory for the public repository's standard hosted runner.
       // Unique run key rejects duplicate workers and replayed start requests.
-      const result = await admin.from('automation_runner_runs').insert({ run_id:runId,store_id:STORE_ID,mode: mode==='pr' || mode==='availability' ? 'work' : mode, purpose: mode==='pr' || mode==='availability' ? mode : null });
+      const result = await admin.from('automation_runner_runs').insert({ run_id:runId,store_id:STORE_ID,mode: mode==='relogin' || mode==='pr' || mode==='availability' ? 'work' : mode, purpose: mode==='relogin' || mode==='pr' || mode==='availability' ? mode : null });
       if (result.error) { res.status(409).json({error:'run_already_started'}); return; }
       res.status(200).json({ ok:true }); return;
     }
     const run = checked(await admin.from('automation_runner_runs').select('mode,purpose,status').eq('run_id',runId).eq('store_id',STORE_ID).single()) as any;
     if (run.status!=='running') { res.status(409).json({error:'run_not_active'}); return; }
     // ご案内状況の更新の実行は DB では mode = 'work'・purpose = 'availability'（作業の受け取りはさせない）
-    if (run.purpose === 'availability' || run.purpose === 'pr') run.mode = run.purpose;
+    if (run.purpose === 'relogin' || run.purpose === 'availability' || run.purpose === 'pr') run.mode = run.purpose;
     checked(await admin.from('automation_runner_runs').update({ heartbeat_at:new Date().toISOString() }).eq('run_id',runId).eq('status','running'));
+    if(action==='relogin_credentials') {
+      if(run.mode!=='relogin') throw new Error('invalid_mode');
+      res.status(200).json({login:await adminLogin()}); return;
+    }
     if (action?.startsWith('pr_')) {
       if(run.mode!=='pr' || identity.event_name!=='workflow_dispatch') throw new Error('invalid_mode');
       if(action==='pr_login') {
@@ -256,6 +260,7 @@ export default async function handler(req: Request, res: Response) {
       const adminLoginStage=typeof req.body?.adminLoginStage==='string' ? req.body.adminLoginStage.replace(/[^a-z_]/g,'').slice(0,40) : undefined;
       // 失敗の手がかり（ランナー側でメール・パスワードを消してある。念のためメールらしい文字も消す）
       const adminLoginDetail=typeof req.body?.adminLoginDetail==='string' ? req.body.adminLoginDetail.replace(/\S+@\S+/g,'[mail]').slice(0,200) : undefined;
+      if(run.mode==='relogin') checked(await admin.rpc('finish_estama_direct_relogin',{p_store:STORE_ID,p_run:runId,p_ok:ok && adminLogin==='ok'}));
       const result={ok,verifiedAccounts:Math.max(0,Math.min(2,Number(req.body?.verifiedAccounts)||0)),failedAccounts:Math.max(0,Math.min(2,Number(req.body?.failedAccounts)||0)),...(adminLogin?{adminLogin}:{}),...(adminLoginStage?{adminLoginStage}:{}),...(adminLoginDetail?{adminLoginDetail}:{})};
       // Includes setup time supplied from workflow start; bounded by the job timeout.
       const duration=Math.max(0,Math.min(1200000,Number(req.body?.durationMs)||0));
