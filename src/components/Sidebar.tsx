@@ -383,6 +383,18 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               サイトを見る
             </a>
 
+            {/* エステ魂の店舗管理画面（新しいタブ。ログインが切れていればエステ魂のログイン画面になる） */}
+            <a
+              href="https://estama.jp/admin/"
+              target="_blank"
+              rel="noopener"
+              onClick={onClose}
+              className="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted/50 rounded-md transition-colors"
+            >
+              <ExternalLink size={16} />
+              エステ魂 管理画面
+            </a>
+
             <button
               onClick={signOut}
               className="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted/50 rounded-md transition-colors w-full text-left"
