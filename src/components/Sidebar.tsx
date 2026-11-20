@@ -72,7 +72,7 @@ const menuItems: MenuItem[] = [
     label: "HP",
     icon: Globe,
     children: [
-      { href: "/hp/dashboard", label: "ホームページダッシュボード" },
+      
       { href: "/hp/business-flow", label: "業務フロー" },
       { href: "/hp/kpi-goals", label: "売上目標・KPI" },
       { href: "/hp/x-operations", label: "X運用表" },
