@@ -140,3 +140,21 @@ test("SMSを送れなかったときの通知は理由・予約・番号を出�
   assert.equal(message.url, "/sms?to=%2B819012345678");
   assert.equal(message.tag, "sms-failed-log-1");
 });
+
+test("SMSの自動の送り直し：最初の失敗・届かなかった・送り直しで届いたの文面", async () => {
+  const { smsFailedMessage, smsRetryDeliveredMessage } = await import("../supabase/functions/push-notify/messages.ts");
+  const base = { logId: "log-2", rootId: "root-1", toNumber: "+819012345678", errorCode: "30008", errorMessage: null, customerName: "山田" };
+  const first = smsFailedMessage({ ...base, retryState: "scheduled", retryCount: 0 });
+  assert.equal(first.title, "⚠️ SMSが届きませんでした（山田様）");
+  assert.match(first.body, /自動で送り直しています/);
+  assert.equal(first.tag, "sms-failed-root-1");
+  const gaveUp = smsFailedMessage({ ...base, retryState: "gave_up", retryCount: 6 });
+  assert.equal(gaveUp.title, "⚠️ SMSを送り直しても届きませんでした（山田様）");
+  assert.match(gaveUp.body, /6回送り直しましたが届きませんでした/);
+  const permanent = smsFailedMessage({ ...base, errorCode: "30005", retryState: "not_retryable" });
+  assert.match(permanent.body, /送り直しても届きません/);
+  const delivered = smsRetryDeliveredMessage({ rootId: "root-1", toNumber: "+819012345678", customerName: "山田", retryCount: 2 });
+  assert.equal(delivered.title, "✅ SMSが届きました（山田様）");
+  assert.match(delivered.body, /送り直し2回目で届きました/);
+  assert.equal(delivered.tag, first.tag);
+});
