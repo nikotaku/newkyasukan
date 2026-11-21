@@ -5,8 +5,81 @@ import {
   classifyReportEmail,
   estamaReportDate,
   parseEstamaDailyReport,
+  parseEstamaReservationEmail,
   parseIvryCall,
 } from "../supabase/functions/report-email-ingest/parse.ts";
+
+test("エステ魂の仮予約メール本文から予約内容を読み取る", () => {
+  const result = parseEstamaReservationEmail({
+    id: "mail-abc123",
+    subject: "【エステ魂】ご予約を受け付けました",
+    from: "support@estama.jp",
+    date: "2026-11-21T10:26:22.000Z",
+    body: `
+■お名前：山田 太郎
+■メールアドレス：taro@example.com
+■電話番号：080-1234-5678
+■来店歴：新規
+■ご要望：
+SMSでお願いします。
+
+━━━━━━━━━━━━━━
+★ご予約内容
+━━━━━━━━━━━━━━
+■ご希望日時：11/22 (日) 20:30
+■ご希望セラピスト：北乃みか
+■ご希望コース：
+艶華コース(70分)
+■ご希望のクーポン：
+===============================
+新規割
+===============================
+ご新規様1000円オフ
+----------------------------
+ご利用料金の内訳
+----------------------------
+【指名料】1,000円
+【コース料金】20,000円
+合計金額：21,000円
+`,
+  });
+  assert.deepEqual(result, {
+    externalKey: "email:mail-abc123",
+    receivedAt: "2026-11-21T10:26:22.000Z",
+    hopeDate: "2026-11-22",
+    hopeTime: "20:30",
+    nominationLabel: "北乃みか",
+    isFree: false,
+    castName: "北乃みか",
+    courseLabel: "艶華コース(70分)",
+    courseMinutes: 70,
+    coursePrice: 20000,
+    nominationFee: 1000,
+    totalPrice: 21000,
+    coupon: "新規割／ご新規様1000円オフ",
+    requestNote: "SMSでお願いします。",
+    visitKind: "新規",
+    memberLabel: null,
+    customerName: "山田 太郎",
+    customerPhone: "08012345678",
+    customerEmail: "taro@example.com",
+  });
+});
+
+test("フリー予約と年越しの希望日を読み取る", () => {
+  const result = parseEstamaReservationEmail({
+    id: "mail-year-end",
+    subject: "【エステ魂】ご予約を受け付けました",
+    date: "2026-12-31T06:00:00.000Z",
+    body: `■お名前：テスト\n■ご希望日時：1/2 (土) 01:00\n■ご希望セラピスト：フリー（指名なし）\n■ご希望コース：\n艶華コース(60分)\n■ご希望のクーポン：\nなし\n----------------------------\nご利用料金の内訳\n----------------------------\n【コース料金】15,000円\n合計金額：15,000円`,
+  });
+  assert.equal("error" in result, false);
+  if (!("error" in result)) {
+    assert.equal(result.hopeDate, "2027-01-02");
+    assert.equal(result.isFree, true);
+    assert.equal(result.castName, null);
+  }
+});
 
 test("件名でIVRyの着信通知とエステ魂のデイリーレポートを見分ける", () => {
   assert.equal(classifyReportEmail("【着信内容の報告通知】070-4201-3979からのお電話【IVRy】"), "ivry_call");

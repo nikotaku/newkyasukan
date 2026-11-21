@@ -81,7 +81,7 @@ export function GmailInstantSyncSetup({ storeId }: { storeId: string | null }) {
       {open && (
         <div className="space-y-2 border-t px-3 py-3">
           <p>
-            エステ魂の仮予約のメール（enka@ への転送先の Gmail）を1分ごとに見張り、届いたらすぐエステ魂の「お店への予約」を読みに行きます（届いてから1〜2分で下に出ます）。メールが無いときも5分ごとに読んでいます。
+            エステ魂の仮予約メール（enka@ への転送先の Gmail）を1分ごとに確認し、本文から予約内容を直接取り込みます（届いてから1〜2分で下に出ます）。
           </p>
           <ol className="list-decimal space-y-1 pl-5">
             <li>下の「スクリプトをコピー」を押す（このお店専用の鍵が入ったコードがコピーされます）</li>
