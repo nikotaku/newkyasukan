@@ -2953,6 +2953,13 @@ function verifyPublicScheduleText(text: string, item: EstamaShiftBatchItem) {
     : { verified: false, error: `${label} ${start}～${end}を公開ページで確認できません` };
 }
 
+const failedVerificationError = <T extends { verified: boolean }>(items: T[]) => {
+  const failed = items.find((item) => !item.verified);
+  return failed && "error" in failed && typeof failed.error === "string"
+    ? failed.error
+    : undefined;
+};
+
 async function clickNextPublicScheduleWeek(page: Page, targetOffset: number) {
   const controls = page.locator(".js-schedule-ctrl[data-param]");
   const controlInfo = await controls.evaluateAll((elements) => elements.map((element, index) => {
@@ -3097,7 +3104,7 @@ async function verifyPublicShiftGroup(
         expected,
         screenshotBase64,
         mimeType: "image/jpeg",
-        error: verified ? undefined : expected.find((item) => !item.verified)?.error || "証跡画像を取得できませんでした",
+        error: verified ? undefined : failedVerificationError(expected) || "証跡画像を取得できませんでした",
       }];
       if (verified) break;
       if (attempt < 3) await page.waitForTimeout(attempt === 1 ? 15_000 : 30_000);
@@ -3195,7 +3202,7 @@ async function verifyPublicShiftGroup(
         expected,
         screenshotBase64,
         mimeType: "image/jpeg",
-        error: verified ? undefined : expected.find((item) => !item.verified)?.error || "証跡画像を取得できませんでした",
+        error: verified ? undefined : failedVerificationError(expected) || "証跡画像を取得できませんでした",
       });
     }
 
