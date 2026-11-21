@@ -1,3 +1,4 @@
+import { MonthlyShiftKpi } from "@/components/MonthlyShiftKpi";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
@@ -64,7 +65,7 @@ interface DummyShift {
 
 type DummyShiftPattern = Record<number, [string, string]>;
 
-const ROOMS: string[] = [...ENKA_ROOMS];
+const ROOMS: string[] = [...new Set([...ENKA_ROOMS, "朧月"])];
 const DUMMY_SHIFT_PATTERNS_BY_NAME: Record<string, DummyShiftPattern> = {
   蒼井かずは: { 1: ["12:00", "20:00"], 3: ["14:00", "22:00"], 6: ["12:00", "23:00"] },
   華咲れみ: { 0: ["12:00", "20:00"], 2: ["13:00", "21:00"], 4: ["15:00", "23:00"] },
@@ -108,7 +109,7 @@ export default function MonthlyShift() {
   const [casts, setCasts] = useState<Cast[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [viewMode, setViewMode] = useState<"calendar" | "dummy">("calendar");
+  const [viewMode, setViewMode] = useState<"calendar" | "dummy" | "kpi">("calendar");
   const [showDialog, setShowDialog] = useState(false);
   const [showDummyCastDialog, setShowDummyCastDialog] = useState(false);
   const [dummyCastSelection, setDummyCastSelection] = useState<string[]>([]);
@@ -197,7 +198,7 @@ export default function MonthlyShift() {
     setShowDialog(true);
   };
 
-  const { user, loading: authLoading } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const { storeId } = useStore();
   const navigate = useNavigate();
 
@@ -536,14 +537,14 @@ export default function MonthlyShift() {
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <h1 className="text-lg font-bold mr-1">月別シフト</h1>
             {/* 月ナビ（まとまったグループ） */}
-            <div className="flex items-center gap-1 shrink-0">
+            <div className={viewMode === "kpi" ? "hidden" : "flex items-center gap-1 shrink-0"}>
               <Button size="sm" variant="outline" onClick={prevMonth} className="h-8 w-8 p-0"><ChevronLeft size={16} /></Button>
               <span className="text-sm font-medium w-[80px] text-center">
                 {format(selectedMonth, "yyyy年M月", { locale: ja })}
               </span>
               <Button size="sm" variant="outline" onClick={nextMonth} className="h-8 w-8 p-0"><ChevronRight size={16} /></Button>
             </div>
-            <Button onClick={() => openAdd()} size="sm" className="ml-auto shrink-0">
+            <Button onClick={() => openAdd()} size="sm" className={viewMode === "kpi" ? "hidden" : "ml-auto shrink-0"}>
               <Plus size={14} className="mr-1" />{viewMode === "dummy" ? "ダミーシフト追加" : "シフト追加"}
             </Button>
           </div>
@@ -562,6 +563,7 @@ export default function MonthlyShift() {
               >
                 <CalendarDays size={13} />ダミー用
               </button>
+              {isAdmin && <button onClick={() => setViewMode("kpi")} className={cn("px-3 py-1.5 text-sm border-l", viewMode === "kpi" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}>重要KPI</button>}
             </div>
             {viewMode === "calendar" && usedRooms.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
@@ -610,7 +612,7 @@ export default function MonthlyShift() {
         </div>
 
         {/* ===== 承認待ちのシフト申請 ===== */}
-        {pendingShifts.length > 0 && (
+        {viewMode !== "kpi" && pendingShifts.length > 0 && (
           <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50/60 dark:bg-amber-950/10 overflow-hidden">
             <div className="px-3 py-2 bg-amber-100/70 dark:bg-amber-900/20 text-sm font-semibold text-amber-800 dark:text-amber-300">
               承認待ちのシフト申請（{pendingShifts.length}件）
@@ -628,7 +630,7 @@ export default function MonthlyShift() {
                   <Select value={canonicalRoomName(s.room) ?? ""} onValueChange={v => assignRoom(s.id, v)}>
                     <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="ルーム選択" /></SelectTrigger>
                     <SelectContent>
-                      {ROOMS.map(r => <SelectItem key={r} value={r}>{r}（{ROOM_ADDRESS_HINT[r]}）</SelectItem>)}
+                      {ROOMS.map(r => <SelectItem key={r} value={r}>{r}（{ROOM_ADDRESS_HINT[r] ?? (r === "朧月" ? "706号室" : "")}）</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <div className="ml-auto flex gap-1.5">
@@ -650,7 +652,7 @@ export default function MonthlyShift() {
           </div>
         )}
 
-        {loading ? (
+        {viewMode === "kpi" && isAdmin ? <MonthlyShiftKpi storeId={storeId} /> : loading ? (
           <div className="text-center text-muted-foreground py-12">読み込み中...</div>
         ) : (
           <>
@@ -982,7 +984,7 @@ export default function MonthlyShift() {
                   <Select value={form.room} onValueChange={v => setForm({ ...form, room: v })}>
                     <SelectTrigger><SelectValue placeholder="ルームを選択" /></SelectTrigger>
                     <SelectContent>
-                      {ROOMS.map(r => <SelectItem key={r} value={r}>{r}（{ROOM_ADDRESS_HINT[r]}）</SelectItem>)}
+                      {ROOMS.map(r => <SelectItem key={r} value={r}>{r}（{ROOM_ADDRESS_HINT[r] ?? (r === "朧月" ? "706号室" : "")}）</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
