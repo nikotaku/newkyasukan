@@ -35,11 +35,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toExtTime } from "@/lib/timeFormat";
 import { cn } from "@/lib/utils";
-import { courseLimitMessage, fetchCourseLimitAlerts, type CourseLimitAlert } from "@/lib/courseLimit";
+import {
+  courseLimitMessage,
+  fetchCourseLimitAlerts,
+  type CourseLimitAlert,
+} from "@/lib/courseLimit";
 
 type WebBookingStatus = "unhandled" | "in_progress" | "handled";
 type StatusFilter = WebBookingStatus | "all";
 type BookingOrigin = "web_form" | "cast_form";
+type BookingSource = BookingOrigin | "estama";
 
 interface WebBooking {
   id: string;
@@ -63,17 +68,35 @@ interface WebBooking {
   web_booking_status_updated_by: string | null;
 }
 
-function notificationLabel(booking: WebBooking): { label: string; className: string } {
+function notificationLabel(booking: WebBooking): {
+  label: string;
+  className: string;
+} {
   if (booking.line_notification_status === "sent") {
-    return { label: "LINE通知済", className: "border-emerald-200 bg-emerald-50 text-emerald-700" };
+    return {
+      label: "LINE通知済",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    };
   }
   if (booking.email_notification_status === "sent") {
-    return { label: "メール退避済", className: "border-blue-200 bg-blue-50 text-blue-700" };
+    return {
+      label: "メール退避済",
+      className: "border-blue-200 bg-blue-50 text-blue-700",
+    };
   }
-  if (booking.line_notification_status === "sending" || booking.email_notification_status === "sending") {
-    return { label: "通知中", className: "border-amber-200 bg-amber-50 text-amber-700" };
+  if (
+    booking.line_notification_status === "sending" ||
+    booking.email_notification_status === "sending"
+  ) {
+    return {
+      label: "通知中",
+      className: "border-amber-200 bg-amber-50 text-amber-700",
+    };
   }
-  return { label: "通知失敗", className: "border-rose-200 bg-rose-50 text-rose-700" };
+  return {
+    label: "通知失敗",
+    className: "border-rose-200 bg-rose-50 text-rose-700",
+  };
 }
 
 const WEB_BOOKING_STATUSES: Record<
@@ -138,15 +161,18 @@ function castName(booking: WebBooking): string {
 
 function formatReceivedAt(value: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : RECEIVED_AT_FORMATTER.format(date);
+  return Number.isNaN(date.getTime())
+    ? value
+    : RECEIVED_AT_FORMATTER.format(date);
 }
 
 function formatBookingDate(dateValue: string, timeValue: string): string {
   const storedDate = new Date(`${dateValue}T00:00:00`);
   if (Number.isNaN(storedDate.getTime())) return dateValue;
-  const displayedDate = toExtTime(timeValue) !== timeValue.slice(0, 5)
-    ? subDays(storedDate, 1)
-    : storedDate;
+  const displayedDate =
+    toExtTime(timeValue) !== timeValue.slice(0, 5)
+      ? subDays(storedDate, 1)
+      : storedDate;
   return format(displayedDate, "yyyy/MM/dd（E）", { locale: ja });
 }
 
@@ -160,7 +186,8 @@ function ReservationStatusBadge({ status }: { status: string }) {
       variant="outline"
       className={cn(
         "whitespace-nowrap font-medium",
-        RESERVATION_STATUS_STYLES[status] ?? "border-slate-200 bg-slate-50 text-slate-700",
+        RESERVATION_STATUS_STYLES[status] ??
+          "border-slate-200 bg-slate-50 text-slate-700",
       )}
     >
       {reservationStatusLabel(status)}
@@ -182,32 +209,44 @@ function OperationalStatusSelect({
   const currentStatus = operationalStatus(booking);
 
   return (
-    <Select
-      value={currentStatus}
-      disabled={disabled}
-      onValueChange={(value) => onChange(booking, value as WebBookingStatus)}
-    >
-      <SelectTrigger
-        aria-label={`${booking.customer_name}様の対応状況`}
-        className={cn(
-          "h-9 min-w-[112px] border font-semibold shadow-none",
-          WEB_BOOKING_STATUSES[currentStatus].className,
-        )}
+    <div className="flex shrink-0 flex-col items-end gap-1">
+      <Select
+        value={currentStatus}
+        disabled={disabled}
+        onValueChange={(value) => onChange(booking, value as WebBookingStatus)}
       >
-        {disabled ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {(Object.entries(WEB_BOOKING_STATUSES) as [
-          WebBookingStatus,
-          (typeof WEB_BOOKING_STATUSES)[WebBookingStatus],
-        ][]).map(([value, item]) => (
-          <SelectItem key={value} value={value}>
-            {item.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+        <SelectTrigger
+          aria-label={`${booking.customer_name}様の対応状況`}
+          className={cn(
+            "h-9 min-w-[112px] border font-semibold shadow-none",
+            WEB_BOOKING_STATUSES[currentStatus].className,
+          )}
+        >
+          {disabled ? (
+            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+          ) : null}
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {(
+            Object.entries(WEB_BOOKING_STATUSES) as [
+              WebBookingStatus,
+              (typeof WEB_BOOKING_STATUSES)[WebBookingStatus],
+            ][]
+          ).map(([value, item]) => (
+            <SelectItem key={value} value={value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {currentStatus === "in_progress" &&
+      booking.web_booking_status_updated_at ? (
+        <span className="max-w-[150px] text-right text-[10px] leading-tight text-amber-700">
+          対応開始 {formatReceivedAt(booking.web_booking_status_updated_at)}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -215,19 +254,24 @@ export default function WebBookings() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bookings, setBookings] = useState<WebBooking[]>([]);
   // 新規のお客様のコース上限を超えた予約（例：望月せなさんは新規80分まで）
-  const [courseLimits, setCourseLimits] = useState<Map<string, CourseLimitAlert>>(new Map());
+  const [courseLimits, setCourseLimits] = useState<
+    Map<string, CourseLimitAlert>
+  >(new Map());
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("unhandled");
+  const [bookingSource, setBookingSource] = useState<BookingSource>("web_form");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [updatingIds, setUpdatingIds] = useState<string[]>([]);
-  const [retryingNotificationIds, setRetryingNotificationIds] = useState<string[]>([]);
+  const [retryingNotificationIds, setRetryingNotificationIds] = useState<
+    string[]
+  >([]);
   const { user, loading: authLoading, isAdmin } = useAuth();
   const { storeId, loading: storeLoading } = useAdminStore();
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.title = "WEB予約受付";
+    document.title = "予約受付";
   }, []);
 
   useEffect(() => {
@@ -252,10 +296,14 @@ export default function WebBookings() {
         if (error) throw error;
         const rows = (data ?? []) as WebBooking[];
         setBookings(rows);
-        void fetchCourseLimitAlerts(rows.map((row) => row.id)).then(setCourseLimits);
+        void fetchCourseLimitAlerts(rows.map((row) => row.id)).then(
+          setCourseLimits,
+        );
       } catch (error) {
         console.error("Failed to fetch web bookings", error);
-        setFetchError("WEB予約を読み込めませんでした。時間をおいて再度お試しください。");
+        setFetchError(
+          "WEB予約を読み込めませんでした。時間をおいて再度お試しください。",
+        );
         if (notifyOnError) toast.error("WEB予約の取得に失敗しました");
       } finally {
         if (!background) setLoading(false);
@@ -295,30 +343,43 @@ export default function WebBookings() {
     };
   }, [fetchBookings, isAdmin, storeId, storeLoading, user]);
 
+  const sourceBookings = useMemo(
+    () =>
+      bookings.filter((booking) => booking.booking_origin === bookingSource),
+    [bookingSource, bookings],
+  );
+
   const counts = useMemo(() => {
-    const next = { all: bookings.length, unhandled: 0, in_progress: 0, handled: 0 };
-    bookings.forEach((booking) => {
+    const next = {
+      all: sourceBookings.length,
+      unhandled: 0,
+      in_progress: 0,
+      handled: 0,
+    };
+    sourceBookings.forEach((booking) => {
       next[operationalStatus(booking)] += 1;
     });
     return next;
-  }, [bookings]);
+  }, [sourceBookings]);
 
   const filteredBookings = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase("ja");
     const phoneQuery = searchQuery.replace(/\D/g, "");
 
-    return bookings.filter((booking) => {
-      if (statusFilter !== "all" && operationalStatus(booking) !== statusFilter) return false;
+    return sourceBookings.filter((booking) => {
+      if (statusFilter !== "all" && operationalStatus(booking) !== statusFilter)
+        return false;
       if (!normalizedQuery) return true;
 
       const matchesName = booking.customer_name
         .toLocaleLowerCase("ja")
         .includes(normalizedQuery);
-      const matchesPhone = phoneQuery.length > 0
-        && booking.customer_phone.replace(/\D/g, "").includes(phoneQuery);
+      const matchesPhone =
+        phoneQuery.length > 0 &&
+        booking.customer_phone.replace(/\D/g, "").includes(phoneQuery);
       return matchesName || matchesPhone;
     });
-  }, [bookings, searchQuery, statusFilter]);
+  }, [searchQuery, sourceBookings, statusFilter]);
 
   const handleOperationalStatusChange = async (
     booking: WebBooking,
@@ -345,17 +406,24 @@ export default function WebBookings() {
       const updatedRow = data?.[0];
       if (!updatedRow) throw new Error("Updated web booking was not returned");
 
-      setBookings((current) => current.map((item) => (
-        item.id === booking.id
-          ? {
-              ...item,
-              web_booking_status: updatedRow.web_booking_status as WebBookingStatus | null,
-              web_booking_status_updated_at: updatedRow.web_booking_status_updated_at,
-              web_booking_status_updated_by: updatedRow.web_booking_status_updated_by,
-            }
-          : item
-      )));
-      toast.success(`対応状況を「${WEB_BOOKING_STATUSES[nextStatus].label}」に変更しました`);
+      setBookings((current) =>
+        current.map((item) =>
+          item.id === booking.id
+            ? {
+                ...item,
+                web_booking_status:
+                  updatedRow.web_booking_status as WebBookingStatus | null,
+                web_booking_status_updated_at:
+                  updatedRow.web_booking_status_updated_at,
+                web_booking_status_updated_by:
+                  updatedRow.web_booking_status_updated_by,
+              }
+            : item,
+        ),
+      );
+      toast.success(
+        `対応状況を「${WEB_BOOKING_STATUSES[nextStatus].label}」に変更しました`,
+      );
     } catch (error) {
       console.error("Failed to update web booking status", error);
       toast.error("対応状況の変更に失敗しました");
@@ -385,7 +453,9 @@ export default function WebBookings() {
       console.error("Failed to retry WEB booking notification", error);
       toast.error("予約通知を再送できませんでした。自動再送を継続します");
     } finally {
-      setRetryingNotificationIds((current) => current.filter((id) => id !== booking.id));
+      setRetryingNotificationIds((current) =>
+        current.filter((id) => id !== booking.id),
+      );
     }
   };
 
@@ -403,7 +473,9 @@ export default function WebBookings() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>管理者権限が必要です</AlertTitle>
-          <AlertDescription>このページは管理者のみ利用できます。</AlertDescription>
+          <AlertDescription>
+            このページは管理者のみ利用できます。
+          </AlertDescription>
         </Alert>
       );
     }
@@ -414,201 +486,285 @@ export default function WebBookings() {
           <div>
             <div className="flex items-center gap-2">
               <Inbox className="h-6 w-6 text-primary" />
-              <h1 className="text-2xl font-bold tracking-tight">ホームページからのWEB予約</h1>
+              <h1 className="text-2xl font-bold tracking-tight">予約受付</h1>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              予約の確定・キャンセルとは別に、フォームへの対応状況を管理します。
+              3つの予約経路を分けて、予約状態とは別に対応状況を管理します。
             </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="self-start"
-            disabled={loading}
-            onClick={() => void fetchBookings()}
-          >
-            <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            再読み込み
-          </Button>
+          {bookingSource !== "estama" ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              disabled={loading}
+              onClick={() => void fetchBookings()}
+            >
+              <RefreshCw
+                className={cn("mr-2 h-4 w-4", loading && "animate-spin")}
+              />
+              再読み込み
+            </Button>
+          ) : null}
         </div>
 
         <Card className="mb-5">
-          <CardContent className="space-y-4 p-4 sm:p-5">
+          <CardContent className="p-3 sm:p-4">
             <Tabs
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+              value={bookingSource}
+              onValueChange={(value) =>
+                setBookingSource(value as BookingSource)
+              }
             >
-              <TabsList className="grid h-auto w-full grid-cols-4 gap-1 p-1">
-                {tabs.map((tab) => (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    className="min-w-0 gap-1 px-1.5 py-2 text-xs sm:gap-2 sm:px-3 sm:text-sm"
-                  >
-                    <span>{tab.label}</span>
-                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground data-[state=active]:bg-primary/10 sm:text-xs">
-                      {tab.count}
-                    </span>
-                  </TabsTrigger>
-                ))}
+              <TabsList className="grid h-auto w-full grid-cols-3 gap-1 p-1">
+                <TabsTrigger
+                  value="web_form"
+                  className="min-w-0 px-2 py-2 text-xs sm:text-sm"
+                >
+                  HPフォーム
+                </TabsTrigger>
+                <TabsTrigger
+                  value="cast_form"
+                  className="min-w-0 px-2 py-2 text-xs sm:text-sm"
+                >
+                  セラピスト専用
+                </TabsTrigger>
+                <TabsTrigger
+                  value="estama"
+                  className="min-w-0 px-2 py-2 text-xs sm:text-sm"
+                >
+                  エステ魂
+                </TabsTrigger>
               </TabsList>
             </Tabs>
-
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="お客様名・電話番号で検索"
-                aria-label="お客様名・電話番号で検索"
-                className="pl-9"
-              />
-            </div>
           </CardContent>
         </Card>
 
-        {fetchError ? (
-          <Alert variant="destructive" className="mb-5">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>読み込みエラー</AlertTitle>
-            <AlertDescription className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span>{fetchError}</span>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => void fetchBookings()}
-              >
-                再試行
-              </Button>
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        {bookings.some((booking) => (
-          booking.line_notification_status !== "sent"
-          && booking.email_notification_status !== "sent"
-        )) ? (
-          <Alert variant="destructive" className="mb-5">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>通知できていないWEB予約があります</AlertTitle>
-            <AlertDescription>
-              LINE失敗時はメールへ切り替え、最大4回まで自動再送します。各予約から手動再送もできます。
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        {loading ? (
-          <Card>
-            <CardContent className="grid min-h-64 place-items-center">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                WEB予約を読み込み中...
-              </div>
-            </CardContent>
-          </Card>
-        ) : filteredBookings.length === 0 ? (
-          <Card>
-            <CardContent className="flex min-h-64 flex-col items-center justify-center px-6 text-center">
-              <Inbox className="mb-3 h-10 w-10 text-muted-foreground/50" />
-              <p className="font-medium">
-                {searchQuery.trim()
-                  ? "検索条件に一致するWEB予約はありません"
-                  : statusFilter === "unhandled"
-                    ? "未対応のWEB予約はありません"
-                    : "該当するWEB予約はありません"}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                新しいフォーム予約はここに自動で追加されます。
-              </p>
-            </CardContent>
-          </Card>
+        {bookingSource === "estama" ? (
+          <EstamaReservationRequests />
         ) : (
           <>
-            <div className="space-y-3">
-              {filteredBookings.map((booking) => (
-                <Card key={booking.id} className="overflow-hidden">
-                  <CardContent className="space-y-4 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-base font-bold">{booking.customer_name} 様</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          受付 {formatReceivedAt(booking.created_at)}
-                        </p>
-                      </div>
-                      <OperationalStatusSelect
-                        booking={booking}
-                        disabled={updatingIds.includes(booking.id)}
-                        onChange={handleOperationalStatusChange}
-                      />
-                    </div>
+            <Card className="mb-5">
+              <CardContent className="space-y-4 p-4 sm:p-5">
+                <Tabs
+                  value={statusFilter}
+                  onValueChange={(value) =>
+                    setStatusFilter(value as StatusFilter)
+                  }
+                >
+                  <TabsList className="grid h-auto w-full grid-cols-4 gap-1 p-1">
+                    {tabs.map((tab) => (
+                      <TabsTrigger
+                        key={tab.value}
+                        value={tab.value}
+                        className="min-w-0 gap-1 px-1.5 py-2 text-xs sm:gap-2 sm:px-3 sm:text-sm"
+                      >
+                        <span>{tab.label}</span>
+                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground data-[state=active]:bg-primary/10 sm:text-xs">
+                          {tab.count}
+                        </span>
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
 
-                    {courseLimits.get(booking.id) && (
-                      <div className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
-                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                        <span><span className="font-semibold">新規のお客様のコース上限を超えています。</span>{courseLimitMessage(courseLimits.get(booking.id)!)}。お客様に連絡してコースを確かめてください</span>
-                      </div>
-                    )}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="お客様名・電話番号で検索"
+                    aria-label="お客様名・電話番号で検索"
+                    className="pl-9"
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-                    <PhoneCallLink
-                      phone={booking.customer_phone}
-                      name={`${booking.customer_name} 様`}
-                      className="flex items-center gap-2 rounded-lg border bg-primary/5 px-3 py-2.5 font-semibold text-primary"
-                    >
-                      <Phone className="h-4 w-4" />
-                      {booking.customer_phone}
-                    </PhoneCallLink>
+            {fetchError ? (
+              <Alert variant="destructive" className="mb-5">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>読み込みエラー</AlertTitle>
+                <AlertDescription className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span>{fetchError}</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void fetchBookings()}
+                  >
+                    再試行
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : null}
 
-                    <div className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-2.5 text-sm">
-                      <span className="text-muted-foreground">予約日時</span>
-                      <span className="font-medium">
-                        {formatBookingDate(booking.reservation_date, booking.start_time)}<br />
-                        {toExtTime(booking.start_time)}（{booking.duration}分）
-                      </span>
+            {sourceBookings.some(
+              (booking) =>
+                booking.line_notification_status !== "sent" &&
+                booking.email_notification_status !== "sent",
+            ) ? (
+              <Alert variant="destructive" className="mb-5">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>通知できていないWEB予約があります</AlertTitle>
+                <AlertDescription>
+                  LINE失敗時はメールへ切り替え、最大4回まで自動再送します。各予約から手動再送もできます。
+                </AlertDescription>
+              </Alert>
+            ) : null}
 
-                      <span className="text-muted-foreground">セラピスト</span>
-                      <span>{castName(booking)}</span>
+            {loading ? (
+              <Card>
+                <CardContent className="grid min-h-64 place-items-center">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    WEB予約を読み込み中...
+                  </div>
+                </CardContent>
+              </Card>
+            ) : filteredBookings.length === 0 ? (
+              <Card>
+                <CardContent className="flex min-h-64 flex-col items-center justify-center px-6 text-center">
+                  <Inbox className="mb-3 h-10 w-10 text-muted-foreground/50" />
+                  <p className="font-medium">
+                    {searchQuery.trim()
+                      ? "検索条件に一致するWEB予約はありません"
+                      : statusFilter === "unhandled"
+                        ? "未対応のWEB予約はありません"
+                        : "該当するWEB予約はありません"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    新しいフォーム予約はここに自動で追加されます。
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  {filteredBookings.map((booking) => (
+                    <Card key={booking.id} className="overflow-hidden">
+                      <CardContent className="space-y-4 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-base font-bold">
+                              {booking.customer_name} 様
+                            </p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              受付 {formatReceivedAt(booking.created_at)}
+                            </p>
+                          </div>
+                          <OperationalStatusSelect
+                            booking={booking}
+                            disabled={updatingIds.includes(booking.id)}
+                            onChange={handleOperationalStatusChange}
+                          />
+                        </div>
 
-                      <span className="text-muted-foreground">コース</span>
-                      <span>{booking.course_name}</span>
+                        {courseLimits.get(booking.id) && (
+                          <div className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                            <span>
+                              <span className="font-semibold">
+                                新規のお客様のコース上限を超えています。
+                              </span>
+                              {courseLimitMessage(
+                                courseLimits.get(booking.id)!,
+                              )}
+                              。お客様に連絡してコースを確かめてください
+                            </span>
+                          </div>
+                        )}
 
-                      <span className="text-muted-foreground">料金</span>
-                      <span className="font-semibold tabular-nums">
-                        ¥{Number(booking.price || 0).toLocaleString("ja-JP")}
-                      </span>
+                        <PhoneCallLink
+                          phone={booking.customer_phone}
+                          name={`${booking.customer_name} 様`}
+                          className="flex items-center gap-2 rounded-lg border bg-primary/5 px-3 py-2.5 font-semibold text-primary"
+                        >
+                          <Phone className="h-4 w-4" />
+                          {booking.customer_phone}
+                        </PhoneCallLink>
 
-                      <span className="text-muted-foreground">予約状況</span>
-                      <span><ReservationStatusBadge status={booking.status} /></span>
+                        <div className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-2.5 text-sm">
+                          <span className="text-muted-foreground">
+                            予約日時
+                          </span>
+                          <span className="font-medium">
+                            {formatBookingDate(
+                              booking.reservation_date,
+                              booking.start_time,
+                            )}
+                            <br />
+                            {toExtTime(booking.start_time)}（{booking.duration}
+                            分）
+                          </span>
 
-                      <span className="text-muted-foreground">受付元</span>
-                      <span>{ORIGIN_LABELS[booking.booking_origin] ?? booking.booking_origin}</span>
+                          <span className="text-muted-foreground">
+                            セラピスト
+                          </span>
+                          <span>{castName(booking)}</span>
 
-                      <span className="text-muted-foreground">通知</span>
-                      <span className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className={notificationLabel(booking).className}>
-                          {notificationLabel(booking).label}
-                        </Badge>
-                        {booking.line_notification_status !== "sent" && booking.email_notification_status !== "sent" ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={retryingNotificationIds.includes(booking.id)}
-                            onClick={() => void handleRetryNotification(booking)}
-                          >
-                            {retryingNotificationIds.includes(booking.id)
-                              ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                              : <RefreshCw className="mr-1 h-3.5 w-3.5" />}
-                            再送
-                          </Button>
-                        ) : null}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                          <span className="text-muted-foreground">コース</span>
+                          <span>{booking.course_name}</span>
+
+                          <span className="text-muted-foreground">料金</span>
+                          <span className="font-semibold tabular-nums">
+                            ¥
+                            {Number(booking.price || 0).toLocaleString("ja-JP")}
+                          </span>
+
+                          <span className="text-muted-foreground">
+                            予約状況
+                          </span>
+                          <span>
+                            <ReservationStatusBadge status={booking.status} />
+                          </span>
+
+                          <span className="text-muted-foreground">受付元</span>
+                          <span>
+                            {ORIGIN_LABELS[booking.booking_origin] ??
+                              booking.booking_origin}
+                          </span>
+
+                          <span className="text-muted-foreground">通知</span>
+                          <span className="flex flex-wrap items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={notificationLabel(booking).className}
+                            >
+                              {notificationLabel(booking).label}
+                            </Badge>
+                            {booking.line_notification_status !== "sent" &&
+                            booking.email_notification_status !== "sent" ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={retryingNotificationIds.includes(
+                                  booking.id,
+                                )}
+                                onClick={() =>
+                                  void handleRetryNotification(booking)
+                                }
+                              >
+                                {retryingNotificationIds.includes(
+                                  booking.id,
+                                ) ? (
+                                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                                )}
+                                再送
+                              </Button>
+                            ) : null}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
       </>
@@ -617,16 +773,12 @@ export default function WebBookings() {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen((open) => !open)} />
+      <DashboardHeader
+        onToggleSidebar={() => setSidebarOpen((open) => !open)}
+      />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="pt-[68px] md:ml-[240px] md:pt-[76px]">
-        {/* 左：ホームページからのWEB予約 ／ 右：エステ魂からの仮予約（スマホでは縦に並ぶ） */}
-        <div className="mx-auto grid max-w-[1800px] gap-5 px-4 pb-8 sm:px-6 xl:grid-cols-2 xl:items-start">
-          <div className="min-w-0">{pageContent}</div>
-          <div className="min-w-0 xl:sticky xl:top-[84px] xl:max-h-[calc(100vh-100px)] xl:overflow-y-auto">
-            <EstamaReservationRequests />
-          </div>
-        </div>
+        <div className="mx-auto max-w-5xl px-4 pb-8 sm:px-6">{pageContent}</div>
       </main>
     </div>
   );
