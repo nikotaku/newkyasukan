@@ -329,7 +329,6 @@ export function EstamaReservationRequests() {
                             hour: "2-digit",
                             minute: "2-digit",
                           }).format(new Date(row.response_status_updated_at))}
-                          開始
                         </span>
                       ) : null}
                     </div>
