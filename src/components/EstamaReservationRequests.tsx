@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminStore } from "@/hooks/useAdminStore";
-import { GmailInstantSyncSetup } from "@/components/GmailInstantSyncSetup";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
@@ -200,13 +199,9 @@ export function EstamaReservationRequests() {
                 </span>
               )}
             </h2>
-            <p className="text-xs text-muted-foreground">
-              エステ魂の仮予約メールを自動で取り込んでいます。HPの出勤で判定し、ダミー宛て・出勤なしは赤で出します。予約表に同じお客様・同じ時間の予約があれば自動で「登録済み」になります。
-            </p>
           </div>
         </div>
 
-        <GmailInstantSyncSetup storeId={storeId} />
 
         <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
           <Tabs
