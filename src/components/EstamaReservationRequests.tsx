@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminStore } from "@/hooks/useAdminStore";
-import { GmailInstantSyncSetup } from "@/components/GmailInstantSyncSetup";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
@@ -33,7 +32,7 @@ import {
   type EstamaReservationRequest,
 } from "@/lib/estamaReservationRequests";
 
-// エステ魂の仮予約（管理画面「お店への予約」を自動で読み取り。仮予約のメールが届いたらすぐ、無いときも5分ごと）。HPの出勤が正しい前提で、ダミー宛て・出勤なしなどを判定して出す。
+// エステ魂の仮予約。HPの出勤が正しい前提で、ダミー宛て・出勤なしなどを判定して出す。
 // 「予約表に登録」で予約入力が開き、内容が入った状態で確認して保存する（自動では確定しない）。
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,13 +199,9 @@ export function EstamaReservationRequests() {
                 </span>
               )}
             </h2>
-            <p className="text-xs text-muted-foreground">
-              エステ魂の「お店への予約」を自動で読み取っています（仮予約のメールが届いたらすぐ、無いときも5分ごと）。HPの出勤で判定し、ダミー宛て・出勤なしは赤で出します。予約表に同じお客様・同じ時間の予約があれば自動で「登録済み」になります。
-            </p>
           </div>
         </div>
 
-        <GmailInstantSyncSetup storeId={storeId} />
 
         <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
           <Tabs
