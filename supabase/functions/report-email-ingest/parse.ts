@@ -1,7 +1,7 @@
 // Gmailに届くレポートメールの読み取り。
 // - IVRyの着信通知「【着信内容の報告通知】090-xxxx-xxxxからのお電話【IVRy】」→ 問い合わせ（電話）1件
 // - 「【エステ魂】デイリーレポート(9月8日集計分)」→ その日のエステ魂のアクセス数・問い合わせ数
-// - エステ魂の仮予約のメール（件名に「エステ魂」と「予約」）→ すぐにエステ魂の「お店への予約」を読みに行く合図
+// - エステ魂の仮予約のメール（件名に「エステ魂」と「予約」）→ 本文から予約内容を取り込む
 // 本文の書式は各サービス次第なので、読み取れないときは推測で埋めずに unparsed として残す。
 
 // billing_failed / billing_paid … サブスクの請求まわりのメール（支払い失敗・停止の知らせ／領収書・請求）。
@@ -28,6 +28,28 @@ export interface EstamaDailyReport {
   pageViews: number;
   inquiryCount: number;
   externalStoreId: string | null;
+}
+
+export interface EstamaReservationEmail {
+  externalKey: string;
+  receivedAt: string;
+  hopeDate: string;
+  hopeTime: string;
+  nominationLabel: string | null;
+  isFree: boolean;
+  castName: string | null;
+  courseLabel: string | null;
+  courseMinutes: number | null;
+  coursePrice: number | null;
+  nominationFee: number | null;
+  totalPrice: number | null;
+  coupon: string | null;
+  requestNote: string | null;
+  visitKind: string | null;
+  memberLabel: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  customerEmail: string | null;
 }
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -136,6 +158,71 @@ export function parseEstamaDailyReport(email: ReportEmail): EstamaDailyReport | 
 
   const externalStoreId = body.match(/estama\.jp\/(?:admin\/)?shop\/(\d+)/)?.[1] || null;
   return { reportDate, pageViews, inquiryCount, externalStoreId };
+}
+
+const labeledValue = (body: string, label: string) => {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return body.match(new RegExp(`■${escaped}[：:]\\s*([^\\n]*)`))?.[1]?.trim() || null;
+};
+
+const yen = (value: string | null | undefined) => {
+  const match = normalizeText(value || "").match(/([0-9][0-9,]*)\s*円/);
+  return match ? Number(match[1].replace(/,/g, "")) : null;
+};
+
+/** エステ魂の予約受付メール本文を、予約受付一覧へ保存できる形にする。 */
+export function parseEstamaReservationEmail(email: ReportEmail): EstamaReservationEmail | { error: string } {
+  const body = normalizeText(email.body || "");
+  const dateMatch = body.match(/■ご希望日時[：:]\s*(\d{1,2})\/(\d{1,2})[^\d]+(\d{1,2}):(\d{2})/);
+  if (!dateMatch) return { error: "本文から希望日時を読み取れません" };
+
+  const received = jstParts(email.date);
+  const month = Number(dateMatch[1]);
+  const day = Number(dateMatch[2]);
+  const hour = Number(dateMatch[3]);
+  const minute = Number(dateMatch[4]);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) {
+    return { error: "希望日時が正しくありません" };
+  }
+  let year = received.year;
+  const receivedDate = Date.UTC(received.year, received.month - 1, received.day);
+  const candidate = Date.UTC(year, month - 1, day);
+  if (candidate < receivedDate - 30 * 24 * 60 * 60_000) year += 1;
+  if (candidate > receivedDate + 335 * 24 * 60 * 60_000) year -= 1;
+
+  const nominationLabel = labeledValue(body, "ご希望セラピスト");
+  const isFree = /フリー|指名なし/.test(nominationLabel || "");
+  const courseBlock = body.match(/■ご希望コース[：:]\s*\n?([\s\S]*?)(?=\n\s*■ご希望のクーポン)/)?.[1]?.trim() || null;
+  const courseLabel = courseBlock?.split("\n").map((line) => line.trim()).find(Boolean) || null;
+  const courseMinutes = courseLabel ? Number(courseLabel.match(/[（(](\d+)分[）)]/)?.[1] || "") || null : null;
+  const couponBlock = body.match(/■ご希望のクーポン[：:]\s*\n?([\s\S]*?)(?=\n[-━]+\s*\n?ご利用料金の内訳)/)?.[1] || "";
+  const coupon = couponBlock.split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !/^[=━-]+$/.test(line))
+    .join("／").slice(0, 300) || null;
+  const requestNote = body.match(/■ご要望[：:]\s*\n?([\s\S]*?)(?=\n\s*━+\n★ご予約内容)/)?.[1]?.trim().slice(0, 1000) || null;
+
+  return {
+    externalKey: `email:${email.id}`,
+    receivedAt: new Date(email.date).toISOString(),
+    hopeDate: `${year}-${pad(month)}-${pad(day)}`,
+    hopeTime: `${pad(hour)}:${pad(minute)}`,
+    nominationLabel,
+    isFree,
+    castName: isFree ? null : nominationLabel,
+    courseLabel,
+    courseMinutes,
+    coursePrice: yen(body.match(/【コース料金】([^\n]+)/)?.[1]),
+    nominationFee: yen(body.match(/【指名料】([^\n]+)/)?.[1]),
+    totalPrice: yen(body.match(/合計金額[：:]([^\n]+)/)?.[1]),
+    coupon,
+    requestNote,
+    visitKind: labeledValue(body, "来店歴"),
+    memberLabel: null,
+    customerName: labeledValue(body, "お名前"),
+    customerPhone: labeledValue(body, "電話番号")?.replace(/[^\d+]/g, "") || null,
+    customerEmail: labeledValue(body, "メールアドレス"),
+  };
 }
 
 /** エステ魂の仮予約の自動音声（IVRyに 0120-286-634 からかかってくる電話）か */
