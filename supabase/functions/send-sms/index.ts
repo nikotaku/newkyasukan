@@ -107,6 +107,11 @@ let cachedFrom = "";
 async function resolveFrom(): Promise<string> {
   if (TW_FROM) return TW_FROM;
   if (cachedFrom) return cachedFrom;
+  const configured = (await twilioCredentials()).smsFrom;
+  if (configured) {
+    cachedFrom = configured;
+    return cachedFrom;
+  }
   const n = (await listNumbers()).find((x: any) => x.sms);
   if (!n) throw new Error("SMS対応の番号がアカウントにありません");
   cachedFrom = n.number;

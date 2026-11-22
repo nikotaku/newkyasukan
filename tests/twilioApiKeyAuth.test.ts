@@ -7,6 +7,7 @@ test("Twilio APIキーSIDとsecretをBasic認証に使う", () => {
     accountSid: "AC_account",
     apiKeySid: "SK_restricted",
     apiKeySecret: "key_secret",
+    smsFrom: null,
   });
 
   assert.equal(header, `Basic ${Buffer.from("SK_restricted:key_secret").toString("base64")}`);

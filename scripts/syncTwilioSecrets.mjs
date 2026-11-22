@@ -32,3 +32,19 @@ if (!response.ok) {
 }
 
 console.log("[twilio] API credentials synced to Supabase Vault");
+
+if (process.env.TWILIO_SMS_FROM) {
+  const senderResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/set_twilio_sms_from`, {
+    method: "POST",
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ p_sms_from: process.env.TWILIO_SMS_FROM }),
+  });
+  if (!senderResponse.ok) {
+    throw new Error(`[twilio] sender sync failed (${senderResponse.status}): ${await senderResponse.text()}`);
+  }
+  console.log("[twilio] SMS sender synced to Supabase Vault");
+}

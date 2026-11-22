@@ -7,6 +7,7 @@ export interface TwilioCredentials {
   accountSid: string;
   apiKeySid: string;
   apiKeySecret: string;
+  smsFrom: string | null;
 }
 
 interface RpcClient {
@@ -17,7 +18,9 @@ export async function loadTwilioCredentials(client: RpcClient): Promise<TwilioCr
   const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
   const apiKeySid = Deno.env.get("TWILIO_API_KEY_SID");
   const apiKeySecret = Deno.env.get("TWILIO_API_KEY_SECRET");
-  if (accountSid && apiKeySid && apiKeySecret) return { accountSid, apiKeySid, apiKeySecret };
+  if (accountSid && apiKeySid && apiKeySecret) {
+    return { accountSid, apiKeySid, apiKeySecret, smsFrom: Deno.env.get("TWILIO_SMS_FROM") || null };
+  }
 
   const { data, error } = await client.rpc("get_twilio_credentials");
   if (error) {
@@ -28,9 +31,15 @@ export async function loadTwilioCredentials(client: RpcClient): Promise<TwilioCr
     account_sid?: string | null;
     api_key_sid?: string | null;
     api_key_secret?: string | null;
+    sms_from?: string | null;
   } | null;
   if (!row?.account_sid || !row.api_key_sid || !row.api_key_secret) return null;
-  return { accountSid: row.account_sid, apiKeySid: row.api_key_sid, apiKeySecret: row.api_key_secret };
+  return {
+    accountSid: row.account_sid,
+    apiKeySid: row.api_key_sid,
+    apiKeySecret: row.api_key_secret,
+    smsFrom: row.sms_from || null,
+  };
 }
 
 export function twilioAuthHeader(credentials: TwilioCredentials) {
