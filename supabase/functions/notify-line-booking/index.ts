@@ -29,6 +29,7 @@ interface ReservationRecord {
   store_id: string;
   cast_id: string | null;
   booking_origin: string;
+  is_off_shift_request: boolean;
   created_by: string | null;
   customer_name: string;
   customer_phone: string;
@@ -261,7 +262,7 @@ Deno.serve(async (req: Request) => {
     const { data: reservationData, error: reservationError } = await sb
       .from("reservations")
       .select([
-        "id", "store_id", "cast_id", "booking_origin", "created_by", "customer_name", "customer_phone",
+        "id", "store_id", "cast_id", "is_off_shift_request", "booking_origin", "created_by", "customer_name", "customer_phone",
         "reservation_date", "start_time", "duration", "course_name",
         "nomination_type", "options", "price", "discount", "discount_ids",
         "payment_fee", "payment_method", "notes", "referral_source",
@@ -389,7 +390,7 @@ Deno.serve(async (req: Request) => {
     const paymentLink = paymentFee > 0 ? paymentSetting?.payment_link || null : null;
 
     const lines = [
-      "🌸 新しいWEB予約が入りました 🌸",
+      reservation.is_off_shift_request ? "リクエスト予約が入りました（出勤予定なし）" : "🌸 新しいWEB予約が入りました 🌸",
       "",
       `📅 日付: ${dateText}`,
       `⏰ 時間: ${timeText}〜`,
@@ -418,7 +419,7 @@ Deno.serve(async (req: Request) => {
     const smsLines = [
       `${reservation.customer_name}様`,
       `${storeName}です。この度はご予約ありがとうございます。`,
-      "下記内容で承りました。",
+      reservation.is_off_shift_request ? "下記の内容でリクエストを受け付けました。" : "下記内容で承りました。",
       `■日付：${dateText}`,
       `■時間：${timeText}〜`,
       `■コース：${reservation.course_name}`,
@@ -428,11 +429,11 @@ Deno.serve(async (req: Request) => {
     if (options.length > 0) smsLines.push(`■オプション：${options.join("、")}`);
     smsLines.push(`■料金：¥${grandTotal.toLocaleString()}`);
     if (paymentLink) smsLines.push("▼決済はこちら", paymentLink);
-    smsLines.push("本メッセージにご返信いただけましたらご予約確定となります。");
+    smsLines.push(reservation.is_off_shift_request ? "出勤予定を確認後、店舗から改めてご連絡します。" : "本メッセージにご返信いただけましたらご予約確定となります。");
 
     lines.push("", "━━━━━━━━━━━━━", "📲 そのまま送信できるSMS文面", "━━━━━━━━━━━━━", smsLines.join("\n"));
     const message = lines.join("\n");
-    const subject = `【${storeName}】新規WEB予約 ${dateText} ${timeText}〜 ${castName}`;
+    const subject = `【${storeName}】${reservation.is_off_shift_request ? "リクエスト予約" : "新規WEB予約"} ${dateText} ${timeText}〜 ${castName}`;
 
     const destinations = new Map(
       (destinationResult.data || []).map(

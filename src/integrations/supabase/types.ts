@@ -4809,6 +4809,7 @@ export type Database = {
       }
       reservations: {
         Row: {
+          is_off_shift_request: boolean
           booking_origin: string
           cast_id: string | null
           course_name: string
@@ -4851,6 +4852,7 @@ export type Database = {
           web_booking_status_updated_by: string | null
         }
         Insert: {
+          is_off_shift_request?: boolean
           booking_origin?: string
           cast_id?: string | null
           course_name?: string
@@ -4892,6 +4894,7 @@ export type Database = {
           web_booking_status_updated_by?: string | null
         }
         Update: {
+          is_off_shift_request?: boolean
           booking_origin?: string
           cast_id?: string | null
           course_name?: string
