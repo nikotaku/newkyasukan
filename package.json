@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/syncTwilioSecrets.mjs && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "test:estama": "node --experimental-strip-types --test tests/estama*.test.ts",
@@ -42,7 +42,7 @@
     "test:reservation-room": "node --experimental-strip-types --test tests/reservationRoom.test.ts",
     "test:reservation-guide-payment": "node --experimental-strip-types --test tests/reservationGuidePayment.test.ts",
     "test:x-daily-posts": "node --experimental-strip-types --test tests/xDailyPosts.test.ts",
-    "test:sms-billing": "node --experimental-strip-types --test tests/smsBilling.test.ts tests/smsSegments.test.ts tests/sendSmsTemplate.test.ts",
+    "test:sms-billing": "node --experimental-strip-types --test tests/smsBilling.test.ts tests/smsSegments.test.ts tests/sendSmsTemplate.test.ts tests/twilioApiKeyAuth.test.ts",
     "test:business-time": "node --experimental-strip-types --test tests/businessTime.test.ts",
     "test:hp-article-o2": "node --experimental-strip-types --test tests/hpArticleO2.test.ts",
     "test:referral-rewards": "node --experimental-strip-types --test tests/referralRewards.test.ts",
