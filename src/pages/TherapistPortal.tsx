@@ -157,7 +157,7 @@ export default function TherapistPortal() {
   useTherapistAppManifest();
   const [portalDayStartTime, setPortalDayStartTime] = useState("10:00:00");
   const [dayStartHour, dayStartMinute] = portalDayStartTime.split(":").map(Number);
-  const nowForBusinessDate = new Date();
+  const nowForBusinessDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
   const isBeforeBusinessStart = nowForBusinessDate.getHours() * 60 + nowForBusinessDate.getMinutes()
     < dayStartHour * 60 + dayStartMinute;
   const [cleaningRevision, setCleaningRevision] = useState(0);
@@ -392,7 +392,7 @@ export default function TherapistPortal() {
     if (view === "shift" && cast) fetchShifts();
     if (view === "customers" && cast && therapistCustomers.length === 0) fetchCustomers();
     if (view === "upcoming" && cast) fetchUpcoming();
-  }, [view, year, month, cast]);
+  }, [view, year, month, cast, businessDate, dayStart]);
 
   // 暗証番号・Wi-Fi が入るので、表を直接読まずにマイページのトークンで本人確認して受け取る
   useEffect(() => {
@@ -439,7 +439,18 @@ export default function TherapistPortal() {
     setUpcomingLoading(true);
     const { data, error } = await supabase.rpc("get_therapist_upcoming_reservations", { p_token: token });
     if (error) toast.error("予約の取得に失敗しました");
-    else setUpcoming((data || []) as UpcomingReservation[]);
+    else {
+      const daily = await supabase.rpc("get_therapist_daily_reservations", { p_token: token, p_date: businessDate });
+      const merged = new Map<string, UpcomingReservation>();
+      for (const r of [...(daily.data ?? []), ...(data ?? [])] as unknown as UpcomingReservation[]) {
+        if (!["confirmed", "completed"].includes(r.status)) continue;
+        const late = r.start_time.slice(0, 5) < dayStart;
+        const key = late ? format(addDays(new Date(r.reservation_date + "T12:00:00"), -1), "yyyy-MM-dd") : r.reservation_date;
+        if (key >= businessDate) merged.set(r.id, { ...r, reservation_date: key,
+          start_time: late ? String(Number(r.start_time.slice(0, 2)) + 24) + r.start_time.slice(2, 5) : r.start_time.slice(0, 5) });
+      }
+      setUpcoming([...merged.values()].sort((a,b) => a.reservation_date.localeCompare(b.reservation_date) || a.start_time.localeCompare(b.start_time)));
+    }
     setUpcomingLoading(false);
   };
 
@@ -1009,7 +1020,7 @@ export default function TherapistPortal() {
         {view === "upcoming" && (
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground">
-              今日以降に入っている確定予約の一覧です。深夜（24時以降）の予約は翌日の日付で表示されます。
+              深夜の予約は営業日ごとに、24時以降の時刻で表示します。
             </p>
             {upcomingLoading ? (
               <div className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" /></div>
@@ -1025,12 +1036,13 @@ export default function TherapistPortal() {
                 return (
                   <div className="space-y-3">
                     {[...byDate.entries()].map(([date, rows]) => {
-                      const isToday = isSameDay(new Date(date), now);
+                      const isToday = date === businessDate;
+                      const isTomorrow = date === format(addDays(new Date(businessDate + "T12:00:00"), 1), "yyyy-MM-dd");
                       return (
                         <div key={date} className="rounded-xl border bg-card overflow-hidden">
                           <div className={`px-4 py-2 text-sm font-bold flex items-center gap-2 ${isToday ? "bg-primary/10 text-primary" : "bg-muted/40"}`}>
-                            {format(new Date(date), "M月d日(E)", { locale: ja })}
-                            {isToday && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">今日</span>}
+                            {format(new Date(date + "T12:00:00"), "M月d日(E)", { locale: ja })}
+                            {(isToday || isTomorrow) && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">{isToday ? "今日" : "明日"}</span>}
                             <span className="ml-auto text-xs font-normal text-muted-foreground">{rows.length}件</span>
                           </div>
                           <div className="divide-y">

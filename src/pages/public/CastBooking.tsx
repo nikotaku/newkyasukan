@@ -131,6 +131,7 @@ export default function CastBooking() {
   const [notes, setNotes] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
+  const [offShiftRequest, setOffShiftRequest] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
@@ -305,6 +306,17 @@ export default function CastBooking() {
         setError("このセラピストは現在予約を受け付けていません");
         return;
       }
+      const { data: shifts, error: shiftError } = await supabase.from("shifts")
+        .select("status, approval_status").eq("store_id", cast.store_id)
+        .eq("cast_id", cast.id).eq("shift_date", date);
+      if (shiftError) {
+        setError("出勤予定を確認できませんでした。もう一度お試しください。");
+        return;
+      }
+      const request = !shifts.some(s => s.approval_status !== "rejected" &&
+        !["absent", "cancelled", "canceled"].includes(s.status ?? ""));
+      if (request && !window.confirm("この日は出勤予定がありません。リクエストを送信しますか？")) return;
+      setOffShiftRequest(request);
       const courseName = `${courseType} ${duration}分`;
       const reservationId = crypto.randomUUID();
       const { error: insErr } = await supabase.from("reservations").insert([{
@@ -323,7 +335,8 @@ export default function CastBooking() {
         payment_method: "cash",
         notes: notes.trim() || null,
         referral_source: `${cast.name}専用フォーム`,
-        status: "confirmed",
+        is_off_shift_request: request,
+        status: request ? "pending" : "confirmed",
         payment_status: "unpaid",
         booking_origin: "cast_form",
         web_booking_status: "unhandled",
@@ -387,7 +400,7 @@ export default function CastBooking() {
             {selectedOptions.length > 0 && <p>✨ {selectedOptions.map(getOptionDisplayName).join("・")}</p>}
             {total > 0 && <p>💰 ¥{total.toLocaleString()}（目安）</p>}
           </div>
-          <p className="text-xs text-gray-400">※ この時点ではまだ予約は確定していません。返信をもって確定となります。</p>
+          <p className="text-xs text-gray-400">{offShiftRequest ? "出勤予定を確認後、店舗からご連絡します。" : "※ この時点ではまだ予約は確定していません。返信をもって確定となります。"}</p>
         </div>
       </div>
     );

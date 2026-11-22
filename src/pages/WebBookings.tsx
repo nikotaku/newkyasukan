@@ -49,6 +49,7 @@ type BookingSource = BookingOrigin | "estama";
 interface WebBooking {
   id: string;
   booking_origin: BookingOrigin;
+  is_off_shift_request: boolean;
   cast_id: string | null;
   casts: { name: string } | { name: string }[] | null;
   course_name: string;
@@ -287,7 +288,7 @@ export default function WebBookings() {
         const { data, error } = await supabase
           .from("reservations")
           .select(
-            "id, booking_origin, cast_id, casts(name), course_name, created_at, customer_name, customer_phone, duration, email_notification_status, line_notification_status, notification_last_error, price, reservation_date, start_time, status, web_booking_status, web_booking_status_updated_at, web_booking_status_updated_by",
+            "id, is_off_shift_request, booking_origin, cast_id, casts(name), course_name, created_at, customer_name, customer_phone, duration, email_notification_status, line_notification_status, notification_last_error, price, reservation_date, start_time, status, web_booking_status, web_booking_status_updated_at, web_booking_status_updated_by",
           )
           .in("booking_origin", ["web_form", "cast_form"])
           .eq("store_id", storeId)
@@ -661,6 +662,7 @@ export default function WebBookings() {
                           />
                         </div>
 
+                        {booking.is_off_shift_request && <Badge variant="outline">リクエスト予約（出勤予定なし）</Badge>}
                         {courseLimits.get(booking.id) && (
                           <div className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
                             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
