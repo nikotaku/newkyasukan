@@ -55,6 +55,7 @@ const VARIABLE_ITEMS = [
 const FIXED_SET = new Set(FIXED_ITEMS);
 
 interface ExpenseRec {
+  description: string | null;
   id: string;
   date: string;
   category: string;
@@ -191,6 +192,7 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
   const scrolledToExpenses = useRef(false);
   const [selectedMonth, setSelectedMonth] = useState(startOfMonth(new Date()));
   const [records, setRecords] = useState<ExpenseRec[]>([]);
+  const [previousWaterPayment, setPreviousWaterPayment] = useState<string | null>(null);
   const [fixedCostDestinations, setFixedCostDestinations] = useState<FixedCostDestination[]>([]);
   const [clearances, setClearances] = useState<ClearanceRec[]>([]);
   const [reservations, setReservations] = useState<ReservationRec[]>([]);
@@ -238,7 +240,7 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
     setClosing(null);
     const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
     const monthEnd = format(endOfMonth(selectedMonth), "yyyy-MM-dd");
-    const [expRes, clrRes, rewardsRes, resvRes, closeRes, fixedCostsRes] = await Promise.all([
+    const [expRes, clrRes, rewardsRes, resvRes, closeRes, fixedCostsRes, waterRes] = await Promise.all([
       supabase
         .from("expenses")
         .select("id, expense_date, expense_type, amount, is_paid, description")
@@ -264,7 +266,11 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
       supabase
         .from("business_fixed_costs")
         .select("id, item_name, transfer_account_id"),
+      supabase.from("expenses").select("expense_date")
+        .eq("expense_type", "ラズルーム水道代").eq("is_paid", true).gt("amount", 0)
+        .lt("expense_date", monthStart).order("expense_date", { ascending: false }).limit(1).maybeSingle(),
     ]);
+    setPreviousWaterPayment(waterRes.error ? "取得できません" : waterRes.data?.expense_date ?? null);
 
     const firstError = [expRes.error, clrRes.error, rewardsRes.error, resvRes.error, closeRes.error, fixedCostsRes.error].find(Boolean);
     if (firstError) {
@@ -325,6 +331,7 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
       date: r.expense_date,
       category: r.expense_type,
       amount: r.amount,
+      description: r.description,
       is_paid: r.is_paid ?? true,
     })));
     setClearances((clrRes.data ?? []).map((r) => {
@@ -447,7 +454,7 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
   const sumFor = (item: string) =>
     records.filter((r) => r.category === item).reduce((s, r) => s + (r.amount || 0), 0);
   const isEntered = (item: string) => records.some((r) => r.category === item);
-  const pendingItems = FIXED_ITEMS.filter((i) => !isEntered(i));
+  const pendingItems = FIXED_ITEMS.filter((i) => i !== "広告媒体費（エスラン）" && !isEntered(i));
   const doneItems = FIXED_ITEMS.filter((i) => isEntered(i));
   const totalFixed = doneItems.reduce((s, i) => s + sumFor(i), 0);
   const isCurrentMonth = isSameMonth(selectedMonth, new Date());
@@ -523,8 +530,8 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
   const otherExpense = records.filter((r) => !groupedCats.has(r.category)).reduce((s, r) => s + (r.amount || 0), 0);
   if (otherExpense > 0) expenseBreakdown.push({ label: "その他", amount: otherExpense });
 
-  const handleRegister = async (item: string, paid = true) => {
-    const raw = (inputs[item] ?? "").trim();
+  const handleRegister = async (item: string, paid = true, skipPayment = false) => {
+    const raw = skipPayment ? "0" : (inputs[item] ?? "").trim();
     if (raw === "") {
       toast.error("金額を入力してください（隔月請求などで請求が無い月は 0 を入力）");
       return;
@@ -543,7 +550,7 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
       expense_date: date,
       expense_type: item,
       amount,
-      description: `${format(selectedMonth, "M月", { locale: ja })}分 ${item}`,
+      description: skipPayment ? "支払い不要" : `${format(selectedMonth, "M月", { locale: ja })}分 ${item}`,
       payment_method: "bank_transfer",
       is_paid: paid,
     }]);
@@ -552,7 +559,7 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
       toast.error(`登録失敗: ${error.message}`);
       return;
     }
-    toast.success(paid ? `${item} を登録しました` : `${item} を未払いで記録しました`);
+    toast.success(skipPayment ? "この月を支払い不要にしました" : paid ? `${item} を登録しました` : `${item} を未払いで記録しました`);
     setInputs((p) => ({ ...p, [item]: "" }));
     fetchData();
   };
@@ -999,7 +1006,7 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
                       {allDone ? <CheckCircle size={16} className="text-green-600" /> : <AlertCircle size={16} className="text-amber-600" />}
                       {allDone
                         ? `${format(selectedMonth, "M月", { locale: ja })}の固定費はすべて入力済みです（合計 ${yen(totalFixed)}）`
-                        : `未入力・未払いが ${pendingItems.length}件 あります（入力済み ${doneItems.length}/${FIXED_ITEMS.length}件）`}
+                        : `未入力・未払いが ${pendingItems.length}件 あります（入力済み ${doneItems.length}/${doneItems.length + pendingItems.length}件）`}
                     </div>
 
                     {/* 未入力・未払い一覧 */}
@@ -1019,6 +1026,9 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
                             <div key={item} className="px-4 py-3 flex items-center gap-3 flex-wrap">
                               <div className="flex-1 min-w-[160px]">
                                 <span className="text-sm font-medium">{item}</span>
+                                {item === "ラズルーム水道代" && (
+                                  <p className="text-xs text-muted-foreground">前回支払日 {previousWaterPayment ?? "記録なし"}</p>
+                                )}
                                 {showSuggest && (
                                   <button
                                     type="button"
@@ -1030,7 +1040,7 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
                                   </button>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex min-w-0 flex-wrap items-center gap-2">
                                 <Input
                                   type="number"
                                   inputMode="numeric"
@@ -1058,6 +1068,12 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
                                 >
                                   {savingItem === item ? <Loader2 size={13} className="animate-spin" /> : "支払・登録"}
                                 </Button>
+                                {item === "ラズルーム水道代" && (
+                                  <Button size="sm" variant="outline" disabled={savingItem === item}
+                                    onClick={() => handleRegister(item, true, true)}>
+                                    支払い不要
+                                  </Button>
+                                )}
                                 {renderPaymentDestinationButton(item)}
                               </div>
                             </div>
@@ -1087,6 +1103,9 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
                                   ? <AlertCircle size={14} className="text-amber-500 shrink-0" />
                                   : <CheckCircle size={14} className="text-green-600 shrink-0" />}
                                 <span className="truncate">{item}</span>
+                                {item === "ラズルーム水道代" && rec?.description === "支払い不要" && (
+                                  <span className="shrink-0 text-xs text-muted-foreground">支払い不要</span>
+                                )}
                                 {unpaid && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 shrink-0">未払い</span>}
                               </span>
                               {rec && isEditing ? (
