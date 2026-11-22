@@ -67,6 +67,8 @@ export default function StoreInfo({ embedded = false }: { embedded?: boolean } =
       if (data) {
         setFormData({
           ...data,
+          name: data.name ?? "",
+          email: data.email ?? "",
           twitter_url: (data as any).twitter_url || "",
           line_url: (data as any).line_url || "",
         });
@@ -94,11 +96,11 @@ export default function StoreInfo({ embedded = false }: { embedded?: boolean } =
       delete payload.line_url;
       let result;
       if (formData.id) {
-        result = await supabase.from("store_info").update(payload).eq("id", formData.id);
+        result = await supabase.from("store_info").update(payload).eq("id", formData.id).eq("store_id", adminStoreId).select("id").single();
       } else {
         delete payload.id; // 新規作成時は空のidを送らない
         payload.store_id = adminStoreId;
-        result = await supabase.from("store_info").insert([payload]);
+        result = await supabase.from("store_info").insert([payload]).select("id").single();
       }
       if (result.error) throw result.error;
       toast.success("店舗情報を保存しました");
@@ -126,7 +128,7 @@ export default function StoreInfo({ embedded = false }: { embedded?: boolean } =
             type="button"
             onClick={handleSave}
             disabled={saving || loading || !adminStoreId}
-            className="relative z-20 min-h-12 w-full shrink-0 touch-manipulation sm:w-auto"
+            className="relative z-20 hidden min-h-12 shrink-0 touch-manipulation sm:inline-flex"
           >
             <Save size={16} className="mr-2" />
             {saving ? "保存中..." : "保存"}

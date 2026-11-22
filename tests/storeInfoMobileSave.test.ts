@@ -10,6 +10,9 @@ test("店舗情報はiPhoneで常に押せる固定保存ボタンを持つ", as
   assert.match(source, /fixed inset-x-0 bottom-0 z-50/);
   assert.match(source, /pb-\[calc\(0\.75rem\+env\(safe-area-inset-bottom\)\)\]/);
   assert.match(source, /変更を保存/);
+  assert.match(source, /hidden min-h-12[^"]*sm:inline-flex/);
+  assert.match(source, /backdrop-blur sm:hidden/);
+  assert.match(source, /email: data\.email \?\? ""/);
   assert.equal((source.match(/type="button"/g) ?? []).length, 2);
   assert.equal((source.match(/touch-manipulation/g) ?? []).length, 2);
 });
