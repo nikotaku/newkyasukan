@@ -116,13 +116,18 @@ export default function StoreInfo({ embedded = false }: { embedded?: boolean } =
 
   return (
     <AdminPageShell embedded={embedded} mainClassName="p-6">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <div>
+      <div className="mx-auto max-w-2xl pb-24 sm:pb-0">
+        <div className="relative z-20 mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold">店舗情報</h1>
             <p className="text-muted-foreground">電話番号・予約用LINEなどはHP全体に反映されます</p>
           </div>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || loading || !adminStoreId}
+            className="relative z-20 min-h-12 w-full shrink-0 touch-manipulation sm:w-auto"
+          >
             <Save size={16} className="mr-2" />
             {saving ? "保存中..." : "保存"}
           </Button>
@@ -239,6 +244,18 @@ export default function StoreInfo({ embedded = false }: { embedded?: boolean } =
 
           </div>
         )}
+
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_16px_rgba(15,23,42,0.12)] backdrop-blur sm:hidden">
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || loading || !adminStoreId}
+            className="min-h-12 w-full touch-manipulation"
+          >
+            <Save size={16} className="mr-2" />
+            {saving ? "保存中..." : "変更を保存"}
+          </Button>
+        </div>
       </div>
     </AdminPageShell>
   );

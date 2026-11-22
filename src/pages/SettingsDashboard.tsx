@@ -59,7 +59,7 @@ export default function SettingsDashboard() {
         <h1 className="mb-3 flex items-center gap-2 text-2xl font-bold"><Layers size={22} />設定ダッシュボード</h1>
         {/* タブを変えたら編集中の印（edit）は外す */}
         <Tabs value={tab} onValueChange={(value) => setSearchParams({ tab: value }, { replace: true })}>
-          <div className="-mx-3 mb-4 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+          <div className="relative z-0 -mx-3 mb-4 overflow-x-auto px-3 sm:mx-0 sm:px-0">
             <TabsList className="inline-flex h-auto w-max gap-1 p-1">
               {TABS.map(({ value, label, icon: Icon }) => (
                 <TabsTrigger key={value} value={value} className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 text-[11px] sm:flex-row sm:gap-1.5 sm:py-2 sm:text-sm">
@@ -70,7 +70,7 @@ export default function SettingsDashboard() {
             </TabsList>
           </div>
           {/* 開いているタブだけ描く（それぞれが自分のデータを読むため） */}
-          <TabsContent value={current.value} className="mt-0">{current.render()}</TabsContent>
+          <TabsContent value={current.value} className="relative z-10 mt-0">{current.render()}</TabsContent>
         </Tabs>
       </div>
     </AdminPageShell>
