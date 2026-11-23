@@ -111,6 +111,7 @@ import Tasks from "./pages/Tasks";
 import SmsInbox from "./pages/SmsInbox";
 import LineInbox from "./pages/LineInbox";
 import TherapistNotices from "./pages/TherapistNotices";
+import TherapistManualAdmin from "./pages/TherapistManualAdmin";
 import Bios from "./pages/Bios";
 import CtiCalls from "./pages/CtiCalls";
 import CustomerDetail from "./pages/CustomerDetail";
@@ -313,6 +314,7 @@ const App = () => {
           <Route path="/interview" element={<InterviewGuide />} />
           <Route path="/education" element={<Education />} />
           <Route path="/therapist-notices" element={<TherapistNotices />} />
+          <Route path="/therapist-manual" element={<TherapistManualAdmin />} />
 
           <Route path="/business-continuity" element={<BusinessContinuity />} />
           <Route path="/business-continuity/vendors" element={<BusinessVendors />} />

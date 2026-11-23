@@ -8,6 +8,7 @@ const groups = [
   { id: "operations", label: "運営・連絡", links: [
     { href: "/staff", label: "セラピスト一覧" },
     { href: "/therapist-notices", label: "お知らせ（マイページ掲示板）" },
+    { href: "/therapist-manual", label: "入室後のマニュアル（マイページ・動画）" },
     { href: "/promotion-schedule", label: "投稿宣伝スケジュール" },
   ] },
   { id: "training", label: "教育・投稿", links: [

@@ -1,3 +1,4 @@
+import { TransportExpenseReview } from "@/components/payments/TransportExpenseReview";
 import { AdminPageShell } from "@/components/AdminPageShell";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -269,6 +270,8 @@ export default function PaymentManagement({ embedded = false }: { embedded?: boo
           </div>
 
           <SubscriptionWatchPanel storeId={storeId} />
+
+          <TransportExpenseReview storeId={storeId} />
 
           <Card>
             <CardHeader className="pb-3">
