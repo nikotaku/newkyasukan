@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { AtSign, Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, ChevronRight, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart, PencilLine, Check, X, Copy, CheckCircle2, Megaphone, MapPin, KeyRound, ListOrdered, ImageIcon, Maximize2, ZoomIn, ZoomOut, RotateCcw, Footprints, ImagePlus } from "lucide-react";
+import { AtSign, Loader2, FileText, DollarSign, Receipt, Plane, CalendarPlus, LogOut, ChevronLeft, ChevronRight, Send, Calendar, Edit, Banknote, ClipboardCheck, DoorOpen, ExternalLink, ChevronDown, ChevronUp, Users, Search, Heart, PencilLine, Check, X, Copy, CheckCircle2, Megaphone, MapPin, KeyRound, ListOrdered, ImageIcon, Maximize2, ZoomIn, ZoomOut, RotateCcw, Footprints, ImagePlus, BookOpen, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format, startOfMonth, endOfMonth, isSameDay, addDays } from "date-fns";
@@ -38,6 +38,8 @@ import { WifiConnectCard } from "@/components/entry/WifiConnectCard";
 import { formatShiftBreak } from "@/lib/shiftBreak";
 import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { TherapistPromotionSchedule, TherapistPromotionSummary } from "@/components/therapist/TherapistPromotionSchedule";
+import { TherapistAfterEntryManual } from "@/components/therapist/TherapistAfterEntryManual";
+import { shrinkImageToDataUrl } from "@/lib/receiptImage";
 
 
 interface Cast {
@@ -64,6 +66,7 @@ interface TransportExpense {
   route: string | null;
   notes: string | null;
   status: string;
+  has_receipt?: boolean;
 }
 
 interface ShiftRow {
@@ -114,7 +117,7 @@ interface EntryPhotoViewer {
   total: number;
 }
 
-type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers" | "upcoming" | "promotion" | "sns" | "profile" | "photos" | "photo-review" | "notices" | "open-shifts";
+type View = "menu" | "settlement" | "transport" | "shift" | "entry" | "customers" | "upcoming" | "promotion" | "sns" | "profile" | "photos" | "photo-review" | "notices" | "open-shifts" | "manual";
 
 interface UpcomingReservation {
   id: string;
@@ -282,6 +285,9 @@ export default function TherapistPortal() {
     notes: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  // 交通費の領収書（申請と一緒に送る写真・履歴から後で付ける写真）
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptBusyId, setReceiptBusyId] = useState<string | null>(null);
 
   const loadMenuReservations = useCallback(async () => {
     if (!token) return;
@@ -474,11 +480,11 @@ export default function TherapistPortal() {
 
   const fetchExpenses = async () => {
     setExpensesLoading(true);
-    const { data, error } = await supabase.rpc("get_therapist_transport_expenses", {
+    const { data, error } = await supabase.rpc("get_therapist_transport_expenses_v2" as never, {
       p_token: token, p_year: year, p_month: month,
-    });
+    } as never);
     if (error) toast.error("データの取得に失敗しました");
-    else setExpenses((data || []) as TransportExpense[]);
+    else setExpenses((data || []) as unknown as TransportExpense[]);
     setExpensesLoading(false);
   };
 
@@ -502,19 +508,57 @@ export default function TherapistPortal() {
     if (!transportForm.amount || Number(transportForm.amount) <= 0) {
       toast.error("金額を入力してください"); return;
     }
+    if (!receiptFile && !confirm("領収書の写真が付いていません。このまま申請しますか？（あとから履歴で付けられます）")) return;
     setSubmitting(true);
-    const { error } = await supabase.rpc("submit_therapist_transport_expense", {
+    const { data: expenseId, error } = await supabase.rpc("submit_therapist_transport_expense", {
       p_token: token,
       p_date: transportForm.date,
       p_amount: Number(transportForm.amount),
       p_route: transportForm.route || null,
       p_notes: transportForm.notes || null,
     });
+    if (error) { setSubmitting(false); toast.error("申請に失敗しました: " + error.message); return; }
+    let receiptOk = true;
+    if (receiptFile && expenseId) receiptOk = await uploadReceipt(String(expenseId), receiptFile);
     setSubmitting(false);
-    if (error) { toast.error("申請に失敗しました: " + error.message); return; }
-    toast.success("交通費を申請しました");
+    toast.success(receiptOk ? "交通費を申請しました" : "交通費を申請しました（領収書は送れなかったので、履歴から付け直してください）");
     setTransportForm({ date: format(now, "yyyy-MM-dd"), amount: "", route: "", notes: "" });
+    setReceiptFile(null);
     fetchExpenses();
+  };
+
+  // 領収書の写真を小さくして Edge Function therapist-receipts へ（本人のトークンで確認）
+  const uploadReceipt = async (expenseId: string, file: File) => {
+    try {
+      const image = await shrinkImageToDataUrl(file);
+      const { data, error } = await supabase.functions.invoke("therapist-receipts", {
+        body: { token, action: "upload", expense_id: expenseId, image },
+      });
+      if (error || (data as { error?: string } | null)?.error) throw new Error((data as { error?: string } | null)?.error || "送れませんでした");
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "領収書を送れませんでした");
+      return false;
+    }
+  };
+
+  const attachReceipt = async (expenseId: string, file: File | undefined) => {
+    if (!file) return;
+    setReceiptBusyId(expenseId);
+    const ok = await uploadReceipt(expenseId, file);
+    setReceiptBusyId(null);
+    if (ok) { toast.success("領収書を送りました"); fetchExpenses(); }
+  };
+
+  const viewReceipt = async (expenseId: string) => {
+    setReceiptBusyId(expenseId);
+    const { data, error } = await supabase.functions.invoke("therapist-receipts", {
+      body: { token, action: "view", expense_id: expenseId },
+    });
+    setReceiptBusyId(null);
+    const url = (data as { url?: string } | null)?.url;
+    if (error || !url) { toast.error("領収書を開けませんでした"); return; }
+    window.open(url, "_blank", "noopener");
   };
 
   const prevMonth = () => {
@@ -589,6 +633,7 @@ export default function TherapistPortal() {
     { title: "写真の確認", description: "お店が加工した写真を見てOK・直してほしいを返事", icon: ImageIcon, action: () => setView("photo-review") },
     { title: "SNSアカウント", description: "X・O2のログイン情報と設定マニュアル", icon: AtSign, action: () => setView("sns") },
     { title: "入室方法", description: "各ルームへの入室手順・鍵の場所を確認", icon: DoorOpen, action: () => setView("entry") },
+    { title: "入室後のマニュアル", description: "入室・退室の報告、備品の置き場、交通費の領収書（動画）", icon: BookOpen, action: () => setView("manual") },
   ];
 
   const REGISTER_URLS: Record<"o2" | "esutama", string> = {
@@ -617,7 +662,7 @@ export default function TherapistPortal() {
           <div className="min-w-0">
             <p className="font-bold text-base leading-tight truncate">{cast.name}様</p>
             <p className="text-xs text-muted-foreground">
-              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : view === "upcoming" ? "事前予約" : view === "promotion" ? "投稿宣伝スケジュール" : view === "sns" ? "SNSアカウント" : view === "profile" ? "プロフィール入力" : view === "photos" ? "画像アップロード" : view === "photo-review" ? "写真の確認" : view === "notices" ? "お知らせ" : view === "open-shifts" ? "空きシフト" : "交通費申請"}
+              {view === "menu" ? "セラピストポータル" : view === "settlement" ? "精算・売上確認" : view === "shift" ? "シフト確認" : view === "entry" ? "入室方法" : view === "customers" ? "顧客カルテ" : view === "upcoming" ? "事前予約" : view === "promotion" ? "投稿宣伝スケジュール" : view === "sns" ? "SNSアカウント" : view === "profile" ? "プロフィール入力" : view === "photos" ? "画像アップロード" : view === "photo-review" ? "写真の確認" : view === "notices" ? "お知らせ" : view === "open-shifts" ? "空きシフト" : view === "manual" ? "入室後のマニュアル" : "交通費申請"}
             </p>
           </div>
         </div>
@@ -1203,6 +1248,17 @@ export default function TherapistPortal() {
                   rows={2}
                 />
               </div>
+              <div>
+                <Label className="text-xs">領収書の写真</Label>
+                <label className="mt-1 flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted/40">
+                  <Camera size={16} className="shrink-0" />
+                  <span className="min-w-0 truncate">{receiptFile ? receiptFile.name : "写真を撮る・選ぶ"}</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={e => setReceiptFile(e.target.files?.[0] ?? null)} />
+                </label>
+                {receiptFile && (
+                  <button type="button" onClick={() => setReceiptFile(null)} className="mt-1 text-xs text-muted-foreground underline">写真を外す</button>
+                )}
+              </div>
               <Button onClick={handleTransportSubmit} disabled={submitting} className="w-full h-9">
                 <Send size={14} className="mr-2" />
                 {submitting ? "申請中..." : "申請する"}
@@ -1227,6 +1283,21 @@ export default function TherapistPortal() {
                           {e.route && ` · ${e.route}`}
                         </p>
                         {e.notes && <p className="text-xs text-muted-foreground truncate">{e.notes}</p>}
+                        <div className="mt-1 flex items-center gap-3 text-xs">
+                          {receiptBusyId === e.id ? (
+                            <Loader2 size={12} className="animate-spin text-primary" />
+                          ) : e.has_receipt ? (
+                            <button type="button" onClick={() => void viewReceipt(e.id)} className="text-primary underline">領収書を見る</button>
+                          ) : (
+                            <span className="text-amber-600">領収書なし</span>
+                          )}
+                          {e.status !== "approved" && receiptBusyId !== e.id && (
+                            <label className="cursor-pointer text-primary underline">
+                              {e.has_receipt ? "撮り直す" : "領収書を付ける"}
+                              <input type="file" accept="image/*" className="hidden" onChange={ev => void attachReceipt(e.id, ev.target.files?.[0])} />
+                            </label>
+                          )}
+                        </div>
                       </div>
                       <span className={`text-xs font-medium shrink-0 ${expenseStatusColor[e.status] ?? ""}`}>
                         {expenseStatusLabel[e.status] ?? e.status}
@@ -1257,6 +1328,7 @@ export default function TherapistPortal() {
 
         {/* ── PROFILE（本人がプロフィールを入力してお店に送る） ── */}
         {view === "profile" && token && <TherapistProfileForm token={token} />}
+        {view === "manual" && token && <TherapistAfterEntryManual token={token} onOpenTransport={() => setView("transport")} />}
         {view === "photos" && token && <TherapistPhotoUpload token={token} />}
         {view === "photo-review" && token && <TherapistPhotoReview token={token} />}
         {view === "notices" && token && <TherapistNotices token={token} notices={notices} onChange={setNotices} onOpenShifts={openShifts} />}

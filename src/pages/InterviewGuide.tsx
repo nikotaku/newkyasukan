@@ -22,6 +22,8 @@ const PORTAL_FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
   { icon: Calendar, title: "シフト確認・事前予約", body: "確定したシフトと出勤ルーム、今日以降の予約を確認" },
   { icon: CalendarPlus, title: "空きシフト", body: "ルームごとの空いている日・時間を見て、出られる日を追加で提出" },
   { icon: DoorOpen, title: "入室方法", body: "ルームまでの道順・鍵の開け方（動画・写真）・Wi-Fi" },
+  { icon: DoorOpen, title: "入室後のマニュアル", body: "入室・退室のLINE報告、備品の置き場、交通費の領収書の出し方を動画で確認" },
+  { icon: Receipt, title: "交通費申請", body: "金額と領収書の写真を送って申請。承認されたかもここで確認" },
   { icon: LogOut, title: "退勤フォーム（精算）", body: "売上・清掃チェックを入れて送るだけ。お店が承認すると清算明細が届きます" },
   { icon: Receipt, title: "バック表", body: "コース・オプション・指名ごとのお給料をいつでも確認" },
   { icon: BarChart3, title: "その月の本数", body: "施術済み・予定の本数、指名の内訳を月ごとに確認" },

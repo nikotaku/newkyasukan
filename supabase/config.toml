@@ -79,6 +79,10 @@ verify_jwt = true
 # マイページの長いトークンを関数内で確かめる
 verify_jwt = false
 
+[functions.therapist-receipts]
+# マイページの長いトークンを関数内で確かめる（交通費の領収書）
+verify_jwt = false
+
 [functions.o2-control]
 # JWT for managers, hashed Gmail relay token, or an internal worker secret are checked in the handler.
 verify_jwt = false

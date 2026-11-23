@@ -460,6 +460,16 @@
 - **写真のセラピスト確認**：写真タブの右下「セラピストに確認を取る」（`src/components/staff/CastPhotoReviewPanel.tsx`）で写真を選んで送る → RPC `request_cast_photo_review`（店長・オーナー、前の返事待ちは取り消し）→ `cast_photo_reviews` ＋ `therapist_notifications`（kind = `photo_review`、マイページへプッシュ → LINEグループ → 届かなければ管理画面の左下）。マイページのメニュー「写真の確認」（`?view=photo-review`、`src/components/therapist/TherapistPhotoReview.tsx`）で1枚ずつ「OK／直してほしい＋ひとこと」を返す（RPC `get_therapist_photo_review` / `respond_therapist_photo_review`）。返事は写真タブの上に出る（直してほしい写真と理由）。返事が来たときの管理画面へのスマホ通知はまだ無い
 - **本人の画像アップロード**：マイページのメニュー「画像アップロード」（`src/components/therapist/TherapistPhotoUpload.tsx`）で写真を何枚でも送れる（1人60枚まで）。送る写真は端末の中で **357×556（HP・エステ魂のパネルと同じ、`src/lib/publicCastPhoto.ts`）に自動で切り抜く**（`src/lib/panelPhotoAutoCrop.ts`、計算は `src/lib/panelPhotoCrop.ts`、テスト `npm run test:panel-photo`）。高さか幅をそのまま残して拡大はしない。正方形・横長など大きく切る写真だけ、写真の加工と同じ MediaPipe の人の見分け（`detectPersonConfidence`）で体の中心に合わせ、縦長は頭の上に少し余白を残す。見分けられない・10秒かかるときは真ん中（縦は上寄り）。元の写真（長い辺2000pxのJPEG）は `therapist-uploads/<cast_id>/originals/` に同じファイル名で残す（一覧には出さない・写真を消すと一緒に消える）。Edge Function `therapist-photos`（verify_jwt なし・本人のトークンで確認、list / upload / remove）が `cast-photos` の `therapist-uploads/<cast_id>/` に置き、`casts.management_photos`（非公開）に足す。HPに出すかはお店が編集画面の写真タブの「HP表示」で選ぶ。本人が消せるのはHPに出ていない自分の写真だけ。マイページの「外部サイト登録・連携」欄は廃止
 
+## 入室後のマニュアル・交通費の領収書（マイページ）
+
+- **入室後のマニュアル**：マイページのメニュー「入室後のマニュアル」（`view = manual`、`src/components/therapist/TherapistAfterEntryManual.tsx`、RPC `get_therapist_manual(p_token)`）。お店は管理画面のセラピストダッシュボード →「入室後のマニュアル」（`/therapist-manual`、`src/pages/TherapistManualAdmin.tsx`）で項目ごとに タイトル・説明・動画（または写真、50MBまで、`entry-photos` の `manual/<store_id>/`）・ルーム（空なら全ルーム共通）・マイページに出すか・並び順を直す。表 `therapist_manual_items`。はじめの3項目（入退室のLINE報告・備品の置き場・交通費の領収書）は 2026-11-23 に入れた（動画はお店が入れる）。「交通費」「領収書」がタイトルにある項目には「交通費申請を開く」ボタン
+- **交通費の領収書**：マイページの「交通費申請」で領収書の写真を一緒に送る（無ければ確認が出る。履歴から後で付ける・撮り直す・見る）。写真は端末で長い辺1600pxのJPEGにして（`src/lib/receiptImage.ts`）、Edge Function `therapist-receipts`（verify_jwt なし・本人のトークンで確認、upload / view）が非公開バケット `transport-receipts` の `<store_id>/<cast_id>/` に置き、`therapist_transport_expenses.receipt_path` に入れる。承認済みの申請は差し替えない。履歴は RPC `get_therapist_transport_expenses_v2`（`has_receipt` つき）
+- お店は支払い管理（`/payments`）の「交通費の申請（マイページから）」（`src/components/payments/TransportExpenseReview.tsx`）で、申請中を全部・処理済みを直近60日、領収書（署名付きURL、ストレージのポリシーで自分の店舗の分だけ）を見て承認・却下（`status`・`reviewed_at`）。`20261123100000_therapist_manual_and_receipts.sql`
+
+## KPI管理（売上ダッシュボードの「KPI管理」タブ）
+
+- KPIを自由に追加・編集・削除できる（`src/pages/HpKpiGoals.tsx`）。KPIごとに 内容（120文字）・頻度（毎日／毎週（月曜はじまり）／毎月）・目標回数・メモ。実施数はその期間ごとに「＋」「−」で記録して達成率を出す。表 `hp_kpi_items`（消すと `archived_at`）／`hp_kpi_item_progress`（item_id, period_start）。以前の決まった3つ（`hp_kpi_goals` / `hp_kpi_progress`）は移して残してある（`20261123090000_free_kpi_items.sql`）
+
 ## お客様へのキャッシュバック・返金（精算の入れ忘れ防止）
 
 - 起きた予約に記録する：予約表の予約詳細「💴 キャッシュバック・返金」（`src/components/ReservationCashReturns.tsx`）か、セラピストのマイページの精算「お客様に返したお金」（`src/components/therapist/TherapistCashReturns.tsx`、RPC `save_therapist_cash_return` / `get_therapist_cash_returns` / `cancel_therapist_cash_return`、本人のトークン）。種類（キャッシュバック／返金）・金額・理由（施術時間不足／クレーム対応／お釣りの返し忘れ／その他）・メモ
