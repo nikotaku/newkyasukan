@@ -16,6 +16,7 @@ import { ArrowLeft, PlusCircle, Eye, EyeOff, X, Trash2 } from "lucide-react";
 import { ContractDocuments } from "@/components/contracts/ContractDocuments";
 import { deleteFacilityContract, normalizeContractDocuments, type ContractDocument } from "@/lib/facilityContracts";
 import { PREDEFINED_TAGS } from "./FacilitiesContracts";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 type SectionKey = "basic" | "property" | "holder" | "payment" | "login" | "notes";
 
@@ -64,6 +65,7 @@ interface Contract {
   login_password: string;
   store_id: string | null;
   documents: ContractDocument[];
+  contract_type: string | null;
 }
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
@@ -106,7 +108,6 @@ export default function FacilitiesContractDetail() {
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showPw, setShowPw] = useState(false);
-  const [tagInput, setTagInput] = useState("");
 
   const { user, loading: authLoading } = useAuth();
 
@@ -134,26 +135,14 @@ export default function FacilitiesContractDetail() {
 
   const set = (key: keyof Contract, val: any) => setForm((f) => ({ ...f, [key]: val }));
 
-  const addTag = (tag: string) => {
-    const t = tag.trim();
-    if (!t) return;
-    const current = form.tags || [];
-    if (current.includes(t)) return;
-    set("tags", [...current, t]);
-    setTagInput("");
-  };
-
-  const removeTag = (tag: string) => {
-    set("tags", (form.tags || []).filter((t) => t !== tag));
-  };
-
   const handleSave = async () => {
     if (!form.name?.trim()) { toast.error("名称を入力してください"); return; }
     setSaving(true);
     const { error } = await supabase
       .from("facility_contracts")
       .update({
-        tags: form.tags || [],
+        tags: (form.tags || []).slice(0, 1),
+        contract_type: form.tags?.[0] || form.contract_type || "その他",
         name: form.name,
         amount: form.amount || 0,
         start_date: form.start_date || null,
@@ -253,51 +242,28 @@ export default function FacilitiesContractDetail() {
           ) : (
             <div className="space-y-6">
 
-              {/* タグ選択 */}
+              {/* 種類（1つだけ選ぶ。一覧のタブとタグに使う） */}
               <Card>
-                <CardHeader><CardTitle className="text-base">タグ</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    {PREDEFINED_TAGS.map((tag) => {
-                      const active = currentTags.includes(tag);
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => active ? removeTag(tag) : addTag(tag)}
-                          className={`px-3 py-1 rounded-full text-sm border transition-colors ${
-                            active
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "bg-background border-border text-muted-foreground hover:border-foreground/40"
-                          }`}
-                        >
-                          {tag}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {/* カスタムタグ入力 */}
-                  <div className="flex gap-2">
-                    <Input
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(tagInput); } }}
-                      placeholder="カスタムタグを追加..."
-                      className="h-8 text-sm"
-                    />
-                    <Button type="button" size="sm" variant="outline" onClick={() => addTag(tagInput)}>追加</Button>
-                  </div>
-                  {/* 選択中のカスタムタグ（定義済み以外） */}
-                  {currentTags.filter((t) => !PREDEFINED_TAGS.includes(t)).length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {currentTags.filter((t) => !PREDEFINED_TAGS.includes(t)).map((tag) => (
-                        <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-secondary text-secondary-foreground">
-                          {tag}
-                          <button onClick={() => removeTag(tag)} className="hover:text-destructive"><X size={10} /></button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                <CardHeader><CardTitle className="text-base">種類</CardTitle></CardHeader>
+                <CardContent>
+                  <RadioGroup
+                    value={currentTags[0] ?? ""}
+                    onValueChange={(value) => setForm((f) => ({ ...f, tags: [value], contract_type: value }))}
+                    className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+                  >
+                    {PREDEFINED_TAGS.map((tag) => (
+                      <Label
+                        key={tag}
+                        htmlFor={`contract-tag-${tag}`}
+                        className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2.5 text-sm font-normal transition-colors ${
+                          currentTags[0] === tag ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                        }`}
+                      >
+                        <RadioGroupItem id={`contract-tag-${tag}`} value={tag} />
+                        {tag}
+                      </Label>
+                    ))}
+                  </RadioGroup>
                 </CardContent>
               </Card>
 

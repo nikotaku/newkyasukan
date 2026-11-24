@@ -83,10 +83,10 @@ export default function FacilitiesContracts() {
     const initialTags = activeTag !== "すべて" ? [activeTag] : [];
     const { data, error } = await db
       .from("facility_contracts")
-      .insert([{ name: "新規", tags: initialTags, amount: 0, notes: "" }])
+      .insert([{ name: "新規", tags: initialTags, contract_type: initialTags[0] ?? "その他", amount: 0, notes: "" }])
       .select()
       .single();
-    if (error) { toast.error("作成失敗"); return; }
+    if (error) { console.error(error); toast.error(`追加できませんでした（${error.message}）`); return; }
     navigate(`/facilities/contracts/${data.id}`);
   };
 

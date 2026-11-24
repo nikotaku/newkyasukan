@@ -473,6 +473,7 @@
 ## 契約管理（/facilities/contracts）
 
 - 上のタグの切り替えは設定ダッシュボード・HPダッシュボードと同じ横並びのタブ（`Tabs`、多いときは横スクロール）。一覧の各契約にゴミ箱（削除）、詳細画面の下に「この契約を削除」（`deleteFacilityContract`、付いている契約書のファイルも消す）
+- 種類は詳細画面の「種類」でラジオボタンから1つだけ選ぶ（`tags` に1つ・`contract_type` も同じ値。`contract_type` は必須で既定 'その他'。2026-11-24 まで新規追加が contract_type を入れず「作成失敗」になっていた）。自由入力のタグは廃止
 - 詳細画面（`src/pages/FacilitiesContractDetail.tsx`）に「契約条件」（`contract_terms`、複数行）と「契約書」（`src/components/contracts/ContractDocuments.tsx`、PDF・写真など20MBまで何件でも。上げた・消したらすぐ保存）。ファイルは非公開バケット `contract-documents` の `<store_id>/<contract_id>/…`、一覧は `facility_contracts.documents`（[{ path, name, size, type, uploaded_at }]）。ログイン中のスタッフが自分の店舗の分だけ見る・上げる・消す。`facility_contracts` は anon から読めない（ログイン情報が入っているため）（`20261124090000_facility_contract_documents.sql`、`src/lib/facilityContracts.ts`）
 
 ## お客様へのキャッシュバック・返金（精算の入れ忘れ防止）
