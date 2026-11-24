@@ -470,6 +470,11 @@
 
 - KPIを自由に追加・編集・削除できる（`src/pages/HpKpiGoals.tsx`）。KPIごとに 内容（120文字）・頻度（毎日／毎週（月曜はじまり）／毎月）・目標回数・メモ。実施数はその期間ごとに「＋」「−」で記録して達成率を出す。表 `hp_kpi_items`（消すと `archived_at`）／`hp_kpi_item_progress`（item_id, period_start）。以前の決まった3つ（`hp_kpi_goals` / `hp_kpi_progress`）は移して残してある（`20261123090000_free_kpi_items.sql`）
 
+## 契約管理（/facilities/contracts）
+
+- 上のタグの切り替えは設定ダッシュボード・HPダッシュボードと同じ横並びのタブ（`Tabs`、多いときは横スクロール）。一覧の各契約にゴミ箱（削除）、詳細画面の下に「この契約を削除」（`deleteFacilityContract`、付いている契約書のファイルも消す）
+- 詳細画面（`src/pages/FacilitiesContractDetail.tsx`）に「契約条件」（`contract_terms`、複数行）と「契約書」（`src/components/contracts/ContractDocuments.tsx`、PDF・写真など20MBまで何件でも。上げた・消したらすぐ保存）。ファイルは非公開バケット `contract-documents` の `<store_id>/<contract_id>/…`、一覧は `facility_contracts.documents`（[{ path, name, size, type, uploaded_at }]）。ログイン中のスタッフが自分の店舗の分だけ見る・上げる・消す。`facility_contracts` は anon から読めない（ログイン情報が入っているため）（`20261124090000_facility_contract_documents.sql`、`src/lib/facilityContracts.ts`）
+
 ## お客様へのキャッシュバック・返金（精算の入れ忘れ防止）
 
 - 起きた予約に記録する：予約表の予約詳細「💴 キャッシュバック・返金」（`src/components/ReservationCashReturns.tsx`）か、セラピストのマイページの精算「お客様に返したお金」（`src/components/therapist/TherapistCashReturns.tsx`、RPC `save_therapist_cash_return` / `get_therapist_cash_returns` / `cancel_therapist_cash_return`、本人のトークン）。種類（キャッシュバック／返金）・金額・理由（施術時間不足／クレーム対応／お釣りの返し忘れ／その他）・メモ
