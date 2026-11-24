@@ -45,7 +45,8 @@ const CATEGORY_KEYS = CATEGORIES.slice(1).map(c => c.key);
 
 const emptyForm = { title: "", content: "", category: "マニュアル", tags: "" };
 
-export default function Knowledge() {
+// embedded = ナレッジダッシュボード（/knowledge/dashboard）のタブの中に出す（外枠なし）
+export default function Knowledge({ embedded = false, initialArticleId = null }: { embedded?: boolean; initialArticleId?: string | null } = {}) {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [articles, setArticles] = useState<Article[]>([]);
@@ -53,6 +54,14 @@ export default function Knowledge() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("すべて");
   const [selected, setSelected] = useState<Article | null>(null);
+  // ナレッジダッシュボードの検索結果から開いたときは、その記事を選んだ状態で開く（1回だけ）
+  const [openedInitial, setOpenedInitial] = useState(false);
+  useEffect(() => {
+    if (openedInitial || !initialArticleId || articles.length === 0) return;
+    const found = articles.find((a) => a.id === initialArticleId);
+    if (found) setSelected(found);
+    setOpenedInitial(true);
+  }, [articles, initialArticleId, openedInitial]);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -247,11 +256,11 @@ export default function Knowledge() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className={embedded ? "" : "min-h-screen bg-background"}>
+      {!embedded && <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />}
+      {!embedded && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
 
-      <main className="pt-[60px] md:ml-[240px] h-[calc(100vh-60px)] flex overflow-hidden">
+      <main className={embedded ? "h-[calc(100vh-190px)] min-h-[480px] flex overflow-hidden rounded-lg border bg-background" : "pt-[60px] md:ml-[240px] h-[calc(100vh-60px)] flex overflow-hidden"}>
 
         {/* ── LEFT: Category nav ── */}
         <aside className="hidden md:flex flex-col w-48 shrink-0 border-r bg-muted/20 overflow-y-auto">

@@ -126,7 +126,7 @@ export default function FacilitiesContractDetail() {
       .select("*")
       .eq("id", id)
       .single();
-    if (error) { toast.error("読み込み失敗"); navigate("/facilities/contracts"); return; }
+    if (error) { toast.error("読み込み失敗"); navigate("/knowledge/dashboard?tab=contracts"); return; }
     const normalized = { ...data, tags: data.tags || [], documents: normalizeContractDocuments((data as { documents?: unknown }).documents) } as Contract;
     setContract(normalized);
     setForm(normalized);
@@ -179,7 +179,7 @@ export default function FacilitiesContractDetail() {
     try {
       await deleteFacilityContract(id, form.documents || []);
       toast.success("削除しました");
-      navigate("/facilities/contracts");
+      navigate("/knowledge/dashboard?tab=contracts");
     } catch (error) {
       console.error(error);
       toast.error("削除できませんでした");
@@ -223,11 +223,11 @@ export default function FacilitiesContractDetail() {
         <div className="max-w-2xl mx-auto">
           <div className="mb-6">
             <button
-              onClick={() => navigate("/facilities/contracts")}
+              onClick={() => navigate("/knowledge/dashboard?tab=contracts")}
               className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3 transition-colors"
             >
               <ArrowLeft size={14} />
-              契約管理に戻る
+              契約一覧に戻る
             </button>
             <h1 className="text-2xl font-bold">{loading ? "..." : (form.name || "契約詳細")}</h1>
             <div className="flex flex-wrap gap-1 mt-1">

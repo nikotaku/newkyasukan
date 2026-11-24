@@ -114,58 +114,9 @@ const menuItems: MenuItem[] = [
     icon: Cpu,
   },
   {
-    label: "引き継ぎセンター",
+    href: "/knowledge/dashboard",
+    label: "ナレッジダッシュボード",
     icon: ClipboardList,
-    subGroups: [
-      {
-        groupLabel: "事業引き継ぎ",
-        items: [
-          { href: "/business-continuity", label: "ダッシュボード" },
-          { href: "/business-continuity/vendors", label: "業者一覧" },
-          { href: "/business-continuity/logins", label: "ログイン情報" },
-          { href: "/business-continuity/fixed-costs", label: "固定費管理" },
-          { href: "/business-continuity/bank-accounts", label: "銀行口座" },
-          { href: "/business-continuity/contracts", label: "契約書管理" },
-        ],
-      },
-      {
-        groupLabel: "ルーム・設備",
-        items: [
-          { href: "/facilities/rooms", label: "ルーム管理" },
-          { href: "/facilities/rooms?tab=inroom", label: "艶月（二日町）" },
-          { href: "/facilities/rooms?tab=lazy", label: "華月（春日町）" },
-          { href: "/facilities/rooms?tab=supplies", label: "備品登録" },
-          { href: "/facilities/equipment", label: "消耗品" },
-          { href: "/facilities/equipment?type=costumes", label: "衣装" },
-          { href: "/facilities/equipment?type=furniture", label: "什器・家具家電" },
-        ],
-      },
-      {
-        groupLabel: "契約・取引先",
-        items: [
-          { href: "/facilities/contracts", label: "契約一覧" },
-          { href: "/facilities/contracts?tab=rental", label: "賃貸借契約" },
-          { href: "/facilities/contracts?tab=utilities", label: "水道光熱費" },
-          { href: "/facilities/contracts?tab=wifi", label: "Wi-Fi" },
-          { href: "/facilities/contracts?tab=phone", label: "電話" },
-          { href: "/facilities/contracts?tab=suppliers", label: "取引先" },
-        ],
-      },
-      {
-        groupLabel: "発注",
-        items: [
-          { href: "/purchase-orders", label: "発注リスト" },
-        ],
-      },
-      {
-        groupLabel: "ナレッジ",
-        items: [
-          { href: "/knowledge", label: "ナレッジDB" },
-          { href: "/knowledge/passwords", label: "PW管理" },
-          { href: "/templates", label: "文章テンプレート" },
-        ],
-      },
-    ],
   },
   {
     href: "/therapists/dashboard",

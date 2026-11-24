@@ -104,7 +104,8 @@ const fixedCostToForm = (c: FixedCost) => ({
   vendor_id: c.vendor_id || "",
 });
 
-export default function BusinessFixedCosts() {
+// embedded = ナレッジダッシュボード（/knowledge/dashboard）のタブの中に出す（外枠なし）
+export default function BusinessFixedCosts({ embedded = false }: { embedded?: boolean } = {}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -285,11 +286,11 @@ export default function BusinessFixedCosts() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className={embedded ? "" : "min-h-screen bg-background"}>
+      {!embedded && <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />}
+      {!embedded && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
 
-      <main className="pt-[60px] md:ml-[240px] p-6">
+      <main className={embedded ? "" : "pt-[60px] md:ml-[240px] p-6"}>
         <div className="max-w-6xl mx-auto space-y-4">
           <div className="flex items-center justify-between">
             <div>

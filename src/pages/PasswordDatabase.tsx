@@ -65,7 +65,8 @@ const FIELDS: Array<{ key: keyof FormState; label: string; secret?: boolean; lin
   { key: "phone", label: "登録電話番号" },
 ];
 
-export default function PasswordDatabase() {
+// embedded = ナレッジダッシュボード（/knowledge/dashboard）のタブの中に出す（外枠なし）
+export default function PasswordDatabase({ embedded = false, initialQuery = "" }: { embedded?: boolean; initialQuery?: string } = {}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [entries, setEntries] = useState<PasswordEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +74,7 @@ export default function PasswordDatabase() {
   const [form, setForm] = useState<FormState>(empty());
   const [shown, setShown] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
 
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -202,10 +203,10 @@ export default function PasswordDatabase() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-[60px] md:ml-[240px] p-3 sm:p-6">
+    <div className={embedded ? "" : "min-h-screen bg-background"}>
+      {!embedded && <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />}
+      {!embedded && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+      <main className={embedded ? "" : "pt-[60px] md:ml-[240px] p-3 sm:p-6"}>
         <div className="max-w-5xl mx-auto">
           <div className="mb-4 flex items-center justify-between gap-2">
             <div>

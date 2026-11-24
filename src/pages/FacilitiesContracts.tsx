@@ -35,7 +35,8 @@ interface Contract {
   documents: ContractDocument[];
 }
 
-export default function FacilitiesContracts() {
+// embedded = ナレッジダッシュボード（/knowledge/dashboard）のタブの中に出す（外枠なし）
+export default function FacilitiesContracts({ embedded = false }: { embedded?: boolean } = {}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,10 +104,10 @@ export default function FacilitiesContracts() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-[60px] md:ml-[240px] p-6">
+    <div className={embedded ? "" : "min-h-screen bg-background"}>
+      {!embedded && <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />}
+      {!embedded && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+      <main className={embedded ? "" : "pt-[60px] md:ml-[240px] p-6"}>
         <div className="max-w-4xl mx-auto">
           <div className="mb-6 flex items-center justify-between">
             <div>

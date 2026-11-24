@@ -35,7 +35,8 @@ const IconBox = ({ color, isFolder, size = 40 }: { color: string; isFolder: bool
   </div>
 );
 
-export default function TextTemplates() {
+// embedded = ナレッジダッシュボード（/knowledge/dashboard）のタブの中に出す（外枠なし）
+export default function TextTemplates({ embedded = false }: { embedded?: boolean } = {}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [items, setItems] = useState<Template[]>([]);
   const [currentFolder, setCurrentFolder] = useState<Template | null>(null);
@@ -223,11 +224,11 @@ export default function TextTemplates() {
   const title = currentFolder ? currentFolder.label : "文章テンプレート";
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className={embedded ? "" : "min-h-screen bg-background"}>
+      {!embedded && <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />}
+      {!embedded && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
 
-      <main className="pt-[60px] md:ml-[240px]">
+      <main className={embedded ? "" : "pt-[60px] md:ml-[240px]"}>
         <div className="max-w-2xl mx-auto">
 
           {/* ── Top Bar ── */}

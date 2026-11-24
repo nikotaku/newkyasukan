@@ -470,6 +470,13 @@
 
 - KPIを自由に追加・編集・削除できる（`src/pages/HpKpiGoals.tsx`）。KPIごとに 内容（120文字）・頻度（毎日／毎週（月曜はじまり）／毎月）・目標回数・メモ。実施数はその期間ごとに「＋」「−」で記録して達成率を出す。表 `hp_kpi_items`（消すと `archived_at`）／`hp_kpi_item_progress`（item_id, period_start）。以前の決まった3つ（`hp_kpi_goals` / `hp_kpi_progress`）は移して残してある（`20261123090000_free_kpi_items.sql`）
 
+## ナレッジダッシュボード（/knowledge/dashboard）
+
+- 以前の「引き継ぎセンター」（サイドメニューに小見出し5つ・リンク23個）を、設定・HPダッシュボードと同じ1ページのタブにまとめた（2026-11-24、`src/pages/KnowledgeDashboard.tsx`、`?tab=`）。サイドメニューは「ナレッジダッシュボード」の1行だけ
+- タブ：概要（overview、`src/components/knowledge/KnowledgeOverview.tsx`：ナレッジ・ID・契約・固定費をまとめて探す検索、月の固定費・契約・ID・ナレッジの件数、3か月以内に終わる契約・更新日が来る固定費）／ナレッジ（`Knowledge`、`?article=<id>` で記事を開く）／テンプレート（`TextTemplates`）／ID・パスワード（`PasswordDatabase`、`?q=` で絞り込み）／契約（`FacilitiesContracts`）／お金（`BusinessFixedCosts` ＋ `BusinessBankAccounts`）／ルーム・備品（ルーム管理・備品・消耗品・衣装・什器・発注への入口）／発注（`PurchaseOrders`）。各ページは `embedded` で外枠なしで入れている
+- 以前のURL（`/knowledge`・`/knowledge/passwords`・`/templates`・`/business-continuity/*`・`/facilities/contracts`・`/purchase-orders`）は該当のタブへ転送。契約の詳細 `/facilities/contracts/:id` はそのまま
+- 重なっていた「ログイン情報」（`business_logins`、東北電力1件はPW管理にもある）・「契約書管理」（`business_contracts`、0件）・「業者一覧」（`business_vendors`、0件）の画面は消した（データは残している）
+
 ## 契約管理（/facilities/contracts）
 
 - 上のタグの切り替えは設定ダッシュボード・HPダッシュボードと同じ横並びのタブ（`Tabs`、多いときは横スクロール）。一覧の各契約にゴミ箱（削除）、詳細画面の下に「この契約を削除」（`deleteFacilityContract`、付いている契約書のファイルも消す）
