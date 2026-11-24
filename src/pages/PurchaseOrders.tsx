@@ -38,7 +38,8 @@ const emptyForm = (): Omit<PurchaseOrder, "id"> => ({
 
 const PAYMENT_METHODS = ["現金", "クレジットカード", "銀行振込", "PayPay", "Amazon Pay", "その他"];
 
-export default function PurchaseOrders() {
+// embedded = ナレッジダッシュボード（/knowledge/dashboard）のタブの中に出す（外枠なし）
+export default function PurchaseOrders({ embedded = false }: { embedded?: boolean } = {}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [items, setItems] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -170,11 +171,11 @@ export default function PurchaseOrders() {
   });
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className={embedded ? "" : "min-h-screen bg-background"}>
+      {!embedded && <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />}
+      {!embedded && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
 
-      <main className="pt-[60px] md:ml-[240px] p-4">
+      <main className={embedded ? "" : "pt-[60px] md:ml-[240px] p-4"}>
         <div className="max-w-4xl mx-auto">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>

@@ -60,7 +60,6 @@ import Agreement from "./pages/Agreement";
 import RoomSettings from "./pages/RoomSettings";
 import SchedulePage from "./pages/Schedule";
 import Expenses from "./pages/Expenses";
-import Knowledge from "./pages/Knowledge";
 import MonthlyShift from "./pages/MonthlyShift";
 import ReservationsList from "./pages/ReservationsList";
 import WebBookings from "./pages/WebBookings";
@@ -91,18 +90,15 @@ import SystemSMSAuto from "./pages/SystemSMSAuto";
 import TherapistCheckout from "./pages/TherapistCheckout";
 import TherapistCleaningReport from "./pages/TherapistCleaningReport";
 import SNSDatabase from "./pages/SNSDatabase";
-import PasswordDatabase from "./pages/PasswordDatabase";
 import TherapistMyPage from "./pages/TherapistMyPage";
 import CustomerDatabase from "./pages/CustomerDatabase";
 import FacilitiesRooms from "./pages/FacilitiesRooms";
-import FacilitiesContracts from "./pages/FacilitiesContracts";
 import FacilitiesContractDetail from "./pages/FacilitiesContractDetail";
 import FacilitiesEquipment from "./pages/FacilitiesEquipment";
 import CastImport from "./pages/CastImport";
 import ReservationImport from "./pages/ReservationImport";
 import CustomerImport from "./pages/CustomerImport";
 import SalesClosing from "./pages/SalesClosing";
-import TextTemplates from "./pages/TextTemplates";
 import ImageStock from "./pages/ImageStock";
 import MediaStrategy from "./pages/MediaStrategy";
 import PromotionSchedule from "./pages/PromotionSchedule";
@@ -111,13 +107,13 @@ import Tasks from "./pages/Tasks";
 import SmsInbox from "./pages/SmsInbox";
 import LineInbox from "./pages/LineInbox";
 import TherapistNotices from "./pages/TherapistNotices";
+import KnowledgeDashboard from "./pages/KnowledgeDashboard";
 import TherapistManualAdmin from "./pages/TherapistManualAdmin";
 import Bios from "./pages/Bios";
 import CtiCalls from "./pages/CtiCalls";
 import CustomerDetail from "./pages/CustomerDetail";
 import CastPostManagement from "./pages/CastPostManagement";
 import TherapistPostPage from "./pages/TherapistPostPage";
-import BusinessContinuity from "./pages/BusinessContinuity";
 import SalesDashboard, { SalesTabRedirect } from "./pages/SalesDashboard";
 import SalesData from "./pages/SalesData";
 import ScheduleDashboard from "./pages/ScheduleDashboard";
@@ -131,15 +127,9 @@ import EstamaScout from "./pages/EstamaScout";
 import ScoutInvitePage from "./pages/public/ScoutInvite";
 import RecruitLpAnalytics from "./pages/RecruitLpAnalytics";
 import InterviewGuide from "./pages/InterviewGuide";
-import BusinessVendors from "./pages/BusinessVendors";
-import BusinessLogins from "./pages/BusinessLogins";
-import BusinessFixedCosts from "./pages/BusinessFixedCosts";
-import BusinessBankAccounts from "./pages/BusinessBankAccounts";
 import PaymentManagement from "./pages/PaymentManagement";
-import BusinessContracts from "./pages/BusinessContracts";
 import Education from "./pages/Education";
 import ProductLP from "./pages/public/ProductLP";
-import PurchaseOrders from "./pages/PurchaseOrders";
 import Survey from "./pages/public/Survey";
 import CustomerReview from "./pages/public/CustomerReview";
 import Voice from "./pages/public/Voice";
@@ -235,9 +225,10 @@ const App = () => {
           <Route path="/shop" element={<Settings />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/board" element={<Navigate to="/hp/dashboard" replace />} />
-          <Route path="/knowledge" element={<Knowledge />} />
-          <Route path="/knowledge/passwords" element={<PasswordDatabase />} />
-          <Route path="/templates" element={<TextTemplates />} />
+          <Route path="/knowledge/dashboard" element={<KnowledgeDashboard />} />
+          <Route path="/knowledge" element={<Navigate to="/knowledge/dashboard?tab=knowledge" replace />} />
+          <Route path="/knowledge/passwords" element={<Navigate to="/knowledge/dashboard?tab=passwords" replace />} />
+          <Route path="/templates" element={<Navigate to="/knowledge/dashboard?tab=templates" replace />} />
           <Route path="/image-stock" element={<ImageStock />} />
           <Route path="/marketing/media" element={<MediaStrategy />} />
           <Route path="/marketing/o2" element={<Navigate to="/education?tab=sns" replace />} />
@@ -282,7 +273,7 @@ const App = () => {
           <Route path="/database/surveys" element={<SurveysAdmin />} />
           <Route path="/database/reviews" element={<ReviewsAdmin />} />
           <Route path="/facilities/rooms" element={<FacilitiesRooms />} />
-          <Route path="/facilities/contracts" element={<FacilitiesContracts />} />
+          <Route path="/facilities/contracts" element={<Navigate to="/knowledge/dashboard?tab=contracts" replace />} />
           <Route path="/facilities/contracts/:id" element={<FacilitiesContractDetail />} />
           <Route path="/facilities/equipment" element={<FacilitiesEquipment />} />
           <Route path="/admin/import-casts" element={<CastImport />} />
@@ -316,14 +307,15 @@ const App = () => {
           <Route path="/therapist-notices" element={<TherapistNotices />} />
           <Route path="/therapist-manual" element={<TherapistManualAdmin />} />
 
-          <Route path="/business-continuity" element={<BusinessContinuity />} />
-          <Route path="/business-continuity/vendors" element={<BusinessVendors />} />
-          <Route path="/business-continuity/logins" element={<BusinessLogins />} />
-          <Route path="/business-continuity/fixed-costs" element={<BusinessFixedCosts />} />
-          <Route path="/business-continuity/bank-accounts" element={<BusinessBankAccounts />} />
+          {/* 以前の「引き継ぎセンター」はナレッジダッシュボードのタブへ */}
+          <Route path="/business-continuity" element={<Navigate to="/knowledge/dashboard" replace />} />
+          <Route path="/business-continuity/vendors" element={<Navigate to="/knowledge/dashboard?tab=contracts" replace />} />
+          <Route path="/business-continuity/logins" element={<Navigate to="/knowledge/dashboard?tab=passwords" replace />} />
+          <Route path="/business-continuity/fixed-costs" element={<Navigate to="/knowledge/dashboard?tab=money" replace />} />
+          <Route path="/business-continuity/bank-accounts" element={<Navigate to="/knowledge/dashboard?tab=money" replace />} />
           <Route path="/payments" element={<SalesTabRedirect tab="payments" />} />
-          <Route path="/business-continuity/contracts" element={<BusinessContracts />} />
-          <Route path="/purchase-orders" element={<PurchaseOrders />} />
+          <Route path="/business-continuity/contracts" element={<Navigate to="/knowledge/dashboard?tab=contracts" replace />} />
+          <Route path="/purchase-orders" element={<Navigate to="/knowledge/dashboard?tab=orders" replace />} />
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
