@@ -12,7 +12,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { ArrowLeft, PlusCircle, Eye, EyeOff, X } from "lucide-react";
+import { ArrowLeft, PlusCircle, Eye, EyeOff, X, Trash2 } from "lucide-react";
+import { ContractDocuments } from "@/components/contracts/ContractDocuments";
+import { deleteFacilityContract, normalizeContractDocuments, type ContractDocument } from "@/lib/facilityContracts";
 import { PREDEFINED_TAGS } from "./FacilitiesContracts";
 
 type SectionKey = "basic" | "property" | "holder" | "payment" | "login" | "notes";
@@ -60,6 +62,8 @@ interface Contract {
   management_url: string;
   login_id: string;
   login_password: string;
+  store_id: string | null;
+  documents: ContractDocument[];
 }
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
@@ -100,6 +104,7 @@ export default function FacilitiesContractDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [tagInput, setTagInput] = useState("");
 
@@ -121,7 +126,7 @@ export default function FacilitiesContractDetail() {
       .eq("id", id)
       .single();
     if (error) { toast.error("読み込み失敗"); navigate("/facilities/contracts"); return; }
-    const normalized = { ...data, tags: data.tags || [] };
+    const normalized = { ...data, tags: data.tags || [], documents: normalizeContractDocuments((data as { documents?: unknown }).documents) } as Contract;
     setContract(normalized);
     setForm(normalized);
     setLoading(false);
@@ -177,6 +182,20 @@ export default function FacilitiesContractDetail() {
     if (error) { toast.error(`保存失敗: ${error.message}`); return; }
     toast.success("保存しました");
     setContract({ ...contract!, ...form } as Contract);
+  };
+
+  const handleDelete = async () => {
+    if (!id || !confirm(`「${form.name || "この契約"}」を削除しますか？付いている契約書のファイルも消えます。元に戻せません。`)) return;
+    setDeleting(true);
+    try {
+      await deleteFacilityContract(id, form.documents || []);
+      toast.success("削除しました");
+      navigate("/facilities/contracts");
+    } catch (error) {
+      console.error(error);
+      toast.error("削除できませんでした");
+      setDeleting(false);
+    }
   };
 
   const handleAddToExpenses = async () => {
@@ -308,9 +327,6 @@ export default function FacilitiesContractDetail() {
                       <Input type="date" value={form.end_date || ""} onChange={(e) => set("end_date", e.target.value)} />
                     </Field>
                   </div>
-                  <Field label="契約条件">
-                    <Input value={form.contract_terms || ""} onChange={(e) => set("contract_terms", e.target.value)} placeholder="例: 初期費用3万、毎月1万" />
-                  </Field>
                 </CardContent>
               </Card>
 
@@ -442,6 +458,18 @@ export default function FacilitiesContractDetail() {
                 </Card>
               )}
 
+              {/* 契約条件（常時表示） */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">契約条件</CardTitle>
+                  <p className="text-xs text-muted-foreground">更新・解約予告・違約金・支払日・初期費用・禁止事項など</p>
+                </CardHeader>
+                <CardContent>
+                  <Textarea value={form.contract_terms || ""} onChange={(e) => set("contract_terms", e.target.value)} rows={6}
+                    placeholder={"例：\n2年契約・自動更新（更新料は家賃1か月分）\n解約は2か月前までに書面で通知\n毎月27日に翌月分を振込"} />
+                </CardContent>
+              </Card>
+
               {/* メモ（常時表示） */}
               <Card>
                 <CardHeader><CardTitle className="text-base">メモ</CardTitle></CardHeader>
@@ -453,6 +481,16 @@ export default function FacilitiesContractDetail() {
               <Button onClick={handleSave} disabled={saving} className="w-full" size="lg">
                 {saving ? "保存中..." : "保存"}
               </Button>
+
+              {/* 契約書（上げた・消したらすぐ保存） */}
+              {id && (
+                <ContractDocuments
+                  contractId={id}
+                  storeId={contract?.store_id ?? null}
+                  documents={form.documents || []}
+                  onChange={(next) => { set("documents", next); setContract((c) => (c ? { ...c, documents: next } : c)); }}
+                />
+              )}
 
               {/* 固定費に追加 */}
               {activeSections.has("payment") && (
@@ -489,6 +527,10 @@ export default function FacilitiesContractDetail() {
                   </CardContent>
                 </Card>
               )}
+
+              <Button variant="ghost" className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={handleDelete} disabled={deleting}>
+                <Trash2 size={14} className="mr-2" />{deleting ? "削除中..." : "この契約を削除"}
+              </Button>
             </div>
           )}
         </div>

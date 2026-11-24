@@ -7,7 +7,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, FileText } from "lucide-react";
+import { Plus, FileText, Trash2, Paperclip } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { deleteFacilityContract, normalizeContractDocuments, type ContractDocument } from "@/lib/facilityContracts";
+
+const db = supabase as unknown as { from: (table: string) => any };
 
 export const PREDEFINED_TAGS = [
   "掲載サイト",
@@ -28,6 +32,7 @@ interface Contract {
   management_company: string;
   address: string;
   notes: string;
+  documents: ContractDocument[];
 }
 
 export default function FacilitiesContracts() {
@@ -50,12 +55,12 @@ export default function FacilitiesContracts() {
   const fetchContracts = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("facility_contracts")
-        .select("id,name,tags,amount,contract_status,management_company,address,notes")
+        .select("id,name,tags,amount,contract_status,management_company,address,notes,documents")
         .order("name");
       if (error && error.code !== "PGRST116") throw error;
-      setContracts((data || []).map((c) => ({ ...c, tags: c.tags || [] })));
+      setContracts((data || []).map((c: Contract & { documents: unknown }) => ({ ...c, tags: c.tags || [], documents: normalizeContractDocuments(c.documents) })));
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -76,13 +81,25 @@ export default function FacilitiesContracts() {
 
   const handleCreate = async () => {
     const initialTags = activeTag !== "すべて" ? [activeTag] : [];
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("facility_contracts")
       .insert([{ name: "新規", tags: initialTags, amount: 0, notes: "" }])
       .select()
       .single();
     if (error) { toast.error("作成失敗"); return; }
     navigate(`/facilities/contracts/${data.id}`);
+  };
+
+  const handleDelete = async (contract: Contract) => {
+    if (!confirm(`「${contract.name}」を削除しますか？付いている契約書のファイルも消えます。元に戻せません。`)) return;
+    try {
+      await deleteFacilityContract(contract.id, contract.documents);
+      setContracts((prev) => prev.filter((c) => c.id !== contract.id));
+      toast.success("削除しました");
+    } catch (error) {
+      console.error(error);
+      toast.error("削除できませんでした");
+    }
   };
 
   return (
@@ -101,30 +118,21 @@ export default function FacilitiesContracts() {
             </Button>
           </div>
 
-          {/* Tag tabs */}
-          <div className="flex flex-wrap gap-2 mb-6">
-            {tabs.map((tag) => {
-              const count = tag === "すべて"
-                ? contracts.length
-                : contracts.filter((c) => c.tags.includes(tag)).length;
-              return (
-                <button
-                  key={tag}
-                  onClick={() => setActiveTag(tag)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                    activeTag === tag
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-                  }`}
-                >
-                  {tag}
-                  <span className={`ml-1.5 text-xs ${activeTag === tag ? "opacity-70" : "opacity-50"}`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          {/* タブ（設定ダッシュボード・HPダッシュボードと同じ横並び。多いときは横にスクロール） */}
+          <Tabs value={activeTag} onValueChange={setActiveTag} className="mb-4">
+            <TabsList className="flex h-auto w-full justify-start overflow-x-auto">
+              {tabs.map((tag) => {
+                const count = tag === "すべて"
+                  ? contracts.length
+                  : contracts.filter((c) => c.tags.includes(tag)).length;
+                return (
+                  <TabsTrigger key={tag} value={tag} className="shrink-0">
+                    {tag}<span className="ml-1 text-xs opacity-60">{count}</span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
 
           {/* Contract list */}
           <div className="space-y-3">
@@ -170,6 +178,9 @@ export default function FacilitiesContracts() {
                             </span>
                           ))}
                         </div>
+                        {contract.documents.length > 0 && (
+                          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><Paperclip size={11} />契約書 {contract.documents.length}件</p>
+                        )}
                         {contract.amount > 0 && (
                           <p className="text-sm font-medium mt-1">
                             ¥{contract.amount.toLocaleString()}
@@ -188,14 +199,19 @@ export default function FacilitiesContracts() {
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{contract.notes}</p>
                         )}
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => navigate(`/facilities/contracts/${contract.id}`)}
-                        className="shrink-0"
-                      >
-                        <FileText size={13} className="mr-1" />詳細
-                      </Button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate(`/facilities/contracts/${contract.id}`)}
+                        >
+                          <FileText size={13} className="mr-1" />詳細
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => void handleDelete(contract)} aria-label={`${contract.name}を削除`}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
