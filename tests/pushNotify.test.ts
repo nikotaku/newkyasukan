@@ -21,7 +21,8 @@ test("WEB予約の通知：日時・コース・セラピスト・お客様・�
   const message = webBookingMessage(reservation, "あさみ");
   assert.equal(message.title, "🔔 WEB予約が入りました");
   assert.equal(message.body, "9/28(月) 19:00〜 アロマ 90分\nあさみ（本指名） / 山田様\n¥23,000");
-  assert.equal(message.url, "/schedule/web-bookings");
+  assert.equal(message.url, "/schedule-dashboard?tab=reservations&source=web_form");
+  assert.equal(webBookingMessage({ ...reservation, booking_origin: "cast_form" }, "あさみ").url, "/schedule-dashboard?tab=reservations&source=cast_form");
   assert.equal(webBookingMessage({ ...reservation, booking_origin: "cast_form", nomination_type: "フリー" }, null).body.split("\n")[1], "指名なし / 山田様");
 });
 

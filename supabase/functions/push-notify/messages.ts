@@ -54,7 +54,8 @@ export function webBookingMessage(reservation: {
   return {
     title: courseLimit ? `⚠️ 新規${courseLimit.max_minutes}分超え：${baseTitle.replace("🔔 ", "")}` : baseTitle,
     body: lines.filter(Boolean).join("\n"),
-    url: "/schedule/web-bookings",
+    // 予約一覧（スケジュールダッシュボード）の受付元のタブを開く
+    url: `/schedule-dashboard?tab=reservations&source=${reservation.booking_origin === "cast_form" ? "cast_form" : "web_form"}`,
     tag: `booking-${reservation.id}`,
   };
 }
@@ -336,7 +337,7 @@ export function estamaReserveMessage(request: {
     title: `📩 エステ魂の仮予約${warn ? `（${warn}）` : ""}`,
     body: [[when, what].filter(Boolean).join(" "), request.customer_name ? `${request.customer_name}様` : "", request.check_note ? clip(request.check_note, 80) : ""]
       .filter(Boolean).join("\n"),
-    url: "/schedule/web-bookings",
+    url: "/schedule-dashboard?tab=reservations&source=estama",
     tag: `estama-reserve-${request.id}`,
   };
 }

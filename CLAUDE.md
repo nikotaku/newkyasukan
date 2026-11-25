@@ -151,7 +151,7 @@
 ## 新規のお客様のコース上限（セラピストごと）
 
 - `casts.new_customer_max_minutes`（例：望月せなさんは80分）。スタッフ画面のセラピスト編集「新規のお客様のコース上限（分）」で設定。空なら制限なし
-- **予約は止めない**（取りこぼさないため）。新規のお客様が上限より長いコースで予約したら知らせる：WEB予約のスマホ通知のタイトル（「⚠️ 新規80分超え：…」）、WEB予約受付のカード・予約表の予約詳細の赤い注意（RPC `get_course_limit_alerts(p_reservation_ids)`、画面は `src/lib/courseLimit.ts`）、エステ魂の仮予約の判定 `course_limit`
+- **予約は止めない**（取りこぼさないため）。新規のお客様が上限より長いコースで予約したら知らせる：WEB予約のスマホ通知のタイトル（「⚠️ 新規80分超え：…」）、予約一覧のWEBフォームのカード・予約表の予約詳細の赤い注意（RPC `get_course_limit_alerts(p_reservation_ids)`、画面は `src/lib/courseLimit.ts`）、エステ魂の仮予約の判定 `course_limit`
 - 新規 = その電話番号で施術済み（completed）の予約がまだ無い人（`public.has_completed_visit`、店舗をまたいで見る）。エステ魂の「リピート予約」は新規にしない
 
 ## トップバナーのセラピスト自動ローテーション
@@ -292,7 +292,7 @@
 - 電話（IVRy着信通知）とエステ魂デイリーレポート（アクセス数・問い合わせ数）は、店舗のGmailで動く Google Apps Script（`scripts/gmail-report-sync.gs`）が1分ごとに Edge Function `report-email-ingest` へ送って取り込む（一度送ったメールは6時間送り直さない）。Codex は使わない
 - エステ魂の仮予約のメール（`estama_reservation`）か、IVRyの 0120-286-634 の着信通知が届いたら、RPC `request_estama_reserve_sync` → すぐにエステ魂の「お店への予約」を読みに行く（下の「エステ魂の仮予約の取り込み」）
 - 認証は `x-ingest-token`（`report_ingest_tokens` にSHA-256で保存）。トークンはリポジトリに入れない
-- **設定は画面から**：WEB予約受付（`/schedule/web-bookings`）のエステ魂の欄の「メールですぐ取り込む」（`src/components/GmailInstantSyncSetup.tsx`）。「スクリプトをコピー」で RPC `create_report_ingest_token`（店長・オーナー、本体は返すだけで保存しない）のトークン入りの `scripts/gmail-report-sync.gs` がコピーされるので、転送先の Gmail（艶華は enka@ のメールを転送している chelsy… のアカウント）の script.google.com に貼って `setup` を実行。状況（最後に送ってきた時刻・最後の仮予約のメール）は RPC `get_report_ingest_status`。トークンをチャットに出さないこと
+- **設定は画面から**：予約一覧（`/schedule-dashboard?tab=reservations&source=estama`）のえすたま仮予約の欄の「メールですぐ取り込む」（`src/components/GmailInstantSyncSetup.tsx`）。「スクリプトをコピー」で RPC `create_report_ingest_token`（店長・オーナー、本体は返すだけで保存しない）のトークン入りの `scripts/gmail-report-sync.gs` がコピーされるので、転送先の Gmail（艶華は enka@ のメールを転送している chelsy… のアカウント）の script.google.com に貼って `setup` を実行。状況（最後に送ってきた時刻・最後の仮予約のメール）は RPC `get_report_ingest_status`。トークンをチャットに出さないこと
 - 仮予約のメールは件名（「エステ魂」と「予約」）か、送り元が estama.jp で件名に「予約」があるもの（転送でも元の送り元のまま。`classifyReportEmail(subject, from)`）
 - **受付専用メール（Cloudflare Email Routing → Email Worker）**：`enka-salon.jp` のメールは Cloudflare Email Routing で受けている（MX が route*.mx.cloudflare.net）。受付専用のアドレスを Email Worker（`workers/mail-intake/index.js`、依存なしでダッシュボードに貼れる）に向けると、届いたメールをスタッフのメールへ転送しつつ、そのまま（`Content-Type: message/rfc822`）`report-email-ingest` へ送る。取り込み口は MIME を `npm:postal-mime` で読み（ISO-2022-JP も可）、id は Message-ID のハッシュ（`mail-…`）。Gmail の1分ごとの見回りと違い、届いた瞬間にエステ魂の仮予約を読みに行ける。Worker の設定は `INGEST_URL`・`INGEST_TOKEN`（シークレット）・`FORWARD_TO`。2026-11-20 に稼働：Worker `mail-intake`（ダッシュボードで作成。`INGEST_URL`・`INGEST_TOKEN` だけで `FORWARD_TO` は無し＝人への転送なし）、受付アドレス `yoyaku@enka-salon.jp` → Worker、エステ魂の予約の通知先もこのアドレスに変更。届いてから約15秒で取り込む。GitHub につながっている Worker `newkyasukan` には入れないこと（ビルドで上書きされる）
 - 受け取ったメールと読み取り結果は `report_email_messages`。書式が読めないものは `unparsed` で残るので `parse.ts` を直す（手順: `docs/gmail-report-sync.md`）
@@ -388,7 +388,7 @@
 - **スタッフ画面の「登録・反映 ◯%」「エスたま反映確認待ち／確認済み」**（`src/lib/estamaProfileCompletion.ts`）：HPの今の内容を `castToEstama` で変換したハッシュと、ワーカーが保存した `external_cast_profiles.last_profile_hash` / `last_photo_hash` が同じで、`sync_status = synced`・`last_error` が空なら100%（確認済み）。ワーカーのハッシュも同じく**HPの入力そのまま**から作る（`estamaProfileHashes`。源氏名未定の人の仮の名前「新人A」・既定の特徴「新人」に置き換える前。置き換えた後で作っていたので源氏名未定の人はずっと確認待ちだった）
 - **見落としの拾い直し**：pg_cron `estama-profile-hash-check-hourly`（毎時5分）→ `private.dispatch_estama_profile_hash_check()` → 同じワーカー。ワーカーは起動のたびに `enqueueOutdatedProfileSyncs` で、紐付け済み・在籍中なのにハッシュが違って待ちも無い人の同期を積む（`payload.source = 'hash_mismatch'`、直近12時間に同期が終わった人（成功・失敗とも。写真の削除が判別できずハッシュが残らない人を毎時送り直さないため）は飛ばす）。紐付けが外れていた間の変更・手で紐付けた人・トリガーを通らない一括更新もこれで反映される（2026-11-19 まで、北乃みか・如月ゆず・白石もえ・新人Bは一度もプロフィールを送っておらず、りりか&ももか・櫻井なな・望月せなも変更が送られていなかった）
 - 左下には「自動で反映しています」「ログイン切れ（再ログインが必要）」「反映できなかった変更（もう一度反映する）」だけを出す
-- **作業が終わった画面のスクリーンショット**：`processAvailableJobs` で処理した作業（プロフィール同期・シフト同期・照合）は、終わった（失敗した）画面を非公開バケット `estama-job-screenshots`（`<store_id>/<job_id>.jpg`、プロフィールはページ全体）に保存し、`automation_jobs.screenshot_path` に記録する。「エスたま自動化履歴」（`/schedule/estama-sync-history`）の「プロフィール同期の履歴」（`src/components/EstamaProfileSyncHistory.tsx`）で見られる。30日より古いものはワーカーが時々消す。トークン方式のシフト同期（`estama-worker`）は従来どおり公開ページの確認画像を `estama_sync_reports` に残す
+- **作業が終わった画面のスクリーンショット**：`processAvailableJobs` で処理した作業（プロフィール同期・シフト同期・照合）は、終わった（失敗した）画面を非公開バケット `estama-job-screenshots`（`<store_id>/<job_id>.jpg`、プロフィールはページ全体）に保存し、`automation_jobs.screenshot_path` に記録する。「エスたま自動化履歴」（`/schedule-dashboard?tab=estama`）の「プロフィール同期の履歴」（`src/components/EstamaProfileSyncHistory.tsx`）で見られる。30日より古いものはワーカーが時々消す。トークン方式のシフト同期（`estama-worker`）は従来どおり公開ページの確認画像を `estama_sync_reports` に残す
 - **既存のセラピストの更新**は、エステ魂のID（`external_cast_profiles.external_cast_id`）の編集画面を開き、名前が入っている（＝その人の画面）ことを確かめてから保存する（`server/estama-cast-editor.ts`）。`/admin/cast_edit/`（IDなし）は**新規登録の画面**なので更新に使わない（2026年10月まで、この画面で保存していたため変更が反映されていなかった）。保存後は編集画面を開き直してSNS欄を確かめ、違えば失敗にする。まだつながっていない人も、公開の在籍一覧に同じ名前が1人いればその人を更新する（二重登録しない）
 - `payload.fields = "sns"` のジョブはブログ・SNS欄だけを直す（写真・紹介文はエステ魂のまま）
 - **既存の人の更新で空の欄は送らない**：HPで空の年齢・身長・サイズ・血液型・経験は送らずエステ魂の値を残し、HPで特徴を1つも選んでいない人は特徴に触らない。空で送ると必須の欄が空になり、エステ魂は保存せずに同じ編集画面を返す（2026-11-19 まで北乃みか・りりか&ももかが反映されなかった）。保存が効かなかったときは、送ったフォームの項目・返ってきた画面のエラー文を `last_error` に残す
@@ -405,12 +405,12 @@
 - **GitHub Actions への移行（段階2）**：`automation_runner_settings.availability_enabled` をオンにした店舗は、毎時40分・出勤開始のときの更新で Vercel（Browserbase）を呼ばず、`private.dispatch_estama_availability_refresh()` が「⏳ 開始しました」の履歴（`results.runner = 'github_actions'`）を作り `availability_requested_at` を入れて直接実行（`estama-direct-runner`、mode `availability`、出勤同期とは別の concurrency group）を起動する。ランナーは店舗の管理画面にログインして `runEstamaAvailabilityOnPage` だけを行い、受け口の `availability_claim` / `availability_finish` が履歴と `automation_connections.configuration.availability_refresh` を書く（実行は `automation_runner_runs` の mode `work`・purpose `availability`）。結果の文面は `server/estama-availability-report.ts`（Browserbase の経路と共通）。オフに戻せば今まで通り（`20261118030000_estama_availability_github_actions.sql`）
 - **GitHub Actions の接続元は実行ごとに変わり、エステ魂がその一部を 403 Forbidden で断る**（2026-11-18 に確認。同じ時刻でも成功する実行と断られる実行がある）。ログイン（`loginEstamaAdmin`）は 403 なら同じ実行ではやり直さない。今すぐご案内が 403・「更新完了を画面上で確認できませんでした」で失敗したら pg_cron `estama-availability-retry-on-block`（毎分）→ `private.retry_estama_availability_dispatch()` が1分後に起動し直す（20分で3回まで）。出勤同期は失敗すると間をあけて自動で再試行するので、別の接続元で通る。ログイン画面のURL（`/login/?r=/admin/…`）にも `/admin/` が入るので、管理画面にいるかはパスで見る（`isAdminPath`）
 
-## エステ魂の仮予約の取り込み（WEB予約受付 /schedule/web-bookings）
+## エステ魂の仮予約の取り込み（予約一覧の「えすたま仮予約」タブ）
 
 - エステ魂の仮予約は、管理画面「お店への予約」（`/admin/reserve/`）にお客様名・電話・希望日時・指名・コース・クーポン・ご要望がそろって出る（IVRyの自動音声の電話をコピペする必要はない）。pg_cron `estama-reserve-sync`（毎分確認。仮予約のメールの合図（`private.estama_reserve_sync_requests`）があればすぐ、無ければ定期の 2,7,12,17,22,47,52,57分だけ。定期分は朝4〜9時は休み・毎時27〜42分の空き枠更新とは重ならない。別のエスたま処理中で読めなければ、合図が消えるまで毎分やり直す）→ `private.dispatch_estama_reserve_sync()` → `private.estama_scout_call(store, 'reserve-sync')` → Vercel `/api/cron/estama-appeal?action=estama-scout`（mode `reserve-sync`、本体 `server/estama-reserve-sync.ts`）が1ページ目（受付の新しい順20件）を**読むだけ**
 - 文字の読み取りは `server/estama-reserve-parse.ts`（テスト `npm run test:estama-reserve`。テストに実在のお客様の情報を書かない）。保存と判定は RPC `save_estama_reservation_requests(p_run_token, p_items)`（スカウトと同じ一回限りの実行トークン）→ `estama_reservation_requests`（anon は読めない）
 - **HPの出勤が正しい前提で判定**（`private.check_estama_request`）：`dummy`（`casts.is_estama_dummy` のダミー宛て）/ `unknown_cast`（HPにいない名前）/ `no_shift`（その営業日にHPの出勤なし）/ `outside_shift`（出勤の時間外）/ `overlap`（同じ子の別の予約と重なる）/ `free`（指名なし。その時間の出勤人数）/ `ok`。名前は年齢・絵文字・空白を除いて照合（`private.norm_cast_name`）。営業日は朝6時切り替え
-- 予約表に同じ電話番号・前後60分の予約があれば自動で「登録済み」（手で入れた分と二重にならない）。**自動では予約を作らない**（確定SMS・セラピスト通知が仮予約のまま飛ばないように）。WEB予約受付（左：ホームページからのWEB予約／右：エステ魂からの仮予約。スマホでは縦に並ぶ）の「予約表に登録」で `/admin-schedule?estama=<id>` が開き、内容（深夜は前日の25時台）・メモ（コース・クーポン・ご要望）が入った新規予約を確認して保存 → `set_estama_reservation_request` で結びつく。ダミー・いない名前はセラピストを空にして開く
+- 予約表に同じ電話番号・前後60分の予約があれば自動で「登録済み」（手で入れた分と二重にならない）。**自動では予約を作らない**（確定SMS・セラピスト通知が仮予約のまま飛ばないように）。予約一覧の「えすたま仮予約」タブの「予約表に登録」で `/admin-schedule?estama=<id>` が開き、内容（深夜は前日の25時台）・メモ（コース・クーポン・ご要望）が入った新規予約を確認して保存 → `set_estama_reservation_request` で結びつく。ダミー・いない名前はセラピストを空にして開く
 - 「予約表に登録」では全部入った状態で開く：お客様・日時・セラピストに加え、コース（エステ魂の料金と同じ料金のコース。「【会員限定】…プラン」は「エスたま限定」）・指名（指名料が同じもの、ネット指名優先。同じセラピストに施術済みのお客様は本指名）・オプション（`option_label` の名前で当てる）・クーポン（割引の名前が書いてあるもの）。料金は予約入力が計算する。当てはめられなかったものはメモに「※自動で入れられなかった項目」と残す（`src/lib/estamaReservationRequests.ts` の `catalogPrefill`、テスト `npm run test:estama-reserve`）
 - **予約入力の割引はエステ魂のクーポンと同じ名前にそろえている**（艶華、2026-10-24）：新規割 ご新規様1000円オフ（¥1,000）／事前予約割限定クーポン❶（¥1,000）／事前予約限定クーポン❷（¥2,000）／¥2,000×5枚=総額¥10,000（公式LINE）（¥2,000）／予約時に使える¥10,000クーポン（総額10,000円クーポン）（¥0。セラピストへの5,000円キャッシュバックの案内は名前の「総額10,000円クーポン」で判定）。仮予約のクーポンの文面に割引の名前（後ろの（…）は無くてもよい）が入っていれば自動で選ぶ。エステ魂のクーポンを足したら `discounts` にも同じ名前で足す
 - 新しい仮予約（受付から1時間以内）はスマホ通知（topic `web_booking`、push-notify の `estama_reserve`）。店舗の `stores.settings.estama_reserve_sync = false` で止められる
@@ -469,6 +469,14 @@
 ## KPI管理（売上ダッシュボードの「KPI管理」タブ）
 
 - KPIを自由に追加・編集・削除できる（`src/pages/HpKpiGoals.tsx`）。KPIごとに 内容（120文字）・頻度（毎日／毎週（月曜はじまり）／毎月）・目標回数・メモ。実施数はその期間ごとに「＋」「−」で記録して達成率を出す。表 `hp_kpi_items`（消すと `archived_at`）／`hp_kpi_item_progress`（item_id, period_start）。以前の決まった3つ（`hp_kpi_goals` / `hp_kpi_progress`）は移して残してある（`20261123090000_free_kpi_items.sql`）
+
+## スケジュールダッシュボード（/schedule-dashboard）
+
+- 設定・HP・ナレッジのダッシュボードと同じ1ページのタブ（2026-11-25、`src/pages/ScheduleDashboard.tsx`、`?tab=`）：概要（overview：本日の予約・本日の出勤・今月の予約・未対応のWEB予約、各画面への入口）／予約一覧（reservations）／空き枠（slots、`AvailableSlots`）／エスたま自動化履歴（estama、`EstamaSyncHistory`）。日別予約情報（`/admin-schedule`）と月別シフト（`/schedule/monthly-shift`）は画面いっぱいに使うので別ページのまま。サイドバーのスケジュールは「スケジュールダッシュボード・日別予約情報・月別シフト」の3つ
+- **予約一覧**＝以前の「WEB予約受付」をそのまま引き継いだ画面（`src/pages/WebBookings.tsx`、`embedded`）。`?source=` で4タブ：WEBフォーム（web_form）／セラピストフォーム（cast_form）／スタッフ受付（staff）／えすたま仮予約（estama、`EstamaReservationRequests`）。WEBフォーム・セラピストフォームは今まで通り対応状況（未対応・対応中・対応済み、`web_booking_status`）と通知の再送。タブの右上に未対応の数
+- スタッフ受付（`src/components/schedule/StaffReservations.tsx`）：`booking_origin` が staff・legacy_unknown・csv_import の予約（直近62日と今後）。対応状況は無い（DBの制約で web_booking_status は空）ので、今後／未完了（時間が過ぎたのに確定のまま）／完了／キャンセルで分け、カードの状態のプルダウンで完了・キャンセルにできる。「予約表で開く」は `/admin-schedule?date=YYYY-MM-DD`（営業日、`Schedule.tsx` が読む）
+- 以前の予約一覧（CSV取り込み・Googleスプレッドシート連携つき、`ReservationsList.tsx`）は消した。以前のURL（`/schedule/web-bookings`・`/schedule/reservations-list`（スタッフ受付）・`/schedule/available-slots`・`/schedule/estama-sync-history`・`/reservations`）は `ScheduleTabRedirect` で該当のタブへ（クエリは引き継ぐ）。月別清算の「予約一覧で完了処理する」はスタッフ受付を開く
+- WEB予約・えすたま仮予約のスマホ通知（push-notify）は予約一覧の受付元のタブを開く（`?tab=reservations&source=…`）
 
 ## ナレッジダッシュボード（/knowledge/dashboard）
 
@@ -551,7 +559,7 @@
 - シフトを保存すると DBトリガー `trg_enqueue_estama_shift` が `automation_jobs`（`estama_sync_shift`）に積む（今日〜13日後・エステ魂につながっている人だけ。担当や日付を変えたら前の枠の削除も積む）
 - 流すのは2つ：①毎分の `estama-profile-sync-every-minute` → `private.dispatch_estama_profile_sync()` → Vercel `estama-profile-worker`（プロフィール同期の次に、待っているシフト同期も10件まで流す。毎時27〜42分は動かさない）②毎晩23時の `estama-shift-sync-daily` → `private.dispatch_estama_sync()` → Edge Function `estama-reconcile-dispatch`（14日分を全部送り直す）
 - 2026-10-22 まで①はプロフィールだけで、ログインが切れていた間に直したシフトが翌23時まで反映されなかった（`20261022110000_estama_shift_jobs_background.sql` で直した）。ログインが切れていると、どちらも再ログイン（`estama-relogin`）まで止まる
-- 結果は「エスたま自動化履歴」（`/schedule/estama-sync-history`）
+- 結果は「エスたま自動化履歴」（`/schedule-dashboard?tab=estama`）
 - **GitHub Actions への移行（段階1）**：`automation_runner_settings.shift_enabled` をオンにした店舗は、新しく積まれる出勤同期をトリガー `trg_route_estama_shift_job` が `runner = 'github_actions'` にし、Browserbase ではなく直接実行（`estama-direct-runner`）で流す（起動役 `private.dispatch_estama_direct_runner` は出勤同期が待っていれば3分おきに起動）。シフト同期の処理は `prepareShiftJob`（DBを読む）→ `runShiftJobOnPage`（画面だけ）→ `finishShiftJob`（DBに書く）に分けてあり、ランナーは画面の操作だけ、DBの読み書きは Vercel の受け口（`claim` / `finish_shift`）が行う。ランナーは実行ごとに店舗の管理画面へ1回ログインして続けて処理する。失敗は Browserbase と同じく間をあけて再試行（`finish_estama_direct_job`）。オフに戻せば今まで通り Browserbase（`20261118010000_estama_shift_sync_github_actions.sql`）
 - **公開ページでの確認と赤い✓**：出勤を入れた（upsert）あと、同じブラウザでエステ魂の公開ページを開き、その日の出勤が表示されているかを確かめる（`confirmShiftOnPublicPage` → `verifyPublicShiftGroup`、出ていなければ失敗にして間をあけて送り直す）。確かめられたら `shifts.estama_public_verified_at` に日時を入れ、月別シフトのカレンダーに赤い✓（人が確認した `estama_human_confirmed` と同じ印）を出す。シフトの担当・日付・時間・承認・状態を直すと DBトリガー `set_estama_human_confirmation_metadata` が両方を消す（`20261118020000_shift_estama_public_verified.sql`）。毎晩の一括同期（トークン方式の `estama-worker`）も、結果の `publicVerified` を見て RPC `report_estama_shift_result` が同じ印を付ける（`20261118080000_estama_shift_report_public_verified.sql`。それまでは直接実行の経路だけが付けていた）
 - 出勤が1件も無い人の公開ページには出勤表（table）が無く「今週のスケジュール」の見出しだけになる。この場合、削除の同期は成功・追加の同期は「公開ページに出勤が1件も表示されていません」で失敗とする（`hasEmptyPublicSchedule`。2026-11 まで退店した人の削除が毎晩「公開出勤表が見つかりません」で失敗していた）

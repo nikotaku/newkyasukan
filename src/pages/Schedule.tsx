@@ -512,7 +512,13 @@ export default function Schedule() {
         const now = new Date();
         const beforeBusinessStart = now.getHours() * 60 + now.getMinutes()
           < startHour * 60 + startMinute;
-        setSelectedDate(beforeBusinessStart ? addDays(now, -1) : now);
+        // 予約一覧の「予約表で開く」：?date=YYYY-MM-DD（営業日）の日を開く
+        const requestedDate = new URLSearchParams(window.location.search).get("date");
+        setSelectedDate(
+          requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
+            ? new Date(`${requestedDate}T12:00:00`)
+            : beforeBusinessStart ? addDays(now, -1) : now,
+        );
         setStoreDayStartLoaded(true);
       });
 

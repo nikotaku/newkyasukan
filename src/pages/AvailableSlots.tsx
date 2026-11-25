@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -43,8 +42,7 @@ const TIME_SLOTS = Array.from({ length: 16 }, (_, i) => {
   return `${String(hour).padStart(2, "0")}:00`;
 });
 
-export default function AvailableSlots() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default function AvailableSlots({ embedded = false }: { embedded?: boolean } = {}) {
   const [selectedDate, setSelectedDate] = useState(getBusinessDateFromCache);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -165,11 +163,7 @@ export default function AvailableSlots() {
     selectedCast === "all" ? casts : casts.filter((c) => c.id === selectedCast);
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="pt-[60px] md:ml-[240px] p-6">
+    <AdminPageShell embedded={embedded} mainClassName="p-6">
         <div className="max-w-6xl mx-auto">
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -274,7 +268,6 @@ export default function AvailableSlots() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

@@ -791,7 +791,7 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
                       variant="outline"
                       size="sm"
                       className="w-full border-red-300 text-red-700 hover:bg-red-100 hover:text-red-800"
-                      onClick={() => navigate("/schedule/reservations-list")}
+                      onClick={() => navigate("/schedule-dashboard?tab=reservations&source=staff")}
                     >
                       予約一覧で完了処理する
                     </Button>
