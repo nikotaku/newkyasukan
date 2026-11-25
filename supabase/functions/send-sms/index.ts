@@ -267,7 +267,10 @@ Deno.serve(async (req) => {
         templateId = null;
         customerId = null;
         reminderKey = `${r.id}/${r.reservation_date}/${r.start_time}`;
-        body = fillTemplate(REMINDER_TPL, await buildVars(r));
+        const [template] = await sb(`sms_auto_templates?store_id=eq.${storeId}&trigger=eq.reservation_reminder&select=id,message,is_active&order=is_active.desc,id&limit=1`);
+        if (template && !template.is_active) return json({ ok: true, skipped: true });
+        templateId = template?.id ?? null;
+        body = fillTemplate(template?.message || REMINDER_TPL, await buildVars(r));
       } else if (!body) {
         let tpl = DEFAULT_TPL;
         const q = templateId
