@@ -228,6 +228,9 @@ function mapToRecord(
 }
 
 export default function CustomerDatabase() {
+  const [archivePhone, setArchivePhone] = useState("");
+  const [archiveRows, setArchiveRows] = useState<{visit_date: string; course: string; therapist: string}[] | null>(null);
+  const [archiveBusy, setArchiveBusy] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [records, setRecords] = useState<DatabaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -239,7 +242,7 @@ export default function CustomerDatabase() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const activeTab = ["preferences", "sales", "newsletter", "sheet"].includes(tabParam || "") ? tabParam! : "db";
+  const activeTab = ["archive", "preferences", "sales", "newsletter", "sheet"].includes(tabParam || "") ? tabParam! : "db";
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
@@ -417,11 +420,31 @@ export default function CustomerDatabase() {
             <TabsTrigger value="db">データベース</TabsTrigger>
             <TabsTrigger value="preferences">好み</TabsTrigger>
             <TabsTrigger value="sales">営業</TabsTrigger>
+            <TabsTrigger value="archive">全力エステ来店履歴</TabsTrigger>
             <TabsTrigger value="newsletter">メルマガ</TabsTrigger>
             <TabsTrigger value="sheet" className="gap-1.5">
               <Table2 size={13} />Googleスプレッドシート
             </TabsTrigger>
           </TabsList>
+          <TabsContent value="archive" className="overflow-auto">
+            <form className="flex flex-wrap gap-2 mb-4" onSubmit={async event => {
+              event.preventDefault();
+              setArchiveBusy(true);
+              setArchiveRows(null);
+              try {
+                const {data, error} = await supabase.rpc("enka_archived_visits", {p_phone: archivePhone});
+                if (error) throw error;
+                setArchiveRows(data);
+              } catch { toast.error("来店履歴の取得に失敗しました"); }
+              finally { setArchiveBusy(false); }
+            }}>
+              <input className="rounded border px-3" aria-label="電話番号" placeholder="電話番号" type="tel" required disabled={archiveBusy}
+                value={archivePhone} onChange={e => { setArchivePhone(e.target.value); setArchiveRows(null); }} />
+              <Button disabled={archiveBusy}>来店履歴を検索</Button>
+            </form>
+            {archiveRows?.length === 0 && <p>該当する来店履歴はありません</p>}
+            {archiveRows?.map((row, i) => <p className="border-b py-2" key={i}>{row.visit_date}　{row.therapist}　{row.course}</p>)}
+          </TabsContent>
           <TabsContent value="preferences" className="flex-1 overflow-hidden mt-0">
             <CustomerPreferencesTab />
           </TabsContent>
