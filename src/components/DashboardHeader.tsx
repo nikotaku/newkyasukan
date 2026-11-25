@@ -1,11 +1,8 @@
-import { useState } from "react";
-import { Menu, User, LogOut, Loader2, Repeat, Bell } from "lucide-react";
+import { Menu, User, LogOut, Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminStore } from "@/hooks/useAdminStore";
-import { useToast } from "@/hooks/use-toast";
 import { useAdminAppManifest } from "@/hooks/useAdminAppManifest";
 import { CtiCallPopup } from "@/components/CtiCallPopup";
 import { AppUpdateNotice } from "@/components/AppUpdateNotice";
@@ -14,13 +11,6 @@ import { EstamaPendingAlert } from "@/components/EstamaPendingAlert";
 import { TherapistNotifyAlert } from "@/components/TherapistNotifyAlert";
 import { TherapistPromotionReportAlert } from "@/components/promotion/TherapistPromotionReports";
 import caskanLogo from "@/assets/caskan-logo.png";
-import { STORE_DEFS, otherStore, switchToStore, ZENRYOKU_STORE_ID } from "@/lib/storeSwitch";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,53 +25,8 @@ interface DashboardHeaderProps {
 export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
   const { user, signOut, isAdmin } = useAuth();
   const { store: adminStore } = useAdminStore();
-  const { toast } = useToast();
-  const [switching, setSwitching] = useState(false);
   const navigate = useNavigate();
   useAdminAppManifest();
-
-  // 過去データ以外は店舗ごとのアイコンに切り替える
-  const currentStoreId = adminStore?.id ?? ZENRYOKU_STORE_ID;
-  const isDefaultStore = currentStoreId === ZENRYOKU_STORE_ID;
-  const shopIcon = isDefaultStore
-    ? "https://cdn2-caskan.com/caskan/img/shop_icon/1401_icon_1750161414.jpeg"
-    : "/favicon-tsuyaka.png";
-  const shopAlt = adminStore?.name ?? "艶華";
-  const target = otherStore(currentStoreId);
-  const canSwitch = STORE_DEFS.some((s) => s.id === currentStoreId) && !!target;
-
-  const [pwDialogOpen, setPwDialogOpen] = useState(false);
-  const [pwInput, setPwInput] = useState("");
-
-  const doSwitch = async (password?: string) => {
-    if (!target || switching) return;
-    setSwitching(true);
-    toast({ title: `${target.name}に切替中…` });
-    const res = await switchToStore(target, password);
-    if (res.needLogin) {
-      // パスワード未保持（この機能導入前からのログイン・新規タブなど）→ その場で入力してもらう
-      setSwitching(false);
-      setPwInput("");
-      setPwDialogOpen(true);
-      return;
-    }
-    if (!res.ok) {
-      setSwitching(false);
-      toast({ title: "切替に失敗しました", description: res.error, variant: "destructive" });
-      return;
-    }
-    // RLSでデータを店舗別に分離するため、リロードして全ページを再取得
-    window.location.href = "/dashboard";
-  };
-
-  const handleSwitchStore = () => doSwitch();
-
-  const handlePwSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pwInput) return;
-    setPwDialogOpen(false);
-    await doSwitch(pwInput);
-  };
 
   return (
     <header className="fixed top-0 left-0 right-0 h-[52px] sm:h-[60px] bg-card border-b border-border z-40">
@@ -118,31 +63,7 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
           <O2ControlAlert />
           {user && <TherapistPromotionReportAlert storeId={adminStore?.id} />}
 
-          {canSwitch ? (
-            <button
-              type="button"
-              onClick={handleSwitchStore}
-              disabled={switching}
-              aria-label={`${target?.name}に切り替え`}
-              title={`タップで${target?.name}に切り替え`}
-              className="relative flex-shrink-0 max-[360px]:hidden disabled:opacity-60"
-            >
-              <img
-                src={shopIcon}
-                alt={shopAlt}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded border border-border object-cover"
-              />
-              <span className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center shadow">
-                {switching ? <Loader2 size={9} className="animate-spin" /> : <Repeat size={9} />}
-              </span>
-            </button>
-          ) : (
-            <img
-              src={shopIcon}
-              alt={shopAlt}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded border border-border object-cover flex-shrink-0 max-[360px]:hidden"
-            />
-          )}
+          <img src="/favicon-tsuyaka.png" alt="艶華" className="w-8 h-8 rounded border border-border object-cover" />
           
           {user ? (
             <DropdownMenu>
@@ -171,34 +92,6 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
           )}
         </div>
       </div>
-      {/* 店舗切替用パスワード入力（sessionStorage 未保持時のみ） */}
-      <Dialog open={pwDialogOpen} onOpenChange={setPwDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{target?.name}に切り替え</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handlePwSubmit} className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              管理パスワードを入力してください（次回からは入力不要です）
-            </p>
-            <Input
-              type="password"
-              placeholder="パスワード"
-              value={pwInput}
-              onChange={(e) => setPwInput(e.target.value)}
-              autoFocus
-            />
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setPwDialogOpen(false)}>
-                キャンセル
-              </Button>
-              <Button type="submit" disabled={!pwInput}>
-                切り替える
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
       {/* CTI着信ポップ（全管理画面共通） */}
       <CtiCallPopup />
       {/* 新しい版が出たら「更新する」（ホーム画面のアプリは閉じきるまで古いままのため） */}

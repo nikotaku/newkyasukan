@@ -15,7 +15,7 @@ import { ChevronLeft, ChevronRight, ChevronDown, Loader2, CheckCircle, AlertCirc
 import { toast } from "sonner";
 import { downloadMonthlyReport } from "@/lib/monthlyClosingReport";
 import { splitClearanceExtraItems, splitSalaryAdjustments, sumClearanceExtraItems } from "@/lib/clearanceExtraItems";
-import { ZENRYOKU_STORE_ID } from "@/lib/storeSwitch";
+import { ENKA_STORE_ID } from "@/lib/storeSwitch";
 import { expenseSuggestions, type ExpenseSuggestion, type WatchForSuggestion } from "@/lib/expenseSuggestions";
 
 /**
@@ -244,29 +244,32 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
       supabase
         .from("expenses")
         .select("id, expense_date, expense_type, amount, is_paid, description")
+        .eq("store_id", ENKA_STORE_ID)
         .gte("expense_date", monthStart)
         .lte("expense_date", monthEnd),
       supabase
         .from("daily_clearances")
         .select("cast_id, total_sales, therapist_back, misc_expenses, accommodation_fee, transportation_fee, other_expenses, payout_amount, casts(name)")
+        .eq("store_id", ENKA_STORE_ID)
         .gte("date", monthStart)
         .lte("date", monthEnd),
       supabase.from("referral_rewards").select("id, amount"),
       supabase
         .from("reservations")
         .select("id, cast_id, customer_name, reservation_date, start_time, duration, status, room, price, payment_method, nomination_type, casts(name, referral_reward_id)")
+        .eq("store_id", ENKA_STORE_ID)
         .gte("reservation_date", monthStart)
         .lte("reservation_date", monthEnd),
       supabase
         .from("monthly_closings")
         .select("*")
-        .eq("store_id", ZENRYOKU_STORE_ID)
+        .eq("store_id", ENKA_STORE_ID)
         .eq("month_date", monthStart)
         .maybeSingle(),
       supabase
         .from("business_fixed_costs")
         .select("id, item_name, transfer_account_id"),
-      supabase.from("expenses").select("expense_date")
+      supabase.from("expenses").select("expense_date").eq("store_id", ENKA_STORE_ID)
         .eq("expense_type", "ラズルーム水道代").eq("is_paid", true).gt("amount", 0)
         .lt("expense_date", monthStart).order("expense_date", { ascending: false }).limit(1).maybeSingle(),
     ]);
@@ -547,6 +550,7 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
       ? format(new Date(), "yyyy-MM-dd")
       : format(endOfMonth(selectedMonth), "yyyy-MM-dd");
     const { error } = await supabase.from("expenses").insert([{
+      store_id: ENKA_STORE_ID,
       expense_date: date,
       expense_type: item,
       amount,
@@ -619,6 +623,7 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
       ? format(new Date(), "yyyy-MM-dd")
       : format(endOfMonth(selectedMonth), "yyyy-MM-dd");
     const { error } = await supabase.from("expenses").insert([{
+      store_id: ENKA_STORE_ID,
       expense_date: date,
       expense_type: varCategory,
       amount,
@@ -659,7 +664,7 @@ export default function SalesMonthlyClosing({ embedded = false, focusExpenses = 
     setClosingBusy(true);
     const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
     const { data, error } = await supabase.from("monthly_closings").upsert({
-      store_id: ZENRYOKU_STORE_ID,
+      store_id: ENKA_STORE_ID,
       month_date: monthStart,
       total_sales: totalSales,
       therapist_paid: totalSalaryPaid,

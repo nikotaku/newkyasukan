@@ -38,11 +38,19 @@ export function useAuth() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    try { sessionStorage.removeItem("admin_pw"); } catch { /* storage unavailable */ }
     let active = true;
     let sessionRequestId = 0;
 
     const resolveSession = (nextSession: Session | null) => {
       const requestId = ++sessionRequestId;
+      if (nextSession?.user.email?.toLowerCase() === "saito.crow@gmail.com") {
+        setSession(null);
+        setUser(null);
+        setIsAdmin(false);
+        setTimeout(() => void supabase.auth.signOut({ scope: "local" }).then(() => window.location.replace("/auth")), 0);
+        return;
+      }
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
 
