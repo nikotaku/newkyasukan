@@ -25,6 +25,8 @@ export const PREDEFINED_TAGS = [
 
 interface Contract {
   id: string;
+  parent_id: string | null;
+  store_id: string | null;
   name: string;
   tags: string[];
   amount: number;
@@ -42,6 +44,11 @@ export default function FacilitiesContracts({ embedded = false }: { embedded?: b
   const [loading, setLoading] = useState(true);
   const [activeTag, setActiveTag] = useState("すべて");
 
+  const [arranging, setArranging] = useState(false);
+  const [drag, setDrag] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const [moving, setMoving] = useState(false);
+  const [closed, setClosed] = useState<string[]>([]);
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -58,12 +65,12 @@ export default function FacilitiesContracts({ embedded = false }: { embedded?: b
     try {
       const { data, error } = await db
         .from("facility_contracts")
-        .select("id,name,tags,amount,contract_status,management_company,address,notes,documents")
+        .select("id,parent_id,store_id,name,tags,amount,contract_status,management_company,address,notes,documents")
         .order("name");
       if (error && error.code !== "PGRST116") throw error;
       setContracts((data || []).map((c: Contract & { documents: unknown }) => ({ ...c, tags: c.tags || [], documents: normalizeContractDocuments(c.documents) })));
     } catch (error) {
-      console.error("Error:", error);
+      toast.error("契約一覧を取得できませんでした");
     } finally {
       setLoading(false);
     }
@@ -75,10 +82,50 @@ export default function FacilitiesContracts({ embedded = false }: { embedded?: b
 
   const tabs = ["すべて", ...allTags];
 
-  const filteredContracts =
-    activeTag === "すべて"
-      ? contracts
-      : contracts.filter((c) => c.tags.includes(activeTag));
+  const byId = new Map(contracts.map(c => [c.id,c]));
+  function ancestors(contract: Contract) {
+    const ids: string[] = [];
+    let parent = contract.parent_id;
+    while (parent && byId.has(parent) && !ids.includes(parent)) {
+      ids.unshift(parent);
+      parent = byId.get(parent)?.parent_id ?? null;
+    }
+    return ids;
+  }
+  const paths = new Map(contracts.map(c => [c.id, ancestors(c)]));
+  const visible = new Set(contracts.filter(c => activeTag === "すべて" || c.tags.includes(activeTag)).flatMap(c => [...paths.get(c.id)!, c.id]));
+  const filteredContracts: Contract[] = [];
+  function visit(parent: string | null) {
+    for (const c of contracts.filter(c => (byId.has(c.parent_id ?? "") ? c.parent_id : null) === parent)) {
+      if (!visible.has(c.id)) continue;
+      filteredContracts.push(c);
+      if (!closed.includes(c.id) || activeTag !== "すべて") visit(c.id);
+    }
+  }
+  visit(null);
+
+  function allowed(source: Contract, target: Contract) {
+    return source.store_id === target.store_id && source.id !== target.id && !paths.get(target.id)?.includes(source.id);
+  }
+  async function move(id: string, parent: string | null) {
+    const source = byId.get(id);
+    if (!source || moving || source.parent_id === parent) return;
+    if (parent && (!byId.has(parent) || !allowed(source, byId.get(parent)!))) {
+      toast.error("この契約の下には移動できません"); return;
+    }
+    setMoving(true);
+    try {
+      const {error} = await db.from("facility_contracts").update({parent_id:parent}).eq("id",id).select("id").single();
+      if (error) throw error;
+      setClosed([]);
+      await fetchContracts();
+      toast.success("移動しました");
+    } catch { toast.error("移動できませんでした"); }
+    finally { setMoving(false); }
+  }
+  function hit(x:number,y:number) {
+    return document.elementFromPoint(x,y)?.closest<HTMLElement>("[data-contract-target]")?.dataset.contractTarget ?? null;
+  }
 
   const handleCreate = async () => {
     const initialTags = activeTag !== "すべて" ? [activeTag] : [];
@@ -95,7 +142,7 @@ export default function FacilitiesContracts({ embedded = false }: { embedded?: b
     if (!confirm(`「${contract.name}」を削除しますか？付いている契約書のファイルも消えます。元に戻せません。`)) return;
     try {
       await deleteFacilityContract(contract.id, contract.documents);
-      setContracts((prev) => prev.filter((c) => c.id !== contract.id));
+      await fetchContracts();
       toast.success("削除しました");
     } catch (error) {
       console.error(error);
@@ -112,29 +159,18 @@ export default function FacilitiesContracts({ embedded = false }: { embedded?: b
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">契約管理</h1>
-              <p className="text-muted-foreground">各種契約の管理</p>
+
             </div>
-            <Button size="sm" onClick={handleCreate}>
+            <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => { setArranging(!arranging); setActiveTag("すべて"); setClosed([]); }}>{arranging ? "整理を終了" : "整理"}</Button><Button size="sm" onClick={handleCreate}>
               <Plus size={14} className="mr-1" />新規追加
             </Button>
-          </div>
+          </div></div>
 
           {/* タブ（設定ダッシュボード・HPダッシュボードと同じ横並び。多いときは横にスクロール） */}
-          <Tabs value={activeTag} onValueChange={setActiveTag} className="mb-4">
-            <TabsList className="flex h-auto w-full justify-start overflow-x-auto">
-              {tabs.map((tag) => {
-                const count = tag === "すべて"
-                  ? contracts.length
-                  : contracts.filter((c) => c.tags.includes(tag)).length;
-                return (
-                  <TabsTrigger key={tag} value={tag} className="shrink-0">
-                    {tag}<span className="ml-1 text-xs opacity-60">{count}</span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </Tabs>
-
+          {arranging ? <div data-contract-target="root" className={`sticky top-16 z-10 mb-3 rounded border border-dashed p-3 text-center text-sm ${over === "root" ? "bg-accent" : "bg-background"}`}>最上位に戻す</div> :
+            <select aria-label="契約の種類" className="mb-4 rounded border bg-background p-2 text-sm" value={activeTag} onChange={e => setActiveTag(e.target.value)}>
+              {tabs.map(tag => <option key={tag}>{tag}</option>)}
+            </select>}
           {/* Contract list */}
           <div className="space-y-3">
             {loading ? (
@@ -147,12 +183,23 @@ export default function FacilitiesContracts({ embedded = false }: { embedded?: b
               </Card>
             ) : (
               filteredContracts.map((contract) => (
-                <Card key={contract.id}>
+                <Card key={contract.id} data-contract-target={contract.id}
+                  className={over === contract.id ? "ring-2 ring-primary" : ""}
+                  style={{ marginLeft: Math.min(4,paths.get(contract.id)!.length)*14 }}>
+                  {arranging && <div className="flex items-center gap-2 border-b p-2">
+                    <button aria-label={contract.name+"をドラッグ"} disabled={moving} className="touch-none cursor-grab rounded border px-3 py-2" onPointerDown={e => {e.currentTarget.setPointerCapture(e.pointerId); setDrag(contract.id);}}
+                      onPointerMove={e => {if(drag !== contract.id) return; if(e.clientY > window.innerHeight-60) window.scrollBy(0,22); if(e.clientY < 110) window.scrollBy(0,-22); setOver(hit(e.clientX,e.clientY));}}
+                      onPointerCancel={() => {setDrag(null);setOver(null);}} onPointerUp={e => {const target=hit(e.clientX,e.clientY); if(drag && target && target!==drag) void move(drag,target==="root"?null:target); setDrag(null);setOver(null);}}>⠿</button>
+                    <select aria-label={contract.name+"の移動先"} disabled={moving} className="min-w-0 flex-1 rounded border bg-background p-2 text-sm" value={contract.parent_id ?? ""} onChange={e=>void move(contract.id,e.target.value || null)}>
+                      <option value="">最上位</option>{contracts.filter(c=>allowed(contract,c)).map(c=><option key={c.id} value={c.id}>{[...paths.get(c.id)!.map(id=>byId.get(id)!.name), c.name].join(" / ")}</option>)}
+                    </select>
+                  </div>}
                   <CardContent className="pt-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <div className="font-semibold">{contract.name}</div>
+                          {activeTag === "すべて" && contracts.some(c=>c.parent_id===contract.id) && <button className="text-xs text-primary" onClick={()=>setClosed(ids=>ids.includes(contract.id)?ids.filter(id=>id!==contract.id):[...ids,contract.id])}>{closed.includes(contract.id)?"展開":"折りたたむ"}</button>}
                           {contract.contract_status && (
                             <span
                               className={`text-xs px-2 py-0.5 rounded-full ${

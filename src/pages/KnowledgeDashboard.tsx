@@ -17,8 +17,7 @@ import PurchaseOrders from "./PurchaseOrders";
 // 中身は今までの各ページを embedded で入れている。以前のURLは App.tsx で該当のタブへ転送する。
 const TABS = [
   { value: "overview", label: "概要" },
-  { value: "knowledge", label: "ナレッジ" },
-  { value: "templates", label: "テンプレート" },
+  { value: "knowledge", label: "ナレッジ・テンプレート" },
   { value: "passwords", label: "ID・パスワード" },
   { value: "contracts", label: "契約" },
   { value: "money", label: "お金" },
@@ -40,7 +39,7 @@ const ROOM_LINKS = [
 export default function KnowledgeDashboard() {
   const [params, setParams] = useSearchParams();
   const requested = params.get("tab");
-  const tab = TABS.some((item) => item.value === requested) ? requested! : "overview";
+  const tab = requested === "templates" ? "knowledge" : TABS.some((item) => item.value === requested) ? requested! : "overview";
 
   const openTab = useCallback((next: string, extra?: Record<string, string>) => {
     setParams({ tab: next, ...(extra ?? {}) });
@@ -56,8 +55,12 @@ export default function KnowledgeDashboard() {
             {TABS.map((item) => <TabsTrigger key={item.value} value={item.value} className="shrink-0">{item.label}</TabsTrigger>)}
           </TabsList>
           <TabsContent value="overview"><KnowledgeOverview onOpen={openTab} /></TabsContent>
-          <TabsContent value="knowledge">{tab === "knowledge" && <Knowledge embedded initialArticleId={params.get("article")} />}</TabsContent>
-          <TabsContent value="templates"><TextTemplates embedded /></TabsContent>
+          <TabsContent value="knowledge">
+            {requested === "templates" ? <>
+              <button className="mb-3 text-sm text-primary" onClick={() => openTab("knowledge")}>← 一覧へ戻る</button>
+              <TextTemplates embedded />
+            </> : <Knowledge embedded initialArticleId={params.get("article")} />}
+          </TabsContent>
           <TabsContent value="passwords">{tab === "passwords" && <PasswordDatabase embedded initialQuery={params.get("q") ?? ""} />}</TabsContent>
           <TabsContent value="contracts"><FacilitiesContracts embedded /></TabsContent>
           <TabsContent value="money" className="space-y-8">

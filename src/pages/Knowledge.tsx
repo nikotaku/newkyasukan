@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { DashboardHeader } from "@/components/DashboardHeader";
@@ -50,6 +51,9 @@ export default function Knowledge({ embedded = false, initialArticleId = null }:
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [articles, setArticles] = useState<Article[]>([]);
+  const [templates, setTemplates] = useState<{ id:string; label:string; content:string | null }[]>([]);
+  const [template, setTemplate] = useState<(typeof templates)[number] | null>(null);
+  useEffect(() => { void supabase.from("text_templates").select("id,label,content").eq("is_folder", false).order("display_order").then(({data,error}) => { if(error) toast.error("テンプレートを取得できませんでした"); else setTemplates(data ?? []); }); }, []);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("すべて");
@@ -89,7 +93,10 @@ export default function Knowledge({ embedded = false, initialArticleId = null }:
     return matchCat && matchSearch;
   });
 
+  const visibleTemplates = templates.filter(t => ["すべて", "テンプレート"].includes(activeCategory) && (t.label + (t.content ?? "")).toLowerCase().includes(search.toLowerCase()));
+
   const openNew = () => {
+    setTemplate(null);
     setSelected(null);
     setForm({ ...emptyForm, category: activeCategory === "すべて" ? "マニュアル" : activeCategory });
     setEditing(true);
@@ -299,7 +306,7 @@ export default function Knowledge({ embedded = false, initialArticleId = null }:
         </aside>
 
         {/* ── MIDDLE: Article list ── */}
-        <div className={`flex flex-col border-r bg-background overflow-y-auto ${selected || editing ? "hidden md:flex w-64 shrink-0" : "flex-1"}`}>
+        <div className={`flex flex-col border-r bg-background overflow-y-auto ${selected || template || editing ? "hidden md:flex w-64 shrink-0" : "flex-1"}`}>
           <div className="p-3 border-b flex items-center justify-between gap-2 shrink-0">
             <h1 className="font-semibold text-sm flex items-center gap-1.5">
               <BookOpen size={15} />
@@ -312,6 +319,7 @@ export default function Knowledge({ embedded = false, initialArticleId = null }:
             )}
           </div>
 
+          <Link className="px-3 py-2 text-xs text-primary" to="/knowledge/dashboard?tab=templates">テンプレートの追加・編集</Link>
           {/* SP search */}
           <div className="md:hidden p-2 border-b">
             <div className="relative">
@@ -323,7 +331,7 @@ export default function Knowledge({ embedded = false, initialArticleId = null }:
           <div className="flex-1">
             {loading ? (
               <p className="text-center text-muted-foreground py-8 text-sm">読み込み中...</p>
-            ) : filtered.length === 0 ? (
+            ) : filtered.length === 0 && !visibleTemplates.length ? (
               <div className="text-center text-muted-foreground py-12 px-4">
                 <FileText size={32} className="mx-auto mb-2 opacity-30" />
                 <p className="text-xs">{search ? "該当する記事がありません" : "まだ記事がありません"}</p>
@@ -337,7 +345,7 @@ export default function Knowledge({ embedded = false, initialArticleId = null }:
               filtered.map(a => (
                 <button
                   key={a.id}
-                  onClick={() => { setSelected(a); setEditing(false); }}
+                  onClick={() => { setTemplate(null); setSelected(a); setEditing(false); }}
                   className={`w-full text-left px-3 py-2.5 border-b border-border/50 transition-colors flex items-start gap-2 ${
                     selected?.id === a.id ? "bg-muted" : "hover:bg-muted/50"
                   }`}
@@ -360,12 +368,20 @@ export default function Knowledge({ embedded = false, initialArticleId = null }:
                 </button>
               ))
             )}
+            {visibleTemplates.map(t => <button key={t.id} className="block w-full border-b px-3 py-3 text-left text-sm hover:bg-muted" onClick={() => { setTemplate(t); setSelected(null); setEditing(false); }}>
+              <span className="block text-xs text-muted-foreground">テンプレート</span>{t.label}
+            </button>)}
           </div>
         </div>
 
         {/* ── RIGHT: Detail / Editor ── */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {editing ? (
+        <div className={`min-w-0 flex-1 flex-col overflow-hidden ${selected || template || editing ? "flex" : "hidden md:flex"}`}>
+          {template ? <section className="overflow-auto p-4">
+            <Button variant="ghost" onClick={() => setTemplate(null)}>← 一覧</Button>
+            <h2 className="my-4 text-xl font-bold">{template.label}</h2>
+            <Button variant="outline" onClick={() => navigator.clipboard.writeText(template.content ?? "").then(() => toast.success("コピーしました")).catch(() => toast.error("コピーできませんでした"))}>本文をコピー</Button>
+            <p className="mt-4 whitespace-pre-wrap break-words">{template.content}</p>
+          </section> : editing ? (
             /* ── EDITOR ── */
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between px-4 py-2.5 border-b shrink-0">
