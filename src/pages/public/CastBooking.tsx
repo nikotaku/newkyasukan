@@ -110,6 +110,10 @@ const optionSortKey = (name: string) => {
   return i === -1 ? OPTION_ORDER.length : i;
 };
 
+const SENA_CAST_ID = "52e9f3a1-7be3-4228-8b01-60d2cb1c20a5";
+const SENA_DECEMBER_COUPON_ID = "17cd2581-c536-4700-8ffc-be2ad09aa132";
+const isDecemberVisit = (date: string) => date >= "2026-12-01" && date <= "2026-12-31";
+
 export default function CastBooking() {
   const { castId, castKey } = useParams<{ castId?: string; castKey?: string }>();
   const { storeId, loading: storeLoading } = useStore();
@@ -120,6 +124,7 @@ export default function CastBooking() {
   const [nominationFee, setNominationFee] = useState(0);
 
   const [date, setDate] = useState(format(addDays(new Date(), 1), "yyyy-MM-dd"));
+  const [useDecemberCoupon, setUseDecemberCoupon] = useState(false);
   const [time, setTime] = useState("");
   const [courseType, setCourseType] = useState("");
   const [duration, setDuration] = useState(0);
@@ -269,7 +274,12 @@ export default function CastBooking() {
   const optionsTotal = selectedOptions.reduce(
     (s, name) => s + (optionRates.find((o) => o.option_name === name)?.customer_price ?? 0), 0
   );
-  const total = coursePrice > 0 ? coursePrice + optionsTotal + nominationFee : 0;
+  const showDecemberCoupon = cast?.id === SENA_CAST_ID && Date.now() < Date.parse("2027-01-01T00:00:00+09:00");
+  const couponEligible = showDecemberCoupon && isDecemberVisit(date);
+  const subtotal = coursePrice > 0 ? coursePrice + optionsTotal + nominationFee : 0;
+
+  const discount = couponEligible && useDecemberCoupon ? Math.min(2000, subtotal) : 0;
+  const total = subtotal - discount;
 
   const selectedTime = availableTimeOptions.find((t) => t.value === time);
   // 24:00以降は翌カレンダー日付で保存（管理タイムラインの営業日ロジックと整合）
@@ -332,6 +342,7 @@ export default function CastBooking() {
         options: selectedOptions.length > 0 ? selectedOptions : null,
         nomination_type: nominationType,
         price: total,
+        ...(discount > 0 && { discount, discount_ids: [SENA_DECEMBER_COUPON_ID] }),
         payment_method: "cash",
         notes: notes.trim() || null,
         referral_source: `${cast.name}専用フォーム`,
@@ -398,7 +409,8 @@ export default function CastBooking() {
             <p>📅 {format(new Date(`${date}T00:00:00`), "M月d日(E)", { locale: ja })} {selectedTime?.label ?? time}〜</p>
             <p>💆 {courseType} {duration}分</p>
             {selectedOptions.length > 0 && <p>✨ {selectedOptions.map(getOptionDisplayName).join("・")}</p>}
-            {total > 0 && <p>💰 ¥{total.toLocaleString()}（目安）</p>}
+            {discount > 0 && <p>12月クーポン適用　−¥{discount.toLocaleString()}</p>}
+            {subtotal > 0 && <p>💰 ¥{total.toLocaleString()}（目安）</p>}
           </div>
           <p className="text-xs text-gray-400">{offShiftRequest ? "出勤予定を確認後、店舗からご連絡します。" : "※ この時点ではまだ予約は確定していません。返信をもって確定となります。"}</p>
         </div>
@@ -585,6 +597,13 @@ export default function CastBooking() {
             </section>
           )}
 
+          {showDecemberCoupon && (
+            <aside className="rounded-2xl bg-gradient-to-br from-rose-700 to-pink-800 px-5 py-4 text-white">
+              <p className="mb-1 text-xs font-semibold">望月せな限定</p>
+              <p className="text-lg font-bold leading-snug">12月中の予約を今取ると、<strong className="whitespace-nowrap">2,000円オフ</strong>でご予約可能</p>
+            </aside>
+          )}
+
           {/* 希望日 */}
           <div>
             <label className="flex items-center gap-1.5 text-sm font-bold text-rose-500 mb-2">
@@ -619,7 +638,10 @@ export default function CastBooking() {
                     type="date"
                     value={date}
                     min={format(new Date(), "yyyy-MM-dd")}
-                    onChange={(e) => setDate(e.target.value)}
+                    onChange={(e) => {
+                      setDate(e.target.value);
+                      if (!isDecemberVisit(e.target.value)) setUseDecemberCoupon(false);
+                    }}
                     className="block w-full min-w-0 max-w-full box-border appearance-none rounded-2xl border-2 border-pink-100 focus:border-pink-300 bg-pink-50/50 pl-11 pr-4 py-3 text-sm font-medium text-left focus:outline-none [color-scheme:light]"
                   />
                 </div>
@@ -627,6 +649,18 @@ export default function CastBooking() {
               </>
             )}
           </div>
+
+          {showDecemberCoupon && (
+            <div className="rounded-2xl border border-rose-200 px-4 py-3">
+              <label className="flex items-center gap-3 text-sm font-bold text-rose-700">
+                <input type="checkbox" checked={couponEligible && useDecemberCoupon}
+                  disabled={!couponEligible} onChange={(e) => setUseDecemberCoupon(e.target.checked)}
+                  className="h-5 w-5 accent-rose-600" />
+                クーポンを使用して予約
+              </label>
+              {!couponEligible && <p className="mt-1 text-xs text-gray-600">希望日に12月1日〜31日を選ぶと利用できます。</p>}
+            </div>
+          )}
 
           {/* 希望時間 */}
           <div>
@@ -844,11 +878,12 @@ export default function CastBooking() {
           </div>
 
           {/* 合計目安 */}
-          {total > 0 && (
+          {subtotal > 0 && (
             <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-2xl p-4 flex items-center justify-between border border-pink-100">
               <span>
                 <span className="text-sm font-bold text-rose-500 block">ご料金（目安）</span>
                 <span className="text-[10px] text-gray-400">指名料2,000円込み</span>
+                {discount > 0 && <span className="block text-xs text-rose-700">クーポン −¥{discount.toLocaleString()}</span>}
               </span>
               <span className="text-2xl font-bold text-rose-500">¥{total.toLocaleString()}</span>
             </div>
