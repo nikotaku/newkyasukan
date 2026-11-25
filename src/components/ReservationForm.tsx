@@ -157,6 +157,7 @@ export function ReservationForm({
   submitLabel = "予約を追加",
   onEstamaCouponSms,
 }: ReservationFormProps) {
+  const [archiveSummary, setArchiveSummary] = useState("");
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [recentReservations, setRecentReservations] = useState<RecentReservation[]>([]);
   const [searchingCustomer, setSearchingCustomer] = useState(false);
@@ -324,14 +325,17 @@ export function ReservationForm({
 
   useEffect(() => {
     const phone = formData.customer_phone.replace(/[-\s]/g, "");
+    let active = true;
+    setArchiveSummary("");
     if (phone.length < 10) {
       setCustomerInfo(null);
       setRecentReservations([]);
       return;
     }
+    setSearchingCustomer(true);
     const timer = setTimeout(async () => {
       setSearchingCustomer(true);
-      const [custRes, resRes] = await Promise.all([
+      const [custRes, resRes, archive] = await Promise.all([
         supabase
           .from("customers")
           .select("id, name, visit_count, last_visited, is_banned, ban_reason, customer_ng_casts(cast_id, reason, casts(name))")
@@ -345,7 +349,11 @@ export function ReservationForm({
           .eq("status", "completed")
           .order("reservation_date", { ascending: false })
           .limit(5),
+        supabase.rpc("enka_archived_visits", { p_phone: phone }),
       ]);
+      if (!active) return;
+      const visits = archive.data ?? [];
+      setArchiveSummary(archive.error || custRes.error || resRes.error ? "顧客履歴の照合に失敗しました" : visits.length ? `全力エステで来店${visits.length}回（最終 ${visits[0].visit_date}）` : "");
       setSearchingCustomer(false);
       if (custRes.data) {
         const raw = custRes.data as any;
@@ -372,6 +380,7 @@ export function ReservationForm({
           .eq("customer_id", raw.id)
           .maybeSingle()
           .then(({ data: prof }) => {
+            if (!active) return;
             setPrefs({
               preferred_types: prof?.preferred_types ?? [],
               conversation_level: prof?.conversation_level ?? null,
@@ -395,7 +404,7 @@ export function ReservationForm({
       }
       setRecentReservations((resRes.data || []) as RecentReservation[]);
     }, 500);
-    return () => clearTimeout(timer);
+    return () => { active = false; clearTimeout(timer); };
   }, [formData.customer_phone]);
 
   // セラピスト選択後の「本指名」自動設定
@@ -677,10 +686,11 @@ export function ReservationForm({
             ) : (
               <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold">
                 <UserCheck size={14} />
-                新規顧客
+                {archiveSummary || (recentReservations.length ? "艶華で来店履歴あり" : "新規顧客")}
               </div>
             )}
 
+            {customerInfo && archiveSummary && <p className="text-xs">{archiveSummary}</p>}
             {/* 直近来店 */}
             {recentReservations.length > 0 && (
               <div className="pt-1 border-t border-current/10 space-y-1">
