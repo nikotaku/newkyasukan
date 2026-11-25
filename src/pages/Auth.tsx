@@ -3,18 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import caskanLogo from "@/assets/caskan-logo.png";
-import { ENKA_STORE_ID, ZENRYOKU_STORE_ID } from "@/lib/storeSwitch";
-
-// 共通パスワードを入力後、どちらの店舗の管理画面に入るかを選ぶ。
-// 各店舗の管理アカウント（同一パスワード）へサインインする。
-const STORE_OPTIONS = [
-  { key: "zenryoku", label: "過去データ", email: "saito.crow@gmail.com", storeId: ZENRYOKU_STORE_ID },
-  { key: "enka", label: "艶華", email: "saito.crow+enka@gmail.com", storeId: ENKA_STORE_ID },
-];
+import { ENKA_STORE_ID } from "@/lib/storeSwitch";
 
 export default function Auth() {
   const [password, setPassword] = useState("");
-  const [step, setStep] = useState<"password" | "store">("password");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -33,27 +25,19 @@ export default function Auth() {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  // パスワード入力後、店舗選択へ進む
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password) return;
-    setStep("store");
-  };
-
-  // 選んだ店舗のアカウントでサインイン
-  const handleSelectStore = async (email: string, storeId: string) => {
+    if (loading) return;
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email: "saito.crow+enka@gmail.com", password });
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
           throw new Error("パスワードが正しくありません");
         }
         throw error;
       }
-      // 店舗切替トグル用にパスワードを一時保持（タブを閉じると消える）
-      try { sessionStorage.setItem("admin_pw", password); } catch { /* noop */ }
-      try { localStorage.setItem("current_store_id", storeId); } catch { /* noop */ }
+      try { localStorage.setItem("current_store_id", ENKA_STORE_ID); } catch { /* noop */ }
       toast({ title: "ログイン成功" });
     } catch (error) {
       toast({
@@ -61,8 +45,6 @@ export default function Auth() {
         description: error instanceof Error ? error.message : "ログインに失敗しました",
         variant: "destructive",
       });
-      // パスワードが違う場合はパスワード入力に戻す
-      setStep("password");
     } finally {
       setLoading(false);
     }
@@ -77,12 +59,11 @@ export default function Auth() {
       <div className="w-full max-w-[500px] bg-white rounded shadow-sm border border-gray-200">
         <div className="px-6 py-3 border-b border-gray-200" style={{ backgroundColor: '#fafafa' }}>
           <h2 className="text-base font-normal text-foreground">
-            {step === "password" ? "ログイン" : "店舗を選択"}
+            艶華 管理ログイン
           </h2>
         </div>
 
         <div className="px-6 py-5">
-          {step === "password" ? (
             <form onSubmit={handlePasswordSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm text-muted-foreground mb-1">パスワード</label>
@@ -99,38 +80,14 @@ export default function Auth() {
 
               <div className="flex justify-center pt-2">
                 <button
-                  type="submit"
+                  type="submit" disabled={loading}
                   className="px-12 py-2 rounded text-white text-sm font-normal disabled:opacity-50"
                   style={{ backgroundColor: '#6aab35' }}
                 >
-                  次へ
+                  ログイン
                 </button>
               </div>
             </form>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground text-center mb-4">
-                入る店舗を選んでください
-              </p>
-              {STORE_OPTIONS.map((s) => (
-                <button
-                  key={s.key}
-                  onClick={() => handleSelectStore(s.email, s.storeId)}
-                  disabled={loading}
-                  className="w-full py-3 rounded border border-gray-300 text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
-                >
-                  {s.label}
-                </button>
-              ))}
-              <button
-                onClick={() => setStep("password")}
-                disabled={loading}
-                className="w-full py-2 text-xs text-gray-400 hover:text-gray-600"
-              >
-                ← パスワード入力に戻る
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
