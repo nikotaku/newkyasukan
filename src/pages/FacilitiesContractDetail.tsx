@@ -51,6 +51,13 @@ interface Contract {
   mailbox_code: string;
   internet_connection: string;
   contract_holder: string;
+  monthly_rent: number | null;
+  common_fee: number | null;
+  guarantor_name: string | null;
+  guarantee_period: string | null;
+  guarantee_renewal_fee: number | null;
+  resident_phone: string | null;
+  management_phone: string | null;
   management_company: string;
   renewal_fee: number;
   auto_lock: boolean;
@@ -127,13 +134,16 @@ export default function FacilitiesContractDetail() {
       .eq("id", id)
       .single();
     if (error) { toast.error("読み込み失敗"); navigate("/knowledge/dashboard?tab=contracts"); return; }
-    const normalized = { ...data, tags: data.tags || [], documents: normalizeContractDocuments((data as { documents?: unknown }).documents) } as Contract;
+    const normalized = { ...data, tags: data.tags?.length ? data.tags : data.contract_type ? [data.contract_type] : [], documents: normalizeContractDocuments((data as { documents?: unknown }).documents) } as Contract;
     setContract(normalized);
     setForm(normalized);
     setLoading(false);
   };
 
   const set = (key: keyof Contract, val: any) => setForm((f) => ({ ...f, [key]: val }));
+
+  const hasRentBreakdown = form.tags?.includes("賃貸") && (form.monthly_rent != null || form.common_fee != null);
+  const monthlyAmount = hasRentBreakdown ? (form.monthly_rent ?? 0) + (form.common_fee ?? 0) : form.amount || 0;
 
   const handleSave = async () => {
     if (!form.name?.trim()) { toast.error("名称を入力してください"); return; }
@@ -144,7 +154,7 @@ export default function FacilitiesContractDetail() {
         tags: (form.tags || []).slice(0, 1),
         contract_type: form.tags?.[0] || form.contract_type || "その他",
         name: form.name,
-        amount: form.amount || 0,
+        amount: monthlyAmount,
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         payment_method: form.payment_method || null,
@@ -153,6 +163,13 @@ export default function FacilitiesContractDetail() {
         mailbox_code: form.mailbox_code || null,
         internet_connection: form.internet_connection || null,
         contract_holder: form.contract_holder || null,
+        monthly_rent: form.monthly_rent ?? null,
+        common_fee: form.common_fee ?? null,
+        guarantor_name: form.guarantor_name ?? null,
+        guarantee_period: form.guarantee_period ?? null,
+        guarantee_renewal_fee: form.guarantee_renewal_fee ?? null,
+        resident_phone: form.resident_phone ?? null,
+        management_phone: form.management_phone ?? null,
         management_company: form.management_company || null,
         renewal_fee: form.renewal_fee || null,
         auto_lock: form.auto_lock ?? false,
@@ -188,7 +205,7 @@ export default function FacilitiesContractDetail() {
   };
 
   const handleAddToExpenses = async () => {
-    if (!contract || !form.amount || form.amount <= 0) {
+    if (!contract || monthlyAmount <= 0) {
       toast.error("金額を入力して保存してから追加してください");
       return;
     }
@@ -203,13 +220,13 @@ export default function FacilitiesContractDetail() {
     const { error } = await supabase.from("expenses").insert([{
       expense_date: firstOfMonth,
       expense_type: category,
-      amount: form.amount,
+      amount: monthlyAmount,
       description: form.name || contract.name,
       payment_method: form.payment_method || "bank_transfer",
     }]);
     setAdding(false);
     if (error) { toast.error(`追加失敗: ${error.message}`); return; }
-    toast.success(`今月分の固定費（¥${(form.amount || 0).toLocaleString()}）を経費に追加しました`);
+    toast.success(`今月分の固定費（¥${monthlyAmount.toLocaleString()}）を経費に追加しました`);
   };
 
   const activeSections = getActiveSections(form.tags || []);
@@ -333,10 +350,66 @@ export default function FacilitiesContractDetail() {
                 </Card>
               )}
 
+              {activeSections.has("property") && (
+                <Card>
+                  <CardHeader><CardTitle className="text-base">支払い項目</CardTitle></CardHeader>
+                  <CardContent className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <Label htmlFor="monthly_rent">月額賃料（円）</Label>
+                      <Input id="monthly_rent" type="number" min="0" step="1" value={form.monthly_rent ?? ""} onChange={(e) => set("monthly_rent", e.target.value === "" ? null : Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <Label htmlFor="common_fee">管理費/共益費（円）</Label>
+                      <Input id="common_fee" type="number" min="0" step="1" value={form.common_fee ?? ""} onChange={(e) => set("common_fee", e.target.value === "" ? null : Number(e.target.value))} />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {activeSections.has("property") && (
+                <Card>
+                  <CardHeader><CardTitle className="text-base">保証会社</CardTitle></CardHeader>
+                  <CardContent className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <Label htmlFor="guarantor_name">保証会社名</Label>
+                      <Input id="guarantor_name" type="text" value={form.guarantor_name ?? ""} onChange={(e) => set("guarantor_name", e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="guarantee_period">保証期間</Label>
+                      <Input id="guarantee_period" type="text" value={form.guarantee_period ?? ""} onChange={(e) => set("guarantee_period", e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="guarantee_renewal_fee">更新保証料（円）</Label>
+                      <Input id="guarantee_renewal_fee" type="number" min="0" step="1" value={form.guarantee_renewal_fee ?? ""} onChange={(e) => set("guarantee_renewal_fee", e.target.value === "" ? null : Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <Label htmlFor="resident_phone">入居者専用ダイヤル</Label>
+                      <Input id="resident_phone" type="tel" value={form.resident_phone ?? ""} onChange={(e) => set("resident_phone", e.target.value)} />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {activeSections.has("property") && (
+                <Card>
+                  <CardHeader><CardTitle className="text-base">管理会社</CardTitle></CardHeader>
+                  <CardContent className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <Label htmlFor="management_company">管理会社名</Label>
+                      <Input id="management_company" type="text" value={form.management_company ?? ""} onChange={(e) => set("management_company", e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="management_phone">管理会社電話番号</Label>
+                      <Input id="management_phone" type="tel" value={form.management_phone ?? ""} onChange={(e) => set("management_phone", e.target.value)} />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* 契約者・管理会社（賃貸・取引先） */}
               {activeSections.has("holder") && (
                 <Card>
-                  <CardHeader><CardTitle className="text-base">契約者・管理会社</CardTitle></CardHeader>
+                  <CardHeader><CardTitle className="text-base">{activeSections.has("property") ? "契約者" : "契約者・管理会社"}</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <Field label="契約名義人">
@@ -346,9 +419,9 @@ export default function FacilitiesContractDetail() {
                         <Input value={form.nominal_holder || ""} onChange={(e) => set("nominal_holder", e.target.value)} />
                       </Field>
                     </div>
-                    <Field label="管理会社 / 取引先">
+                    {!activeSections.has("property") && <Field label="管理会社 / 取引先">
                       <Input value={form.management_company || ""} onChange={(e) => set("management_company", e.target.value)} />
-                    </Field>
+                    </Field>}
                     {currentTags.includes("賃貸") && (
                       <Field label="更新事務手数料">
                         <div className="relative">
@@ -366,10 +439,10 @@ export default function FacilitiesContractDetail() {
                 <Card>
                   <CardHeader><CardTitle className="text-base">支払情報</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
-                    <Field label="月額金額">
+                    <Field label={hasRentBreakdown ? "月額合計（賃料＋管理費/共益費）" : "月額金額"}>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
-                        <Input type="number" min="0" step="1000" className="pl-7" value={form.amount || ""} onChange={(e) => set("amount", Number(e.target.value))} placeholder="0" />
+                        <Input type="number" min="0" step="1000" className="pl-7" readOnly={!!hasRentBreakdown} value={hasRentBreakdown ? monthlyAmount : form.amount || ""} onChange={(e) => set("amount", Number(e.target.value))} placeholder="0" />
                       </div>
                     </Field>
                     <Field label="支払方法">
@@ -478,14 +551,14 @@ export default function FacilitiesContractDetail() {
                         </div>
                       </div>
                       <div className="text-lg font-bold">
-                        {form.amount ? `¥${(form.amount).toLocaleString()}` : "¥0"}
+                        ¥{monthlyAmount.toLocaleString()}
                       </div>
                     </div>
                     <Button
                       variant="outline"
                       className="w-full border-primary text-primary hover:bg-primary/10"
                       onClick={handleAddToExpenses}
-                      disabled={adding || !form.amount}
+                      disabled={adding || monthlyAmount <= 0}
                     >
                       <PlusCircle size={14} className="mr-2" />
                       {adding ? "追加中..." : "今月分の固定費に追加"}
