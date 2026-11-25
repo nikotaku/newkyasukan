@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useStore } from "@/hooks/useStore";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -77,6 +78,7 @@ export default function FacilitiesRooms() {
   const [newCostume, setNewCostume] = useState({ name: "", size: "", quantity: "1", notes: "" });
 
   const { user, loading: authLoading } = useAuth();
+  const { storeId, loading: storeLoading } = useStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -84,8 +86,8 @@ export default function FacilitiesRooms() {
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (user) fetchRooms();
-  }, [user]);
+    if (user && !storeLoading) fetchRooms();
+  }, [user, storeId, storeLoading]);
 
   useEffect(() => {
     if (selectedId) {
@@ -108,6 +110,7 @@ export default function FacilitiesRooms() {
       const { data, error } = await supabase
         .from("rooms" as any)
         .select("id,name,room_type,address,entry_flow,key_number,key_info,entry_photos,sms_text,map_url,caution_text,customer_guide_steps,key_type,key_close_code,entry_route_steps,wifi_ssid,wifi_password,wifi_security,show_in_therapist_portal")
+        .eq("store_id", storeId)
         .order("name");
       if (error && error.code !== "PGRST116") throw error;
       const list = ((data || []) as unknown as Room[]).map((room) => ({
@@ -117,7 +120,7 @@ export default function FacilitiesRooms() {
         wifi_security: normalizeWifiSecurity(room.wifi_security),
       }));
       setRooms(list);
-      if (!selectedId && list.length > 0) setSelectedId(list[0].id);
+      setSelectedId((current) => list.some((room) => room.id === current) ? current : list[0]?.id ?? null);
     } catch (error) {
       console.error("Error fetching rooms:", error);
       toast.error("ルームの取得に失敗しました");
