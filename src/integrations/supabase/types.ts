@@ -6437,6 +6437,10 @@ export type Database = {
           photo: string
         }[]
       }
+      enka_archived_visits: {
+        Args: { p_phone: string }
+        Returns: { visit_date: string; course: string; therapist: string }[]
+      }
       get_customer_reservations: {
         Args: { p_customer_id: string }
         Returns: {
