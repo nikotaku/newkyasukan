@@ -2996,6 +2996,13 @@ export type Database = {
           login_id: string | null
           login_password: string | null
           mailbox_code: string | null
+          monthly_rent: number | null
+          common_fee: number | null
+          guarantor_name: string | null
+          guarantee_period: string | null
+          guarantee_renewal_fee: number | null
+          resident_phone: string | null
+          management_phone: string | null
           management_company: string | null
           management_url: string | null
           name: string
@@ -3025,6 +3032,13 @@ export type Database = {
           login_id?: string | null
           login_password?: string | null
           mailbox_code?: string | null
+          monthly_rent?: number | null
+          common_fee?: number | null
+          guarantor_name?: string | null
+          guarantee_period?: string | null
+          guarantee_renewal_fee?: number | null
+          resident_phone?: string | null
+          management_phone?: string | null
           management_company?: string | null
           management_url?: string | null
           name: string
@@ -3054,6 +3068,13 @@ export type Database = {
           login_id?: string | null
           login_password?: string | null
           mailbox_code?: string | null
+          monthly_rent?: number | null
+          common_fee?: number | null
+          guarantor_name?: string | null
+          guarantee_period?: string | null
+          guarantee_renewal_fee?: number | null
+          resident_phone?: string | null
+          management_phone?: string | null
           management_company?: string | null
           management_url?: string | null
           name?: string
