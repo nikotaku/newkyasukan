@@ -12,6 +12,7 @@ import SystemAllowances from "./SystemAllowances";
 import SystemReferralRewards from "./SystemReferralRewards";
 import SystemPageContent from "./SystemPageContent";
 import NotificationSettings from "./NotificationSettings";
+import SystemSMSAuto from "./SystemSMSAuto";
 import PhoneSettings from "./PhoneSettings";
 
 // 設定ダッシュボード：システムの設定を1画面のタブにまとめる（?tab=...）。
@@ -40,6 +41,7 @@ const TABS: TabDef[] = [
   { value: "referral", label: "広告費", icon: Megaphone, render: () => <SystemReferralRewards embedded /> },
   { value: "page", label: "料金ページ文言", icon: FileText, render: () => <SystemPageContent embedded /> },
   { value: "notifications", label: "スマホ通知", icon: Bell, render: () => <NotificationSettings embedded /> },
+  { value: "sms", label: "お客様向けSMS", icon: FileText, render: () => <SystemSMSAuto embedded /> },
   { value: "phone", label: "電話", icon: Phone, render: () => <PhoneSettings embedded /> },
 ];
 
