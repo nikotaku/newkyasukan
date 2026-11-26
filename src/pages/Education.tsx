@@ -21,6 +21,7 @@ import { format } from "date-fns";
 import { MediaRegistrationMatrix } from "@/components/education/MediaRegistrationMatrix";
 import O2Management from "@/pages/O2Management";
 import { CurriculumManager } from "@/components/education/CurriculumManager";
+import { CastGoalsBoard } from "@/components/education/CastGoalsBoard";
 import {
   type ChecklistItem,
   type ChecklistProgress,
@@ -96,7 +97,7 @@ export default function Education() {
   const navigate = useNavigate();
   // タブはURL（?tab=）で開けるようにする（以前の「SNS連携管理」/marketing/o2 は ?tab=sns へ転送）
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = ["status", "media", "sns", "curriculum"].includes(searchParams.get("tab") || "")
+  const tab = ["status", "goals", "media", "sns", "curriculum"].includes(searchParams.get("tab") || "")
     ? searchParams.get("tab")!
     : "status";
   const changeTab = (value: string) => setSearchParams(value === "status" ? {} : { tab: value }, { replace: true });
@@ -269,10 +270,16 @@ export default function Education() {
           <Tabs value={tab} onValueChange={changeTab}>
             <TabsList className="mb-4 h-auto flex-wrap justify-start">
               <TabsTrigger value="status">受講状況</TabsTrigger>
+              <TabsTrigger value="goals">ゴール</TabsTrigger>
               <TabsTrigger value="media">媒体登録状況</TabsTrigger>
               <TabsTrigger value="sns">SNS連携・ログイン情報</TabsTrigger>
               <TabsTrigger value="curriculum">カリキュラム管理</TabsTrigger>
             </TabsList>
+
+            {/* ── ゴール（最終的なゴールの文章と、1か月の売上・本数・本指名率の目標） ── */}
+            <TabsContent value="goals">
+              {tab === "goals" && <CastGoalsBoard />}
+            </TabsContent>
 
             {/* ── 媒体登録状況（エステ魂・O2・X） ── */}
             <TabsContent value="media">
