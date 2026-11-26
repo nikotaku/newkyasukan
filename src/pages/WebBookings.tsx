@@ -10,12 +10,12 @@ import {
   RefreshCw,
   Search,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
-import { DashboardHeader } from "@/components/DashboardHeader";
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { EstamaReservationRequests } from "@/components/EstamaReservationRequests";
-import { Sidebar } from "@/components/Sidebar";
+import { StaffReservations } from "@/components/schedule/StaffReservations";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { PhoneCallLink } from "@/components/phone/PhoneCallLink";
@@ -44,7 +44,15 @@ import {
 type WebBookingStatus = "unhandled" | "in_progress" | "handled";
 type StatusFilter = WebBookingStatus | "all";
 type BookingOrigin = "web_form" | "cast_form";
-type BookingSource = BookingOrigin | "estama";
+type BookingSource = BookingOrigin | "staff" | "estama";
+const BOOKING_SOURCES: { value: BookingSource; label: string }[] = [
+  { value: "web_form", label: "WEBフォーム" },
+  { value: "cast_form", label: "セラピストフォーム" },
+  { value: "staff", label: "スタッフ受付" },
+  { value: "estama", label: "えすたま仮予約" },
+];
+const isBookingSource = (value: string | null): value is BookingSource =>
+  BOOKING_SOURCES.some((item) => item.value === value);
 
 interface WebBooking {
   id: string;
@@ -251,15 +259,23 @@ function OperationalStatusSelect({
   );
 }
 
-export default function WebBookings() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+// 予約一覧（スケジュールダッシュボードの「予約一覧」タブ）。以前の「WEB予約受付」をそのまま引き継ぎ、
+// WEBフォーム／セラピストフォーム／スタッフ受付／えすたま仮予約の4つに分けて見る。
+export default function WebBookings({ embedded = false }: { embedded?: boolean } = {}) {
   const [bookings, setBookings] = useState<WebBooking[]>([]);
   // 新規のお客様のコース上限を超えた予約（例：望月せなさんは新規80分まで）
   const [courseLimits, setCourseLimits] = useState<
     Map<string, CourseLimitAlert>
   >(new Map());
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("unhandled");
-  const [bookingSource, setBookingSource] = useState<BookingSource>("web_form");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedSource = searchParams.get("source");
+  const bookingSource: BookingSource = isBookingSource(requestedSource) ? requestedSource : "web_form";
+  const setBookingSource = (next: BookingSource) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("source", next);
+    setSearchParams(params, { replace: true });
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -272,7 +288,7 @@ export default function WebBookings() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.title = "予約受付";
+    if (!embedded) document.title = "予約一覧";
   }, []);
 
   useEffect(() => {
@@ -487,13 +503,13 @@ export default function WebBookings() {
           <div>
             <div className="flex items-center gap-2">
               <Inbox className="h-6 w-6 text-primary" />
-              <h1 className="text-2xl font-bold tracking-tight">予約受付</h1>
+              <h1 className="text-2xl font-bold tracking-tight">予約一覧</h1>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              3つの予約経路を分けて、予約状態とは別に対応状況を管理します。
+              WEBフォーム・セラピストフォーム・スタッフ受付・えすたま仮予約に分けて、予約の対応を管理します。
             </p>
           </div>
-          {bookingSource !== "estama" ? (
+          {bookingSource === "web_form" || bookingSource === "cast_form" ? (
             <Button
               type="button"
               variant="outline"
@@ -517,25 +533,31 @@ export default function WebBookings() {
                 setBookingSource(value as BookingSource)
               }
             >
-              <TabsList className="grid h-auto w-full grid-cols-3 gap-1 p-1">
-                <TabsTrigger
-                  value="web_form"
-                  className="min-w-0 px-2 py-2 text-xs sm:text-sm"
-                >
-                  HPフォーム
-                </TabsTrigger>
-                <TabsTrigger
-                  value="cast_form"
-                  className="min-w-0 px-2 py-2 text-xs sm:text-sm"
-                >
-                  セラピスト専用
-                </TabsTrigger>
-                <TabsTrigger
-                  value="estama"
-                  className="min-w-0 px-2 py-2 text-xs sm:text-sm"
-                >
-                  エステ魂
-                </TabsTrigger>
+              <TabsList className="grid h-auto w-full grid-cols-4 gap-1 p-1">
+                {BOOKING_SOURCES.map((item) => {
+                  const unhandled =
+                    item.value === "web_form" || item.value === "cast_form"
+                      ? bookings.filter(
+                          (booking) =>
+                            booking.booking_origin === item.value &&
+                            operationalStatus(booking) === "unhandled",
+                        ).length
+                      : 0;
+                  return (
+                    <TabsTrigger
+                      key={item.value}
+                      value={item.value}
+                      className="relative min-w-0 whitespace-normal px-1 py-2 text-[11px] leading-tight sm:px-2 sm:text-sm"
+                    >
+                      {item.label}
+                      {unhandled > 0 ? (
+                        <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-4 text-white">
+                          {unhandled}
+                        </span>
+                      ) : null}
+                    </TabsTrigger>
+                  );
+                })}
               </TabsList>
             </Tabs>
           </CardContent>
@@ -543,6 +565,8 @@ export default function WebBookings() {
 
         {bookingSource === "estama" ? (
           <EstamaReservationRequests />
+        ) : bookingSource === "staff" ? (
+          <StaffReservations storeId={storeId} active={bookingSource === "staff"} />
         ) : (
           <>
             <Card className="mb-5">
@@ -774,14 +798,8 @@ export default function WebBookings() {
   })();
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader
-        onToggleSidebar={() => setSidebarOpen((open) => !open)}
-      />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-[68px] md:ml-[240px] md:pt-[76px]">
-        <div className="mx-auto max-w-5xl px-4 pb-8 sm:px-6">{pageContent}</div>
-      </main>
-    </div>
+    <AdminPageShell embedded={embedded} mainClassName="">
+      <div className={cn("mx-auto max-w-5xl", embedded ? "" : "px-4 pb-8 pt-2 sm:px-6 md:pt-4")}>{pageContent}</div>
+    </AdminPageShell>
   );
 }

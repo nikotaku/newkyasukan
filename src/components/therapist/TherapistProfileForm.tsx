@@ -10,7 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   THERAPIST_PROFILE_FIELDS,
   cleanProfileValues,
-  PROFILE_TEXT_MAX_LENGTH,
+  profileFieldMaxLength,
+  profileFieldOverLimit,
   profileTextLength,
   type TherapistProfileValues,
 } from "@/lib/therapistProfileForm";
@@ -55,11 +56,9 @@ export function TherapistProfileForm({ token }: { token: string }) {
       toast.error("どれか1つ以上入れてください");
       return;
     }
-    const tooLong = THERAPIST_PROFILE_FIELDS.find((field) =>
-      field.kind !== "number" && profileTextLength(String(fields[field.key] ?? "")) > PROFILE_TEXT_MAX_LENGTH,
-    );
+    const tooLong = profileFieldOverLimit(fields);
     if (tooLong) {
-      toast.error(`${tooLong.label}は20文字以内にしてください`);
+      toast.error(`${tooLong.label}は${profileFieldMaxLength(tooLong.key)}文字以内にしてください`);
       return;
     }
     setSaving(true);
@@ -134,13 +133,13 @@ export function TherapistProfileForm({ token }: { token: string }) {
             <div key={field.key}>
               <div className="flex items-center justify-between gap-2">
                 <Label className="text-xs">{field.label}</Label>
-                <span className={`text-xs ${profileTextLength(values[field.key] ?? "") > PROFILE_TEXT_MAX_LENGTH ? "text-destructive" : "text-muted-foreground"}`}>
-                  {profileTextLength(values[field.key] ?? "")} / {PROFILE_TEXT_MAX_LENGTH}文字
+                <span className={`text-xs ${profileTextLength(values[field.key] ?? "") > profileFieldMaxLength(field.key) ? "text-destructive" : "text-muted-foreground"}`}>
+                  {profileTextLength(values[field.key] ?? "")} / {profileFieldMaxLength(field.key)}文字
                 </span>
               </div>
               {field.kind === "textarea" ? (
                 <Textarea
-                  rows={3}
+                  rows={field.key === "therapist_comment" ? 6 : 3}
                   placeholder={field.placeholder}
                   value={values[field.key] ?? ""}
                   onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}

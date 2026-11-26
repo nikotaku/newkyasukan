@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { AlertTriangle, CheckCircle2, ExternalLink, Image, RefreshCw, XCircle } from "lucide-react";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { Sidebar } from "@/components/Sidebar";
+import { AdminPageShell } from "@/components/AdminPageShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -101,8 +100,7 @@ const shiftJobTitle = (jobType: string) => jobType === "estama_reconcile_shifts"
   ? "シフト突合・同期"
   : "シフト同期";
 
-export default function EstamaSyncHistory() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export default function EstamaSyncHistory({ embedded = false }: { embedded?: boolean } = {}) {
   const [reports, setReports] = useState<SyncReport[]>([]);
   const [shiftJobs, setShiftJobs] = useState<ShiftJob[]>([]);
   const [castNames, setCastNames] = useState<Record<string, string>>({});
@@ -187,11 +185,8 @@ export default function EstamaSyncHistory() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader onToggleSidebar={() => setSidebarOpen((open) => !open)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-[76px] px-4 pb-10 md:ml-[240px] md:px-6">
-        <div className="mx-auto max-w-6xl space-y-6">
+    <AdminPageShell embedded={embedded} mainClassName="px-4 pb-10 md:px-6">
+        <div className={`mx-auto max-w-6xl space-y-6 ${embedded ? "" : "pt-4"}`}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold">エスたま自動化履歴</h1>
@@ -391,7 +386,6 @@ export default function EstamaSyncHistory() {
             </>
           )}
         </div>
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

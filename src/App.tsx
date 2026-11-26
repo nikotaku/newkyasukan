@@ -61,9 +61,6 @@ import RoomSettings from "./pages/RoomSettings";
 import SchedulePage from "./pages/Schedule";
 import Expenses from "./pages/Expenses";
 import MonthlyShift from "./pages/MonthlyShift";
-import ReservationsList from "./pages/ReservationsList";
-import WebBookings from "./pages/WebBookings";
-import AvailableSlots from "./pages/AvailableSlots";
 import BusinessFlow from "./pages/BusinessFlow";
 import HpDashboard from "./pages/HpDashboard";
 import HpXOperations from "./pages/HpXOperations";
@@ -117,6 +114,7 @@ import TherapistPostPage from "./pages/TherapistPostPage";
 import SalesDashboard, { SalesTabRedirect } from "./pages/SalesDashboard";
 import SalesData from "./pages/SalesData";
 import ScheduleDashboard from "./pages/ScheduleDashboard";
+import { ScheduleTabRedirect } from "./components/schedule/ScheduleTabRedirect";
 import PanelPhotoManual from "./pages/PanelPhotoManual";
 import CustomerServiceManual from "./pages/CustomerServiceManual";
 import ZenryokuBookManual from "./pages/ZenryokuBookManual";
@@ -142,7 +140,6 @@ import Campaigns from "./pages/public/Campaigns";
 import DispatchRegistration from "./pages/public/DispatchRegistration";
 import NewsletterUnsubscribe from "./pages/public/NewsletterUnsubscribe";
 import DispatchRegistrationAdmin from "./pages/DispatchRegistrationAdmin";
-import EstamaSyncHistory from "./pages/EstamaSyncHistory";
 import { PublicSeo } from "@/components/public/PublicSeo";
 import { BackendDownNotice } from "@/components/BackendDownNotice";
 
@@ -195,16 +192,17 @@ const App = () => {
           <Route path="/schedule-dashboard" element={<ScheduleDashboard />} />
           <Route path="/admin-schedule" element={<SchedulePage />} />
           <Route path="/schedule/monthly-shift" element={<MonthlyShift />} />
-          <Route path="/schedule/web-bookings" element={<WebBookings />} />
-          <Route path="/schedule/estama-sync-history" element={<EstamaSyncHistory />} />
-          <Route path="/schedule/reservations-list" element={<ReservationsList />} />
-          <Route path="/schedule/available-slots" element={<AvailableSlots />} />
+          {/* 以前のURLはスケジュールダッシュボードの該当タブへ（予約一覧は以前のWEB予約受付を引き継いだ） */}
+          <Route path="/schedule/web-bookings" element={<ScheduleTabRedirect tab="reservations" />} />
+          <Route path="/schedule/reservations-list" element={<ScheduleTabRedirect tab="reservations" source="staff" />} />
+          <Route path="/schedule/estama-sync-history" element={<ScheduleTabRedirect tab="estama" />} />
+          <Route path="/schedule/available-slots" element={<ScheduleTabRedirect tab="slots" />} />
           <Route path="/therapists/dashboard" element={<TherapistDashboard />} />
           <Route path="/staff" element={<Staff />} />
           <Route path="/staff/dispatch-registration" element={<DispatchRegistrationAdmin />} />
           <Route path="/shift" element={<Shift />} />
           <Route path="/shift/submission" element={<ShiftSubmission />} />
-          <Route path="/reservations" element={<Navigate to="/schedule/reservations-list" replace />} />
+          <Route path="/reservations" element={<ScheduleTabRedirect tab="reservations" source="staff" />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/agreement" element={<Agreement />} />
           <Route path="/rooms" element={<RoomSettings />} />

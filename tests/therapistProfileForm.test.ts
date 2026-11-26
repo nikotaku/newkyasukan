@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   PROFILE_TEXT_MAX_LENGTH,
+  profileFieldMaxLength,
+  profileFieldOverLimit,
   profileTextLength,
   castPatchFromProfile,
   cleanProfileValues,
@@ -59,4 +61,13 @@ test("プロフィール文字数はPostgreSQLと同じUnicodeコードポイン
   assert.equal(profileTextLength("🎀".repeat(20)), 20);
   assert.equal(profileTextLength("👩‍💻"), 3);
   assert.equal(cleanProfileValues({ hobbies: "あ".repeat(21) }).hobbies, "あ".repeat(21));
+});
+
+test("お客様へのひとこと（セラピストコメント）だけ500文字まで、ほかは20文字まで", () => {
+  assert.equal(profileFieldMaxLength("therapist_comment"), 500);
+  assert.equal(profileFieldMaxLength("hobbies"), 20);
+  assert.equal(profileFieldOverLimit({ therapist_comment: "あ".repeat(500) }), undefined);
+  assert.equal(profileFieldOverLimit({ therapist_comment: "あ".repeat(501) })?.key, "therapist_comment");
+  assert.equal(profileFieldOverLimit({ hobbies: "あ".repeat(21) })?.key, "hobbies");
+  assert.equal(profileFieldOverLimit({ hobbies: "あ".repeat(20), age: 24 }), undefined);
 });

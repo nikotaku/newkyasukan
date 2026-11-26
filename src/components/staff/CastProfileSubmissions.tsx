@@ -4,9 +4,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
   castPatchFromProfile,
-  PROFILE_TEXT_MAX_LENGTH,
-  profileTextLength,
-  THERAPIST_PROFILE_FIELDS,
+  profileFieldMaxLength,
+  profileFieldOverLimit,
   currentProfileValues,
   profileDiff,
   type TherapistProfileValues,
@@ -65,9 +64,8 @@ export function CastProfileSubmissions({
     setBusyId(item.id);
     try {
       if (apply) {
-        const invalid = THERAPIST_PROFILE_FIELDS.find((field) => field.kind !== "number" &&
-          profileTextLength(String(item.fields[field.key] ?? "")) > PROFILE_TEXT_MAX_LENGTH);
-        if (invalid) throw new Error(`${invalid.label}は20文字以内に修正してから反映してください`);
+        const invalid = profileFieldOverLimit(item.fields);
+        if (invalid) throw new Error(`${invalid.label}は${profileFieldMaxLength(invalid.key)}文字以内に修正してから反映してください`);
         const patch = castPatchFromProfile(item.fields);
         const { error } = await supabase.from("casts").update(patch as never).eq("id", item.cast_id);
         if (error) throw error;
