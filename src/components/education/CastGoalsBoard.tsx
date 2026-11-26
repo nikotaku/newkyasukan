@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addMonths, format, startOfMonth } from "date-fns";
-import { ChevronLeft, ChevronRight, Flag, Loader2, Pencil, Target } from "lucide-react";
+import { ChevronLeft, ChevronRight, Flag, ListChecks, Loader2, Pencil, Target } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -86,7 +86,7 @@ export function CastGoalsBoard() {
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [editing, setEditing] = useState<CastRow | null>(null);
-  const [form, setForm] = useState({ goal_text: "", sales: "", count: "", rate: "" });
+  const [form, setForm] = useState({ goal_text: "", action_plan: "", sales: "", count: "", rate: "" });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -95,7 +95,7 @@ export function CastGoalsBoard() {
     const [castRes, shiftRes, goalRes] = await Promise.all([
       db.from("casts").select("id, name, real_name, tags, photo").eq("store_id", storeId).eq("is_active", true).order("name"),
       db.from("shifts").select("cast_id, shift_date").eq("store_id", storeId).not("status", "in", "(cancelled,rejected)").limit(5000),
-      db.from("cast_goals").select("cast_id, goal_text, monthly_sales_target, monthly_count_target, honshimei_rate_target, updated_at").eq("store_id", storeId),
+      db.from("cast_goals").select("cast_id, goal_text, action_plan, monthly_sales_target, monthly_count_target, honshimei_rate_target, updated_at").eq("store_id", storeId),
     ]);
     if (castRes.error || goalRes.error) toast.error("ゴールを読み込めませんでした");
     setCasts(castRes.data ?? []);
@@ -134,6 +134,7 @@ export function CastGoalsBoard() {
     const goal = goals.get(cast.id);
     setForm({
       goal_text: goal?.goal_text ?? "",
+      action_plan: goal?.action_plan ?? "",
       sales: goal?.monthly_sales_target != null ? String(goal.monthly_sales_target) : "",
       count: goal?.monthly_count_target != null ? String(goal.monthly_count_target) : "",
       rate: goal?.honshimei_rate_target != null ? String(goal.honshimei_rate_target) : "",
@@ -144,13 +145,16 @@ export function CastGoalsBoard() {
   const save = async () => {
     if (!editing) return;
     const goalText = form.goal_text.trim();
+    const actionPlan = form.action_plan.trim();
     if (goalText.length > 2000) { toast.error("ゴールの文章は2000文字までです"); return; }
+    if (actionPlan.length > 2000) { toast.error("具体的な施策は2000文字までです"); return; }
     setSaving(true);
     const { data: auth } = await supabase.auth.getUser();
     const row = {
       store_id: storeId,
       cast_id: editing.id,
       goal_text: goalText || null,
+      action_plan: actionPlan || null,
       monthly_sales_target: parseGoalNumber(form.sales, { max: 100000000 }),
       monthly_count_target: parseGoalNumber(form.count, { max: 1000 }),
       honshimei_rate_target: parseGoalNumber(form.rate, { max: 100, decimals: 1 }),
@@ -177,7 +181,7 @@ export function CastGoalsBoard() {
             <Target className="h-5 w-5 text-primary" />
             <div>
               <p className="font-semibold">セラピストのゴール</p>
-              <p className="text-xs text-muted-foreground">最終的なゴール（文章）と、1か月の売上・本数・本指名率の目標。実績はその月の施術済みの予約から数えます（本指名は姫予約を含む）。決めたゴールは本人のマイページの上にも「わたしのゴール」として出ます。</p>
+              <p className="text-xs text-muted-foreground">最終的なゴール（文章）と、1か月の売上・本数・本指名率の目標。実績はその月の施術済みの予約から数えます（本指名は姫予約を含む）。決めたゴール・施策は本人のマイページの上にも「わたしのゴール」として出ます。</p>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -224,6 +228,13 @@ export function CastGoalsBoard() {
                   </p>
                 </div>
 
+                {goal?.action_plan && (
+                  <div className="rounded-md border border-dashed px-3 py-2">
+                    <p className="mb-0.5 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground"><ListChecks size={12} />具体的な施策</p>
+                    <p className="whitespace-pre-wrap text-sm">{goal.action_plan}</p>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Meter label={`${monthLabel}の売上`} actual={actual.sales} target={goal?.monthly_sales_target ?? null} format={yen}
                     planned={actual.plannedSales ? `予定 +${yen(actual.plannedSales)}` : null} />
@@ -250,6 +261,13 @@ export function CastGoalsBoard() {
                 onChange={(e) => setForm((f) => ({ ...f, goal_text: e.target.value }))}
                 placeholder={"例）半年後に艶華の指名No.1。\n本指名のお客様を20人に増やし、月の売上100万円を安定して出せるセラピストになる。"} />
               <p className="text-right text-[11px] text-muted-foreground">{form.goal_text.length} / 2000文字</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>目標に向けた具体的な施策</Label>
+              <Textarea rows={6} value={form.action_plan} maxLength={2000}
+                onChange={(e) => setForm((f) => ({ ...f, action_plan: e.target.value }))}
+                placeholder={"例）\n・施術後に次回の予約を必ず提案する（姫予約につなげる）\n・お礼のメッセージを当日中に送る\n・Xに写真付きで1日3件投稿"} />
+              <p className="text-right text-[11px] text-muted-foreground">{form.action_plan.length} / 2000文字</p>
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-1.5">
