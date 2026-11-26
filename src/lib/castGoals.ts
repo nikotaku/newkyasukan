@@ -6,6 +6,8 @@ import { businessDateTime } from "./businessTime.ts";
 export interface CastGoal {
   cast_id: string;
   goal_text: string | null;
+  /** 目標に向けた具体的な施策（やること） */
+  action_plan?: string | null;
   monthly_sales_target: number | null;
   monthly_count_target: number | null;
   honshimei_rate_target: number | null;

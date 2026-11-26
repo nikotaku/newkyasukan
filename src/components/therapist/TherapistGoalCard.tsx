@@ -1,7 +1,7 @@
 // セラピストのマイページ：お店と決めた自分のゴール（教育の「ゴール」タブで設定）と、今月の実績・達成率。
 // ゴールがまだ決まっていない人には何も出さない。RPC get_therapist_goal（本人のトークン）。
 import { useEffect, useState } from "react";
-import { Flag, Target } from "lucide-react";
+import { Flag, ListChecks, Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { achievement } from "@/lib/castGoals";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ interface GoalResult {
   month: string;
   goal: {
     goal_text: string | null;
+    action_plan?: string | null;
     monthly_sales_target: number | null;
     monthly_count_target: number | null;
     honshimei_rate_target: number | null;
@@ -68,7 +69,7 @@ export function TherapistGoalCard({ token }: { token: string }) {
   const goal = data?.goal;
   if (!data || !goal) return null;
   const hasNumbers = goal.monthly_sales_target != null || goal.monthly_count_target != null || goal.honshimei_rate_target != null;
-  if (!goal.goal_text && !hasNumbers) return null;
+  if (!goal.goal_text && !goal.action_plan && !hasNumbers) return null;
 
   const month = Number(data.month.slice(5, 7));
   const rate = data.count > 0 ? Math.round((data.honshimei / data.count) * 1000) / 10 : null;
@@ -80,6 +81,12 @@ export function TherapistGoalCard({ token }: { token: string }) {
         <div className="mb-3 rounded-xl bg-background/80 px-3 py-2">
           <p className="mb-0.5 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground"><Flag size={12} />めざす姿</p>
           <p className="whitespace-pre-wrap text-sm leading-relaxed">{goal.goal_text}</p>
+        </div>
+      )}
+      {goal.action_plan && (
+        <div className="mb-3 rounded-xl border border-dashed border-primary/30 bg-background/60 px-3 py-2">
+          <p className="mb-0.5 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground"><ListChecks size={12} />そのためにやること</p>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed">{goal.action_plan}</p>
         </div>
       )}
       {hasNumbers && (
