@@ -47,7 +47,17 @@ export const THERAPIST_PROFILE_FIELDS: TherapistProfileField[] = [
 
 /** Unicodeコードポイント単位で数える。PostgreSQLのchar_length(text)と同じ基準。 */
 export const PROFILE_TEXT_MAX_LENGTH = 20;
+/** 「お客様へのひとこと」（セラピストコメント）だけは長く書ける */
+export const PROFILE_COMMENT_MAX_LENGTH = 500;
 export const profileTextLength = (value: string) => Array.from(value).length;
+/** 項目ごとの文字数の上限（DB の submit_therapist_profile と同じ） */
+export const profileFieldMaxLength = (key: TherapistProfileFieldKey) =>
+  key === "therapist_comment" ? PROFILE_COMMENT_MAX_LENGTH : PROFILE_TEXT_MAX_LENGTH;
+/** 上限を超えている最初の文字の項目（無ければ undefined） */
+export function profileFieldOverLimit(values: TherapistProfileValues): TherapistProfileField | undefined {
+  return THERAPIST_PROFILE_FIELDS.find((field) =>
+    field.kind !== "number" && profileTextLength(String(values[field.key] ?? "")) > profileFieldMaxLength(field.key));
+}
 
 export type TherapistProfileValues = Partial<Record<TherapistProfileFieldKey, string | number | null>>;
 
