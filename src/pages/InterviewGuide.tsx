@@ -27,6 +27,7 @@ const PORTAL_FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
   { icon: LogOut, title: "退勤フォーム（精算）", body: "売上・清掃チェックを入れて送るだけ。お店が承認すると清算明細が届きます" },
   { icon: Receipt, title: "バック表", body: "コース・オプション・指名ごとのお給料をいつでも確認" },
   { icon: BarChart3, title: "その月の本数", body: "施術済み・予定の本数、指名の内訳を月ごとに確認" },
+  { icon: BarChart3, title: "わたしのゴール", body: "お店と一緒に決めたゴールと、今月の売上・本数・本指名率の目標に対する今の実績" },
   { icon: Users, title: "顧客カルテ", body: "担当したお客様の好み・NG・来店履歴" },
   { icon: Send, title: "2媒体投稿", body: "写真1枚と文章で、HP・O2・魂セラピストへ同時に投稿" },
   { icon: Megaphone, title: "投稿宣伝スケジュール", body: "お店が設定した日別の投稿予定を確認。投稿できたら「投稿しました」にチェックして、お店へ報告" },

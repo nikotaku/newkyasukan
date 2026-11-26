@@ -177,7 +177,7 @@ export function CastGoalsBoard() {
             <Target className="h-5 w-5 text-primary" />
             <div>
               <p className="font-semibold">セラピストのゴール</p>
-              <p className="text-xs text-muted-foreground">最終的なゴール（文章）と、1か月の売上・本数・本指名率の目標。実績はその月の施術済みの予約から数えます（本指名は姫予約を含む）。</p>
+              <p className="text-xs text-muted-foreground">最終的なゴール（文章）と、1か月の売上・本数・本指名率の目標。実績はその月の施術済みの予約から数えます（本指名は姫予約を含む）。決めたゴールは本人のマイページの上にも「わたしのゴール」として出ます。</p>
             </div>
           </div>
           <div className="flex items-center gap-1">
