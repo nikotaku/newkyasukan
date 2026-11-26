@@ -57,7 +57,8 @@
     "test:link-banners": "node --experimental-strip-types --test tests/linkBanners.test.ts",
     "test:app-version": "node --experimental-strip-types --test tests/appVersion.test.ts",
     "test:store-info": "node --experimental-strip-types --test tests/storeInfoMobileSave.test.ts",
-    "test:customer-phone": "node --experimental-strip-types --test tests/customerPhone.test.ts"
+    "test:customer-phone": "node --experimental-strip-types --test tests/customerPhone.test.ts",
+    "test:cast-goals": "node --experimental-strip-types --test tests/castGoals.test.ts"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.16.0",
