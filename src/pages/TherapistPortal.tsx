@@ -19,6 +19,7 @@ import { useTherapistAppManifest } from "@/hooks/useTherapistAppManifest";
 import { TherapistPushCard } from "@/components/therapist/TherapistPushCard";
 import { TherapistSettlementNotice } from "@/components/therapist/TherapistSettlementNotice";
 import { TherapistMonthlyCount } from "@/components/therapist/TherapistMonthlyCount";
+import { TherapistGoalCard } from "@/components/therapist/TherapistGoalCard";
 import { TherapistProfileForm } from "@/components/therapist/TherapistProfileForm";
 import { TherapistPhotoUpload } from "@/components/therapist/TherapistPhotoUpload";
 import { TherapistPhotoReview, fetchTherapistPhotoReview } from "@/components/therapist/TherapistPhotoReview";
@@ -681,6 +682,9 @@ export default function TherapistPortal() {
 
           {/* 精算が承認されました（不足分があれば、振込か次回出勤日に相殺を選ぶ・振込先を入れる） */}
           {token && <TherapistSettlementNotice token={token} />}
+
+          {/* お店と決めたゴール（教育の「ゴール」タブ）と今月の実績。決まっていなければ出さない */}
+          {token && <TherapistGoalCard token={token} />}
 
           {token && <TherapistPromotionSummary token={token} onOpen={() => setView("promotion")} />}
 

@@ -88,7 +88,7 @@
 ## 教育・媒体登録・SNS連携（/education）
 
 - セラピストの講習状況・ゴール・媒体登録状況・SNS連携を1画面で管理する（タブは `?tab=status|goals|media|sns|curriculum`）
-- **ゴール**（`?tab=goals`、`src/components/education/CastGoalsBoard.tsx`、2026-11-26）：在籍（tags に「在籍」か「出稼ぎ」でない人）と出稼ぎのリピート（出勤した月が2か月以上）のセラピストごとに、最終的なゴール（文章・2000文字まで）と1か月の目標（売上・本数・本指名率）を決める。表 `cast_goals`（cast_id で1行、anon 不可、`20261126100000_cast_goals.sql`）。実績はその月（営業日・朝6時切り替え）の施術済み（completed）の予約の料金の合計・本数・本指名（姫予約を含む）の割合で、確定のままの予約は「予定」として別に出す。月を左右で切り替え、「在籍中の全員」で対象外の人にも決められる。計算は `src/lib/castGoals.ts`（テスト `npm run test:cast-goals`）
+- **ゴール**（`?tab=goals`、`src/components/education/CastGoalsBoard.tsx`、2026-11-26）：在籍（tags に「在籍」か「出稼ぎ」でない人）と出稼ぎのリピート（出勤した月が2か月以上）のセラピストごとに、最終的なゴール（文章・2000文字まで）と1か月の目標（売上・本数・本指名率）を決める。表 `cast_goals`（cast_id で1行、anon 不可、`20261126100000_cast_goals.sql`）。実績はその月（営業日・朝6時切り替え）の施術済み（completed）の予約の料金の合計・本数・本指名（姫予約を含む）の割合で、確定のままの予約は「予定」として別に出す。月を左右で切り替え、「在籍中の全員」で対象外の人にも決められる。計算は `src/lib/castGoals.ts`（テスト `npm run test:cast-goals`）。本人のマイページのいちばん上（メニューの上）にも「わたしのゴール」（`src/components/therapist/TherapistGoalCard.tsx`、ゴールが無い人には出さない）で、めざす姿の文章と今月の目標・実績・達成率を出す。RPC `get_therapist_goal(p_token, p_month)`（本人のトークン・在籍中だけ・同じ数え方、`20261126110000_therapist_goal_rpc.sql`）
 - 媒体登録状況（`src/components/education/MediaRegistrationMatrix.tsx`）: エステ魂・O2・Xの登録を1表で見て切り替える。手でチェックする項目は casts の真偽値列（`estama_listed` など、スタッフ画面の「登録・SNS準備」と同じ）、「自動連携」「魂セラピスト」「ログイン情報」は `external_cast_profiles` と `get_sns_connection_overview_v9` から自動で出す（`src/lib/mediaRegistration.ts`）
 - エスラン（メンズエステランキング）は今は掲載していないので、`src/lib/mediaRegistration.ts` の `ESTHE_RANKING_ACTIVE = false` で登録状況の列・スタッフ画面のチェック・セラピストDBのランキング転記・シフトのエスラン登録欄を隠している。掲載を再開したら true に戻す（データは残してある）
 - SNS連携・ログイン情報は `src/pages/O2Management.tsx`（教育画面のタブとして表示）。以前の `/marketing/o2` は `/education?tab=sns` へ転送
