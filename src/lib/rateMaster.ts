@@ -149,24 +149,54 @@ export const RATE_TABLE_NAME: Record<RateKind, "back_rates" | "option_rates" | "
 
 /** マイページのバック表（RPC get_therapist_back_table の中身） */
 export interface TherapistBackTable {
-  courses: Array<{ name: string; minutes: number; back: number | null }>;
+  courses: Array<{ name: string; minutes: number; back: number | null; description?: string | null }>;
   options: Array<{ name: string; minutes: number | null; back: number | null }>;
   nominations: Array<{ name: string; back: number | null }>;
 }
 
 export interface BackSection {
   title: string;
-  rows: Array<{ key: string; label: string; back: number | null }>;
+  /** 見出しの下に出す説明（えすたま限定プランとは何か、など） */
+  lead?: string;
+  rows: Array<{ key: string; label: string; back: number | null; contents?: string[]; note?: string }>;
+}
+
+/** えすたま限定プラン（エステ魂の会員だけのセット）のコースか */
+export const isEstamaPlanCourse = (name: string) => name.startsWith("エスたま限定");
+
+/**
+ * えすたま限定プランの中身を、セラピストが分かる言葉の箇条書きにする。
+ * 料金表の説明（back_rates.description）の最初の文「60分＋10分延長＋マイクロビキニ。…」を「＋」で分ける。
+ * 「60分」だけのものは艶華コースの施術時間なので「艶華コース 60分」にする。
+ */
+export function estamaPlanContents(description: string | null | undefined): string[] {
+  const first = (description ?? "").split(/[。\n]/)[0]?.trim() ?? "";
+  if (!first.includes("＋") && !first.includes("+")) return [];
+  return first.split(/[＋+]/).map((item) => item.trim()).filter(Boolean)
+    .map((item) => (/^\d+分$/.test(item) ? `艶華コース ${item}` : item));
 }
 
 /** マイページで出す見出しごとの行。バックが 0 の指名・オプションも「なし」と出す */
 export function therapistBackSections(table: TherapistBackTable | null): BackSection[] {
   if (!table) return [];
   const back = (value: number | null) => (value && value > 0 ? value : null);
+  const courses = (table.courses ?? []).map((row, index) => ({ row, index }));
   return [
     {
       title: "コース",
-      rows: (table.courses ?? []).map((row, index) => ({ key: `c${index}`, label: `${row.name} ${row.minutes}分`, back: back(row.back) })),
+      rows: courses.filter(({ row }) => !isEstamaPlanCourse(row.name))
+        .map(({ row, index }) => ({ key: `c${index}`, label: `${row.name} ${row.minutes}分`, back: back(row.back) })),
+    },
+    {
+      title: "えすたま限定プラン",
+      lead: "エステ魂の会員だけが予約できるお得なセットです。予約に「エスたま限定」と出たら、下の中身をすべて行ってください。中身の分のお給料は右の金額にまとめて入っています。",
+      rows: courses.filter(({ row }) => isEstamaPlanCourse(row.name)).map(({ row, index }) => ({
+        key: `c${index}`,
+        label: `${row.name} ${row.minutes}分`,
+        back: back(row.back),
+        contents: estamaPlanContents(row.description),
+        note: `施術は合計${row.minutes}分`,
+      })),
     },
     {
       title: "オプション",

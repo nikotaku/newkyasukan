@@ -54,6 +54,24 @@ test("マイページのバック表", () => {
   assert.equal(sections[2].rows[0].back, null);
 });
 
+test("マイページのバック表：えすたま限定プランは別の見出しで、中身を箇条書きに", async () => {
+  const { estamaPlanContents } = await import("../src/lib/rateMaster.ts");
+  assert.deepEqual(estamaPlanContents("60分＋10分延長＋マイクロビキニ。まずは気軽に艶華を体験。"), ["艶華コース 60分", "10分延長", "マイクロビキニ"]);
+  assert.deepEqual(estamaPlanContents("全身をたっぷりと。"), []);
+  const sections = therapistBackSections({
+    courses: [
+      { name: "艶華", minutes: 60, back: 8000, description: "はじめての方にも。" },
+      { name: "エスたま限定", minutes: 110, back: 21000, description: "100分＋マイクロビキニ＋深層リンパ。じっくり癒される贅沢プラン。" },
+    ],
+    options: [],
+    nominations: [],
+  });
+  assert.deepEqual(sections.map((s) => s.title), ["コース", "えすたま限定プラン"]);
+  assert.equal(sections[0].rows.length, 1);
+  assert.deepEqual(sections[1].rows[0].contents, ["艶華コース 100分", "マイクロビキニ", "深層リンパ"]);
+  assert.equal(sections[1].rows[0].note, "施術は合計110分");
+});
+
 test("割引の変更は足す・直す・消すに分け、並び順も入れる", async () => {
   const { planDiscountSave } = await import("../src/lib/rateMaster.ts");
   const before = [
