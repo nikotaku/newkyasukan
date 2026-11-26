@@ -1729,6 +1729,7 @@ export default function TherapistPortal() {
               {therapistBackSectionsState.map((section) => (
                 <div key={section.title}>
                   <p className="mb-1.5 text-sm font-bold">{section.title}</p>
+                  {section.lead && <p className="mb-2 rounded-md bg-primary/5 px-3 py-2 text-xs leading-relaxed text-muted-foreground">{section.lead}</p>}
                   <BackList rows={section.rows} />
                 </div>
               ))}

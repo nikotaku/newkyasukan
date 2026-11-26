@@ -540,7 +540,7 @@
 ## 料金・バック表（正本 /system/rate-master）
 
 - コース（`back_rates`）・オプション（`option_rates`）・指名（`nomination_rates`）の料金とセラピストのバックを1枚の表で直す画面（`src/pages/SystemRateMaster.tsx`、サイドバーの システム → 料金 → 料金・バック表（正本））。列は 名前・時間（分、オプションは延長の分）・料金・バック・店落ち（料金−バックで自動、`shop_back` にも保存）・HP表示・説明（コースだけ）。上下で並べ替え（`display_order`）、行の追加・削除、「保存」でまとめて反映（変わった行だけ送る）。計算は `src/lib/rateMaster.ts`（テスト `npm run test:rate-master`）
-- この3つの表が正本：セラピストのマイページの「バック表」（RPC `get_therapist_back_table(p_token)`、コース・オプション・指名をまとめて返す。HP表示オフのものも出す）、HPの料金、予約入力、面談用ページはここを読む。以前の `get_therapist_back_rates` はコースだけ（今は使っていない）
+- この3つの表が正本：セラピストのマイページの「バック表」（RPC `get_therapist_back_table(p_token)`、コース・オプション・指名をまとめて返す。HP表示オフのものも出す。えすたま限定プラン（`エスたま限定` のコース）は別の見出しにして、説明 `back_rates.description` の最初の文「60分＋10分延長＋マイクロビキニ」を「＋」で分けた「セットの中身」と「施術は合計◯分」を出す＝ `therapistBackSections` / `estamaPlanContents`、`20261126130000_therapist_back_table_description.sql`。中身を変えたら料金表の説明の最初の文を「＋」区切りで直す）、HPの料金、予約入力、面談用ページはここを読む。以前の `get_therapist_back_rates` はコースだけ（今は使っていない）
 - 以前の「コース」「オプション」の画面（`/system/courses`・`/system/options`）は2026-11-18に廃止して正本へ転送（同じ表を直していただけ）
 
 ## 面談用ページ（/interview）
