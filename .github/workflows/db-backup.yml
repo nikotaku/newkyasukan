@@ -3,8 +3,12 @@
 # このリポジトリは公開なので、ダンプは必ず暗号化してから保存する（復元手順は docs/db-backup.md）。
 #
 # 必要なSecrets（Settings → Secrets and variables → Actions）:
-#   SUPABASE_DB_URL    … Supabaseの「Connect → Session pooler」の接続文字列（パスワード入り）
+#   SUPABASE_DB_URL    … Supabaseの「Connect → Session pooler」の接続文字列（バックアップ専用ロール db_backup_reader のパスワード入り）
 #   BACKUP_PASSPHRASE  … 暗号化パスワード（なくすと復元できないので、Supabase以外の場所に保管）
+#
+# 接続は postgres ではなくバックアップ専用ロール（db_backup_reader: pg_read_all_data + bypassrls）を使う。
+# `supabase db dump` は内部で SET ROLE postgres を行うため専用ロールでは失敗する（Supabase公式KBの記載）ので、
+# pg_dump を直接使う。ロール定義（roles.sql）は postgres 権限が必要なため取得しない。
 name: DB backup
 
 on:
@@ -34,24 +38,21 @@ jobs:
             exit 1
           fi
 
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          pg_dump --version
 
       - name: Dump database
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           mkdir backup
-          # 接続にはバックアップ専用ロール（db_backup_reader）を使っている。
-          # このロールは postgres への SET ROLE 権限を持たないため、ロール定義のダンプだけは
-          # 失敗しても続行する（スキーマ・データは必須のまま）。
-          if ! supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/roles.sql --role-only; then
-            echo "::warning::ロール定義（roles.sql）のダンプをスキップしました（バックアップ用ロールに SET ROLE postgres 権限がないため）"
-            rm -f backup/roles.sql
-          fi
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/data.sql --data-only --use-copy
+          # スキーマ（テーブル定義・関数・RLSポリシー・権限）
+          pg_dump --dbname "$SUPABASE_DB_URL" --schema-only --no-owner -f backup/schema.sql
+          # データ（COPY 形式）
+          pg_dump --dbname "$SUPABASE_DB_URL" --data-only --no-large-objects -f backup/data.sql
           # 空ダンプを成功扱いにしない
           test -s backup/schema.sql
           test -s backup/data.sql
