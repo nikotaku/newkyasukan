@@ -1,4 +1,6 @@
 // 画像の配信を軽くする中継（Vercel の関数 + CDN キャッシュ）
+// Hobby プランは Deployment あたり12関数までなので、専用の関数を作らず sitemap の関数で受ける
+// （vercel.json の rewrite: /api/img → /api/sitemap?image=1）
 //
 // なぜ必要か：Supabase の無料プランでは画像変換（/render/image）が使えず、Storage の原本
 // （平均 500KB・最大 2.4MB）がそのまま HP に出ていた。Cached Egress が 5.5GB を超える原因。
@@ -46,7 +48,7 @@ const parseQuality = (value) => {
   return Math.min(90, Math.max(45, quality));
 };
 
-export default async function handler(req, res) {
+export default async function handleImage(req, res) {
   const source = parseSource(req.query?.u);
   if (!source) {
     res.status(400).json({ error: "u must be a public storage URL of this project" });
