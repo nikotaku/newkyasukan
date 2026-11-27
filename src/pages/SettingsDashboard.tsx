@@ -1,4 +1,5 @@
 import StoreInfo from "./StoreInfo";
+import StoreContactMaster from "./StoreContactMaster";
 import HpSnsLinks from "./HpSnsLinks";
 import type { ComponentType } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
@@ -27,6 +28,7 @@ type TabDef = {
 const rate = (section: RateSection) => () => <SystemRateMaster embedded section={section} />;
 
 const TABS: TabDef[] = [
+  { value: "contact", label: "連絡先・SNS（正本）", icon: Phone, render: () => <StoreContactMaster /> },
   { value: "store", label: "店舗情報", icon: BookOpen, render: () => <StoreInfo embedded /> },
   { value: "sns", label: "SNS", icon: Megaphone, render: () => <HpSnsLinks embedded /> },
   { value: "all", label: "ALL", icon: BookOpen, render: rate("all") },
