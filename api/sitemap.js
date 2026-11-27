@@ -51,6 +51,13 @@ async function publishedBlogArticles() {
 }
 
 export default async function handler(req, res) {
+  // /api/img（画像の中継）は同じ関数で受ける。Hobby プランは Deployment あたり12関数までで、
+  // 画像用に関数を1つ増やせないため（vercel.json の rewrite で image=1 を付けて渡す）。
+  // sharp は画像のときだけ読み込む（サイトマップの応答を重くしない）
+  if (req.query?.image) {
+    const { default: handleImage } = await import("./_lib/imageProxy.js");
+    return handleImage(req, res);
+  }
   const baseUrl = "https://enka-salon.jp";
   const lastModified = new Date().toISOString().slice(0, 10);
   const articles = await publishedBlogArticles();

@@ -79,6 +79,10 @@
       "destination": "/api/automations/admin-portal-post?action=delete-failed-post"
     },
     {
+      "source": "/api/img",
+      "destination": "/api/sitemap?image=1"
+    },
+    {
       "source": "/sitemap.xml",
       "destination": "/api/sitemap"
     },

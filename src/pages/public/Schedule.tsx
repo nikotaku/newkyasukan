@@ -70,15 +70,26 @@ const Schedule = () => {
   useEffect(() => {
     if (storeLoading) return;
     fetchData();
+    // 見ている日の分だけを購読し、500ms まとめて取り直す（予約が入るたびに全員が再取得しないように）。
+    // 裏に回っているタブは数えない
+    const dateFilter = `shift_date=eq.${format(selectedDate, "yyyy-MM-dd")}`;
+    const reservationFilter = `reservation_date=eq.${format(selectedDate, "yyyy-MM-dd")}`;
+    let timer: number | undefined;
+    const refetchSoon = () => {
+      if (document.hidden) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void fetchData(), 500);
+    };
     const ch1 = supabase
       .channel("public-shifts-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shifts" }, () => fetchData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "shifts", filter: dateFilter }, refetchSoon)
       .subscribe();
     const ch2 = supabase
       .channel("public-reservations-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "reservations" }, () => fetchData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "reservations", filter: reservationFilter }, refetchSoon)
       .subscribe();
     return () => {
+      window.clearTimeout(timer);
       supabase.removeChannel(ch1);
       supabase.removeChannel(ch2);
     };
@@ -96,7 +107,7 @@ const Schedule = () => {
           .eq("shift_date", dateStr)
           .eq("store_id", storeId)
           .order("start_time", { ascending: true }),
-        supabase.rpc("get_reservation_slots", { p_date: dateStr, p_cast_id: null }),
+        supabase.rpc("get_reservation_slots", { p_date: dateStr, p_cast_id: null, p_store_id: storeId }),
         supabase
           .from("shop_settings")
           .select("reservation_interval_minutes")

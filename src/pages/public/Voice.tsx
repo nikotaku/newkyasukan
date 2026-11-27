@@ -6,7 +6,7 @@ import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { useStore } from "@/hooks/useStore";
-import { driveImgUrl } from "@/lib/drive";
+import { StorageImage } from "@/components/StorageImage";
 import { ReviewStars } from "@/components/public/ReviewStars";
 import { ReviewCategoryScores } from "@/components/public/ReviewCategoryScores";
 
@@ -168,8 +168,10 @@ export default function Voice() {
                       >
                         <Link to={`/casts/${cast.id}`} className="shrink-0">
                           {cast.photo ? (
-                            <img
-                              src={driveImgUrl(cast.photo, 150)}
+                            <StorageImage
+                              src={cast.photo}
+                              variant="thumb"
+                              size={150}
                               alt={cast.name}
                               className="w-14 h-14 rounded-full object-cover object-top border"
                               style={{ borderColor: "var(--pub-accent-a50,#c6a15b80)" }}

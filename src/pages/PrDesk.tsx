@@ -21,10 +21,10 @@ export default function PrDesk() {
     if(r.error) throw r.error;
     return r.data;
   }});
-  const preview=useQuery({queryKey:["pr-preview",storeId],enabled:!!storeId,refetchInterval:30000,queryFn:async()=>{
+  const preview=useQuery({queryKey:["pr-preview",storeId],enabled:!!storeId,refetchInterval:60000,queryFn:async()=>{
     const r=await db.rpc("pr_desk_preview",{p_store:storeId}); if(r.error) throw r.error; return r.data;
   }});
-  const history=useQuery({queryKey:["pr-history",storeId,page],enabled:!!storeId,refetchInterval:15000,queryFn:async()=>{
+  const history=useQuery({queryKey:["pr-history",storeId,page],enabled:!!storeId,refetchInterval:60000,queryFn:async()=>{
     const r=await db.from("pr_desk_history").select("id,kind,body,created_at,status,detail").eq("store_id",storeId).order("created_at",{ascending:false}).order("id").range(25*page,25*page+25);
     if(r.error) throw r.error; return r.data;
   }});

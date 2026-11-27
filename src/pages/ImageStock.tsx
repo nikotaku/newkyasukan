@@ -79,7 +79,7 @@ export default function ImageStock() {
         // 元のファイル名を残しつつ重複を避ける
         const base = file.name.replace(/\.[^.]+$/, "").replace(/[^\w\-ぁ-んァ-ヶ一-龠ー]/g, "_").slice(0, 40);
         const name = `${Date.now()}_${base}.${ext}`;
-        const { error } = await supabase.storage.from(BUCKET).upload(`${PREFIX}/${name}`, file);
+        const { error } = await supabase.storage.from(BUCKET).upload(`${PREFIX}/${name}`, file, { cacheControl: "31536000", contentType: file.type || undefined });
         if (error) { console.error(error); continue; }
         ok++;
       }

@@ -1,4 +1,5 @@
 import { resolveBannerText, type CastHeroBanner } from "@/lib/castHeroBanners";
+import { StorageImage } from "@/components/StorageImage";
 
 // セラピストのトップバナー（2:1）。素材の写真・名前・キャッチコピー・本日の出勤・最短の空きを、その場で組み立てる。
 // 公開HPのトップ（EnkaHome）と、スタッフ画面の素材登録のプレビューで同じものを使う。
@@ -8,31 +9,41 @@ interface Props {
   nextAvailable?: string | null; // 「15:00」なら「最短 15:00〜」。null なら出さない
   storeName?: string;
   eager?: boolean;
+  /** false のときは写真を読まない（スライドの見えていない枚を先に全部読み込まないため） */
+  showImages?: boolean;
 }
 
-export function CastHeroBannerSlide({ banner, nextAvailable, storeName = "艶華", eager = false }: Props) {
+export function CastHeroBannerSlide({ banner, nextAvailable, storeName = "艶華", eager = false, showImages = true }: Props) {
   const text = resolveBannerText(banner, storeName, nextAvailable);
   return (
     <div className="absolute inset-0 overflow-hidden" style={{ backgroundColor: "var(--pub-bg,#150a11)" }}>
       {/* 背景：同じ写真をぼかして敷く */}
-      <img
-        src={banner.image}
-        alt=""
-        aria-hidden="true"
-        className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-xl"
-        loading={eager ? "eager" : "lazy"}
-      />
+      {showImages && (
+        <StorageImage
+          src={banner.image}
+          variant="detail"
+          size={1200}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-xl"
+          loading={eager ? "eager" : "lazy"}
+        />
+      )}
       <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, rgba(10,4,8,.15) 0%, rgba(10,4,8,.55) 42%, rgba(10,4,8,.9) 100%)" }} />
 
       {/* 写真 */}
       <div className="absolute inset-y-0 left-0 w-[46%] overflow-hidden">
-        <img
-          src={banner.image}
-          alt={`${banner.name}`}
-          className="h-full w-full object-cover object-top"
-          loading={eager ? "eager" : "lazy"}
-          fetchPriority={eager ? "high" : "auto"}
-        />
+        {showImages && (
+          <StorageImage
+            src={banner.image}
+            variant="detail"
+            size={1200}
+            alt={`${banner.name}`}
+            className="h-full w-full object-cover object-top"
+            loading={eager ? "eager" : "lazy"}
+            fetchPriority={eager ? "high" : "auto"}
+          />
+        )}
         <div className="absolute inset-y-0 right-0 w-1/3" style={{ background: "linear-gradient(90deg, transparent, rgba(10,4,8,.85))" }} />
       </div>
 

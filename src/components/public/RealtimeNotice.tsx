@@ -22,7 +22,8 @@ export function RealtimeNotice({ storeId }: { storeId?: string | null }) {
       if (remaining > 0) expiry = window.setTimeout(() => setBody(""), remaining);
     }
     void refresh();
-    const timer = window.setInterval(refresh, 15000);
+    // 公開ページを開きっぱなしの人のぶん、DBへの問い合わせを増やさない（15秒→60秒・裏に回っているときは数えない）
+    const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, 60000);
     window.addEventListener("focus", refresh);
     return () => {
       disposed = true;

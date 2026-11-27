@@ -64,7 +64,7 @@ export function TherapistPostingStatus({ storeId, planId, castIds, therapistLabe
       return { participants, rows };
     },
     staleTime: 10_000,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: "always",
   });
   const participants = data?.participants ?? [];
