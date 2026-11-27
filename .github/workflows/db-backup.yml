@@ -6,9 +6,10 @@
 #   SUPABASE_DB_URL    … Supabaseの「Connect → Session pooler」の接続文字列（バックアップ専用ロール db_backup_reader のパスワード入り）
 #   BACKUP_PASSPHRASE  … 暗号化パスワード（なくすと復元できないので、Supabase以外の場所に保管）
 #
-# 接続は postgres ではなくバックアップ専用ロール（db_backup_reader: pg_read_all_data + bypassrls）を使う。
+# 接続は postgres ではなくバックアップ専用ロール（db_backup_reader: 全スキーマの SELECT/USAGE + bypassrls）を使う。
 # `supabase db dump` は内部で SET ROLE postgres を行うため専用ロールでは失敗する（Supabase公式KBの記載）ので、
-# pg_dump を直接使う。ロール定義（roles.sql）は postgres 権限が必要なため取得しない。
+# pg_dump を直接使う。auth スキーマだけは postgres でも権限を付与できない（所有者が supabase_admin）ため除外する。
+# ロール定義（roles.sql）も postgres 権限が必要なため取得しない。
 name: DB backup
 
 on:
@@ -50,9 +51,9 @@ jobs:
         run: |
           mkdir backup
           # スキーマ（テーブル定義・関数・RLSポリシー・権限）
-          pg_dump --dbname "$SUPABASE_DB_URL" --schema-only --no-owner -f backup/schema.sql
+          pg_dump --dbname "$SUPABASE_DB_URL" --schema-only --no-owner --exclude-schema=auth -f backup/schema.sql
           # データ（COPY 形式）
-          pg_dump --dbname "$SUPABASE_DB_URL" --data-only --no-large-objects -f backup/data.sql
+          pg_dump --dbname "$SUPABASE_DB_URL" --data-only --no-large-objects --exclude-schema=auth -f backup/data.sql
           # 空ダンプを成功扱いにしない
           test -s backup/schema.sql
           test -s backup/data.sql
