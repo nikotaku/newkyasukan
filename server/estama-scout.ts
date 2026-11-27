@@ -12,6 +12,7 @@ import {
 } from "./estama-automation.js";
 import { rotateEstamaCoverBanners } from "./estama-cover-banners.js";
 import { syncEstamaStoreContact } from "./estama-store-contact.js";
+import { inspectO2StorePages } from "./o2-store-profile.js";
 import {
   parseAgeGender,
   selectScoutCandidates,
@@ -945,6 +946,18 @@ export async function handleEstamaScoutRequest(req: RequestLike, res: ResponseLi
     }
     if (mode === "cover-banners") {
       const result = await rotateEstamaCoverBanners(client, runToken, claimed.connection);
+      res.status(200).json({ ok: true, storeId: claimed.storeId, result });
+      return;
+    }
+    if (mode === "o2-inspect") {
+      // O2 の店舗アカウントの画面の作りを読む（読むだけ。値は返さない）
+      const { data: login, error: loginError } = await client.rpc("get_o2_store_login_for_run", { p_run_token: runToken });
+      if (loginError || !login?.login_id || !login?.password) {
+        res.status(409).json({ ok: false, error: "O2の店舗アカウントのログイン情報がありません" });
+        return;
+      }
+      const paths = Array.isArray(body.paths) ? body.paths.filter((path): path is string => typeof path === "string") : [];
+      const result = await inspectO2StorePages(login.login_id, login.password, paths);
       res.status(200).json({ ok: true, storeId: claimed.storeId, result });
       return;
     }
