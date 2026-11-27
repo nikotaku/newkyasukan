@@ -29,7 +29,7 @@
     "test:room-entry": "node --experimental-strip-types --test tests/roomEntry.test.ts",
     "test:store-contact": "node --experimental-strip-types --test tests/storeContact.test.ts",
     "test:rate-master": "node --experimental-strip-types --test tests/rateMaster.test.ts tests/rateSheet.test.ts tests/campaigns.test.ts",
-    "test:clearance-defaults": "node --experimental-strip-types --test tests/cashReturns.test.ts tests/clearanceDefaults.test.ts tests/dailyClearanceDraft.test.ts tests/settlementApproval.test.ts tests/pairReceipt.test.ts",
+    "test:clearance-defaults": "node --experimental-strip-types --test tests/cashReturns.test.ts tests/clearanceDefaults.test.ts tests/dailyClearanceDraft.test.ts tests/settlementApproval.test.ts tests/pairReceipt.test.ts tests/pendingSettlements.test.ts",
     "test:subline": "node --experimental-strip-types --test tests/sublinePhone.test.ts",
     "test:photo-editor": "node --experimental-strip-types --test tests/photoEditor.test.ts",
     "test:expense-suggestions": "node --experimental-strip-types --test tests/expenseSuggestions.test.ts",
