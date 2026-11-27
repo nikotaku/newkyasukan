@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { trackPublicEvent } from "@/lib/publicAnalytics";
 import { safeHttpUrl, visibleLinkBanners } from "@/lib/linkBanners";
 
-const DEFAULT_X_URL = "https://x.com/enka_salon";
+const DEFAULT_X_URL = "https://x.com/enka_sendai3";
 
 export const PublicFooter = () => {
   const { lineUrl } = useStoreContact();

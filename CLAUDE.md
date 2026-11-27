@@ -173,6 +173,12 @@
 - 結果は `estama_cover_rotations`（1日1行、RPC `start_estama_cover_rotation` / `finish_estama_cover_rotation`）。出た人は露出ノルマの「エスたまトップバナー」（`promotion_exposures`）に自動で記録。バナーが枠より少ない日は余った枠をそのままにする（`server/estama-cover-slots.ts`、テスト `npm run test:estama`）
 - エステ魂の管理画面の作りを確かめるときは `inspect-urls` に `selectors`（要素のHTML）・`scriptKeywords`（スクリプト）を付けられる（読むだけ）
 
+## 連絡先・SNS（正本）（設定ダッシュボードの `?tab=contact`）
+
+- 艶華OSの連絡先の正本は店舗情報（`store_info`）の **電話（`phone`、数字だけ）・公式LINE（`line_url`）・メール（`email`）・X（`twitter_url`、`https://x.com/ID`）・外部ブログ（`blog_url`＝O2の店舗ページ）**。画面は `src/pages/StoreContactMaster.tsx`、入れ方のそろえ方と確かめは `src/lib/storeContact.ts`（テスト `npm run test:store-contact`）。2026-11-27 の値：050-1721-2589／https://lin.ee/tbQwjeN／enka@enka-salon.jp／@enka_sendai3／https://m-sns.net/s/@enka_salon
+- 直すと DBトリガー `trg_store_contact_change`（`private.on_store_contact_change`、`20261127090000_store_contact_master.sql`）が HP のSNSリンク（`site_content` の `store_sns_x` / `store_sns_line` / `store_sns_o2`）をそろえ、エステ魂・O2 の店舗ページへの反映待ちを `store_contact_sync`（store_id, target = estama / o2、status pending → running → done / failed / review_required）に積む。HP・SMS・予約案内ページ・公式LINEの自動応答は店舗情報をそのまま読むので保存した時点で切り替わる。予備の表示（`useStoreContact` / `Access.tsx` / フッター）も同じ値
+- エステ魂の連絡先の欄は管理画面の店舗基本情報（`/admin/shop/`）→「編集する」の `/admin/shop/contact/edit/`（2026-11-27 時点で作りを確認中）。O2 は店舗アカウントのプロフィール。両方とも書き換えるワーカーはまだ無い（反映待ちのまま）
+
 ## 設定ダッシュボード（/system/dashboard）
 
 - サイドバーの「設定ダッシュボード」1つにシステムの設定をまとめた（`src/pages/SettingsDashboard.tsx`、HPダッシュボードと同じ作り・`?tab=`）。タブ：ALL（正本）／コースバック（course）／オプション（option）／指名（nomination）／割引（discount）／決済（payment）／キャンペーン（campaign）／控除（deduction）／手当（allowance）／広告費（referral）／料金ページ文言（page）／スマホ通知（notifications）／電話（phone）。中身は各ページを `embedded` で入れている（外枠は `AdminPageShell`）
