@@ -9,7 +9,7 @@ import { useStore } from "@/hooks/useStore";
  */
 
 const DEFAULT_PHONE = "05017212589";
-const DEFAULT_LINE_URL = "https://lin.ee/tbQwjeN";
+const DEFAULT_LINE_URL = "https://lin.ee/oF21UzD";
 const DEFAULT_HOURS = "12:00〜26:00(24:40最終受付)";
 
 // 11桁の携帯番号を 090-1234-5678 形式に整形（それ以外はそのまま返す）

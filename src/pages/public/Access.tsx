@@ -27,7 +27,7 @@ const DEFAULTS: StoreInfo = {
   hours: "12:00〜26:00（24:40最終受付）",
   holiday: "年中無休",
   twitter_url: "https://twitter.com/zr_news1",
-  line_url: "https://lin.ee/tbQwjeN",
+  line_url: "https://lin.ee/oF21UzD",
 };
 
 const Access = () => {
