@@ -17,6 +17,23 @@
 
 ※ ユーザーから明示的に「マージしないで」「確認してから」と指示された場合のみ、この自動マージをスキップする。
 
+## 画像の配信（/api/img）と Vercel の関数数（重要）
+
+- HP・管理画面の画像は `StorageImage`（`src/components/StorageImage.tsx`）で出す。Supabase Storage の画像は
+  `/api/img?u=<公開URL>&w=<幅>` に変わり、Vercel の関数（`api/_lib/imageProxy.js`。`vercel.json` の rewrite で
+  `api/sitemap.js` が `?image=1` として受ける）が幅 400 / 1200 / 1500 に縮めた WebP（対応ブラウザ）または JPEG を返し、
+  CDN に1年キャッシュさせる（`s-maxage=31536000, immutable`）。Supabase 無料プランでは画像変換（`/render/image`）が
+  使えないため、配信側で縮めて Cached Egress を減らしている
+  - **原本は Storage にそのまま残す**。中継できないとき・縮小に失敗したときは元の URL へ 302（`StorageImage` は onError で原本に切り替える）ので、写真が欠けることはない
+  - 新しい画面で画像を出すときは `<img src={driveImgUrl(...)}>` ではなく `StorageImage` を使う（`variant` は thumb / detail / hero）
+  - トップのヒーローは「見えている1枚＋次の1枚」だけ読み込む（全スライドを重ねて全部ロードしない）
+- アップロードは `uploadImageWithVariants()`（`src/lib/castPhotoUpload.ts`）を通す。大きい写真は長辺2000px（トップバナーは1500px）の
+  JPEG に軽くしてから、`cacheControl: '31536000'` で置く（`upsert: true` で同じパスを使い回すものは1年キャッシュにしない）
+- **Vercel Hobby は Deployment あたり12関数まで**（`api/` 直下とその下の `.ts` / `.js` が1関数ずつ。`api/_lib/` は数えられない）。
+  13個目を足すとビルドが「No more than 12 Serverless Functions」で失敗する。足すときは既存の関数へ `?action=` で相乗りさせる
+- **Storage の cache-control は SQL（storage.objects.metadata）を書き換えても変わらない**。1年にするにはアップロード時に
+  `cacheControl` を付ける（今は配信中継のキャッシュがあるので、既存分はそのままでよい）
+
 ## CI について
 
 - **Workers Builds（Cloudflare）の失敗は既存のダッシュボード設定起因の問題**で、コードとは無関係。毎pushで失敗するが対応不要。
