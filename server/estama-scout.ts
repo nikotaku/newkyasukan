@@ -11,6 +11,7 @@ import {
   type Connection,
 } from "./estama-automation.js";
 import { rotateEstamaCoverBanners } from "./estama-cover-banners.js";
+import { syncEstamaStoreContact } from "./estama-store-contact.js";
 import {
   parseAgeGender,
   selectScoutCandidates,
@@ -22,6 +23,7 @@ import {
  *  - collect: スカウト求人・スカウト検索の一覧から候補を読み、DBに保存して OK待ち にする（読むだけ）
  *  - send:    OKが出た人だけ、履歴書の小窓を開いてスカウトテンプレートで送信する
  *  - inspect / inspect-detail: 画面が変わった時に作りを確かめる読み取り専用の調査
+ *  - store-contact: 連絡先・SNS（正本）を店舗基本情報（電話・メール・LINE・X・ブログ）へ書き換える（server/estama-store-contact.ts）
  *  - inspect-urls: 指定した管理画面のページ（/admin/…）の作りを読む（読むだけ）
  *
  * 画面の作り（2026-09 時点）：候補は a.send-get_modal[data-row="resume,<ID>"]。押すと POST /admin_post/modal/ で
@@ -943,6 +945,11 @@ export async function handleEstamaScoutRequest(req: RequestLike, res: ResponseLi
     }
     if (mode === "cover-banners") {
       const result = await rotateEstamaCoverBanners(client, runToken, claimed.connection);
+      res.status(200).json({ ok: true, storeId: claimed.storeId, result });
+      return;
+    }
+    if (mode === "store-contact") {
+      const result = await syncEstamaStoreContact(client, runToken, claimed.connection);
       res.status(200).json({ ok: true, storeId: claimed.storeId, result });
       return;
     }
