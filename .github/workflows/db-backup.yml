@@ -50,10 +50,14 @@ jobs:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           mkdir backup
+          # アプリ所有のスキーマ（public / private / focus120）を対象にする。
+          # Supabase管理スキーマ（auth, storage, realtime, supabase_migrations 等）は
+          # 専用ロールでは読み出せず、別プロジェクトへの復元もSupabase側が持つため対象外。
+          SCHEMAS="--schema=public --schema=private --schema=focus120"
           # スキーマ（テーブル定義・関数・RLSポリシー・権限）
-          pg_dump --dbname "$SUPABASE_DB_URL" --schema-only --no-owner --exclude-schema=auth -f backup/schema.sql
+          pg_dump --dbname "$SUPABASE_DB_URL" --schema-only --no-owner $SCHEMAS -f backup/schema.sql
           # データ（COPY 形式）
-          pg_dump --dbname "$SUPABASE_DB_URL" --data-only --no-large-objects --exclude-schema=auth -f backup/data.sql
+          pg_dump --dbname "$SUPABASE_DB_URL" --data-only --no-large-objects $SCHEMAS -f backup/data.sql
           # 空ダンプを成功扱いにしない
           test -s backup/schema.sql
           test -s backup/data.sql
