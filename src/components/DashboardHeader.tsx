@@ -9,7 +9,7 @@ import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { O2ControlAlert } from "@/components/sns/O2ControlPanel";
 import { EstamaPendingAlert } from "@/components/EstamaPendingAlert";
 import { TherapistNotifyAlert } from "@/components/TherapistNotifyAlert";
-import { TherapistPromotionReportAlert } from "@/components/promotion/TherapistPromotionReports";
+import { AdminNotificationBell } from "@/components/AdminNotificationBell";
 import caskanLogo from "@/assets/caskan-logo.png";
 import {
   DropdownMenu,
@@ -61,7 +61,7 @@ export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
           </div>
 
           <O2ControlAlert />
-          {user && <TherapistPromotionReportAlert storeId={adminStore?.id} />}
+          {user && <AdminNotificationBell storeId={adminStore?.id} />}
 
           <img src="/favicon-tsuyaka.png" alt="艶華" className="w-8 h-8 rounded border border-border object-cover" />
           

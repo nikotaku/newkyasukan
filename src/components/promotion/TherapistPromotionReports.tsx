@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Bell,
   Check,
   CheckCircle2,
   Loader2,
@@ -11,11 +10,6 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   useAcknowledgePromotionReport,
   useTherapistPromotionReports,
 } from "@/hooks/useTherapistPromotion";
@@ -24,72 +18,6 @@ import {
   promotionPlanUrl,
   promotionReportedAt,
 } from "@/lib/therapistPromotion";
-
-export function TherapistPromotionReportAlert({
-  storeId,
-}: {
-  storeId: string | undefined;
-}) {
-  const { data: reports = [] } = useTherapistPromotionReports(storeId, true);
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="relative h-8 w-8 shrink-0 p-0"
-          aria-label={`投稿完了報告${reports.length ? ` 未確認${reports.length}件` : ""}`}
-        >
-          <Bell size={17} />
-          {reports.length > 0 && (
-            <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-4 text-white">
-              {reports.length > 99 ? "99+" : reports.length}
-            </span>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        className="w-[min(22rem,calc(100vw-1rem))] p-0"
-      >
-        <div className="border-b px-4 py-3 text-sm font-bold">
-          セラピストの投稿完了報告
-        </div>
-        {reports.length ? (
-          <div className="max-h-72 overflow-y-auto divide-y">
-            {reports.slice(0, 5).map((report) => (
-              <Link
-                key={report.id}
-                to={promotionPlanUrl(report.planId)}
-                className="block px-4 py-3 hover:bg-muted/50"
-              >
-                <p className="text-sm font-semibold">
-                  {report.castName}さんが投稿しました
-                </p>
-                <p className="mt-1 break-words text-xs text-muted-foreground">
-                  {report.taskLabel}
-                </p>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  {promotionReportedAt(report.completedAt)}
-                </p>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <p className="px-4 py-6 text-center text-xs text-muted-foreground">
-            未確認の投稿報告はありません
-          </p>
-        )}
-        <Link
-          to="/promotion-schedule?tab=plans&reports=1"
-          className="block border-t px-4 py-3 text-center text-xs font-semibold text-primary hover:bg-muted/50"
-        >
-          投稿報告を確認する
-        </Link>
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 export function TherapistPromotionReports({
   storeId,

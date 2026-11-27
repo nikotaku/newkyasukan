@@ -1,5 +1,6 @@
 import { AdminPageShell } from "@/components/AdminPageShell";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -167,6 +168,7 @@ const linkedDate = (value: string | null) => {
 
 export default function SalesDailySales({ embedded = false }: { embedded?: boolean } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const linkedDateRef = useRef(linkedDate(searchParams.get("date")));
   // 開いたあと、その人の明細を出す（スマホ通知から）・その人の欄まで動かす（不足分の一覧から）
   const focusRef = useRef<{ castId: string; openReceipt: boolean } | null>(
@@ -602,6 +604,8 @@ export default function SalesDailySales({ embedded = false }: { embedded?: boole
           + (approved.shortage_amount > 0 ? `（不足分 ${yen(approved.shortage_amount)} は振込か次回出勤日の相殺を選んでもらいます）` : ""),
         );
         setReceiptCastId(null);
+        // ヘッダーのベル（未承認の精算）から消す
+        void queryClient.invalidateQueries({ queryKey: ["pending-settlements"] });
       } catch (approveError) {
         toast.error(`清算は保存しましたが、マイページへのお知らせに失敗しました。もう一度「承認し直す」を押してください：${approveError instanceof Error ? approveError.message : "不明なエラー"}`);
       }
