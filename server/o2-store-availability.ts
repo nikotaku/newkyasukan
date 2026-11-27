@@ -223,7 +223,7 @@ export class O2StoreReviewRequiredError extends Error {
   }
 }
 
-class CookieJar {
+export class CookieJar {
   private readonly values = new Map<string, string>();
 
   capture(response: Response) {
@@ -243,10 +243,10 @@ class CookieJar {
   }
 }
 
-const isO2StoreLoginPage = (html: string) =>
+export const isO2StoreLoginPage = (html: string) =>
   /name=["']email["']/i.test(html) && /name=["']password["']/i.test(html) && /店舗ログイン/.test(html);
 
-const request = async (jar: CookieJar, url: string, init: RequestInit = {}) => {
+export const request = async (jar: CookieJar, url: string, init: RequestInit = {}) => {
   const headers = new Headers(init.headers);
   if (jar.header()) headers.set("Cookie", jar.header());
   headers.set("User-Agent", "Mozilla/5.0 (compatible; CaskanO2StoreAvailability/1.0)");
@@ -255,7 +255,7 @@ const request = async (jar: CookieJar, url: string, init: RequestInit = {}) => {
   return response;
 };
 
-const follow = async (jar: CookieJar, response: Response, fallbackUrl: string, maxRedirects = 5) => {
+export const follow = async (jar: CookieJar, response: Response, fallbackUrl: string, maxRedirects = 5) => {
   let current = response;
   let currentUrl = fallbackUrl;
   for (let index = 0; index < maxRedirects && [301, 302, 303, 307, 308].includes(current.status); index += 1) {
