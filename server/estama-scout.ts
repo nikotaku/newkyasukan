@@ -12,7 +12,7 @@ import {
 } from "./estama-automation.js";
 import { rotateEstamaCoverBanners } from "./estama-cover-banners.js";
 import { syncEstamaStoreContact } from "./estama-store-contact.js";
-import { inspectO2StorePages } from "./o2-store-profile.js";
+import { inspectO2StorePages, syncO2StoreContact } from "./o2-store-profile.js";
 import {
   parseAgeGender,
   selectScoutCandidates,
@@ -25,6 +25,7 @@ import {
  *  - send:    OKが出た人だけ、履歴書の小窓を開いてスカウトテンプレートで送信する
  *  - inspect / inspect-detail: 画面が変わった時に作りを確かめる読み取り専用の調査
  *  - store-contact: 連絡先・SNS（正本）を店舗基本情報（電話・メール・LINE・X・ブログ）へ書き換える（server/estama-store-contact.ts）
+ *  - o2-contact: 同じ正本を O2 の店舗アカウントの店舗情報編集（電話・X・LINE）へ書き換える（server/o2-store-profile.ts）
  *  - inspect-urls: 指定した管理画面のページ（/admin/…）の作りを読む（読むだけ）
  *
  * 画面の作り（2026-09 時点）：候補は a.send-get_modal[data-row="resume,<ID>"]。押すと POST /admin_post/modal/ で
@@ -958,6 +959,11 @@ export async function handleEstamaScoutRequest(req: RequestLike, res: ResponseLi
       }
       const paths = Array.isArray(body.paths) ? body.paths.filter((path): path is string => typeof path === "string") : [];
       const result = await inspectO2StorePages(login.login_id, login.password, paths);
+      res.status(200).json({ ok: true, storeId: claimed.storeId, result });
+      return;
+    }
+    if (mode === "o2-contact") {
+      const result = await syncO2StoreContact(client, runToken);
       res.status(200).json({ ok: true, storeId: claimed.storeId, result });
       return;
     }

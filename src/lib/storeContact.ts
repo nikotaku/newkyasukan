@@ -21,7 +21,7 @@ export const CONTACT_TARGETS: Array<{ label: string; note: string; syncKey: "est
   { label: "公式HP", note: "ヘッダー・フッター・予約ページ・SNSリンク（店舗情報をそのまま読む）", syncKey: null },
   { label: "SMS・予約案内ページ", note: "お客様へのSMS・予約案内ページ・公式LINEの自動応答の連絡先", syncKey: null },
   { label: "エステ魂の店舗ページ", note: "店舗基本情報の電話・メール・LINE・X・ブログ欄を自動で書き換える", syncKey: "estama" },
-  { label: "O2の店舗アカウント", note: "店舗プロフィールの連絡先・リンク欄を自動で書き換える", syncKey: "o2" },
+  { label: "O2の店舗アカウント", note: "店舗情報編集の電話・X・LINEを自動で書き換える（メールは変えられない欄・ブログはO2の店舗ページそのもの）。結果は「エスたま自動化履歴」にも残る", syncKey: "o2" },
 ];
 
 const toHalfWidth = (value: string) => value.normalize("NFKC").trim();
