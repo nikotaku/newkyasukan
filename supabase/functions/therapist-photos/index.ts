@@ -75,10 +75,10 @@ serve(async (req) => {
       const path = `${prefix}${id}.${ext(type)}`;
       const originalPath = original ? `${prefix}originals/${id}.${ext(original.type)}` : null;
       if (original && originalPath) {
-        const { error: originalError } = await admin.storage.from(BUCKET).upload(originalPath, original.bytes, { contentType: original.type, upsert: false, cacheControl: "3600" });
+        const { error: originalError } = await admin.storage.from(BUCKET).upload(originalPath, original.bytes, { contentType: original.type, upsert: false, cacheControl: "31536000" });
         if (originalError) throw new Error("画像をアップロードできませんでした");
       }
-      const { error: uploadError } = await admin.storage.from(BUCKET).upload(path, bytes, { contentType: type, upsert: false, cacheControl: "3600" });
+      const { error: uploadError } = await admin.storage.from(BUCKET).upload(path, bytes, { contentType: type, upsert: false, cacheControl: "31536000" });
       if (uploadError) {
         if (originalPath) await admin.storage.from(BUCKET).remove([originalPath]);
         throw new Error("画像をアップロードできませんでした");

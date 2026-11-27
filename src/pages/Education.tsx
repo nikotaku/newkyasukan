@@ -16,7 +16,7 @@ import {
   CircleCheck, CircleDashed, CircleDot, Loader2, BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
-import { driveImgUrl } from "@/lib/drive";
+import { StorageImage } from "@/components/StorageImage";
 import { format } from "date-fns";
 import { MediaRegistrationMatrix } from "@/components/education/MediaRegistrationMatrix";
 import O2Management from "@/pages/O2Management";
@@ -323,7 +323,7 @@ export default function Education() {
                           <button key={c.id} onClick={() => selectCast(c)}
                             className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${selected ? "bg-primary text-primary-foreground" : "hover:bg-muted/50"}`}>
                             {c.photo && (
-                              <img src={driveImgUrl(c.photo, 100)} className="w-8 h-8 rounded object-cover object-top shrink-0" />
+                              <StorageImage src={c.photo} variant="thumb" size={100} className="w-8 h-8 rounded object-cover object-top shrink-0" />
                             )}
                             <span className="truncate flex-1">{castAdminLabel(c)}</span>
                             <span className={`text-xs tabular-nums shrink-0 ${selected ? "text-primary-foreground/80" : pct >= 100 ? "text-green-600" : pct > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
@@ -353,7 +353,7 @@ export default function Education() {
                         <CardContent className="pt-5">
                           <div className="flex items-center gap-3 mb-3">
                             {selectedCast.photo && (
-                              <img src={driveImgUrl(selectedCast.photo, 200)} className="w-12 h-12 rounded object-cover object-top" />
+                              <StorageImage src={selectedCast.photo} variant="thumb" size={200} className="w-12 h-12 rounded object-cover object-top" />
                             )}
                             <div className="flex-1">
                               <p className="font-bold text-lg">{selectedCast.name}</p>

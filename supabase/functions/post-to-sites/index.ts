@@ -117,7 +117,7 @@ async function createTherapistPost(req: Request, admin: ReturnType<typeof create
 
   const path = `posts/${cast.id}/${crypto.randomUUID()}-600x600.jpg`;
   const { error: uploadError } = await admin.storage.from("cast-photos").upload(path, imageBytes, {
-    cacheControl: "3600",
+    cacheControl: "31536000",
     contentType: "image/jpeg",
     upsert: false,
   });

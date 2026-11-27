@@ -19,7 +19,7 @@ export default function RealtimeNoticeManagement() {
   const { data, error, refetch } = useQuery({
     queryKey: ["realtime-notice-history", storeId, page],
     enabled: Boolean(storeId),
-    refetchInterval: 15000,
+    refetchInterval: 60000,
     queryFn: async () => {
       const result = await supabase.from("realtime_notices").select("*").eq("store_id", storeId!)
         .order("created_at", { ascending: false }).order("id").range(page*25,page*25+25);

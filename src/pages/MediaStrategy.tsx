@@ -85,7 +85,7 @@ function SectionImages({ prefix }: { prefix: string }) {
       for (const file of Array.from(files)) {
         const ext = file.name.split(".").pop() || "png";
         const name = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error } = await supabase.storage.from(BUCKET).upload(`${dir}/${name}`, file);
+        const { error } = await supabase.storage.from(BUCKET).upload(`${dir}/${name}`, file, { cacheControl: "31536000", contentType: file.type || undefined });
         if (error) { console.error(error); continue; }
         ok++;
       }

@@ -418,7 +418,7 @@ const loadAvailability = async (admin: SupabaseClient, storeId: string, now: Dat
       .eq("store_id", storeId)
       .eq("shift_date", businessDate)
       .order("start_time", { ascending: true }),
-    admin.rpc("get_reservation_slots", { p_date: businessDate, p_cast_id: null }),
+    admin.rpc("get_reservation_slots", { p_date: businessDate, p_cast_id: null, p_store_id: storeId }),
     admin
       .from("shop_settings")
       .select("reservation_interval_minutes")

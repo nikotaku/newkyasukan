@@ -6509,7 +6509,7 @@ export type Database = {
           }
       get_reservation_interval: { Args: never; Returns: number }
       get_reservation_slots: {
-        Args: { p_cast_id?: string; p_date: string }
+        Args: { p_cast_id?: string; p_date: string; p_store_id?: string }
         Returns: {
           cast_id: string
           duration: number

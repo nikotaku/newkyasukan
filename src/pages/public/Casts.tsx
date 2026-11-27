@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
-import { driveImgUrl } from "@/lib/drive";
+import { StorageImage } from "@/components/StorageImage";
 import { useStore } from "@/hooks/useStore";
 import { CastTitleBadge, useTitleBadges } from "@/components/public/CastTitleBadge";
 import { ESTAMA_CAST_PHOTO_STYLE } from "@/lib/publicCastPhoto";
@@ -54,16 +54,20 @@ const Casts = () => {
     if (storeLoading) return;
     fetchCasts();
     fetchTodayShifts();
-    const castsChannel = supabase
-      .channel('public-casts-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'casts' }, () => fetchCasts())
-      .subscribe();
+    // 一覧は開いたときと、今日の出勤（shifts）が変わったときだけ取り直す。
+    // casts の変更まで購読すると、写真1枚の更新で見ている全員が一覧を取り直してしまう
+    let timer: number | undefined;
+    const refetchSoon = () => {
+      if (document.hidden) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void fetchTodayShifts(), 500);
+    };
     const shiftsChannel = supabase
       .channel('public-shifts-today')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, () => fetchTodayShifts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, refetchSoon)
       .subscribe();
     return () => {
-      supabase.removeChannel(castsChannel);
+      window.clearTimeout(timer);
       supabase.removeChannel(shiftsChannel);
     };
   }, [storeLoading, storeId]);
@@ -176,7 +180,7 @@ const Casts = () => {
                           <CastTitleBadge badge={titleBadgeMap.get(cast.title_badge_id ?? "")} />
                         </div>
                         {cast.photo ? (
-                          <img src={driveImgUrl(cast.photo)} alt={cast.name} loading="lazy" className="w-full object-cover group-hover:scale-105 transition-transform duration-500" style={ESTAMA_CAST_PHOTO_STYLE} />
+                          <StorageImage src={cast.photo} variant="thumb" size={400} alt={cast.name} loading="lazy" decoding="async" className="w-full object-cover group-hover:scale-105 transition-transform duration-500" style={ESTAMA_CAST_PHOTO_STYLE} />
                         ) : (
                           <div className="w-full bg-gradient-to-br from-[var(--pub-accent,#c6a15b)] to-[var(--pub-accent-deep,#a87c2a)] flex items-center justify-center" style={ESTAMA_CAST_PHOTO_STYLE}>
                             <span className="text-4xl text-white">{cast.name.charAt(0)}</span>

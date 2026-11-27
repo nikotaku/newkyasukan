@@ -15,7 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Archive, ArchiveRestore, Search, Save, X, Plus, ExternalLink, Copy, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { driveImgUrl } from "@/lib/drive";
+import { StorageImage } from "@/components/StorageImage";
 import { castAdminLabel } from "@/lib/castProfileCompletion";
 
 interface Cast {
@@ -349,7 +349,7 @@ export default function TherapistDatabase() {
                       <button key={c.id} onClick={() => selectCast(c)}
                         className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${selectedCast?.id === c.id ? "bg-primary text-primary-foreground" : "hover:bg-muted/50"}`}>
                         {c.photo && (
-                          <img src={driveImgUrl(c.photo, 100)} className="w-8 h-8 rounded object-cover object-top shrink-0" />
+                          <StorageImage src={c.photo} variant="thumb" size={100} className="w-8 h-8 rounded object-cover object-top shrink-0" />
                         )}
                         <div className="min-w-0">
                           <div className="truncate">{castAdminLabel(c)}</div>
@@ -375,7 +375,7 @@ export default function TherapistDatabase() {
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-3 flex-wrap">
                       {selectedCast.photo && (
-                        <img src={driveImgUrl(selectedCast.photo, 200)} className="w-12 h-12 rounded object-cover object-top" />
+                        <StorageImage src={selectedCast.photo} variant="thumb" size={200} className="w-12 h-12 rounded object-cover object-top" />
                       )}
                       <span className="flex-1">{selectedCast.name}</span>
                       <Badge variant={selectedCast.is_active ? "secondary" : "outline"}>

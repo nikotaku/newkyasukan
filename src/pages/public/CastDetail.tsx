@@ -6,7 +6,7 @@ import { PublicFooter } from "@/components/public/PublicFooter";
 import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { ArrowLeft, Calendar, Camera } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
-import { driveImgUrl } from "@/lib/drive";
+import { StorageImage } from "@/components/StorageImage";
 import { useStoreContact } from "@/hooks/useStoreContact";
 import { useStore } from "@/hooks/useStore";
 import { getBookingKey } from "@/lib/bookingUrl";
@@ -303,9 +303,13 @@ const CastDetail = () => {
                       <div className="flex h-full">
                         {allPhotos.map((photo, i) => (
                           <div key={i} className="h-full flex-[0_0_100%] min-w-0">
-                            <img
-                              src={driveImgUrl(photo, 1200)}
+                            <StorageImage
+                              src={photo}
+                              variant="detail"
+                              size={1200}
                               alt={`${cast.name} ${i + 1}`}
+                              loading={i === 0 ? "eager" : "lazy"}
+                              decoding="async"
                               className="h-full w-full object-cover object-top"
                             />
                           </div>
@@ -348,7 +352,7 @@ const CastDetail = () => {
                   <button key={i} onClick={() => emblaApi?.scrollTo(i)}
                     className="flex-shrink-0 rounded overflow-hidden border-2 transition-all"
                     style={{ width: 52, height: 52, borderColor: i === selectedIndex ? "var(--pub-accent,#c6a15b)" : "transparent", opacity: i === selectedIndex ? 1 : 0.55 }}>
-                    <img src={driveImgUrl(photo, 400)} alt="" className="w-full h-full object-cover object-top" />
+                    <StorageImage src={photo} variant="thumb" size={400} alt="" className="w-full h-full object-cover object-top" />
                   </button>
                 ))}
               </div>
