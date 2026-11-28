@@ -26,7 +26,7 @@ const admin = createClient(URL, KEY, {
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization,apikey,content-type,x-ingest-token",
+    "authorization,x-client-info,apikey,content-type,x-ingest-token,x-supabase-api-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Cache-Control": "no-store",
 };
