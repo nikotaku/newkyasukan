@@ -1,3 +1,5 @@
+import { StorePostChannels } from "@/components/sns/StorePostChannels";
+import { O2StoreAvailabilitySettings } from "@/components/O2StoreAvailabilitySettings";
 import StoreInfo from "./StoreInfo";
 import StoreContactMaster from "./StoreContactMaster";
 import HpSnsLinks from "./HpSnsLinks";
@@ -30,7 +32,19 @@ const rate = (section: RateSection) => () => <SystemRateMaster embedded section=
 const TABS: TabDef[] = [
   { value: "contact", label: "連絡先・SNS（正本）", icon: Phone, render: () => <StoreContactMaster /> },
   { value: "store", label: "店舗情報", icon: BookOpen, render: () => <StoreInfo embedded /> },
-  { value: "sns", label: "SNS", icon: Megaphone, render: () => <HpSnsLinks embedded /> },
+  // 店舗としてのSNSアカウント（店舗の投稿先・Xのキー・O2の店舗アカウント）と、HPに出すSNSリンク。以前は教育画面の「SNS連携」タブにあった（2026-11-28）
+  {
+    value: "sns",
+    label: "店舗のSNSアカウント",
+    icon: Megaphone,
+    render: () => (
+      <div className="space-y-5">
+        <StorePostChannels />
+        <O2StoreAvailabilitySettings />
+        <HpSnsLinks embedded />
+      </div>
+    ),
+  },
   { value: "all", label: "ALL", icon: BookOpen, render: rate("all") },
   { value: "course", label: "コースバック", icon: Coins, render: rate("course") },
   { value: "option", label: "オプション", icon: Sparkles, render: rate("option") },

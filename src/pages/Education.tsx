@@ -95,11 +95,10 @@ export default function Education() {
   const { user, loading: authLoading } = useAuth();
   const { storeId, loading: storeLoading } = useAdminStore();
   const navigate = useNavigate();
-  // タブはURL（?tab=）で開けるようにする（以前の「SNS連携管理」/marketing/o2 は ?tab=sns へ転送）
+  // タブはURL（?tab=）で開けるようにする。以前の「SNS連携」タブ（?tab=sns、/marketing/o2）は媒体登録状況にまとめた（2026-11-28）
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = ["status", "goals", "media", "sns", "curriculum"].includes(searchParams.get("tab") || "")
-    ? searchParams.get("tab")!
-    : "status";
+  const requestedTab = searchParams.get("tab") === "sns" ? "media" : searchParams.get("tab") || "";
+  const tab = ["status", "goals", "media", "curriculum"].includes(requestedTab) ? requestedTab : "status";
   const changeTab = (value: string) => setSearchParams(value === "status" ? {} : { tab: value }, { replace: true });
 
   useEffect(() => {
@@ -272,7 +271,6 @@ export default function Education() {
               <TabsTrigger value="status">受講状況</TabsTrigger>
               <TabsTrigger value="goals">ゴール</TabsTrigger>
               <TabsTrigger value="media">媒体登録状況</TabsTrigger>
-              <TabsTrigger value="sns">SNS連携・ログイン情報</TabsTrigger>
               <TabsTrigger value="curriculum">カリキュラム管理</TabsTrigger>
             </TabsList>
 
@@ -281,14 +279,10 @@ export default function Education() {
               {tab === "goals" && <CastGoalsBoard />}
             </TabsContent>
 
-            {/* ── 媒体登録状況（エステ魂・O2・X） ── */}
-            <TabsContent value="media">
-              <MediaRegistrationMatrix onOpenSns={() => changeTab("sns")} />
-            </TabsContent>
-
-            {/* ── SNS連携・ログイン情報（O2・X・魂セラピスト） ── */}
-            <TabsContent value="sns">
+            {/* ── 媒体登録状況（エステ魂・O2・X）。上に SNS の登録の合計・O2の登録と店舗連携（O2Management の一覧なし版） ── */}
+            <TabsContent value="media" className="space-y-5">
               <O2Management />
+              <MediaRegistrationMatrix />
             </TabsContent>
 
             {/* ── 受講状況 ── */}

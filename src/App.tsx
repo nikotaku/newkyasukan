@@ -229,7 +229,7 @@ const App = () => {
           <Route path="/templates" element={<Navigate to="/knowledge/dashboard?tab=templates" replace />} />
           <Route path="/image-stock" element={<ImageStock />} />
           <Route path="/marketing/media" element={<MediaStrategy />} />
-          <Route path="/marketing/o2" element={<Navigate to="/education?tab=sns" replace />} />
+          <Route path="/marketing/o2" element={<Navigate to="/education?tab=media" replace />} />
           <Route path="/promotion-schedule" element={<PromotionSchedule />} />
           <Route path="/inquiry-stats" element={<InquiryStats />} />
           <Route path="/cti-calls" element={<CtiCalls />} />

@@ -12,9 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidEmail } from "@/lib/email";
 import { hasSavedXId, normalizeXId } from "@/lib/sns-connection-status";
-import { O2StoreAvailabilitySettings } from "@/components/O2StoreAvailabilitySettings";
-import { O2ControlPanel } from "@/components/sns/O2ControlPanel";
-import { StorePostChannels } from "@/components/sns/StorePostChannels";
+import { O2AutoCreateButton, O2ControlPanel } from "@/components/sns/O2ControlPanel";
 
 type O2Row = {
   cast_id: string;
@@ -243,7 +241,10 @@ function PasswordControl({
   );
 }
 
-// 教育パネル（/education?tab=sns）のタブとして表示する。以前の /marketing/o2 はそこへ転送する
+// 2つの使い方（2026-11-28 に「SNS連携」タブを廃止して分けた）：
+//   castId なし … 教育画面の「媒体登録状況」の上。登録の合計の数字と、O2の登録・店舗連携（O2ControlPanel）だけ
+//   castId あり … スタッフ画面のセラピスト編集の「O2・X・魂セラピスト」タブ。その人のログイン情報・投稿フォーム・O2の自動作成
+// 店舗側の投稿先（StorePostChannels）・O2の店舗アカウント（O2StoreAvailabilitySettings）は設定ダッシュボードの「SNS」タブ
 export default function O2Management({ castId, onSaved }: { castId?: string; onSaved?: () => void } = {}) {
   const [rows, setRows] = useState<O2Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -612,7 +613,7 @@ export default function O2Management({ castId, onSaved }: { castId?: string; onS
         <div className="max-w-6xl mx-auto space-y-5">
           {!castId && <>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div><h2 className="text-lg font-bold">O2・X・魂セラピスト連携管理</h2><p className="text-sm text-muted-foreground">{store?.name || "店舗"}のセラピスト別アカウントと公開プロフィールを管理</p></div>
+            <div><h2 className="text-lg font-bold">SNSアカウントの登録状況</h2><p className="text-sm text-muted-foreground">{store?.name || "店舗"}のセラピストのO2・X・魂セラピスト。1人ずつのログイン情報はスタッフ画面のセラピスト編集の「O2・X・魂セラピスト」で直します</p></div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={load} disabled={loading}><RefreshCw size={15} className={loading ? "mr-1 animate-spin" : "mr-1"} />更新</Button>
               <Button variant="outline" asChild><a href="https://m-sns.net/cast/login/" target="_blank" rel="noreferrer">O2を開く<ExternalLink size={15} className="ml-1" /></a></Button>
@@ -632,13 +633,9 @@ export default function O2Management({ castId, onSaved }: { castId?: string; onS
 
           <O2ControlPanel casts={rows} />
 
-          <StorePostChannels />
-
-          <O2StoreAvailabilitySettings />
-
           </>}
 
-          <div className={castId ? "grid gap-3" : "grid gap-3 md:hidden"}>
+          {castId && <div className="grid gap-3">
             {loading ? <div className="rounded-xl border bg-card py-16 text-center"><Loader2 className="inline-block animate-spin text-primary" /></div> : rows.length === 0 ? <div className="rounded-xl border bg-card py-12 text-center text-muted-foreground">セラピストがいません</div> : rows.map((row) => (
               <div key={row.cast_id} className="rounded-xl border bg-card p-4 space-y-3">
                 <div className="flex items-center justify-between gap-3">
@@ -670,38 +667,14 @@ export default function O2Management({ castId, onSaved }: { castId?: string; onS
                   {snsNoticeButton(row, "default")}
                   {snsNoticeStatus(row)}
                 </div>
+                {!row.o2_created && !row.credential_configured && (
+                  <O2AutoCreateButton castId={row.cast_id} onDone={() => { void load(); }} />
+                )}
                 {row.last_o2_error && <p className="rounded-lg bg-red-50 p-2 text-xs text-red-600 break-words">{row.last_o2_error}</p>}
               </div>
             ))}
-          </div>
+          </div>}
 
-          <div className={castId ? "hidden" : "hidden md:block border rounded-xl bg-card overflow-hidden"}>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1080px] text-sm">
-                <thead className="bg-muted/60 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">セラピスト</th><th className="px-3 py-3">媒体連携</th><th className="px-3 py-3">O2作成</th><th className="px-3 py-3">店舗連携</th><th className="px-3 py-3">直近投稿</th><th className="px-3 py-3">エラー</th><th className="px-4 py-3 text-right">操作</th></tr></thead>
-                <tbody className="divide-y">
-                  {loading ? <tr><td colSpan={7} className="py-16 text-center"><Loader2 className="inline-block animate-spin text-primary" /></td></tr> : rows.length === 0 ? <tr><td colSpan={7} className="py-12 text-center text-muted-foreground">セラピストがいません</td></tr> : rows.map((row) => (
-                    <tr key={row.cast_id} className="align-top">
-                      <td className="px-4 py-3"><div className="flex items-center gap-2">{row.photo ? <img src={row.photo} alt="" className="h-9 w-9 rounded-full object-cover" /> : <div className="h-9 w-9 rounded-full bg-muted" />}<span className="font-medium">{row.cast_name}</span></div></td>
-                      <td className="px-3 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          <Badge className={`${connectionBadgeClass.o2} ${row.credential_configured ? "" : "opacity-45"}`}>O2</Badge>
-                          <Badge className={`${connectionBadgeClass.x} ${isXConfigured(row) ? "" : "opacity-35"}`}>X</Badge>
-                          {xOnboardingBadge("相互フォロー", row.x_ff_completed)}
-                          {xOnboardingBadge("セラピストリスト追加", row.x_list_added)}
-                          </div>
-                      </td>
-                      <td className="px-3 py-3">{row.o2_created ? <span className="text-green-700">✓ 作成済み</span> : <span className="text-muted-foreground">未作成</span>}</td>
-                      <td className="px-3 py-3">{row.o2_linkage_requested ? <span className="text-green-700">✓ 申請済み</span> : <span className="text-muted-foreground">未申請</span>}</td>
-                      <td className="px-3 py-3"><span>{statusLabel[row.last_o2_status || ""] || "投稿なし"}</span>{row.last_posted_at && <p className="text-[11px] text-muted-foreground mt-1">{new Date(row.last_posted_at).toLocaleString("ja-JP")}</p>}</td>
-                      <td className="px-3 py-3 max-w-[250px] text-xs text-red-600 break-words">{row.last_o2_error || "—"}</td>
-                      <td className="px-4 py-3"><div className="flex flex-wrap justify-end gap-2">{snsNoticeButton(row)}<Button size="sm" onClick={() => openPostForm(row)}><Send size={13} className="mr-1" />投稿フォーム</Button>{row.profile_url && <Button size="sm" variant="outline" asChild><a href={row.profile_url} target="_blank" rel="noreferrer">O2<ExternalLink size={13} className="ml-1" /></a></Button>}<Button size="sm" variant="outline" onClick={() => void openEdit(row)} disabled={openingCastId === row.cast_id}>{openingCastId === row.cast_id ? <Loader2 size={13} className="mr-1 animate-spin" /> : hasSavedSettings(row) ? <Eye size={13} className="mr-1" /> : <Pencil size={13} className="mr-1" />}{hasSavedSettings(row) ? "確認" : "設定"}</Button></div><div className="mt-1 text-right">{snsNoticeStatus(row)}</div></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
       </div>
 

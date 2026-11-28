@@ -543,9 +543,9 @@ export default function CastPostManagement() {
                 variant="outline"
                 size="sm"
                 className="h-8 shrink-0 gap-1 px-2 text-xs"
-                onClick={() => navigate("/education?tab=sns")}
+                onClick={() => navigate("/education?tab=media")}
               >
-                SNS連携管理へ
+                媒体登録状況へ
                 <ExternalLink size={12} />
               </Button>
             </div>
