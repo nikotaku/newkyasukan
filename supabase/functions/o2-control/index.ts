@@ -14,6 +14,10 @@ import {
   type Form,
   type VerificationMail,
 } from "./protocol.ts";
+import {
+  accountEmail,
+  pickAccountLocalPart,
+} from "../../../src/lib/therapistAccountId.ts";
 const URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(URL, KEY, {
@@ -341,7 +345,7 @@ async function syncStore(storeId: string) {
   });
   return { pending: pending.length };
 }
-async function approve(storeId: string, requestId: string, userId: string) {
+async function approve(storeId: string, requestId: string, userId: string | null) {
   const r = checked(
     await admin
       .from("o2_link_requests")
@@ -526,6 +530,128 @@ async function syncCastProfile(
 const message = (e: unknown) =>
   e instanceof Error ? e.message : "処理を完了できませんでした";
 
+// 「エスたま自動化履歴」（estama_sync_reports）に残す。results の kind = o2_account
+async function logAccount(
+  storeId: string,
+  castName: string,
+  status: "success" | "warning" | "error",
+  step: string,
+  summary: string,
+  extra: Record<string, unknown> = {},
+) {
+  const result = await admin.from("estama_sync_reports").insert({
+    store_id: storeId,
+    status,
+    started_at: now(),
+    finished_at: now(),
+    total_count: 1,
+    success_count: status === "success" ? 1 : 0,
+    cast_names: castName ? [castName] : [],
+    summary,
+    results: [{ kind: "o2_account", step, ...extra }],
+    fatal_error: status === "error" ? summary.slice(0, 1000) : null,
+  });
+  if (result.error) console.error("o2_account log failed", result.error.message);
+}
+
+// ボタン1つでO2アカウントを作る：ユーザー名・メール（enka_〇〇@enka-salon.jp）を決め、共通のパスワード（Vault）で保存してから登録を始める
+async function autoRegister(storeId: string, castId: string) {
+  const cast = checked(
+    await admin
+      .from("casts")
+      .select("id,name,name_kana,name_en,is_active,is_visible,photo,age,o2_created,o2_login_email")
+      .eq("store_id", storeId)
+      .eq("id", castId)
+      .maybeSingle(),
+  );
+  if (!cast?.is_active) fail("在籍中のセラピストが見つかりません");
+  if (cast.o2_created) fail("02は作成済みです");
+  if (!cast.is_visible || !cast.photo || !cast.age || Number(cast.age) < 18)
+    fail("HPで公開中・写真あり・18歳以上のプロフィールを先に用意してください");
+  const existing = checked(
+    await admin
+      .from("cast_site_credentials")
+      .select("login_id,password")
+      .eq("cast_id", castId)
+      .eq("site", "o2")
+      .maybeSingle(),
+  );
+  if (existing?.login_id && existing.password && cast.o2_login_email)
+    return { localPart: existing.login_id, reused: true };
+  const [creds, mails] = await Promise.all([
+    admin.from("cast_site_credentials").select("login_id").in("site", ["o2", "estama", "esutama", "tamathera"]),
+    admin.from("casts").select("o2_login_email").not("o2_login_email", "is", null),
+  ]);
+  const used = [
+    ...((checked(creds) || []) as { login_id: string | null }[]).map((r) => r.login_id || ""),
+    ...((checked(mails) || []) as { o2_login_email: string }[]).map((r) => r.o2_login_email.split("@")[0]),
+  ].filter(Boolean);
+  const picked = pickAccountLocalPart(cast, used);
+  if (!picked.localPart) fail(picked.reason || "ユーザー名を作れません");
+  const password = checked(await admin.rpc("get_therapist_account_password"));
+  if (typeof password !== "string" || password.length < 6)
+    fail("共通のパスワードがまだ登録されていません");
+  checked(
+    await admin.from("cast_site_credentials").upsert(
+      {
+        store_id: storeId,
+        cast_id: castId,
+        site: "o2",
+        login_id: picked.localPart,
+        password,
+        updated_at: now(),
+      },
+      { onConflict: "cast_id,site" },
+    ),
+  );
+  checked(
+    await admin
+      .from("casts")
+      .update({ o2_login_email: accountEmail(picked.localPart!) })
+      .eq("id", castId)
+      .eq("store_id", storeId),
+  );
+  return { localPart: picked.localPart!, reused: false };
+}
+
+// 審査が通ったあと：店舗の連携申請一覧を読み直し、このセラピストの申請だけ店舗アカウントで承認する
+async function autoApproveLink(storeId: string, castId: string) {
+  await syncStore(storeId);
+  const request = checked(
+    await admin
+      .from("o2_link_requests")
+      .select("id")
+      .eq("store_id", storeId)
+      .eq("cast_id", castId)
+      .eq("status", "pending")
+      .limit(1)
+      .maybeSingle(),
+  );
+  if (!request) return "not_found";
+  await approve(storeId, request.id, null);
+  return "approved";
+}
+
+// 本人のマイページの「SNSアカウント」に出し、設定完了を知らせる（notify_therapist_sns_ready と同じ中身）
+async function notifyTherapistReady(storeId: string, castId: string) {
+  checked(
+    await admin.from("therapist_sns_setup_notices").upsert(
+      { cast_id: castId, store_id: storeId, notified_at: now(), notified_by: null, seen_at: null },
+      { onConflict: "cast_id" },
+    ),
+  );
+  checked(
+    await admin.from("therapist_notifications").insert({
+      store_id: storeId,
+      cast_id: castId,
+      reservation_id: null,
+      kind: "sns_ready",
+      source: "manual",
+      available_at: now(),
+    }),
+  );
+}
+
 async function requestCastLink(storeId: string, castId: string) {
   const d = await castDetails(storeId, castId);
   const shop = await storeCredentials(storeId);
@@ -663,6 +789,9 @@ async function processJob(job: Record<string, any>) {
       checked(
         await admin.from("o2_control_secrets").delete().eq("job_id", job.id),
       );
+      await logAccount(job.store_id, cast.name, "success", "verified",
+        `O2のアカウント（${credentials.login_id}）を作り、メール認証まで済みました。O2の審査が通ると、プロフィールの反映・店舗連携を自動で行います`,
+        { username: credentials.login_id });
       return;
     }
     const claim = checked(
@@ -718,13 +847,22 @@ async function processJob(job: Record<string, any>) {
           );
           submitted = true;
           await syncCastProfile(session, page, cast);
-          await requestCastLink(job.store_id, cast.id);
+          const link = await requestCastLink(job.store_id, cast.id);
+          const approved = link.status === "linked"
+            ? "already"
+            : await autoApproveLink(job.store_id, cast.id);
           checked(
             await admin
               .from("o2_account_jobs")
               .update({ status: "completed", error: null, updated_at: now() })
               .eq("id", registration.id),
           );
+          await notifyTherapistReady(job.store_id, cast.id);
+          await logAccount(job.store_id, cast.name, approved === "not_found" ? "warning" : "success", "completed",
+            approved === "not_found"
+              ? `O2の審査が通り、プロフィールを反映して店舗連携を申請しました。店舗側の申請一覧に見つからなかったので、連携の承認を確認してください`
+              : `O2の審査が通り、プロフィールの反映・店舗連携まで済みました。本人のマイページに知らせました`,
+            { username: credentials.login_id });
         }
       }
       checked(
@@ -848,6 +986,9 @@ async function processJob(job: Record<string, any>) {
         .update({ status: "awaiting_email", error: null, updated_at: now() })
         .eq("id", job.id),
     );
+    await logAccount(job.store_id, cast.name, "success", "submitted",
+      `O2へアカウント（${credentials.login_id}）の登録を送りました。認証メールを待っています`,
+      { username: credentials.login_id });
   } catch (e) {
     checked(
       await admin
@@ -859,6 +1000,12 @@ async function processJob(job: Record<string, any>) {
         })
         .eq("id", job.id),
     );
+    if (job.kind === "register") {
+      const castRow = await admin.from("casts").select("name").eq("id", job.cast_id).maybeSingle();
+      await logAccount(job.store_id, castRow.data?.name || "", submitted ? "warning" : "error", "failed",
+        `O2のアカウント作成が${submitted ? "途中で止まりました（二重登録を防ぐため送り直していません）" : "できませんでした"}：${message(e)}`,
+        { username: job.username });
+    }
     checked(
       await admin.from("o2_control_secrets").delete().eq("job_id", job.id),
     );
@@ -1177,9 +1324,12 @@ Deno.serve(async (req) => {
         );
       }
     }
-    if (action === "register" || action === "check" || action === "profile") {
+    const auto = action === "auto-register";
+    const kind = auto ? "register" : action;
+    if (auto) await autoRegister(storeId, payload.castId);
+    if (kind === "register" || kind === "check" || kind === "profile") {
       const d = await castDetails(storeId, payload.castId);
-      if (action === "register") {
+      if (kind === "register") {
         const old = checked(
           await admin
             .from("o2_account_jobs")
@@ -1196,7 +1346,8 @@ Deno.serve(async (req) => {
             409,
           );
       }
-      if (action === "register") {
+      // 自動作成は受付メール（Cloudflare → mail-intake）で認証コードを受けるので、Gmailの連携は見ない
+      if (kind === "register" && !auto) {
         const setting = checked(
           await admin
             .from("o2_control_settings")
@@ -1215,14 +1366,14 @@ Deno.serve(async (req) => {
             422,
           );
       }
-      if (action === "register" && d.cast.o2_created)
+      if (kind === "register" && d.cast.o2_created)
         return json({ error: "02は作成済みです" }, 409);
       const inserted = await admin
         .from("o2_account_jobs")
         .insert({
           store_id: storeId,
           cast_id: d.cast.id,
-          kind: action,
+          kind,
           login_email: d.cast.o2_login_email,
           username: d.credentials.login_id,
         })
@@ -1234,7 +1385,7 @@ Deno.serve(async (req) => {
           409,
         );
       checked(await admin.rpc("wake_o2_control", { p_store_id: storeId }));
-      return json({ queued: true, jobId: inserted.data.id });
+      return json({ queued: true, jobId: inserted.data.id, username: d.credentials.login_id, email: d.cast.o2_login_email });
     }
     return json({ error: "未対応の操作です" }, 400);
   } catch (e) {

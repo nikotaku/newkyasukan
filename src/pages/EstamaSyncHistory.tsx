@@ -77,7 +77,7 @@ const readEvidence = (value: unknown): Evidence[] => Array.isArray(value)
   ? value.filter((item): item is Evidence => Boolean(item) && typeof item === "object")
   : [];
 
-type ReportKind = "sync" | "availability" | "appeal" | "contact";
+type ReportKind = "sync" | "availability" | "appeal" | "contact" | "o2account";
 
 interface ContactLog {
   target?: string;
@@ -102,6 +102,7 @@ const contactLog = (value: unknown): ContactLog | null => {
 const reportKind = (value: unknown): ReportKind => {
   const items = Array.isArray(value) ? value : [value];
   if (contactLog(value)) return "contact";
+  if (items.some((item) => item && typeof item === "object" && (item as { kind?: unknown }).kind === "o2_account")) return "o2account";
   if (items.some((item) => (
     item && typeof item === "object" && (item as { kind?: unknown }).kind === "therapist_appeal"
   ))) return "appeal";
@@ -328,14 +329,18 @@ export default function EstamaSyncHistory({ embedded = false }: { embedded?: boo
                     const evidence = readEvidence(report.evidence);
                     const kind = reportKind(report.results);
                     const contact = kind === "contact" ? contactLog(report.results) : null;
-                    const title = kind === "contact"
+                    const title = kind === "o2account"
+                      ? "O2アカウントの自動作成"
+                      : kind === "contact"
                       ? `連絡先・SNSの反映（${contact?.target === "o2" ? "O2" : "エステ魂"}）`
                       : kind === "appeal"
                       ? "セラピストアピール"
                       : kind === "availability"
                         ? "ご案内状況更新"
                         : "同期";
-                    const countLabel = kind === "contact"
+                    const countLabel = kind === "o2account"
+                      ? "対象"
+                      : kind === "contact"
                       ? "反映した項目"
                       : kind === "appeal"
                       ? "アピール"

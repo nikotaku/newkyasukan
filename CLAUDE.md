@@ -365,6 +365,15 @@
 - **空きシフト**：マイページのメニュー「空きシフト」（`src/components/therapist/TherapistOpenShifts.tsx`、前後の半月へ切り替え）。RPC `get_therapist_shift_board(p_token, p_from, p_to)`（ルーム管理で `show_in_therapist_portal` のルームと、取り消し・却下以外の出勤。ほかの人の名前は返さない）。営業 12:00〜26:00 のうち、ルームごとに3時間以上あいている時間を空きにする（`src/lib/shiftOpenSlots.ts`、テスト `npm run test:therapist-notices`）。シフト提出（`/therapist/:token/shift?from=&to=`）はその期間の月を開き、日ごとに空きのルーム数と自分の出勤・申請中を出す（自分が出している日は選べない。`submit_therapist_shifts` は同じ日の自分のシフトを置き換えるため）
 - 固定の切り替え・消す（`deleted_at`）は管理画面から表を直接更新（RLS は `can_manage_store`）。計算は `src/lib/therapistNotices.ts`（テスト `npm run test:therapist-notices`）
 
+## セラピストのO2アカウントの自動作成（SNS連携の「02の登録・連携管理」）
+
+- まだO2のログイン情報が無い在籍の人に「O2アカウントを自動作成」（`src/components/sns/O2ControlPanel.tsx` → Edge Function `o2-control` の action `auto-register`）。HPで公開中・写真あり・18歳以上・源氏名が決まっていること（源氏名未定・ペアは作れない）
+- **ユーザー名・メールは `enka_〇〇` ／ `enka_〇〇@enka-salon.jp`**（〇〇は源氏名の後ろのかな＝名前のローマ字。ほかの人が使っていれば `name_kana` から取った苗字、それも使われていれば名前＋2, 3…）。作り方は `src/lib/therapistAccountId.ts`（テスト `npm run test:therapist-account`）。エステ魂の魂セラピストを自動で作るときも同じメールを使う予定
+- **パスワードは店舗で共通**：Vault の `therapist_account_password`（RPC `get_therapist_account_password`、service_role のみ、`20261128090000_therapist_account_password.sql`）。リポジトリ・チャットに書かない。`cast_site_credentials`（site = o2）と `casts.o2_login_email` に保存してから、既存の登録処理（`o2_account_jobs` の kind = register）を始める
+- **認証メール**：`enka_…@enka-salon.jp` は Cloudflare Email Routing のキャッチオール → Worker `mail-intake`（`x-envelope-to` で本当の宛先を付ける）→ `report-email-ingest` が、送り元が m-sns.net のメールを `o2-control` の `ingest`（同じ取り込みトークン）へ渡し、認証コードを入力する（10分以内）。Cloudflare 側の設定はユーザーが行う（2026-11-28 に指示書を渡した）
+- 流れ：登録 → メール認証 → O2の審査待ち（5分ごとの確認）→ 審査が通ったら プロフィール・写真の反映 → 店舗連携の申請 → 店舗アカウントで自動承認（`autoApproveLink`）→ 本人のマイページに「設定完了」（`therapist_notifications` の `sns_ready`）。送った後に結果が分からないときは二重登録を防ぐため送り直さず `review_required`
+- 各段階（送信・認証済み・完了・失敗）は「エスたま自動化履歴」に「O2アカウントの自動作成」で残る（`estama_sync_reports` の results の kind = `o2_account`）
+
 ## セラピストのSNSアカウント（X・O2）の受け渡し
 
 - お店が作った X・O2 のログインID・パスワード（`cast_site_credentials`、管理画面の SNS連携 `/education?tab=sns` で保存）を、セラピストのマイページのメニュー「SNSアカウント」（`?view=sns`）で本人が見られる。RPC `get_therapist_sns_account(p_token)`（anon可・トークンで本人確認）。画面は `src/components/therapist/TherapistSnsAccount.tsx`、例文・データは `src/lib/therapistSns.ts`
