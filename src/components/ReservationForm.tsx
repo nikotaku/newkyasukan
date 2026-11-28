@@ -335,28 +335,37 @@ export function ReservationForm({
     setSearchingCustomer(true);
     const timer = setTimeout(async () => {
       setSearchingCustomer(true);
+      // この店舗のお客様だけを見る。オーナーは2店舗（艶華・全力エステ）に入っているので、
+      // 店舗で絞らないと同じ番号のお客様が2人返り、1人に決められずに照合が失敗していた
+      let customerQuery = supabase
+        .from("customers")
+        .select("id, name, visit_count, last_visited, is_banned, ban_reason, customer_ng_casts(cast_id, reason, casts(name))")
+        .or(`phone.eq.${phone},phone.eq.${formData.customer_phone}`);
+      // 直近の来店＝実際に来店（完了）した予約のみ。未来のWEB予約は含めない
+      let visitQuery = supabase
+        .from("reservations")
+        .select("reservation_date, course_name, price, status, customer_name, cast_id")
+        .or(`customer_phone.eq.${phone},customer_phone.eq.${formData.customer_phone}`)
+        .eq("status", "completed");
+      if (storeId) {
+        customerQuery = customerQuery.eq("store_id", storeId);
+        visitQuery = visitQuery.eq("store_id", storeId);
+      }
       const [custRes, resRes, archive] = await Promise.all([
-        supabase
-          .from("customers")
-          .select("id, name, visit_count, last_visited, is_banned, ban_reason, customer_ng_casts(cast_id, reason, casts(name))")
-          .or(`phone.eq.${phone},phone.eq.${formData.customer_phone}`)
-          .maybeSingle(),
-        // 直近の来店＝実際に来店（完了）した予約のみ。未来のWEB予約は含めない
-        supabase
-          .from("reservations")
-          .select("reservation_date, course_name, price, status, customer_name, cast_id")
-          .or(`customer_phone.eq.${phone},customer_phone.eq.${formData.customer_phone}`)
-          .eq("status", "completed")
-          .order("reservation_date", { ascending: false })
-          .limit(5),
+        customerQuery.order("visit_count", { ascending: false, nullsFirst: false }).limit(1),
+        visitQuery.order("reservation_date", { ascending: false }).limit(5),
         supabase.rpc("enka_archived_visits", { p_phone: phone }),
       ]);
       if (!active) return;
       const visits = archive.data ?? [];
+      if (archive.error || custRes.error || resRes.error) {
+        console.error("顧客履歴の照合に失敗しました", archive.error ?? custRes.error ?? resRes.error);
+      }
       setArchiveSummary(archive.error || custRes.error || resRes.error ? "顧客履歴の照合に失敗しました" : visits.length ? `全力エステで来店${visits.length}回（最終 ${visits[0].visit_date}）` : "");
       setSearchingCustomer(false);
-      if (custRes.data) {
-        const raw = custRes.data as any;
+      const customerRow = custRes.data?.[0];
+      if (customerRow) {
+        const raw = customerRow as any;
         const ngCasts: NgCast[] = (raw.customer_ng_casts || []).map((n: any) => ({
           cast_id: n.cast_id,
           cast_name: n.casts?.name ?? "",
@@ -405,7 +414,7 @@ export function ReservationForm({
       setRecentReservations((resRes.data || []) as RecentReservation[]);
     }, 500);
     return () => { active = false; clearTimeout(timer); };
-  }, [formData.customer_phone]);
+  }, [formData.customer_phone, storeId]);
 
   // セラピスト選択後の「本指名」自動設定
   // 初回マウント時（編集で既存予約を開いた直後など）は実行せず、
