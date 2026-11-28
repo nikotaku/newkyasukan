@@ -7,7 +7,6 @@ import { FixedBottomBar } from "@/components/public/FixedBottomBar";
 import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/hooks/useStore";
 import { useStoreContact } from "@/hooks/useStoreContact";
-import { driveImgUrl } from "@/lib/drive";
 import { format } from "date-fns";
 import { Phone, Calendar, ChevronDown, ChevronLeft, ChevronRight, Sparkles, TicketPercent } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +20,7 @@ import { trackPublicEvent } from "@/lib/publicAnalytics";
 import { ENKA_FALLBACK_HERO_BANNER, normalizeHeroBanners } from "@/lib/heroBanners";
 import { selectCastHeroBanners, type CastHeroBanner } from "@/lib/castHeroBanners";
 import { CastHeroBannerSlide } from "@/components/public/CastHeroBannerSlide";
+import { StorageImage } from "@/components/StorageImage";
 import { shiftBreaks } from "@/lib/shiftBreak";
 import { heroBannerDestination } from "@/lib/ririkaMomokaCampaign";
 
@@ -190,6 +190,8 @@ export default function EnkaHome() {
     ...banners.map((url) => ({ kind: "image" as const, key: url, url })),
   ];
   const slideCount = heroSlides.length;
+  // スライドの画像は「見えている1枚」と「次の1枚」だけ読む（全部を重ねて読み込むと1訪問で数MB落とすため）
+  const nextSlide = slideCount > 1 ? (slide + 1) % slideCount : -1;
 
   useEffect(() => {
     setFailedHeroBanners((failed) => failed.filter((url) => configuredBanners.includes(url)));
@@ -218,7 +220,7 @@ export default function EnkaHome() {
         .eq("shift_date", today)
         .eq("store_id", storeId)
         .order("start_time"),
-      supabase.rpc("get_reservation_slots", { p_date: today, p_cast_id: null }),
+      supabase.rpc("get_reservation_slots", { p_date: today, p_cast_id: null, p_store_id: storeId }),
       supabase
         .from("shop_settings")
         .select("reservation_interval_minutes")
@@ -340,7 +342,7 @@ export default function EnkaHome() {
       >
         <div className="relative overflow-hidden" style={ESTAMA_CAST_PHOTO_STYLE}>
           {photo ? (
-            <img src={driveImgUrl(photo, 400)} alt={name} loading="lazy" className="w-full h-full object-cover" />
+            <StorageImage src={photo} variant="thumb" size={400} alt={name} loading="lazy" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--pub-card2,#2b1a28)" }}>
               <Sparkles size={22} style={{ color: "var(--pub-accent,#d4547a)" }} />
@@ -410,7 +412,7 @@ export default function EnkaHome() {
                     style={{ opacity: active ? 1 : 0, pointerEvents: active ? "auto" : "none" }}
                     onClick={() => trackPublicEvent("cast_card_click", { placement: "home_hero_banner", cast_id: item.banner.castId, availability: Boolean(shift && nextAvailable(shift)) })}
                   >
-                    <CastHeroBannerSlide banner={item.banner} nextAvailable={shift ? nextAvailable(shift) : undefined} storeName={storeName} eager={i === 0} />
+                    <CastHeroBannerSlide banner={item.banner} nextAvailable={shift ? nextAvailable(shift) : undefined} storeName={storeName} eager={i === 0} showImages={active || i === nextSlide} />
                   </Link>
                 );
               }
@@ -431,14 +433,20 @@ export default function EnkaHome() {
                     ...(isRirikaMomokaBanner ? { cast_id: "3155fd7c-8b35-48ea-a6f8-12d3eb7dd0c2", is_pair_cast: true } : {}),
                   })}
                 >
-                  <img
-                    src={item.url}
-                    alt={`${storeName} プランバナー`}
-                    loading={i === 0 ? "eager" : "lazy"}
-                    fetchPriority={i === 0 ? "high" : "auto"}
-                    className="h-full w-full object-contain"
-                    onError={() => setFailedHeroBanners((failed) => failed.includes(item.url) ? failed : [...failed, item.url])}
-                  />
+                  {(active || i === nextSlide) ? (
+                    <StorageImage
+                      src={item.url}
+                      variant="detail"
+                      size={1200}
+                      alt={`${storeName} プランバナー`}
+                      loading={i === 0 ? "eager" : "lazy"}
+                      fetchPriority={i === 0 ? "high" : "auto"}
+                      className="h-full w-full object-contain"
+                      onError={() => setFailedHeroBanners((failed) => failed.includes(item.url) ? failed : [...failed, item.url])}
+                    />
+                  ) : (
+                    <div className="h-full w-full" style={{ backgroundColor: "var(--pub-bg,#150a11)" }} />
+                  )}
                 </Link>
               );
             })}

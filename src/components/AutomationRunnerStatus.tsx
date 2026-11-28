@@ -17,7 +17,7 @@ export function AutomationRunnerStatus({storeId}:{storeId:string}) {
   const result=await r.json(); if(!r.ok) throw new Error(result.error||'稼働状況を取得できません');return result;
  },[]);
  const load=useCallback(async()=>{setBusy(true);try{setData(await request());setError('');}catch(e){setError(e instanceof Error?e.message:'取得に失敗しました');}finally{setBusy(false);}},[request]);
- useEffect(()=>{void load();const timer=window.setInterval(()=>void load(),30000);return()=>window.clearInterval(timer);},[load,storeId]);
+ useEffect(()=>{void load();const timer=window.setInterval(()=>{if(!document.hidden)void load();},60000);return()=>window.clearInterval(timer);},[load,storeId]);
  const manage=async(jobId:string,action:string)=>{setBusy(true);try{await request({jobId,action});await load();}catch(e){setError(e instanceof Error?e.message:'操作に失敗しました');}finally{setBusy(false);}};
  return <section className="space-y-3 rounded-lg border p-3" aria-label="自動化の稼働状況">
   <div className="flex items-center justify-between"><h3 className="font-semibold">自動化の稼働状況</h3><Button size="sm" variant="ghost" disabled={busy} onClick={()=>void load()}>更新</Button></div>

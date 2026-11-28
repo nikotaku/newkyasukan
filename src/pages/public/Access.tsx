@@ -23,11 +23,11 @@ interface StoreInfo {
 const DEFAULTS: StoreInfo = {
   name: "艶華",
   address: "宮城県仙台市青葉区",
-  phone: "050-1785-6945",
+  phone: "050-1721-2589",
   hours: "12:00〜26:00（24:40最終受付）",
   holiday: "年中無休",
   twitter_url: "https://twitter.com/zr_news1",
-  line_url: "https://lin.ee/RdRhmXw",
+  line_url: "https://lin.ee/oF21UzD",
 };
 
 const Access = () => {

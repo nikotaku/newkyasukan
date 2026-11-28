@@ -9,7 +9,7 @@ export function useO2Control() {
   const query = useQuery({
     queryKey: ["o2-control", user?.id, storeId],
     enabled: !!user && !loading,
-    refetchInterval: 30000,
+    refetchInterval: 60000,
     queryFn: async () => {
       const [settings, requests, jobs] = await Promise.all([
         supabase

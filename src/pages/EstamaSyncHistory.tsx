@@ -77,10 +77,31 @@ const readEvidence = (value: unknown): Evidence[] => Array.isArray(value)
   ? value.filter((item): item is Evidence => Boolean(item) && typeof item === "object")
   : [];
 
-type ReportKind = "sync" | "availability" | "appeal";
+type ReportKind = "sync" | "availability" | "appeal" | "contact";
+
+interface ContactLog {
+  target?: string;
+  values?: Partial<Record<"phone" | "line_url" | "email" | "x_url" | "blog_url", string | null>>;
+}
+
+const CONTACT_LOG_LABELS = [
+  ["phone", "電話"],
+  ["line_url", "公式LINE"],
+  ["email", "メール"],
+  ["x_url", "X"],
+  ["blog_url", "外部ブログ"],
+] as const;
+
+// 連絡先・SNS（正本）の反映の記録（public.finish_store_contact_sync が kind = store_contact で残す）
+const contactLog = (value: unknown): ContactLog | null => {
+  const items = Array.isArray(value) ? value : [value];
+  const item = items.find((entry) => entry && typeof entry === "object" && (entry as { kind?: unknown }).kind === "store_contact");
+  return (item as ContactLog | undefined) ?? null;
+};
 
 const reportKind = (value: unknown): ReportKind => {
   const items = Array.isArray(value) ? value : [value];
+  if (contactLog(value)) return "contact";
   if (items.some((item) => (
     item && typeof item === "object" && (item as { kind?: unknown }).kind === "therapist_appeal"
   ))) return "appeal";
@@ -306,12 +327,17 @@ export default function EstamaSyncHistory({ embedded = false }: { embedded?: boo
                     const StatusIcon = view.icon;
                     const evidence = readEvidence(report.evidence);
                     const kind = reportKind(report.results);
-                    const title = kind === "appeal"
+                    const contact = kind === "contact" ? contactLog(report.results) : null;
+                    const title = kind === "contact"
+                      ? `連絡先・SNSの反映（${contact?.target === "o2" ? "O2" : "エステ魂"}）`
+                      : kind === "appeal"
                       ? "セラピストアピール"
                       : kind === "availability"
                         ? "ご案内状況更新"
                         : "同期";
-                    const countLabel = kind === "appeal"
+                    const countLabel = kind === "contact"
+                      ? "反映した項目"
+                      : kind === "appeal"
                       ? "アピール"
                       : kind === "availability"
                         ? "更新対象"
@@ -343,6 +369,16 @@ export default function EstamaSyncHistory({ embedded = false }: { embedded?: boo
                           <p className="whitespace-pre-wrap rounded-lg bg-muted/50 p-4 text-sm leading-6">
                             {report.summary}
                           </p>
+                          {contact?.values && (
+                            <dl className="grid gap-x-3 gap-y-1 text-xs sm:grid-cols-[auto_1fr]">
+                              {CONTACT_LOG_LABELS.filter(([key]) => contact.values?.[key] && (contact.target !== "o2" || !["email", "blog_url"].includes(key))).map(([key, label]) => (
+                                <div key={key} className="contents">
+                                  <dt className="text-muted-foreground">{label}</dt>
+                                  <dd className="break-all">{contact.values?.[key]}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                          )}
                           {report.missing_profiles.length > 0 && (
                             <p className="text-sm text-amber-700">
                               エスたま連携未設定: {report.missing_profiles.join("、")}

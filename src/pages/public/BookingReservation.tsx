@@ -10,6 +10,7 @@ import { addDays, format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { User, Copy, Check, Zap, Users, LayoutGrid } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
+import { StorageImage } from "@/components/StorageImage";
 import { ESTAMA_CAST_PHOTO_STYLE } from "@/lib/publicCastPhoto";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -485,8 +486,8 @@ const BookingReservation = () => {
 
       // 深夜枠は翌暦日で保存されるため、営業日当日と翌日の空き枠を合わせる。
       const [currentReservations, nextReservations] = await Promise.all([
-        supabase.rpc("get_reservation_slots", { p_date: dateStr, p_cast_id: null }),
-        supabase.rpc("get_reservation_slots", { p_date: nextDateStr, p_cast_id: null }),
+        supabase.rpc("get_reservation_slots", { p_date: dateStr, p_cast_id: null, p_store_id: storeId }),
+        supabase.rpc("get_reservation_slots", { p_date: nextDateStr, p_cast_id: null, p_store_id: storeId }),
       ]);
 
       if (currentReservations.error) throw currentReservations.error;
@@ -634,8 +635,8 @@ const BookingReservation = () => {
         .eq("shift_date", dateStr);
 
       const [currentReservations, nextReservations] = await Promise.all([
-        supabase.rpc("get_reservation_slots", { p_date: dateStr, p_cast_id: selectedCastId }),
-        supabase.rpc("get_reservation_slots", { p_date: nextDateStr, p_cast_id: selectedCastId }),
+        supabase.rpc("get_reservation_slots", { p_date: dateStr, p_cast_id: selectedCastId, p_store_id: storeId }),
+        supabase.rpc("get_reservation_slots", { p_date: nextDateStr, p_cast_id: selectedCastId, p_store_id: storeId }),
       ]);
 
       if (shiftsError) throw shiftsError;
@@ -1065,7 +1066,7 @@ const BookingReservation = () => {
                       <CardContent className="p-0">
                         <div className="overflow-hidden rounded-t-md bg-muted" style={ESTAMA_CAST_PHOTO_STYLE}>
                           {cast.photo ? (
-                            <img src={driveImgUrl(cast.photo)} alt={cast.name} className="w-full h-full object-cover" />
+                            <StorageImage src={cast.photo} variant="thumb" size={400} alt={cast.name} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-muted-foreground"><User className="h-12 w-12" /></div>
                           )}

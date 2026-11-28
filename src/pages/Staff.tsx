@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Plus, Edit, Trash2, Search, Filter, Camera, Clock, TrendingUp, Sparkles, Loader2, Link as LinkIcon, Copy, Eye, EyeOff, GripVertical, FileUp, X, ChevronDown, ChevronRight, ExternalLink, Bot, AlertTriangle, Archive, ArchiveRestore } from "lucide-react";
 import { driveImgUrl } from "@/lib/drive";
+import { StorageImage } from "@/components/StorageImage";
+import { uploadImageWithVariants } from "@/lib/castPhotoUpload";
 import { ImportModal } from "@/components/ImportModal";
 import { EstamaImportModal, type EstamaProfileData } from "@/components/EstamaImportModal";
 import { EstamaAutomationModal } from "@/components/EstamaAutomationModal";
@@ -1435,11 +1437,11 @@ export default function Staff() {
       for (const file of Array.from(files)) {
         const fileExt = file.name.split(".").pop();
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from("cast-photos")
-          .upload(fileName, file);
-
-        if (uploadError) {
+        try {
+          // 大きい写真は軽くして、表示用の派生画像（thumb / detail）も一緒に置く
+          const uploaded = await uploadImageWithVariants("cast-photos", file, fileName);
+          uploadedUrls.push(uploaded.publicUrl);
+        } catch (uploadError) {
           console.error("Upload error:", uploadError);
           toast({
             title: "エラー",
@@ -1448,11 +1450,6 @@ export default function Staff() {
           });
           continue;
         }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from("cast-photos")
-          .getPublicUrl(fileName);
-        uploadedUrls.push(publicUrl);
       }
 
       if (uploadedUrls.length > 0) {
@@ -1515,10 +1512,8 @@ export default function Staff() {
       for (const file of Array.from(files)) {
         const fileExt = file.name.split(".").pop();
         const fileName = `management-photos/${crypto.randomUUID()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from("cast-photos").upload(fileName, file);
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(fileName);
-        uploaded.push(publicUrl);
+        const image = await uploadImageWithVariants("cast-photos", file, fileName);
+        uploaded.push(image.publicUrl);
       }
       // 写真は1か所にまとめて入れる。HPに出す写真がまだ無ければ1枚目だけHP表示にし、残りは非公開（トグルで切り替え）
       setEditingCast((current) => {
@@ -1573,9 +1568,8 @@ export default function Staff() {
   const saveEditedPhoto = async (blob: Blob) => {
     if (!editingCast || !photoEditUrl) return;
     const fileName = `management-photos/${crypto.randomUUID()}.jpg`;
-    const { error } = await supabase.storage.from("cast-photos").upload(fileName, blob, { contentType: "image/jpeg" });
-    if (error) throw new Error(`加工した写真を保存できませんでした：${error.message}`);
-    const { data: { publicUrl } } = supabase.storage.from("cast-photos").getPublicUrl(fileName);
+    const saved = await uploadImageWithVariants("cast-photos", blob, fileName, { contentType: "image/jpeg" });
+    const publicUrl = saved.publicUrl;
     const replace = (list: string[] | null | undefined) => (list || []).map((u) => (u === photoEditUrl ? publicUrl : u));
     setEditingCast((current) => {
       if (!current) return current;
@@ -2065,8 +2059,9 @@ export default function Staff() {
                                         className={`overflow-hidden rounded-md border-2 bg-muted/30 ${isShown ? "border-primary cursor-grab active:cursor-grabbing" : "border-transparent"}`}
                                       >
                                         <div className="relative aspect-square">
-                                          <img
-                                            src={driveImgUrl(url)}
+                                          <StorageImage
+                                            src={url}
+                                            variant="thumb"
                                             alt={isShown ? `HP写真${shownIndex + 1}` : "写真"}
                                             loading="lazy"
                                             className={`w-full h-full object-cover cursor-pointer ${isShown ? "" : "opacity-60"}`}

@@ -17,6 +17,23 @@
 
 ※ ユーザーから明示的に「マージしないで」「確認してから」と指示された場合のみ、この自動マージをスキップする。
 
+## 画像の配信（/api/img）と Vercel の関数数（重要）
+
+- HP・管理画面の画像は `StorageImage`（`src/components/StorageImage.tsx`）で出す。Supabase Storage の画像は
+  `/api/img?u=<公開URL>&w=<幅>` に変わり、Vercel の関数（`api/_lib/imageProxy.js`。`vercel.json` の rewrite で
+  `api/sitemap.js` が `?image=1` として受ける）が幅 400 / 1200 / 1500 に縮めた WebP（対応ブラウザ）または JPEG を返し、
+  CDN に1年キャッシュさせる（`s-maxage=31536000, immutable`）。Supabase 無料プランでは画像変換（`/render/image`）が
+  使えないため、配信側で縮めて Cached Egress を減らしている
+  - **原本は Storage にそのまま残す**。中継できないとき・縮小に失敗したときは元の URL へ 302（`StorageImage` は onError で原本に切り替える）ので、写真が欠けることはない
+  - 新しい画面で画像を出すときは `<img src={driveImgUrl(...)}>` ではなく `StorageImage` を使う（`variant` は thumb / detail / hero）
+  - トップのヒーローは「見えている1枚＋次の1枚」だけ読み込む（全スライドを重ねて全部ロードしない）
+- アップロードは `uploadImageWithVariants()`（`src/lib/castPhotoUpload.ts`）を通す。大きい写真は長辺2000px（トップバナーは1500px）の
+  JPEG に軽くしてから、`cacheControl: '31536000'` で置く（`upsert: true` で同じパスを使い回すものは1年キャッシュにしない）
+- **Vercel Hobby は Deployment あたり12関数まで**（`api/` 直下とその下の `.ts` / `.js` が1関数ずつ。`api/_lib/` は数えられない）。
+  13個目を足すとビルドが「No more than 12 Serverless Functions」で失敗する。足すときは既存の関数へ `?action=` で相乗りさせる
+- **Storage の cache-control は SQL（storage.objects.metadata）を書き換えても変わらない**。1年にするにはアップロード時に
+  `cacheControl` を付ける（今は配信中継のキャッシュがあるので、既存分はそのままでよい）
+
 ## CI について
 
 - **Workers Builds（Cloudflare）の失敗は既存のダッシュボード設定起因の問題**で、コードとは無関係。毎pushで失敗するが対応不要。
@@ -173,6 +190,14 @@
 - 結果は `estama_cover_rotations`（1日1行、RPC `start_estama_cover_rotation` / `finish_estama_cover_rotation`）。出た人は露出ノルマの「エスたまトップバナー」（`promotion_exposures`）に自動で記録。バナーが枠より少ない日は余った枠をそのままにする（`server/estama-cover-slots.ts`、テスト `npm run test:estama`）
 - エステ魂の管理画面の作りを確かめるときは `inspect-urls` に `selectors`（要素のHTML）・`scriptKeywords`（スクリプト）を付けられる（読むだけ）
 
+## 連絡先・SNS（正本）（設定ダッシュボードの `?tab=contact`）
+
+- 艶華OSの連絡先の正本は店舗情報（`store_info`）の **電話（`phone`、数字だけ）・公式LINE（`line_url`）・メール（`email`）・X（`twitter_url`、`https://x.com/ID`）・外部ブログ（`blog_url`＝O2の店舗ページ）**。画面は `src/pages/StoreContactMaster.tsx`、入れ方のそろえ方と確かめは `src/lib/storeContact.ts`（テスト `npm run test:store-contact`）。2026-11-27 の値：050-1721-2589／https://lin.ee/oF21UzD／enka@enka-salon.jp／@enka_sendai3／https://m-sns.net/s/@enka_salon
+- 直すと DBトリガー `trg_store_contact_change`（`private.on_store_contact_change`、`20261127090000_store_contact_master.sql`）が HP のSNSリンク（`site_content` の `store_sns_x` / `store_sns_line` / `store_sns_o2`）をそろえ、エステ魂・O2 の店舗ページへの反映待ちを `store_contact_sync`（store_id, target = estama / o2、status pending → running → done / failed / review_required）に積む。HP・SMS・予約案内ページ・公式LINEの自動応答は店舗情報をそのまま読むので保存した時点で切り替わる。予備の表示（`useStoreContact` / `Access.tsx` / フッター）も同じ値
+- **エステ魂へ**：pg_cron `store-contact-sync`（5分ごと、毎時25〜44分は動かさない）→ `private.dispatch_store_contact_sync()`（反映待ち・失敗は30分あけて3回まで・15分止まった実行）→ `private.estama_scout_call(store, 'store-contact')` → Vercel `estama-scout`（mode `store-contact`、本体 `server/estama-store-contact.ts`、値の作り方は `server/estama-store-contact-plan.ts`、テスト `npm run test:estama`）。`/admin/shop/contact/edit/` の電話（`tel[0]`〜`tel[2]`、3-4-4）・公開メール（`sub_mail`）・LINEのURL（`shop_line_url`）と、`/admin/shop/info/edit/` の X（`twitter_id`、@なしのID）・ブログ（`blog_url`）だけを書き換え、ほかの欄（Web予約の受付・営業時間・カード・`line_id` など）には触らない。「保存と同時に上位表示する」は外す。開き直して値を確かめ、RPC `start_store_contact_sync` / `finish_store_contact_sync`（実行トークン）で記録。欄が見つからないときは `review_required`
+- **O2へ**：同じ見回り（`dispatch_store_contact_sync` が target = o2 も拾う。同じ回にエステ魂も動くならO2は次の回）→ `estama_scout_call(store, 'o2-contact')` → `estama-scout` の mode `o2-contact`（本体 `server/o2-store-profile.ts` の `syncO2StoreContact`、計算は `server/o2-store-contact-plan.ts`、テスト `npm run test:o2`）。ブラウザを使わず fetch でログインし（`store_site_credentials` の O2 店舗アカウント、RPC `get_o2_store_login_for_run`）、`/shop/profile/`（店舗情報編集）のフォームの今の中身をそのまま送り直して `phone`（ハイフン付き）・`twitter_link`・`line_link` だけ入れ替える（ロゴ・説明・エリアなどはそのまま）。メールは「登録メールアドレス」の表示だけで変えられない、外部ブログはO2の店舗ページそのものなので入れない。開き直して値を確かめ、ほかの欄が変わっていたら `review_required`。実行トークンの受け取りがエステ魂の接続を見るので、エステ魂がログイン切れの間は止まる
+- **自動化履歴に残す**：`finish_store_contact_sync` が終わるたびに `estama_sync_reports`（results の kind = `store_contact`、target・反映した値）に1件残し、「エスたま自動化履歴」（`/schedule-dashboard?tab=estama`）に「連絡先・SNSの反映（エステ魂／O2）」で出る（`20261127120000_store_contact_sync_history.sql`）
+
 ## 設定ダッシュボード（/system/dashboard）
 
 - サイドバーの「設定ダッシュボード」1つにシステムの設定をまとめた（`src/pages/SettingsDashboard.tsx`、HPダッシュボードと同じ作り・`?tab=`）。タブ：ALL（正本）／コースバック（course）／オプション（option）／指名（nomination）／割引（discount）／決済（payment）／キャンペーン（campaign）／控除（deduction）／手当（allowance）／広告費（referral）／料金ページ文言（page）／スマホ通知（notifications）／電話（phone）。中身は各ページを `embedded` で入れている（外枠は `AdminPageShell`）
@@ -328,7 +353,7 @@
 - 端末が無い人だけ、移行中は**本人のLINEグループ**（`casts.line_group_id`）へ。**共通グループには送らない**。どちらも無い・送れない → `unreachable` / `failed` にして、管理画面の左下（`TherapistNotifyAlert`）とスマホ通知（topic `therapist_notify`）で知らせる。直接連絡して「連絡した」で消す
 - 予約表の「再送」（`ReservationResendDialog`）で、お客様への予約確認SMS（`send-sms`）とセラピストへの通知（RPC `resend_therapist_notification`）を送り直せる。端末のSMSアプリを開く旧方式と `notify-line-therapist` の呼び出しはやめた
 - 設定状況は `/settings/notifications` の「セラピストの予約通知（マイページ）」。未設定の人にはURLを送って設定してもらう
-- **完了の判断**：ホーム画面に追加したアプリ（`therapist_push_subscriptions.standalone`）で通知をオンにし、テスト通知を受け取った（通知をタップ＝ `?push_test=1` で開く、またはカードの「届いた」→ RPC `confirm_therapist_push_test` → `test_confirmed_at`）ら完了。`/education?tab=media`（SNS・媒体登録の完了状況）の「マイページ」列（ホーム画面・通知／テスト通知）に自動で✓が付く（`src/lib/mediaRegistration.ts` の `portal_app` / `portal_test`）。マイページの一番上の「予約の通知」カード（`TherapistPushCard`）は**このスマホ**の登録・テスト受取確認が完了した場合だけ消す（`therapistPushSetupStep`）。同じマイページを2人・複数スマホで使う場合、1台目が完了しても2台目には設定・確認欄を表示する。全端末共通の `setup_complete` で隠さない。Safariなど登録のないブラウザにも案内を出し、iPhoneはホーム画面のアプリで設定する。端末登録はendpointごとに保持し、予約通知は全登録端末へ送る
+- **完了の判断**：ホーム画面に追加したアプリ（`therapist_push_subscriptions.standalone`）で通知をオンにし、テスト通知を受け取った（通知をタップ＝ `?push_test=1` で開く、またはカードの「届いた」→ RPC `confirm_therapist_push_test` → `test_confirmed_at`）ら完了。`/education?tab=media`（SNS・媒体登録の完了状況）の「マイページ」列（ホーム画面・通知／テスト通知）に自動で✓が付く（`src/lib/mediaRegistration.ts` の `portal_app` / `portal_test`）。マイページの一番上の「予約の通知」カード（`TherapistPushCard`）は**このスマホ**の登録・テスト受取確認が完了した場合だけ消す（`therapistPushSetupStep`）。同じマイページを2人・複数スマホで使う場合、1台目が完了しても2台目には設定・確認欄を表示する。全端末共通の `setup_complete` で隠さない。Safariなど登録のないブラウザにも案内を出し、iPhoneはホーム画面のアプリで設定する。カードの下の「通知をオンにしたので表示を消す」で、そのブラウザだけカードを消せる（localStorage `therapist-push-card-dismissed:<token>`。ほかのスマホで設定済みの人がSafariで開いたとき用）。端末登録はendpointごとに保持し、予約通知は全登録端末へ送る
 - テスト: `npm run test:therapist-notify`
 
 ## お店からセラピストへのお知らせ（マイページの掲示板）

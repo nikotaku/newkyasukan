@@ -9,6 +9,8 @@ import { BANNER_TEXT_DEFAULTS, BANNER_TEXT_LABELS, normalizeBannerText, type Ban
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { CastHeroBannerSlide } from "@/components/public/CastHeroBannerSlide";
+import { uploadImageWithVariants } from "@/lib/castPhotoUpload";
+import { StorageImage } from "@/components/StorageImage";
 
 // セラピスト編集の「トップバナーの素材」。写真（何枚でも）とキャッチコピーを登録すると、
 // 出勤日にトップページのトップバナーへ自動で作って出す（src/lib/castHeroBanners.ts）。
@@ -78,9 +80,9 @@ export function CastBannerAssetsEditor({ castId, castName, age, initial, storeNa
         if (!file.type.startsWith("image/")) continue;
         const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
         const path = `banner-assets/${castId}/${crypto.randomUUID()}.${ext}`;
-        const { error } = await supabase.storage.from("cast-photos").upload(path, file, { contentType: file.type });
-        if (error) throw error;
-        uploaded.push(supabase.storage.from("cast-photos").getPublicUrl(path).data.publicUrl);
+        // 大きい写真は軽くして、トップバナー用の派生画像（hero / detail）も一緒に置く
+        const image = await uploadImageWithVariants("cast-photos", file, path, { contentType: file.type });
+        uploaded.push(image.publicUrl);
       }
       if (uploaded.length) {
         setImages((current) => [...current, ...uploaded]);
@@ -139,7 +141,7 @@ export function CastBannerAssetsEditor({ castId, castName, age, initial, storeNa
         {images.map((url, index) => (
           <div key={url} className={`relative h-20 w-16 overflow-hidden rounded-md border ${index === preview ? "ring-2 ring-primary" : ""}`}>
             <button type="button" className="h-full w-full" onClick={() => setPreview(index)} aria-label={`写真${index + 1}をプレビュー`}>
-              <img src={url} alt="" className="h-full w-full object-cover object-top" />
+              <StorageImage src={url} variant="thumb" alt="" className="h-full w-full object-cover object-top" />
             </button>
             <button
               type="button"

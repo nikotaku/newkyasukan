@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import type { Json } from "@/integrations/supabase/types";
 import { normalizeHeroBanners } from "@/lib/heroBanners";
+import { uploadImageWithVariants } from "@/lib/castPhotoUpload";
+import { StorageImage } from "@/components/StorageImage";
 import { EstamaCoverBannersCard, parseEstamaCoverSettings } from "@/components/EstamaCoverBannersCard";
 
 interface HeroVideoSettings {
@@ -144,13 +146,13 @@ export default function HpTopBanners({ embedded = false }: { embedded?: boolean 
       const extension = file.name.split(".").pop()?.toLowerCase() || "png";
       const path = `hero-banners/${storeId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
       // 本番に「banners」バケットは無い（作られていない）ので、ログイン中のスタッフが上げられる banner-images に置く
-      const { error: uploadError } = await supabase.storage
-        .from("banner-images")
-        .upload(path, file, { cacheControl: "31536000", upsert: false });
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from("banner-images").getPublicUrl(path);
-      setBanners((current) => [...current, data.publicUrl]);
+      // 10MB のPNGをそのまま置かない：トップ用の幅1500pxのJPEGに軽くしてから置く（キャッシュは1年）
+      const image = await uploadImageWithVariants("banner-images", file, path, {
+        originalLongEdge: 1500,
+        originalQuality: 0.85,
+        compressAboveBytes: 250 * 1024,
+      });
+      setBanners((current) => [...current, image.publicUrl]);
       toast.success("バナーを追加しました。保存するとトップページへ反映されます");
     } catch (error) {
       console.error("Error uploading homepage banner:", error);
@@ -325,7 +327,7 @@ export default function HpTopBanners({ embedded = false }: { embedded?: boolean 
                   >
                     <GripVertical className="hidden shrink-0 cursor-grab text-muted-foreground sm:block" aria-label="ドラッグして並び替え" />
                     <div className="w-full overflow-hidden rounded-lg border bg-muted sm:w-48" style={{ aspectRatio: "2 / 1" }}>
-                      <img src={banner} alt={`トップバナー ${index + 1}`} className="h-full w-full object-cover" />
+                      <StorageImage src={banner} variant="detail" size={1200} alt={`トップバナー ${index + 1}`} className="h-full w-full object-cover" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">表示順 {index + 1}</p>

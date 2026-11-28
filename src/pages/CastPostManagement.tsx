@@ -261,7 +261,7 @@ export default function CastPostManagement() {
     for (const image of images) {
       const path = `admin-posts/${storeId}/${form.castId}/${crypto.randomUUID()}-600x600.jpg`;
       const { error } = await supabase.storage.from("cast-photos").upload(path, image.file, {
-        cacheControl: "3600",
+        cacheControl: "31536000",
         contentType: "image/jpeg",
         upsert: false,
       });

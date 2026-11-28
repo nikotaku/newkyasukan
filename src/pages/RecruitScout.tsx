@@ -49,7 +49,7 @@ function ImageField({
     for (const file of Array.from(files)) {
       const ext = file.name.split(".").pop() || "jpg";
       const path = `${SCOUT_IMAGE_DIR}/${folder}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error } = await supabase.storage.from(SCOUT_IMAGE_BUCKET).upload(path, file);
+      const { error } = await supabase.storage.from(SCOUT_IMAGE_BUCKET).upload(path, file, { cacheControl: "31536000", contentType: file.type || undefined });
       if (error) { toast.error(`アップロード失敗: ${error.message}`); continue; }
       added.push(supabase.storage.from(SCOUT_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl);
     }

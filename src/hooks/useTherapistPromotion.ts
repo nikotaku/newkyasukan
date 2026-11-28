@@ -26,7 +26,7 @@ export function useTherapistPromotion(token: string) {
         { p_token: token },
       )) ?? []),
     staleTime: 15_000,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 }
 
@@ -59,7 +59,7 @@ export function useTherapistPromotionReports(
         },
       )) ?? [],
     staleTime: 10_000,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 }
 

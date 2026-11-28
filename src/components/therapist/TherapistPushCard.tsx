@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Bell, BellRing, CheckCircle2, Copy, Loader2, Send, Share, SquarePlus } from "lucide-react";
+import { Bell, BellRing, CheckCircle2, Copy, Loader2, Send, Share, SquarePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { therapistPushSetupStep } from "@/lib/therapistPushSetup";
@@ -20,6 +20,25 @@ import {
 // まだ設定していない人には目立つ形で手順を出し、テスト通知を受け取るまで続ける。
 // 同じマイページを複数のスマホで使えるよう、この端末で通知をオンにしてテスト済みの場合だけ隠す。
 
+// ほかのスマホ（ホーム画面のアプリなど）で通知をオンにした人が、このブラウザではカードを消せるようにする。
+// 消したことはこのブラウザだけに残す（ほかの端末のカードは消えない）。
+const dismissKey = (token: string) => `therapist-push-card-dismissed:${token}`;
+const readDismissed = (token: string) => {
+  try {
+    return window.localStorage.getItem(dismissKey(token)) === "1";
+  } catch {
+    return false;
+  }
+};
+const writeDismissed = (token: string, value: boolean) => {
+  try {
+    if (value) window.localStorage.setItem(dismissKey(token), "1");
+    else window.localStorage.removeItem(dismissKey(token));
+  } catch {
+    // 保存できないブラウザでは、開いている間だけ消す
+  }
+};
+
 const isInAppBrowser = () => typeof navigator !== "undefined" && /Line\/|FBAN|FBAV|Instagram/i.test(navigator.userAgent);
 
 export function TherapistPushCard({ token }: { token: string }) {
@@ -33,6 +52,12 @@ export function TherapistPushCard({ token }: { token: string }) {
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(supported ? Notification.permission : "unsupported");
   const [busy, setBusy] = useState<"enable" | "test" | "confirm" | null>(null);
   const [showSteps, setShowSteps] = useState(false);
+  const [dismissed, setDismissed] = useState(() => readDismissed(token));
+  const dismiss = () => {
+    writeDismissed(token, true);
+    setDismissed(true);
+    toast.success("このカードを消しました。通知が届かないときは、マイページを開き直して設定してください");
+  };
 
   const refresh = useCallback(async () => {
     if (supported) setPermission(Notification.permission);
@@ -102,7 +127,17 @@ export function TherapistPushCard({ token }: { token: string }) {
     }
   };
 
-  if (!status) return null;
+  if (!status || dismissed) return null;
+
+  const dismissButton = (
+    <button
+      type="button"
+      onClick={dismiss}
+      className="mx-auto flex items-center gap-1 rounded-full border bg-background/80 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+    >
+      <X size={13} />通知をオンにしたので表示を消す
+    </button>
+  );
 
   // 別端末の完了状態では隠さない。未登録・通知許可を取り消した端末は設定からやり直す。
   const setupStep = therapistPushSetupStep(status);
@@ -124,6 +159,7 @@ export function TherapistPushCard({ token }: { token: string }) {
             {busy === "confirm" ? <Loader2 size={14} className="mr-1 animate-spin" /> : <CheckCircle2 size={14} className="mr-1" />}届いた
           </Button>
         </div>
+        {dismissButton}
       </div>
     );
   }
@@ -200,6 +236,7 @@ export function TherapistPushCard({ token }: { token: string }) {
             )}
           </>
         )}
+        {dismissButton}
       </div>
     </div>
   );

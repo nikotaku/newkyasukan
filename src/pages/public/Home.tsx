@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { driveImgUrl } from "@/lib/drive";
+import { StorageImage } from "@/components/StorageImage";
 import { ESTAMA_CAST_PHOTO_STYLE } from "@/lib/publicCastPhoto";
 import { useStoreContact } from "@/hooks/useStoreContact";
 import { CastTitleBadge, useTitleBadges } from "@/components/public/CastTitleBadge";
@@ -263,8 +264,10 @@ const Home = () => {
                   <div className="bg-white rounded overflow-hidden shadow hover:shadow-lg transition-shadow">
                     <div className="relative">
                       {shift.casts.photo ? (
-                        <img
-                          src={driveImgUrl(shift.casts.photo)}
+                        <StorageImage
+                          src={shift.casts.photo}
+                          variant="thumb"
+                          size={400}
                           alt={shift.casts.name}
                           className="w-full object-cover"
                           style={ESTAMA_CAST_PHOTO_STYLE}
@@ -463,8 +466,10 @@ const TherapistCard = ({ cast }: { cast: Cast }) => {
       <div className="bg-white rounded overflow-hidden shadow hover:shadow-lg transition-shadow">
         <div className="relative">
           {cast.photo ? (
-            <img
-              src={driveImgUrl(cast.photo)}
+            <StorageImage
+              src={cast.photo}
+              variant="thumb"
+              size={400}
               alt={cast.name}
               className="w-full object-cover"
               style={ESTAMA_CAST_PHOTO_STYLE}

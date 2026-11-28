@@ -3,8 +3,13 @@
 # このリポジトリは公開なので、ダンプは必ず暗号化してから保存する（復元手順は docs/db-backup.md）。
 #
 # 必要なSecrets（Settings → Secrets and variables → Actions）:
-#   SUPABASE_DB_URL    … Supabaseの「Connect → Session pooler」の接続文字列（パスワード入り）
+#   SUPABASE_DB_URL    … Supabaseの「Connect → Session pooler」の接続文字列（バックアップ専用ロール db_backup_reader のパスワード入り）
 #   BACKUP_PASSPHRASE  … 暗号化パスワード（なくすと復元できないので、Supabase以外の場所に保管）
+#
+# 接続は postgres ではなくバックアップ専用ロール（db_backup_reader: 全スキーマの SELECT/USAGE + bypassrls）を使う。
+# `supabase db dump` は内部で SET ROLE postgres を行うため専用ロールでは失敗する（Supabase公式KBの記載）ので、
+# pg_dump を直接使う。auth スキーマだけは postgres でも権限を付与できない（所有者が supabase_admin）ため除外する。
+# ロール定義（roles.sql）も postgres 権限が必要なため取得しない。
 name: DB backup
 
 on:
@@ -34,18 +39,25 @@ jobs:
             exit 1
           fi
 
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          pg_dump --version
 
       - name: Dump database
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           mkdir backup
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/roles.sql --role-only
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/data.sql --data-only --use-copy
+          # アプリ所有のスキーマ（public / private / focus120）を対象にする。
+          # Supabase管理スキーマ（auth, storage, realtime, supabase_migrations 等）は
+          # 専用ロールでは読み出せず、別プロジェクトへの復元もSupabase側が持つため対象外。
+          SCHEMAS="--schema=public --schema=private --schema=focus120"
+          # スキーマ（テーブル定義・関数・RLSポリシー・権限）
+          pg_dump --dbname "$SUPABASE_DB_URL" --schema-only --no-owner $SCHEMAS -f backup/schema.sql
+          # データ（COPY 形式）
+          pg_dump --dbname "$SUPABASE_DB_URL" --data-only --no-large-objects $SCHEMAS -f backup/data.sql
           # 空ダンプを成功扱いにしない
           test -s backup/schema.sql
           test -s backup/data.sql

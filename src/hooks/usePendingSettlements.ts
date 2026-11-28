@@ -48,7 +48,7 @@ export function usePendingSettlements(storeId: string | undefined) {
       }));
     },
     staleTime: 10_000,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
   });
 }
