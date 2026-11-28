@@ -123,6 +123,10 @@ export function O2ControlPanel({ casts }: { casts: Cast[] }) {
         toast.error(
           "02側の取得に失敗しました。表示された理由を確認してください",
         );
+      else if (action === "auto-register" && result.username)
+        toast.success(
+          `O2アカウント（${result.username} / ${result.email}）の作成を始めました。認証メールを受け取ると自動で進みます`,
+        );
       else
         toast.success(
           result.queued ? "処理を受け付けました" : "02連携状況を更新しました",
@@ -254,39 +258,42 @@ export function O2ControlPanel({ casts }: { casts: Cast[] }) {
                           : "未確認"}
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={
-                      !!busy ||
-                      !!active ||
-                      !c.credential_configured ||
-                      !c.o2_login_email
-                    }
-                    onClick={() =>
-                      void perform(
-                        c.o2_created ||
-                          (job &&
-                            ["review_required", "awaiting_review"].includes(
-                              job.status,
-                            ))
-                          ? "check"
-                          : "register",
-                        { castId: c.cast_id },
-                      )
-                    }
-                  >
-                    {busy === c.cast_id ? (
-                      <Loader2 size={13} className="mr-1 animate-spin" />
-                    ) : null}
-                    {c.o2_created ||
-                    (job &&
-                      ["review_required", "awaiting_review"].includes(
-                        job.status,
-                      ))
-                      ? "状態を確認"
-                      : "登録を開始"}
-                  </Button>
+                  {(() => {
+                    const recheck =
+                      c.o2_created ||
+                      (job &&
+                        ["review_required", "awaiting_review"].includes(
+                          job.status,
+                        ));
+                    // まだログイン情報が無い人は、ボタン1つで作る（enka_〇〇@enka-salon.jp・共通のパスワード）
+                    const auto =
+                      !recheck &&
+                      (!c.credential_configured || !c.o2_login_email);
+                    const action = recheck
+                      ? "check"
+                      : auto
+                        ? "auto-register"
+                        : "register";
+                    return (
+                      <Button
+                        size="sm"
+                        variant={auto ? "default" : "outline"}
+                        disabled={!!busy || !!active}
+                        onClick={() =>
+                          void perform(action, { castId: c.cast_id })
+                        }
+                      >
+                        {busy === c.cast_id ? (
+                          <Loader2 size={13} className="mr-1 animate-spin" />
+                        ) : null}
+                        {recheck
+                          ? "状態を確認"
+                          : auto
+                            ? "O2アカウントを自動作成"
+                            : "登録を開始"}
+                      </Button>
+                    );
+                  })()}
                 </div>
                 {job?.error && (
                   <p className="text-xs text-destructive">{job.error}</p>
@@ -317,9 +324,9 @@ export function O2ControlPanel({ casts }: { casts: Cast[] }) {
                     )}
                   </div>
                 )}
-                {!c.credential_configured && (
+                {!c.credential_configured && !c.o2_created && (
                   <p className="text-xs text-muted-foreground">
-                    下のSNS設定に02ログイン情報を保存してください。
+                    自動作成：ユーザー名・メールは enka_（源氏名の名前のローマ字）@enka-salon.jp、パスワードは共通のものを使います。
                   </p>
                 )}
               </div>

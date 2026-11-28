@@ -66,7 +66,7 @@ function toEmail(raw: unknown): ReportEmail | null {
 
 // 受付専用メールから届いたメール（MIMEのまま）を、Gmailのスクリプトと同じ形（id・件名・送り元・日時・本文）にする。
 // id は Message-ID（無ければ本体）のハッシュ。同じメールが2回届いても1回だけ取り込む
-async function rawMailToMessage(raw: Uint8Array) {
+async function rawMailToMessage(raw: Uint8Array, envelopeTo = "") {
   if (raw.byteLength > 2_000_000) throw new Error("メールが大きすぎます");
   const mail = await PostalMime.parse(raw);
   const messageId = mail.messageId || "";
@@ -75,7 +75,27 @@ async function rawMailToMessage(raw: Uint8Array) {
     || (mail.html || "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|tr|li)>/gi, "\n").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
   const date = mail.date && !Number.isNaN(new Date(mail.date).getTime()) ? new Date(mail.date).toISOString() : new Date().toISOString();
   const from = mail.from ? `${mail.from.name || ""} <${mail.from.address || ""}>`.trim() : "";
-  return { id, subject: mail.subject || "(件名なし)", from, date, body: text };
+  // O2・エステ魂の認証メール用：受け取った本当の宛先（Worker の x-envelope-to）・本文の宛先・受け取った側が付けた認証結果（いちばん上の1つ）
+  const to = (mail.to || []).map((address) => address.address || "").filter(Boolean).join(" ");
+  const authentication = (mail.headers || [])
+    .find((header) => /^(arc-)?authentication-results$/i.test(header.key))?.value || "";
+  return { id, subject: mail.subject || "(件名なし)", from, date, body: text, to, originalTo: envelopeTo, authentication };
+}
+
+// O2 からのメール（セラピストのアカウント作成の認証コード）は o2-control へ渡す（認証コードの入力は o2-control が行う）
+async function forwardAccountMail(token: string, message: Awaited<ReturnType<typeof rawMailToMessage>>) {
+  if (!/@m-sns\.net\b/i.test(message.from)) return;
+  try {
+    const response = await fetch(`${SB_URL}/functions/v1/o2-control`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-ingest-token": token, Authorization: `Bearer ${SB_KEY}` },
+      body: JSON.stringify({ action: "ingest", messages: [message] }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    console.log(JSON.stringify({ event: "o2_account_mail", status: response.status, body: (await response.text()).slice(0, 200) }));
+  } catch (error) {
+    console.error("o2_account_mail forward failed", String(error));
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -88,8 +108,12 @@ Deno.serve(async (req: Request) => {
     const storeId: string = tokenRow.store_id;
 
     const isRawMail = /message\/rfc822/i.test(req.headers.get("content-type") || "");
-    const payload = isRawMail
-      ? { messages: [await rawMailToMessage(new Uint8Array(await req.arrayBuffer()))] }
+    const rawMessage = isRawMail
+      ? await rawMailToMessage(new Uint8Array(await req.arrayBuffer()), req.headers.get("x-envelope-to")?.slice(0, 300) || "")
+      : null;
+    if (rawMessage) await forwardAccountMail(token, rawMessage);
+    const payload = rawMessage
+      ? { messages: [rawMessage] }
       : await req.json().catch(() => null) as { messages?: unknown[] } | null;
     const emails = (Array.isArray(payload?.messages) ? payload!.messages : [])
       .slice(0, MAX_MESSAGES)
