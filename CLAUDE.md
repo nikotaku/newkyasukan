@@ -104,11 +104,11 @@
 
 ## 教育・媒体登録・SNS連携（/education）
 
-- セラピストの講習状況・ゴール・媒体登録状況・SNS連携を1画面で管理する（タブは `?tab=status|goals|media|sns|curriculum`）
+- セラピストの講習状況・ゴール・媒体登録状況・SNS連携を1画面で管理する（タブは `?tab=status|goals|media|curriculum`）
 - **ゴール**（`?tab=goals`、`src/components/education/CastGoalsBoard.tsx`、2026-11-26）：在籍（tags に「在籍」か「出稼ぎ」でない人）と出稼ぎのリピート（出勤した月が2か月以上）のセラピストごとに、最終的なゴール（文章・2000文字まで）・目標に向けた具体的な施策（`action_plan`、2000文字まで、`20261126120000_cast_goals_action_plan.sql`）と1か月の目標（売上・本数・本指名率）を決める。表 `cast_goals`（cast_id で1行、anon 不可、`20261126100000_cast_goals.sql`）。実績はその月（営業日・朝6時切り替え）の施術済み（completed）の予約の料金の合計・本数・本指名（姫予約を含む）の割合で、確定のままの予約は「予定」として別に出す。月を左右で切り替え、「在籍中の全員」で対象外の人にも決められる。計算は `src/lib/castGoals.ts`（テスト `npm run test:cast-goals`）。本人のマイページのいちばん上（メニューの上）にも「わたしのゴール」（`src/components/therapist/TherapistGoalCard.tsx`、ゴールが無い人には出さない）で、めざす姿の文章・そのためにやること（施策）と今月の目標・実績・達成率を出す。RPC `get_therapist_goal(p_token, p_month)`（本人のトークン・在籍中だけ・同じ数え方、`20261126110000_therapist_goal_rpc.sql`）
 - 媒体登録状況（`src/components/education/MediaRegistrationMatrix.tsx`）: エステ魂・O2・Xの登録を1表で見て切り替える。手でチェックする項目は casts の真偽値列（`estama_listed` など、スタッフ画面の「登録・SNS準備」と同じ）、「自動連携」「魂セラピスト」「ログイン情報」は `external_cast_profiles` と `get_sns_connection_overview_v9` から自動で出す（`src/lib/mediaRegistration.ts`）
 - エスラン（メンズエステランキング）は今は掲載していないので、`src/lib/mediaRegistration.ts` の `ESTHE_RANKING_ACTIVE = false` で登録状況の列・スタッフ画面のチェック・セラピストDBのランキング転記・シフトのエスラン登録欄を隠している。掲載を再開したら true に戻す（データは残してある）
-- SNS連携・ログイン情報は `src/pages/O2Management.tsx`（教育画面のタブとして表示）。以前の `/marketing/o2` は `/education?tab=sns` へ転送
+- **「SNS連携」タブは2026-11-28に廃止**して分けた：登録の合計の数字とO2の登録・店舗連携（`O2ControlPanel`、自動作成・連携申請の承認）は「媒体登録状況」の上（`O2Management` の castId なし）、1人ずつのログイン情報・投稿フォーム・O2の自動作成はスタッフ画面のセラピスト編集の「O2・X・魂セラピスト」タブ（`O2Management` の castId あり）、店舗の投稿先（`StorePostChannels`）・O2の店舗アカウント（`O2StoreAvailabilitySettings`）・HPのSNSリンクは設定ダッシュボードの「店舗のSNSアカウント」（`?tab=sns`）。以前の `/education?tab=sns`・`/marketing/o2` は媒体登録状況へ転送
 - **受講状況はチェックリスト**：講習（`training_modules`）ごとのチェック項目 `checklist`（[{ id, label }]）をカリキュラム管理の「チェック項目」で足す・直す・並べ替える（`src/components/education/ModuleChecklistEditor.tsx`）。カテゴリ名は見出しの鉛筆でまとめて変え、講習ごとのカテゴリ・名前・説明は各講習の鉛筆で直す。受講状況で講習を開いてチェックをタップするとすぐ保存（`cast_training_records.checked_items`）、講習・カテゴリ・全体の％はチェックした数で出す。項目が無い講習は「受講した」1つ。`checked_items` が空（null）の昔の「完了」は100%扱い。状態（未実施・受講中・完了）はチェックの数から自動。計算は `src/lib/trainingChecklist.ts`（テスト `npm run test:training-checklist`）。実施日・担当講師・習熟度・フィードバック・改善項目の入力欄は廃止（列は残っている）
 - **カリキュラム管理のカテゴリ**：先に「カテゴリを作る」で作り、講習のカテゴリはプルダウンで選ぶ。カテゴリの一覧と並び順は `site_content` の `training_categories`（JSON配列。講習にだけあるカテゴリは後ろに足して出す）。講習・カテゴリは左の ⋮⋮ を押したまま動かして並べ替え・別のカテゴリへ移動（Pointer Events なのでスマホの指でも動く）。動かすと `training_modules.display_order` をカテゴリの順に 10, 20, … と振り直す（`moveModule` / `renumberByCategories`）。講習の無いカテゴリだけ消せる。画面は `src/components/education/CurriculumManager.tsx`
 
@@ -365,7 +365,7 @@
 - **空きシフト**：マイページのメニュー「空きシフト」（`src/components/therapist/TherapistOpenShifts.tsx`、前後の半月へ切り替え）。RPC `get_therapist_shift_board(p_token, p_from, p_to)`（ルーム管理で `show_in_therapist_portal` のルームと、取り消し・却下以外の出勤。ほかの人の名前は返さない）。営業 12:00〜26:00 のうち、ルームごとに3時間以上あいている時間を空きにする（`src/lib/shiftOpenSlots.ts`、テスト `npm run test:therapist-notices`）。シフト提出（`/therapist/:token/shift?from=&to=`）はその期間の月を開き、日ごとに空きのルーム数と自分の出勤・申請中を出す（自分が出している日は選べない。`submit_therapist_shifts` は同じ日の自分のシフトを置き換えるため）
 - 固定の切り替え・消す（`deleted_at`）は管理画面から表を直接更新（RLS は `can_manage_store`）。計算は `src/lib/therapistNotices.ts`（テスト `npm run test:therapist-notices`）
 
-## セラピストのO2アカウントの自動作成（SNS連携の「02の登録・連携管理」）
+## セラピストのO2アカウントの自動作成（媒体登録状況の上の「02の登録・連携管理」・セラピスト編集の「O2・X・魂セラピスト」）
 
 - まだO2のログイン情報が無い在籍の人に「O2アカウントを自動作成」（`src/components/sns/O2ControlPanel.tsx` → Edge Function `o2-control` の action `auto-register`）。HPで公開中・写真あり・18歳以上・源氏名が決まっていること（源氏名未定・ペアは作れない）
 - **ユーザー名・メールは `enka_〇〇` ／ `enka_〇〇@enka-salon.jp`**（〇〇は源氏名の後ろのかな＝名前のローマ字。ほかの人が使っていれば `name_kana` から取った苗字、それも使われていれば名前＋2, 3…）。作り方は `src/lib/therapistAccountId.ts`（テスト `npm run test:therapist-account`）。エステ魂の魂セラピストを自動で作るときも同じメールを使う予定
@@ -376,7 +376,7 @@
 
 ## セラピストのSNSアカウント（X・O2）の受け渡し
 
-- お店が作った X・O2 のログインID・パスワード（`cast_site_credentials`、管理画面の SNS連携 `/education?tab=sns` で保存）を、セラピストのマイページのメニュー「SNSアカウント」（`?view=sns`）で本人が見られる。RPC `get_therapist_sns_account(p_token)`（anon可・トークンで本人確認）。画面は `src/components/therapist/TherapistSnsAccount.tsx`、例文・データは `src/lib/therapistSns.ts`
+- お店が作った X・O2 のログインID・パスワード（`cast_site_credentials`、スタッフ画面のセラピスト編集の「O2・X・魂セラピスト」で保存）を、セラピストのマイページのメニュー「SNSアカウント」（`?view=sns`）で本人が見られる。RPC `get_therapist_sns_account(p_token)`（anon可・トークンで本人確認）。画面は `src/components/therapist/TherapistSnsAccount.tsx`、例文・データは `src/lib/therapistSns.ts`
 - SNS連携の各セラピストの「設定完了を通知」（一覧と「設定」画面の「セラピストに知らせる」。XかO2を登録して保存したときのお知らせの「セラピストに通知」からも）→ RPC `notify_therapist_sns_ready(p_cast_id)` → `therapist_notifications`（kind = `sns_ready`）。届け方は予約通知と同じ（マイページのプッシュ → 本人のLINEグループ → 届かなければ管理画面の左下）。通知日時と「確認済み」は `therapist_sns_setup_notices`（マイページで開くと `mark_therapist_sns_setup_seen`）
 - 設定マニュアルは画像4枚（`public/therapist-guide/sns-setup-*.png`：Xのトップ・O2のトップ・自己紹介（BIO）・初回ポスト）。艶華向けの文面。マイページの例文（BIO・初回ポスト）には本人の名前と専用予約リンクが入る
 
@@ -406,7 +406,7 @@
 
 ## 店舗の投稿先・Xの自動投稿（SNS連携管理）
 
-- SNS連携管理（`/education?tab=sns`）の「店舗の投稿先」（`src/components/sns/StorePostChannels.tsx`）で、店舗として投稿するアカウントをまとめて管理する。X の各アカウント（運用表の shukyaku / kyujin / tencho）はキー4つ（API Key・Secret・Access Token・Secret）、その他の媒体はURL・ID・パスワード。O2 の店舗アカウントはすぐ下の既存の O2StoreAvailabilitySettings
+- 設定ダッシュボードの「店舗のSNSアカウント」（`/system/dashboard?tab=sns`）の「店舗の投稿先」（`src/components/sns/StorePostChannels.tsx`）で、店舗として投稿するアカウントをまとめて管理する。X の各アカウント（運用表の shukyaku / kyujin / tencho）はキー4つ（API Key・Secret・Access Token・Secret）、その他の媒体はURL・ID・パスワード。O2 の店舗アカウントはすぐ下の既存の O2StoreAvailabilitySettings
 - 表は `store_post_channels`。キー・パスワードは Vault（`store_post_channel:<id>:<項目>`）にだけ入れ、画面には「登録済み」しか返さない（RPC `get_store_post_channels` / `save_store_post_channel` / `set_store_post_channel_state` / `delete_store_post_channel` / `reveal_store_post_channel_password`（その他の媒体だけ）。X のキーは表示しない）
 - 自動投稿：pg_cron `x-auto-post-every-5-minutes` → `private.dispatch_x_auto_post()`（自動投稿オンの X アカウントがあるときだけ）→ Edge Function `x-auto-post`（`x-auto-post-secret` は Vault の `x_auto_post_internal_secret`）。運用表の「決まった形の投稿」（出勤・空き枠・紹介・イベント・直前枠・口コミ）だけを時間から30分以内に出す。AIの下書きは出さない（人が確認して手動）
 - 判定は `src/lib/xAutoPost.ts`、材料集めは `src/lib/xPostContext.ts`（画面と共通）、X API（OAuth 1.0a 署名）は `supabase/functions/_shared/xApi.ts`。結果は `x_daily_posts.publish_status`（posting / posted / failed / skipped）と `post_url`・`error_message`。二重投稿は RPC `claim_x_auto_post` で防ぐ

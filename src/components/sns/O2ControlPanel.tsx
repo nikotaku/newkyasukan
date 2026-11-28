@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useO2Control } from "@/hooks/useO2Control";
+import { useAdminStore } from "@/hooks/useAdminStore";
 import { callO2Control, O2_JOB_LABELS, type O2Request } from "@/lib/o2Control";
 import relayScript from "../../../scripts/gmail-o2-verification-sync.gs?raw";
 
@@ -103,6 +104,38 @@ export function O2RequestList({
           </div>
         ))
       )}
+    </div>
+  );
+}
+// セラピスト編集の「O2・X・魂セラピスト」タブに出す、その人だけのO2アカウントの自動作成（enka_〇〇@enka-salon.jp・共通のパスワード）
+export function O2AutoCreateButton({ castId, onDone }: { castId: string; onDone?: () => void }) {
+  const { storeId } = useAdminStore();
+  const [busy, setBusy] = useState(false);
+  const create = async () => {
+    setBusy(true);
+    try {
+      const result = await callO2Control(storeId, "auto-register", { castId });
+      toast.success(
+        result.username
+          ? `O2アカウント（${result.username} / ${result.email}）の作成を始めました。認証メールを受け取ると自動で進みます`
+          : "O2アカウントの作成を始めました",
+      );
+      onDone?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "作成を始められませんでした");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="space-y-1">
+      <Button className="w-full" variant="outline" disabled={busy} onClick={() => void create()}>
+        {busy ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
+        O2アカウントを自動作成
+      </Button>
+      <p className="text-[11px] text-muted-foreground">
+        ユーザー名・メールは enka_（源氏名の名前のローマ字）@enka-salon.jp、パスワードは共通のもの。進み具合は教育の「媒体登録状況」とエスたま自動化履歴に出ます
+      </p>
     </div>
   );
 }
@@ -422,7 +455,7 @@ export function O2ControlAlert() {
             variant="outline"
             onClick={() => {
               setOpen(false);
-              navigate("/education?tab=sns#o2-control");
+              navigate("/education?tab=media#o2-control");
             }}
           >
             登録・認証状況も確認する

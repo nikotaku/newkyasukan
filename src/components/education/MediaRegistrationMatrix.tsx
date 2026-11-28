@@ -41,7 +41,7 @@ const rpc = (name: string, args: Record<string, unknown>) =>
  * セラピストごとの媒体登録状況（エステ魂にどこまで登録したか・O2やXを作ったか）を1つの表で見て、その場で切り替える。
  * ログイン情報・連携結果の列は自動（読み取り専用）。ログイン情報の登録は「SNS連携・ログイン情報」タブで行う。
  */
-export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void }) {
+export function MediaRegistrationMatrix() {
   const { storeId, loading: storeLoading } = useAdminStore();
   const [casts, setCasts] = useState<CastRow[]>([]);
   const [auto, setAuto] = useState<Record<string, MediaAutoStatus>>({});
@@ -145,9 +145,6 @@ export function MediaRegistrationMatrix({ onOpenSns }: { onOpenSns?: () => void 
         <Button size="sm" variant="outline" onClick={() => { void load(); void quota.reload(); }} disabled={loading}>
           <RefreshCw size={14} className={cn("mr-1", loading && "animate-spin")} />更新
         </Button>
-        {onOpenSns && (
-          <Button size="sm" variant="outline" onClick={onOpenSns}>ログイン情報を登録する</Button>
-        )}
       </div>
       <p className="text-xs text-muted-foreground">
         ○をタップすると登録済み／未登録を切り替えます。「自動連携」「魂セラピスト」「ログイン情報」は連携の結果から自動で表示されます（ログイン情報の登録は「SNS連携・ログイン情報」タブ）。
